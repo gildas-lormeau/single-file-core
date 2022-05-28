@@ -1,7 +1,18 @@
 {
-	"name": "single-file-core",
-	"version": "1.0.0",
-	"description": "SingleFile Core",
-	"author": "Gildas Lormeau",
-	"license": "AGPL-3.0-or-later"
+  "name": "single-file-core",
+  "version": "1.0.0",
+  "description": "SingleFile Core",
+  "author": "Gildas Lormeau",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gildas-lormeau/single-file-core.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gildas-lormeau/single-file-core/issues"
+  },
+  "homepage": "https://github.com/gildas-lormeau/single-file-core#readme"
 }
