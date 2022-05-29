@@ -14,9 +14,6 @@ module.exports = {
 		"ecmaVersion": 2017,
 		"sourceType": "module"
 	},
-	"ignorePatterns": [
-		"/lib/"
-	],
 	"rules": {
 		"indent": [
 			"error",
