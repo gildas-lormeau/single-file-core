@@ -220,13 +220,19 @@ function getFontFamilyNames(declarations) {
 	if (fontFamilyName) {
 		let familyName = "";
 		if (fontFamilyName.data.value.children) {
+			let previousType;
 			fontFamilyName.data.value.children.forEach(node => {
 				if (node.type == "Operator" && node.value == "," && familyName) {
 					fontFamilyNames.push(helper.normalizeFontFamily(familyName));
 					familyName = "";
+					previousType = null;
 				} else {
+					if (previousType == "Identifier" && node.type == "Identifier") {
+						familyName += " ";
+					}
 					familyName += cssTree.generate(node);
 				}
+				previousType = node.type;
 			});
 		} else {
 			fontFamilyName = cssTree.generate(fontFamilyName.data.value);
