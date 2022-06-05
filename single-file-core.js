@@ -1081,8 +1081,11 @@ class Processor {
 				if (element.tagName == "LINK") {
 					stylesheet = await ProcessorHelper.resolveLinkStylesheetURLs(element.href, baseURI, options, workStyleElement);
 				} else {
-					stylesheet = cssTree.parse(element.textContent, { context: "stylesheet", parseCustomProperty: true });
-					await ProcessorHelper.resolveImportURLs(stylesheet, baseURI, options, workStyleElement);
+					stylesheet = cssTree.parse(element.textContentcd, { context: "stylesheet", parseCustomProperty: true });
+					const importFound = await ProcessorHelper.resolveImportURLs(stylesheet, baseURI, options, workStyleElement);
+					if (importFound) {
+						stylesheet = cssTree.parse(cssTree.generate(stylesheet), { context: "stylesheet", parseCustomProperty: true });
+					}
 				}
 			}
 			return stylesheet;
@@ -1685,6 +1688,7 @@ class ProcessorHelper {
 	}
 
 	static async resolveImportURLs(stylesheet, baseURI, options, workStylesheet, importedStyleSheets = new Set()) {
+		let importFound;
 		ProcessorHelper.resolveStylesheetURLs(stylesheet, baseURI, workStylesheet);
 		const imports = getImportFunctions(stylesheet);
 		await Promise.all(imports.map(async node => {
@@ -1708,16 +1712,18 @@ class ProcessorHelper {
 					if (mediaQueryListNode) {
 						content.data = wrapMediaQuery(content.data, cssTree.generate(mediaQueryListNode));
 					}
-					const stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
+					const importedStylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
 					const ancestorStyleSheets = new Set(importedStyleSheets);
 					ancestorStyleSheets.add(resourceURL);
-					await ProcessorHelper.resolveImportURLs(stylesheet, resourceURL, options, workStylesheet, ancestorStyleSheets);
-					for (let keyName of Object.keys(stylesheet.children.head.data)) {
-						node[keyName] = stylesheet.children.head.data[keyName];
+					await ProcessorHelper.resolveImportURLs(importedStylesheet, resourceURL, options, workStylesheet, ancestorStyleSheets);
+					for (let keyName of Object.keys(importedStylesheet)) {
+						node[keyName] = importedStylesheet[keyName];
 					}
+					importFound = true;
 				}
 			}
 		}));
+		return importFound;
 
 		async function getStylesheetContent(resourceURL) {
 			const content = await util.getContent(resourceURL, {
@@ -1808,8 +1814,11 @@ class ProcessorHelper {
 			if (content.data && content.data.match(/^<!doctype /i)) {
 				content.data = "";
 			}
-			const stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
-			await ProcessorHelper.resolveImportURLs(stylesheet, resourceURL, options, workStylesheet);
+			let stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
+			const importFound = await ProcessorHelper.resolveImportURLs(stylesheet, resourceURL, options, workStylesheet);
+			if (importFound) {
+				stylesheet = cssTree.parse(cssTree.generate(stylesheet), { context: "stylesheet", parseCustomProperty: true });
+			}
 			return stylesheet;
 		}
 	}
