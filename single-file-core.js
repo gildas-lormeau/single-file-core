@@ -1081,7 +1081,7 @@ class Processor {
 				if (element.tagName == "LINK") {
 					stylesheet = await ProcessorHelper.resolveLinkStylesheetURLs(element.href, baseURI, options, workStyleElement);
 				} else {
-					stylesheet = cssTree.parse(element.textContentcd, { context: "stylesheet", parseCustomProperty: true });
+					stylesheet = cssTree.parse(element.textContent, { context: "stylesheet", parseCustomProperty: true });
 					const importFound = await ProcessorHelper.resolveImportURLs(stylesheet, baseURI, options, workStyleElement);
 					if (importFound) {
 						stylesheet = cssTree.parse(cssTree.generate(stylesheet), { context: "stylesheet", parseCustomProperty: true });
