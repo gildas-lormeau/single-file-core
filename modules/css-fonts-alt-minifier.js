@@ -212,11 +212,11 @@ async function processFontFaceRule(ruleData, fontInfo, fontDeclarations, fontTes
 	removedNodes.forEach(node => ruleData.block.children.remove(node));
 	const srcDeclaration = ruleData.block.children.filter(node => node.property == "src").tail;
 	if (srcDeclaration) {
-		await Promise.all(fontInfo.map(async (source, sourceIndex) => {
+		await Promise.all(fontInfo.map(async source => {
 			if (fontTests.has(source.src)) {
 				source.valid = fontTests.get(source.src);
 			} else {
-				if (FontFace) {
+				if (FontFace && source.fontUrl) {
 					const fontFace = new FontFace("test-font", source.src);
 					try {
 						let timeout;
@@ -225,9 +225,10 @@ async function processFontFaceRule(ruleData, fontInfo, fontDeclarations, fontTes
 							new Promise(resolve => timeout = globalThis.setTimeout(() => { source.valid = true; resolve(); }, FONT_MAX_LOAD_DELAY))
 						]);
 					} catch (error) {
-						const declarationFontURLs = fontDeclarations.get(srcDeclaration.data);
-						if (declarationFontURLs) {
-							const fontURL = declarationFontURLs[declarationFontURLs.length - sourceIndex - 1];
+						const urlNodes = cssTree.findAll(srcDeclaration.data, node => node.type == "Url");
+						const declarationFontURLs = Array.from(fontDeclarations).find(([node]) => urlNodes.includes(node) && node.value == source.fontUrl)[1];
+						if (declarationFontURLs.length) {
+							const fontURL = declarationFontURLs[0];
 							if (fontURL) {
 								const fontFace = new FontFace("test-font", "url(" + fontURL + ")");
 								try {
@@ -276,7 +277,7 @@ async function processFontFaceRule(ruleData, fontInfo, fontDeclarations, fontTes
 		stats.fonts.discarded -= fontInfo.length;
 		fontInfo.reverse();
 		try {
-			srcDeclaration.data.value = cssTree.parse(fontInfo.map(fontSource => fontSource.src).join(","), { context: "value" });
+			srcDeclaration.data.value = cssTree.parse(fontInfo.map(fontSource => fontSource.src).join(","), { context: "value", parseCustomProperty: true });
 		}
 		catch (error) {
 			// ignored
@@ -333,6 +334,7 @@ function createFontsDetailsInfo() {
 }
 
 function getURL(urlFunction) {
+	urlFunction = urlFunction.replace(/url\(-sf-url-original\\\(\\"(.*?)\\"\\\)\\ /g, "");
 	const urlMatch = urlFunction.match(REGEXP_URL_SIMPLE_QUOTES_FN) ||
 		urlFunction.match(REGEXP_URL_DOUBLE_QUOTES_FN) ||
 		urlFunction.match(REGEXP_URL_NO_QUOTES_FN);
