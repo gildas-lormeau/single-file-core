@@ -226,9 +226,9 @@ async function processFontFaceRule(ruleData, fontInfo, fontDeclarations, fontTes
 						]);
 					} catch (error) {
 						const urlNodes = cssTree.findAll(srcDeclaration.data, node => node.type == "Url");
-						const declarationFontURLs = Array.from(fontDeclarations).find(([node]) => urlNodes.includes(node) && node.value == source.fontUrl)[1];
-						if (declarationFontURLs.length) {
-							const fontURL = declarationFontURLs[0];
+						const declarationFontURLs = Array.from(fontDeclarations).find(([node]) => urlNodes.includes(node) && node.value == source.fontUrl);
+						if (declarationFontURLs && declarationFontURLs[1].length) {
+							const fontURL = declarationFontURLs[1][0];
 							if (fontURL) {
 								const fontFace = new FontFace("test-font", "url(" + fontURL + ")");
 								try {
