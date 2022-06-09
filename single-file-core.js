@@ -116,8 +116,7 @@ const STAGES = [{
 	parallel: [
 		{ option: "blockVideos", action: "insertMissingVideoPosters" },
 		{ action: "resolveStylesheetURLs" },
-		{ option: "!removeFrames", action: "resolveFrameURLs" },
-		{ action: "resolveHtmlImportURLs" }
+		{ option: "!removeFrames", action: "resolveFrameURLs" }
 	]
 }, {
 	sequential: [
@@ -137,8 +136,7 @@ const STAGES = [{
 	],
 	parallel: [
 		{ option: "removeAlternativeFonts", action: "removeAlternativeFonts" },
-		{ option: "!removeFrames", action: "processFrames" },
-		{ option: "!removeImports", action: "processHtmlImports" },
+		{ option: "!removeFrames", action: "processFrames" }
 	]
 }, {
 	sequential: [
@@ -178,7 +176,6 @@ class Runner {
 			this.options.videos = docData.videos;
 			this.options.usedFonts = docData.usedFonts;
 			this.options.shadowRoots = docData.shadowRoots;
-			this.options.imports = docData.imports;
 			this.options.referrer = docData.referrer;
 			this.markedElements = docData.markedElements;
 			this.invalidElements = docData.invalidElements;
@@ -211,9 +208,6 @@ class Runner {
 		if (this.root) {
 			if (this.options.frames) {
 				this.options.frames.forEach(cancelRunner);
-			}
-			if (this.options.imports) {
-				this.options.imports.forEach(cancelRunner);
 			}
 		}
 
@@ -427,9 +421,6 @@ class Processor {
 		this.maxResources = this.batchRequest.getMaxResources();
 		if (!this.options.saveRawPage && !this.options.removeFrames && this.options.frames) {
 			this.options.frames.forEach(frameData => this.maxResources += frameData.maxResources || 0);
-		}
-		if (!this.options.removeImports && this.options.imports) {
-			this.options.imports.forEach(importData => this.maxResources += importData.maxResources || 0);
 		}
 		this.stats.set("processed", "resources", this.maxResources);
 	}
@@ -794,6 +785,7 @@ class Processor {
 			this.doc.querySelectorAll("link[rel*=\"icon\"]").forEach(element => element.remove());
 		}
 		this.doc.querySelectorAll("a[ping]").forEach(element => element.removeAttribute("ping"));
+		this.doc.querySelectorAll("link[rel=import][href]").forEach(element => element.remove());
 	}
 
 	replaceInvalidElements() {
@@ -1134,7 +1126,6 @@ class Processor {
 				options.videos = frameData.videos;
 				options.usedFonts = frameData.usedFonts;
 				options.shadowRoots = frameData.shadowRoots;
-				options.imports = frameData.imports;
 				frameData.runner = new Runner(options);
 				frameData.frameElement = frameElement;
 				await frameData.runner.loadPage();
@@ -1195,49 +1186,6 @@ class Processor {
 				}
 			});
 		}
-	}
-
-	async resolveHtmlImportURLs() {
-		const linkElements = Array.from(this.doc.querySelectorAll("link[rel=import][href]"));
-		await Promise.all(linkElements.map(async linkElement => {
-			const resourceURL = linkElement.href;
-			if (this.options.saveOriginalURLs && !isDataURL(resourceURL)) {
-				linkElement.setAttribute("data-sf-original-href", resourceURL);
-			}
-			linkElement.removeAttribute("href");
-			const options = Object.create(this.options);
-			options.insertSingleFileComment = false;
-			options.insertCanonicalLink = false;
-			options.insertMetaNoIndex = false;
-			options.saveFavicon = false;
-			options.removeUnusedStyles = false;
-			options.removeAlternativeMedias = false;
-			options.removeUnusedFonts = false;
-			options.removeHiddenElements = false;
-			options.url = resourceURL;
-			const attributeValue = linkElement.getAttribute(util.HTML_IMPORT_ATTRIBUTE_NAME);
-			if (attributeValue) {
-				const importData = options.imports[Number(attributeValue)];
-				if (importData) {
-					options.content = importData.content;
-					importData.runner = new Runner(options);
-					await importData.runner.loadPage();
-					await importData.runner.initialize();
-					if (!options.removeImports) {
-						importData.maxResources = importData.runner.batchRequest.getMaxResources();
-					}
-					importData.runner.getStyleSheets().forEach(stylesheet => {
-						const importedStyleElement = this.doc.createElement("style");
-						linkElement.insertAdjacentElement("afterEnd", importedStyleElement);
-						this.stylesheets.set(importedStyleElement, stylesheet);
-					});
-				}
-			}
-			if (options.removeImports) {
-				linkElement.remove();
-				this.stats.add("discarded", "HTML imports", 1);
-			}
-		}));
 	}
 
 	removeUnusedStyles() {
@@ -1391,26 +1339,6 @@ class Processor {
 				}
 			}));
 		}
-	}
-
-	async processHtmlImports() {
-		const linkElements = Array.from(this.doc.querySelectorAll("link[rel=import]"));
-		await Promise.all(linkElements.map(async linkElement => {
-			const attributeValue = linkElement.getAttribute(util.HTML_IMPORT_ATTRIBUTE_NAME);
-			if (attributeValue) {
-				const importData = this.options.imports[Number(attributeValue)];
-				if (importData.runner) {
-					this.stats.add("processed", "HTML imports", 1);
-					await importData.runner.run();
-					const pageData = await importData.runner.getPageData();
-					linkElement.removeAttribute(util.HTML_IMPORT_ATTRIBUTE_NAME);
-					linkElement.setAttribute("href", "data:text/html," + pageData.content);
-					this.stats.addAll(pageData);
-				} else {
-					this.stats.add("discarded", "HTML imports", 1);
-				}
-			}
-		}));
 	}
 
 	replaceStylesheets() {
@@ -2280,7 +2208,6 @@ const STATS_DEFAULT_VALUES = {
 	discarded: {
 		"HTML bytes": 0,
 		"hidden elements": 0,
-		"HTML imports": 0,
 		scripts: 0,
 		objects: 0,
 		"audio sources": 0,
@@ -2295,7 +2222,6 @@ const STATS_DEFAULT_VALUES = {
 	processed: {
 		"HTML bytes": 0,
 		"hidden elements": 0,
-		"HTML imports": 0,
 		scripts: 0,
 		objects: 0,
 		"audio sources": 0,
