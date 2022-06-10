@@ -48,6 +48,7 @@
  * SOFTWARE.
  */
 
+import * as cssTree from "./css-tree.js";
 const REGEXP_SIMPLE_QUOTES_STRING = /^'(.*?)'$/;
 const REGEXP_DOUBLE_QUOTES_STRING = /^"(.*?)"$/;
 
@@ -100,28 +101,6 @@ const fontStretchKeywords = [
 	"ultra-expanded"
 ];
 
-const cssFontSizeKeywords = [
-	"xx-small",
-	"x-small",
-	"small",
-	"medium",
-	"large",
-	"x-large",
-	"xx-large",
-	"larger",
-	"smaller"
-];
-
-const cssListHelpers = {
-	splitBySpaces,
-	split,
-	splitByCommas
-};
-
-const helpers = {
-	isSize
-};
-
 const errorPrefix = "[parse-css-font] ";
 
 export {
@@ -129,15 +108,11 @@ export {
 };
 
 function parse(value) {
-	if (typeof value !== "string") {
-		throw new TypeError(errorPrefix + "Expected a string.");
+	const stringValue = cssTree.generate(value);
+	if (systemFontKeywords.indexOf(stringValue) !== -1) {
+		return { system: stringValue };
 	}
-	if (value === "") {
-		throw error("Cannot parse an empty string.");
-	}
-	if (systemFontKeywords.indexOf(value) !== -1) {
-		return { system: value };
-	}
+	const tokens = value.children;
 
 	const font = {
 		lineHeight: "normal",
@@ -148,10 +123,8 @@ function parse(value) {
 	};
 
 	let isLocked = false;
-	const tokens = cssListHelpers.splitBySpaces(value);
-	let token = tokens.shift();
-	for (; token; token = tokens.shift()) {
-
+	for (let tokenNode = tokens.head; tokenNode; tokenNode = tokenNode.next) {
+		const token = cssTree.generate(tokenNode.data);
 		if (token === "normal" || globalKeywords.indexOf(token) !== -1) {
 			["style", "variant", "weight", "stretch"].forEach((prop) => {
 				font[prop] = token;
@@ -184,19 +157,29 @@ function parse(value) {
 			continue;
 		}
 
-		if (helpers.isSize(token)) {
-			const parts = cssListHelpers.split(token, ["/"]);
-			font.size = parts[0];
-			if (parts[1]) {
-				font.lineHeight = parseLineHeight(parts[1]);
-			} else if (tokens[0] === "/") {
-				tokens.shift();
-				font.lineHeight = parseLineHeight(tokens.shift());
+		if (tokenNode.data.type == "Dimension") {
+			font.size = cssTree.generate(tokenNode.data);
+			tokenNode = tokenNode.next;
+			if (tokenNode && tokenNode.data.type == "Operator" && tokenNode.data.value == "/" && tokenNode.next) {
+				tokenNode = tokenNode.next;
+				font.lineHeight = cssTree.generate(tokenNode.data);
+				tokenNode = tokenNode.next;
+			} else if (tokens.head.data.type == "Operator" && tokens.head.data.value == "/" && tokens.head.next) {
+				font.lineHeight = cssTree.generate(tokens.head.next.data);
+				tokenNode = tokens.head.next.next;
 			}
-			if (!tokens.length) {
+			if (!tokenNode) {
 				throw error("Missing required font-family.");
 			}
-			font.family = cssListHelpers.splitByCommas(tokens.join(" ")).map(removeQuotes);
+			font.family = [];
+			for (; tokenNode; tokenNode = tokenNode.next) {
+				while (tokenNode && tokenNode.data.type == "Operator" && tokenNode.data.value == ",") {
+					tokenNode = tokenNode.next;
+				}
+				if (tokenNode) {
+					font.family.push(removeQuotes(cssTree.generate(tokenNode.data)));
+				}
+			}
 			return font;
 		}
 
@@ -215,122 +198,6 @@ function parse(value) {
 
 function error(message) {
 	return new Error(errorPrefix + message);
-}
-
-function parseLineHeight(value) {
-	const parsed = parseFloat(value);
-	if (parsed.toString() === value) {
-		return parsed;
-	}
-	return value;
-}
-
-/**
- * Splits a CSS declaration value (shorthand) using provided separators
- * as the delimiters.
- */
-function split(
-	/**
-	 * A CSS declaration value (shorthand).
-	 */
-	value,
-	/**
-	 * Any number of separator characters used for splitting.
-	 */
-	separators,
-	{
-		last = false,
-	} = {},
-) {
-	if (typeof value !== "string") {
-		throw new TypeError("expected a string");
-	}
-	if (!Array.isArray(separators)) {
-		throw new TypeError("expected a string array of separators");
-	}
-	if (typeof last !== "boolean") {
-		throw new TypeError("expected a Boolean value for options.last");
-	}
-	const array = [];
-	let current = "";
-	let splitMe = false;
-
-	let func = 0;
-	let quote = false;
-	let escape = false;
-
-	for (const char of value) {
-
-		if (quote) {
-			if (escape) {
-				escape = false;
-			} else if (char === "\\") {
-				escape = true;
-			} else if (char === quote) {
-				quote = false;
-			}
-		} else if (char === "\"" || char === "'") {
-			quote = char;
-		} else if (char === "(") {
-			func += 1;
-		} else if (char === ")") {
-			if (func > 0) {
-				func -= 1;
-			}
-		} else if (func === 0) {
-			if (separators.indexOf(char) !== -1) {
-				splitMe = true;
-			}
-		}
-
-		if (splitMe) {
-			if (current !== "") {
-				array.push(current.trim());
-			}
-			current = "";
-			splitMe = false;
-		} else {
-			current += char;
-		}
-	}
-
-	if (last || current !== "") {
-		array.push(current.trim());
-	}
-	return array;
-}
-
-/**
- * Splits a CSS declaration value (shorthand) using whitespace characters
- * as the delimiters.
- */
-function splitBySpaces(
-	/**
-	 * A CSS declaration value (shorthand).
-	 */
-	value,
-) {
-	const spaces = [" ", "\n", "\t"];
-	return split(value, spaces);
-}
-
-/**
- * Splits a CSS declaration value (shorthand) using commas as the delimiters.
- */
-function splitByCommas(
-	/**
-	 * A CSS declaration value (shorthand).
-	 */
-	value,
-) {
-	const comma = ",";
-	return split(value, [comma], { last: true });
-}
-
-function isSize(value) {
-	return !isNaN(parseFloat(value))
-		|| value.indexOf("/") !== -1
-		|| cssFontSizeKeywords.indexOf(value) !== -1;
 }
 
 function removeQuotes(string) {

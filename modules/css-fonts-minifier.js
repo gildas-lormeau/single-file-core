@@ -244,7 +244,7 @@ function getFontFamilyNames(declarations) {
 	const font = declarations.children.filter(node => node.property == "font").tail;
 	if (font && font.data && font.data.value) {
 		try {
-			const parsedFont = fontPropertyParser.parse(cssTree.generate(font.data.value));
+			const parsedFont = fontPropertyParser.parse(font.data.value);
 			parsedFont.family.forEach(familyName => fontFamilyNames.push(helper.normalizeFontFamily(familyName)));
 		} catch (error) {
 			// ignored				
