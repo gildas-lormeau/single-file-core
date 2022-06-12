@@ -41,7 +41,6 @@ const NEW_FONT_FACE_EVENT = "single-file-new-font-face";
 const DELETE_FONT_EVENT = "single-file-delete-font";
 const CLEAR_FONTS_EVENT = "single-file-clear-fonts";
 
-const browser = globalThis.browser;
 const addEventListener = (type, listener, options) => globalThis.addEventListener(type, listener, options);
 const dispatchEvent = event => { try { globalThis.dispatchEvent(event); } catch (error) {  /* ignored */ } };
 const CustomEvent = globalThis.CustomEvent;
@@ -69,17 +68,6 @@ if (document instanceof Document) {
 		fontFaces.delete(JSON.stringify(key));
 	});
 	addEventListener(CLEAR_FONTS_EVENT, () => fontFaces = new Map());
-	let scriptElement = document.createElement("script");
-	scriptElement.src = "data:," + "(" + injectedScript.toString() + ")()";
-	(document.documentElement || document).appendChild(scriptElement);
-	scriptElement.remove();
-	if (browser && browser.runtime && browser.runtime.getURL) {
-		scriptElement = document.createElement("script");
-		scriptElement.src = browser.runtime.getURL("/lib/single-file-hooks-frames.js");
-		scriptElement.async = false;
-		(document.documentElement || document).appendChild(scriptElement);
-		scriptElement.remove();
-	}
 }
 
 export {
@@ -134,81 +122,5 @@ function loadDeferredImagesResetZoomLevel(options) {
 		dispatchEvent(new CustomEvent(LOAD_DEFERRED_IMAGES_RESET_ZOOM_LEVEL_EVENT));
 	} else {
 		dispatchEvent(new CustomEvent(LOAD_DEFERRED_IMAGES_RESET_EVENT));
-	}
-}
-
-function injectedScript() {
-	if (typeof globalThis == "undefined") {
-		window.globalThis = window;
-	}
-	const document = globalThis.document;
-	const console = globalThis.console;
-	const dispatchEvent = event => globalThis.dispatchEvent(event);
-	const CustomEvent = globalThis.CustomEvent;
-	const FileReader = globalThis.FileReader;
-	const Blob = globalThis.Blob;
-	const warn = (console && console.warn && ((...args) => console.warn(...args))) || (() => { });
-	const NEW_FONT_FACE_EVENT = "single-file-new-font-face";
-	const DELETE_FONT_EVENT = "single-file-delete-font";
-	const CLEAR_FONTS_EVENT = "single-file-clear-fonts";
-	const FONT_STYLE_PROPERTIES = {
-		family: "font-family",
-		style: "font-style",
-		weight: "font-weight",
-		stretch: "font-stretch",
-		unicodeRange: "unicode-range",
-		variant: "font-variant",
-		featureSettings: "font-feature-settings"
-	};
-
-	if (globalThis.FontFace) {
-		const FontFace = globalThis.FontFace;
-		let warningFontFaceDisplayed;
-		globalThis.FontFace = function () {
-			if (!warningFontFaceDisplayed) {
-				warn("SingleFile is hooking the FontFace constructor, document.fonts.delete and document.fonts.clear to handle dynamically loaded fonts.");
-				warningFontFaceDisplayed = true;
-			}
-			getDetailObject(...arguments).then(detail => dispatchEvent(new CustomEvent(NEW_FONT_FACE_EVENT, { detail })));
-			return new FontFace(...arguments);
-		};
-		globalThis.FontFace.toString = function () { return "function FontFace() { [native code] }"; };
-		const deleteFont = document.fonts.delete;
-		document.fonts.delete = function (fontFace) {
-			getDetailObject(fontFace.family).then(detail => dispatchEvent(new CustomEvent(DELETE_FONT_EVENT, { detail })));
-			return deleteFont.call(document.fonts, fontFace);
-		};
-		document.fonts.delete.toString = function () { return "function delete() { [native code] }"; };
-		const clearFonts = document.fonts.clear;
-		document.fonts.clear = function () {
-			dispatchEvent(new CustomEvent(CLEAR_FONTS_EVENT));
-			return clearFonts.call(document.fonts);
-		};
-		document.fonts.clear.toString = function () { return "function clear() { [native code] }"; };
-	}
-
-	async function getDetailObject(fontFamily, src, descriptors) {
-		const detail = {};
-		detail["font-family"] = fontFamily;
-		detail.src = src;
-		if (descriptors) {
-			Object.keys(descriptors).forEach(descriptor => {
-				if (FONT_STYLE_PROPERTIES[descriptor]) {
-					detail[FONT_STYLE_PROPERTIES[descriptor]] = descriptors[descriptor];
-				}
-			});
-		}
-		return new Promise(resolve => {
-			if (detail.src instanceof ArrayBuffer) {
-				const reader = new FileReader();
-				reader.readAsDataURL(new Blob([detail.src]));
-				reader.addEventListener("load", () => {
-					detail.src = "url(" + reader.result + ")";
-					resolve(detail);
-				});
-			} else {
-				resolve(detail);
-			}
-		});
 	}
 }
