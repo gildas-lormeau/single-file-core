@@ -1034,10 +1034,11 @@ class Processor {
 			if (element.media) {
 				mediaText = element.media.toLowerCase();
 			}
-			const stylesheetInfo = { mediaText };
-			if (element.closest("[" + SHADOWROOT_ATTRIBUTE_NAME + "]")) {
-				stylesheetInfo.scoped = true;
-			}
+			const scoped = Boolean(element.closest("[" + SHADOWROOT_ATTRIBUTE_NAME + "]"));
+			const stylesheetInfo = {
+				mediaText,
+				scoped
+			};
 			if (element.tagName == "LINK" && element.charset) {
 				options.charset = element.charset;
 			}
@@ -1047,32 +1048,19 @@ class Processor {
 			const newResources = Object.keys(this.options.updatedResources).filter(url => this.options.updatedResources[url].type == "stylesheet" && !this.options.updatedResources[url].retrieved).map(url => this.options.updatedResources[url]);
 			await Promise.all(newResources.map(async resource => {
 				resource.retrieved = true;
-				const stylesheetInfo = {};
-				const element = this.doc.createElement("style");
-				this.doc.body.appendChild(element);
-				element.textContent = resource.content;
-				await processElement(element, stylesheetInfo, this.stylesheets, this.baseURI, this.options, this.workStyleElement);
+				if (!this.options.blockStylesheets) {
+					const stylesheetInfo = {};
+					const element = this.doc.createElement("style");
+					this.doc.body.appendChild(element);
+					element.textContent = resource.content;
+					await processElement(element, stylesheetInfo, this.stylesheets, this.baseURI, this.options, this.workStyleElement);
+				}
 			}));
 		}
 
 		async function processElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement) {
 			let stylesheet;
 			stylesheets.set(element, stylesheetInfo);
-			if (!options.blockStylesheets) {
-				stylesheet = await getStylesheet(element, baseURI, options, workStyleElement);
-			}
-			if (stylesheet && stylesheet.children) {
-				if (options.compressCSS) {
-					ProcessorHelper.removeSingleLineCssComments(stylesheet);
-				}
-				stylesheetInfo.stylesheet = stylesheet;
-			} else {
-				stylesheets.delete(element);
-			}
-		}
-
-		async function getStylesheet(element, baseURI, options, workStyleElement) {
-			let stylesheet;
 			if (!options.blockStylesheets) {
 				if (element.tagName == "LINK") {
 					stylesheet = await ProcessorHelper.resolveLinkStylesheetURLs(element.href, baseURI, options, workStyleElement);
@@ -1084,7 +1072,14 @@ class Processor {
 					}
 				}
 			}
-			return stylesheet;
+			if (stylesheet && stylesheet.children) {
+				if (options.compressCSS) {
+					ProcessorHelper.removeSingleLineCssComments(stylesheet);
+				}
+				stylesheetInfo.stylesheet = stylesheet;
+			} else {
+				stylesheets.delete(element);
+			}
 		}
 	}
 
