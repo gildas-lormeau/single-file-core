@@ -1808,7 +1808,8 @@ class ProcessorHelper {
 					let { content, indexResource, duplicate } = await batchRequest.addURL(resourceURL,
 						{ asBinary: true, expectedType: "image", groupDuplicates: options.groupDuplicateImages });
 					if (!originalResourceURL.startsWith("#")) {
-						if (duplicate && options.groupDuplicateImages && util.getContentSize(content) < SINGLE_FILE_VARIABLE_MAX_SIZE) {
+						const maxSizeDuplicateImages = options.maxSizeDuplicateImages || SINGLE_FILE_VARIABLE_MAX_SIZE;
+						if (duplicate && options.groupDuplicateImages && util.getContentSize(content) < maxSizeDuplicateImages) {
 							const varNode = cssTree.parse("var(" + SINGLE_FILE_VARIABLE_NAME_PREFIX + indexResource + ")", { context: "value" });
 							for (let keyName of Object.keys(varNode.children.head.data)) {
 								urlNode[keyName] = varNode.children.head.data[keyName];
@@ -1881,7 +1882,8 @@ class ProcessorHelper {
 									const forbiddenPrefixFound = PREFIXES_FORBIDDEN_DATA_URI.filter(prefixDataURI => content.startsWith(prefixDataURI)).length;
 									if (!forbiddenPrefixFound) {
 										const isSVG = content.startsWith(PREFIX_DATA_URI_IMAGE_SVG);
-										if (expectedType == "image" && processDuplicates && duplicate && !isSVG && util.getContentSize(content) < SINGLE_FILE_VARIABLE_MAX_SIZE) {
+										const maxSizeDuplicateImages = options.maxSizeDuplicateImages || SINGLE_FILE_VARIABLE_MAX_SIZE;
+										if (expectedType == "image" && processDuplicates && duplicate && !isSVG && util.getContentSize(content) < maxSizeDuplicateImages) {
 											if (ProcessorHelper.replaceImageSource(resourceElement, SINGLE_FILE_VARIABLE_NAME_PREFIX + indexResource, options)) {
 												cssVariables.set(indexResource, { content, url: originURL });
 												const declarationList = cssTree.parse(resourceElement.getAttribute("style"), { context: "declarationList", parseCustomProperty: true });
