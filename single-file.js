@@ -42,7 +42,9 @@ export {
 };
 
 function init(initOptions) {
-	SingleFile = core.getClass(util.getInstance(initOptions), vendor.cssTree);
+	if (typeof SingleFile == "undefined") {
+		SingleFile = core.getClass(util.getInstance(initOptions), vendor.cssTree);
+	}
 }
 
 async function getPageData(options = {}, initOptions, doc = globalThis.document, win = globalThis) {
