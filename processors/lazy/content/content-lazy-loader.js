@@ -125,7 +125,7 @@ function triggerLazyLoading(options) {
 					clearAsyncTimeout("idleTimeout");
 					await setIdleTimeout(Math.max(500, delay / 2));
 				}
-			}, delay);
+			}, delay, options.loadDeferredImageNativeTimeout);
 		}
 
 		function onResourceLoad(event) {
@@ -162,14 +162,14 @@ function triggerLazyLoading(options) {
 }
 
 async function deferLazyLoadEnd(observer, options, resolve) {
-	await setAsyncTimeout("loadTimeout", () => lazyLoadEnd(observer, options, resolve), options.loadDeferredImagesMaxIdleTime);
+	await setAsyncTimeout("loadTimeout", () => lazyLoadEnd(observer, options, resolve), options.loadDeferredImagesMaxIdleTime, options.loadDeferredImageNativeTimeout);
 }
 
 async function deferForceLazyLoadEnd(observer, options, resolve) {
 	await setAsyncTimeout("maxTimeout", async () => {
 		await clearAsyncTimeout("loadTimeout");
 		await lazyLoadEnd(observer, options, resolve);
-	}, options.loadDeferredImagesMaxIdleTime * 10);
+	}, options.loadDeferredImagesMaxIdleTime * 10, options.loadDeferredImageNativeTimeout);
 }
 
 async function lazyLoadEnd(observer, options, resolve) {
@@ -178,12 +178,12 @@ async function lazyLoadEnd(observer, options, resolve) {
 	await setAsyncTimeout("endTimeout", async () => {
 		await clearAsyncTimeout("maxTimeout");
 		resolve();
-	}, options.loadDeferredImagesMaxIdleTime / 2);
+	}, options.loadDeferredImagesMaxIdleTime / 2, options.loadDeferredImageNativeTimeout);
 	observer.disconnect();
 }
 
-async function setAsyncTimeout(type, callback, delay) {
-	if (browser && browser.runtime && browser.runtime.sendMessage) {
+async function setAsyncTimeout(type, callback, delay, forceNativeTimeout) {
+	if (browser && browser.runtime && browser.runtime.sendMessage && !forceNativeTimeout) {
 		if (!timeouts.get(type) || !timeouts.get(type).pending) {
 			const timeoutData = { callback, pending: true };
 			timeouts.set(type, timeoutData);
