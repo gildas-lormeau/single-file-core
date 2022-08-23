@@ -125,7 +125,7 @@ function triggerLazyLoading(options) {
 					clearAsyncTimeout("idleTimeout");
 					await setIdleTimeout(Math.max(500, delay / 2));
 				}
-			}, delay, options.loadDeferredImageNativeTimeout);
+			}, delay, options.loadDeferredImagesNativeTimeout);
 		}
 
 		function onResourceLoad(event) {
@@ -162,14 +162,14 @@ function triggerLazyLoading(options) {
 }
 
 async function deferLazyLoadEnd(observer, options, resolve) {
-	await setAsyncTimeout("loadTimeout", () => lazyLoadEnd(observer, options, resolve), options.loadDeferredImagesMaxIdleTime, options.loadDeferredImageNativeTimeout);
+	await setAsyncTimeout("loadTimeout", () => lazyLoadEnd(observer, options, resolve), options.loadDeferredImagesMaxIdleTime, options.loadDeferredImagesNativeTimeout);
 }
 
 async function deferForceLazyLoadEnd(observer, options, resolve) {
 	await setAsyncTimeout("maxTimeout", async () => {
 		await clearAsyncTimeout("loadTimeout");
 		await lazyLoadEnd(observer, options, resolve);
-	}, options.loadDeferredImagesMaxIdleTime * 10, options.loadDeferredImageNativeTimeout);
+	}, options.loadDeferredImagesMaxIdleTime * 10, options.loadDeferredImagesNativeTimeout);
 }
 
 async function lazyLoadEnd(observer, options, resolve) {
@@ -178,7 +178,7 @@ async function lazyLoadEnd(observer, options, resolve) {
 	await setAsyncTimeout("endTimeout", async () => {
 		await clearAsyncTimeout("maxTimeout");
 		resolve();
-	}, options.loadDeferredImagesMaxIdleTime / 2, options.loadDeferredImageNativeTimeout);
+	}, options.loadDeferredImagesMaxIdleTime / 2, options.loadDeferredImagesNativeTimeout);
 	observer.disconnect();
 }
 
