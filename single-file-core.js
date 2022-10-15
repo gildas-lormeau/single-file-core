@@ -502,7 +502,7 @@ class Processor {
 		if (this.options.insertMetaCSP) {
 			const metaTag = this.doc.createElement("meta");
 			metaTag.httpEquiv = "content-security-policy";
-			metaTag.content = "default-src 'none'; font-src 'self' data:; img-src 'self' data:; style-src 'unsafe-inline'; media-src 'self' data:; script-src 'unsafe-inline' data:;";
+			metaTag.content = "default-src 'none'; font-src 'self' data:; img-src 'self' data:; style-src 'unsafe-inline'; media-src 'self' data:; script-src 'unsafe-inline' data:; object-src 'self' data:;";
 			this.doc.head.appendChild(metaTag);
 		}
 		if (this.options.insertMetaNoIndex) {
@@ -1854,6 +1854,10 @@ class ProcessorHelper {
 							if (testValidURL(resourceURL)) {
 								let { content, indexResource, duplicate } = await batchRequest.addURL(resourceURL,
 									{ asBinary: true, expectedType, groupDuplicates: options.groupDuplicateImages && resourceElement.tagName == "IMG" && attributeName == "src" });
+								if (resourceURL.includes("openbenchmarking.org/embed.php")) {
+									debugger
+								}
+
 								if (originURL) {
 									if (content == util.EMPTY_RESOURCE) {
 										try {
