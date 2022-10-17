@@ -101,9 +101,13 @@ function setSrc(srcData, imgElement, pictureElement) {
 
 function getSourceSrc(sourceSrcSet) {
 	if (sourceSrcSet) {
-		const srcset = srcsetParser.process(sourceSrcSet);
-		if (srcset.length) {
-			return (srcset.find(srcset => srcset.url)).url;
+		try {
+			const srcset = srcsetParser.process(sourceSrcSet);
+			if (srcset.length) {
+				return (srcset.find(srcset => srcset.url)).url;
+			}
+		} catch (error) {
+			// ignored
 		}
 	}
 }
