@@ -145,7 +145,7 @@ function serializeAttribute(attribute, element, compressHTML) {
 				simpleQuotesValue = true;
 			}
 		}
-		const invalidUnquotedValue = !compressHTML || !value.match(/^[^ \t\n\f\r'"`=<>]+$/);
+		const invalidUnquotedValue = !compressHTML || value.match(/[ \t\n\f\r'"`=<>]/);
 		content += " ";
 		if (!attribute.namespace) {
 			content += name;
