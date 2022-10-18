@@ -148,7 +148,7 @@ function preProcessDoc(doc, win, options) {
 		elementsInfo = getElementsInfo(win, doc, doc.documentElement, options);
 		if (options.moveStylesInHead) {
 			doc.querySelectorAll("body style, body ~ style").forEach(element => {
-				const computedStyle = win.getComputedStyle(element);
+				const computedStyle = getComputedStyle(win, element);
 				if (computedStyle && testHiddenElement(element, computedStyle)) {
 					element.setAttribute(STYLE_ATTRIBUTE_NAME, "");
 					elementsInfo.markedElements.push(element);
@@ -186,7 +186,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 	elements.forEach(element => {
 		let elementHidden, elementKept, computedStyle;
 		if (!options.autoSaveExternalSave && (options.removeHiddenElements || options.removeUnusedFonts || options.compressHTML)) {
-			computedStyle = win.getComputedStyle(element);
+			computedStyle = getComputedStyle(win, element);
 			if (element instanceof win.HTMLElement) {
 				if (options.removeHiddenElements) {
 					elementKept = ((ascendantHidden || element.closest("html > head")) && KEPT_TAG_NAMES.includes(element.tagName)) || element.closest("details");
@@ -209,9 +209,9 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 				}
 				if (options.removeUnusedFonts) {
 					getUsedFont(computedStyle, options, data.usedFonts);
-					getUsedFont(win.getComputedStyle(element, ":first-letter"), options, data.usedFonts);
-					getUsedFont(win.getComputedStyle(element, ":before"), options, data.usedFonts);
-					getUsedFont(win.getComputedStyle(element, ":after"), options, data.usedFonts);
+					getUsedFont(getComputedStyle(win, element, ":first-letter"), options, data.usedFonts);
+					getUsedFont(getComputedStyle(win, element, ":before"), options, data.usedFonts);
+					getUsedFont(getComputedStyle(win, element, ":after"), options, data.usedFonts);
 				}
 			}
 		}
@@ -269,11 +269,7 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 		element.setAttribute(IMAGE_ATTRIBUTE_NAME, data.images.length - 1);
 		data.markedElements.push(element);
 		element.removeAttribute(LAZY_SRC_ATTRIBUTE_NAME);
-		try {
-			computedStyle = computedStyle || win.getComputedStyle(element);
-		} catch (error) {
-			// ignored
-		}
+		computedStyle = computedStyle || getComputedStyle(win, element);
 		if (computedStyle) {
 			imageData.size = getSize(win, element, computedStyle);
 			const boxShadow = computedStyle.getPropertyValue("box-shadow");
@@ -292,9 +288,9 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 	if (element.tagName == "VIDEO") {
 		const src = element.currentSrc;
 		if (src && !src.startsWith("blob:") && !src.startsWith("data:")) {
-			const positionParent = win.getComputedStyle(element.parentNode).getPropertyValue("position");
+			const computedStyle = getComputedStyle(win, element.parentNode);
 			data.videos.push({
-				positionParent,
+				positionParent: computedStyle && computedStyle.getPropertyValue("position"),
 				src,
 				size: {
 					pxWidth: element.clientWidth,
@@ -469,37 +465,39 @@ function getSize(win, imageElement, computedStyle) {
 	let pxHeight = imageElement.naturalHeight;
 	if (!pxWidth && !pxHeight) {
 		const noStyleAttribute = imageElement.getAttribute("style") == null;
-		computedStyle = computedStyle || win.getComputedStyle(imageElement);
-		let removeBorderWidth = false;
-		if (computedStyle.getPropertyValue("box-sizing") == "content-box") {
-			const boxSizingValue = imageElement.style.getPropertyValue("box-sizing");
-			const boxSizingPriority = imageElement.style.getPropertyPriority("box-sizing");
-			const clientWidth = imageElement.clientWidth;
-			imageElement.style.setProperty("box-sizing", "border-box", "important");
-			removeBorderWidth = imageElement.clientWidth != clientWidth;
-			if (boxSizingValue) {
-				imageElement.style.setProperty("box-sizing", boxSizingValue, boxSizingPriority);
-			} else {
-				imageElement.style.removeProperty("box-sizing");
+		computedStyle = computedStyle || getComputedStyle(win, imageElement);
+		if (computedStyle) {
+			let removeBorderWidth = false;
+			if (computedStyle.getPropertyValue("box-sizing") == "content-box") {
+				const boxSizingValue = imageElement.style.getPropertyValue("box-sizing");
+				const boxSizingPriority = imageElement.style.getPropertyPriority("box-sizing");
+				const clientWidth = imageElement.clientWidth;
+				imageElement.style.setProperty("box-sizing", "border-box", "important");
+				removeBorderWidth = imageElement.clientWidth != clientWidth;
+				if (boxSizingValue) {
+					imageElement.style.setProperty("box-sizing", boxSizingValue, boxSizingPriority);
+				} else {
+					imageElement.style.removeProperty("box-sizing");
+				}
 			}
-		}
-		let paddingLeft, paddingRight, paddingTop, paddingBottom, borderLeft, borderRight, borderTop, borderBottom;
-		paddingLeft = getWidth("padding-left", computedStyle);
-		paddingRight = getWidth("padding-right", computedStyle);
-		paddingTop = getWidth("padding-top", computedStyle);
-		paddingBottom = getWidth("padding-bottom", computedStyle);
-		if (removeBorderWidth) {
-			borderLeft = getWidth("border-left-width", computedStyle);
-			borderRight = getWidth("border-right-width", computedStyle);
-			borderTop = getWidth("border-top-width", computedStyle);
-			borderBottom = getWidth("border-bottom-width", computedStyle);
-		} else {
-			borderLeft = borderRight = borderTop = borderBottom = 0;
-		}
-		pxWidth = Math.max(0, imageElement.clientWidth - paddingLeft - paddingRight - borderLeft - borderRight);
-		pxHeight = Math.max(0, imageElement.clientHeight - paddingTop - paddingBottom - borderTop - borderBottom);
-		if (noStyleAttribute) {
-			imageElement.removeAttribute("style");
+			let paddingLeft, paddingRight, paddingTop, paddingBottom, borderLeft, borderRight, borderTop, borderBottom;
+			paddingLeft = getWidth("padding-left", computedStyle);
+			paddingRight = getWidth("padding-right", computedStyle);
+			paddingTop = getWidth("padding-top", computedStyle);
+			paddingBottom = getWidth("padding-bottom", computedStyle);
+			if (removeBorderWidth) {
+				borderLeft = getWidth("border-left-width", computedStyle);
+				borderRight = getWidth("border-right-width", computedStyle);
+				borderTop = getWidth("border-top-width", computedStyle);
+				borderBottom = getWidth("border-bottom-width", computedStyle);
+			} else {
+				borderLeft = borderRight = borderTop = borderBottom = 0;
+			}
+			pxWidth = Math.max(0, imageElement.clientWidth - paddingLeft - paddingRight - borderLeft - borderRight);
+			pxHeight = Math.max(0, imageElement.clientHeight - paddingTop - paddingBottom - borderTop - borderBottom);
+			if (noStyleAttribute) {
+				imageElement.removeAttribute("style");
+			}
 		}
 	}
 	return { pxWidth, pxHeight };
@@ -550,4 +548,12 @@ function getFontWeight(weight) {
 
 function flatten(array) {
 	return array.flat ? array.flat() : array.reduce((a, b) => a.concat(Array.isArray(b) ? flatten(b) : b), []);
+}
+
+function getComputedStyle(win, element, pseudoElement) {
+	try {
+		return win.getComputedStyle(element, pseudoElement);
+	} catch (error) {
+		// ignored
+	}
 }
