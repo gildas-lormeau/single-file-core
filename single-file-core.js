@@ -1854,10 +1854,6 @@ class ProcessorHelper {
 							if (testValidURL(resourceURL)) {
 								let { content, indexResource, duplicate } = await batchRequest.addURL(resourceURL,
 									{ asBinary: true, expectedType, groupDuplicates: options.groupDuplicateImages && resourceElement.tagName == "IMG" && attributeName == "src" });
-								if (resourceURL.includes("openbenchmarking.org/embed.php")) {
-									debugger
-								}
-
 								if (originURL) {
 									if (content == util.EMPTY_RESOURCE) {
 										try {
