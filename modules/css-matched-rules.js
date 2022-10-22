@@ -36,7 +36,9 @@ class MatchedRules {
 		this.mediaAllInfo = createMediaInfo(MEDIA_ALL);
 		const matchedElementsCache = new Map();
 		let sheetIndex = 0;
-		const workStyleElement = doc.createElement("style");
+		const workStyleSheet = doc.createElement("style");
+		doc.body.appendChild(workStyleSheet);
+		const workStyleElement = doc.createElement("span");
 		doc.body.appendChild(workStyleElement);
 		stylesheets.forEach(stylesheetInfo => {
 			if (!stylesheetInfo.scoped) {
@@ -45,9 +47,9 @@ class MatchedRules {
 					if (stylesheetInfo.mediaText && stylesheetInfo.mediaText != MEDIA_ALL) {
 						const mediaInfo = createMediaInfo(stylesheetInfo.mediaText);
 						this.mediaAllInfo.medias.set("style-" + sheetIndex + "-" + stylesheetInfo.mediaText, mediaInfo);
-						getMatchedElementsRules(doc, cssRules, mediaInfo, sheetIndex, styles, matchedElementsCache, workStyleElement);
+						getMatchedElementsRules(doc, cssRules, mediaInfo, sheetIndex, styles, matchedElementsCache, workStyleSheet);
 					} else {
-						getMatchedElementsRules(doc, cssRules, this.mediaAllInfo, sheetIndex, styles, matchedElementsCache, workStyleElement);
+						getMatchedElementsRules(doc, cssRules, this.mediaAllInfo, sheetIndex, styles, matchedElementsCache, workStyleSheet);
 					}
 				}
 			}
@@ -64,7 +66,8 @@ class MatchedRules {
 			startTime = Date.now();
 			log("  -- STARTED computeCascade");
 		}
-		computeCascade(this.mediaAllInfo, [], this.mediaAllInfo, workStyleElement);
+		computeCascade(this.mediaAllInfo, [], this.mediaAllInfo, workStyleSheet, workStyleElement);
+		workStyleSheet.remove();
 		workStyleElement.remove();
 		if (DEBUG) {
 			log("  -- ENDED computeCascade", Date.now() - startTime);
@@ -222,9 +225,9 @@ function addRule(element, selectorInfo, styles) {
 	elementInfo.push(selectorInfo);
 }
 
-function computeCascade(mediaInfo, parentMediaInfo, mediaAllInfo, workStylesheet) {
+function computeCascade(mediaInfo, parentMediaInfo, mediaAllInfo, workStylesheet, workStyleElement) {
 	mediaInfo.elements.forEach((elementInfo/*, element*/) =>
-		getDeclarationsInfo(elementInfo, workStylesheet/*, element*/).forEach((declarationsInfo, property) => {
+		getDeclarationsInfo(elementInfo, workStylesheet, workStyleElement/*, element*/).forEach((declarationsInfo, property) => {
 			if (declarationsInfo.selectorInfo.ruleInfo || mediaInfo == mediaAllInfo) {
 				let info;
 				if (declarationsInfo.selectorInfo.ruleInfo) {
@@ -249,10 +252,10 @@ function computeCascade(mediaInfo, parentMediaInfo, mediaAllInfo, workStylesheet
 			}
 		}));
 	delete mediaInfo.elements;
-	mediaInfo.medias.forEach(childMediaInfo => computeCascade(childMediaInfo, [mediaInfo, ...parentMediaInfo], mediaAllInfo, workStylesheet));
+	mediaInfo.medias.forEach(childMediaInfo => computeCascade(childMediaInfo, [mediaInfo, ...parentMediaInfo], mediaAllInfo, workStylesheet, workStyleElement));
 }
 
-function getDeclarationsInfo(elementInfo, workStylesheet/*, element*/) {
+function getDeclarationsInfo(elementInfo, workStylesheet, workStyleElement/*, element*/) {
 	const declarationsInfo = new Map();
 	const processedProperties = new Set();
 	elementInfo.forEach(selectorInfo => {
@@ -262,17 +265,17 @@ function getDeclarationsInfo(elementInfo, workStylesheet/*, element*/) {
 		} else {
 			declarations = selectorInfo.ruleInfo.ruleData.block.children;
 		}
-		processDeclarations(declarationsInfo, declarations, selectorInfo, processedProperties, workStylesheet);
+		processDeclarations(declarationsInfo, declarations, selectorInfo, processedProperties, workStylesheet, workStyleElement);
 	});
 	return declarationsInfo;
 }
 
-function processDeclarations(declarationsInfo, declarations, selectorInfo, processedProperties, workStylesheet) {
+function processDeclarations(declarationsInfo, declarations, selectorInfo, processedProperties, workStylesheet, workStyleElement) {
 	for (let declaration = declarations.tail; declaration; declaration = declaration.prev) {
 		const declarationData = declaration.data;
 		const declarationText = cssTree.generate(declarationData);
 		if (declarationData.type == "Declaration" &&
-			(declarationText.match(REGEXP_VENDOR_IDENTIFIER) || !processedProperties.has(declarationData.property) || declarationData.important) && !invalidDeclaration(declarationText, workStylesheet)) {
+			(declarationText.match(REGEXP_VENDOR_IDENTIFIER) || !processedProperties.has(declarationData.property) || declarationData.important) && !invalidDeclaration(declarationText, workStyleElement)) {
 			const declarationInfo = declarationsInfo.get(declarationData);
 			if (!declarationInfo || (declarationData.important && !declarationInfo.important)) {
 				declarationsInfo.set(declarationData, { selectorInfo, important: declarationData.important });
@@ -284,10 +287,10 @@ function processDeclarations(declarationsInfo, declarations, selectorInfo, proce
 	}
 }
 
-function invalidDeclaration(declarationText, workStylesheet) {
+function invalidDeclaration(declarationText, workStyleElement) {
 	let invalidDeclaration;
-	workStylesheet.textContent = "single-file-declaration { " + declarationText + "}";
-	if (workStylesheet.sheet && !workStylesheet.sheet.cssRules[0].style.length) {
+	workStyleElement.style = declarationText;
+	if (!workStyleElement.style.length) {
 		if (!declarationText.match(REGEXP_VENDOR_IDENTIFIER)) {
 			invalidDeclaration = true;
 		}
