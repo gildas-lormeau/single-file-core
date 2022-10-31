@@ -94,7 +94,7 @@ function serializeTextNode(textNode) {
 		parentTagName = parentNode.tagName.toLowerCase();
 	}
 	if (!parentTagName || TEXT_NODE_TAGS.includes(parentTagName)) {
-		if (parentTagName == "script") {
+		if (parentTagName == "script" || parentTagName == "style") {
 			return textNode.textContent.replace(/<\//gi, "<\\/").replace(/\/>/gi, "\\/>");
 		}
 		return textNode.textContent;
