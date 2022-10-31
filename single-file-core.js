@@ -533,7 +533,7 @@ class Processor {
 		if (!this.options.backgroundSave) {
 			filename = filename.replace(/\//g, replacementCharacter);
 		}
-		if (!this.options.saveToGDrive && !this.options.saveToGitHub && !this.options.saveWithCompanion && !this.options.saveWithWebDAV &&
+		if (!this.options.keepFilename &&
 			((this.options.filenameMaxLengthUnit == "bytes" && util.getContentSize(filename) > this.options.filenameMaxLength) || (filename.length > this.options.filenameMaxLength))) {
 			const extensionMatch = filename.match(/(\.[^.]{3,4})$/);
 			const extension = extensionMatch && extensionMatch[0] && extensionMatch[0].length > 1 ? extensionMatch[0] : "";
