@@ -170,7 +170,6 @@
 	async function initInfobar(url, saveDate, infoData) {
 		let infobarElement = document.querySelector(INFOBAR_TAGNAME);
 		if (!infobarElement) {
-			url = url.split("url: ")[1];
 			saveDate = saveDate.split("saved date: ")[1];
 			if (infoData && infoData.length > 1) {
 				let content = infoData[0].split("info: ")[1].trim();
