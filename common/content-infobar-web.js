@@ -142,7 +142,9 @@
 		let singleFileComment = result && result.singleNodeValue;
 		if (singleFileComment && isSingleFileComment(singleFileComment)) {
 			const info = singleFileComment.textContent.split("\n");
-			const [, , url, saveDate, ...infoData] = info;
+			const [, , urlData, saveDate, ...infoData] = info;
+			const urlMatch = urlData.match(/^ url: (.*) /);
+			const url = urlMatch && urlMatch[1];
 			if (url && saveDate) {
 				let options;
 				if (browser && browser.runtime && browser.runtime.sendMessage) {
