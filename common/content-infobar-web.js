@@ -143,7 +143,7 @@
 		if (singleFileComment && isSingleFileComment(singleFileComment)) {
 			const info = singleFileComment.textContent.split("\n");
 			const [, , urlData, saveDate, ...infoData] = info;
-			const urlMatch = urlData.match(/^ url: (.*) /);
+			const urlMatch = urlData.match(/^ url: (.*) $/);
 			const url = urlMatch && urlMatch[1];
 			if (url && saveDate) {
 				let options;
