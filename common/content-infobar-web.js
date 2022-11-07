@@ -148,7 +148,11 @@
 			if (url && saveDate) {
 				let options;
 				if (browser && browser.runtime && browser.runtime.sendMessage) {
-					options = await browser.runtime.sendMessage({ method: "tabs.getOptions", url });
+					try {
+						options = await browser.runtime.sendMessage({ method: "tabs.getOptions", url });
+					} catch (error) {
+						options = { displayInfobar: true };
+					}
 				} else {
 					options = { displayInfobar: true };
 				}
