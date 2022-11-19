@@ -40,6 +40,9 @@
 	const LAZY_LOAD_ATTRIBUTE = "single-file-lazy-load";
 	const LOAD_IMAGE_EVENT = "single-file-load-image";
 	const IMAGE_LOADED_EVENT = "single-file-image-loaded";
+	const FETCH_REQUEST_EVENT = "single-file-request-fetch";
+	const FETCH_ACK_EVENT = "single-file-ack-fetch";
+	const FETCH_RESPONSE_EVENT = "single-file-response-fetch";
 	const NEW_FONT_FACE_EVENT = "single-file-new-font-face";
 	const DELETE_FONT_EVENT = "single-file-delete-font";
 	const CLEAR_FONTS_EVENT = "single-file-clear-fonts";
@@ -55,6 +58,7 @@
 
 	const addEventListener = (type, listener, options) => globalThis.addEventListener(type, listener, options);
 	const dispatchEvent = event => { try { globalThis.dispatchEvent(event); } catch (error) {  /* ignored */ } };
+	const fetch = (url, options) => globalThis.fetch(url, options);
 	const CustomEvent = globalThis.CustomEvent;
 	const document = globalThis.document;
 	const screen = globalThis.screen;
@@ -291,6 +295,19 @@
 			globalThis.indexedDB = globalThis._singleFile_indexedDB;
 			delete globalThis._singleFile_indexedDB;
 		}
+	});
+
+	addEventListener(FETCH_REQUEST_EVENT, async event => {
+		dispatchEvent(new CustomEvent(FETCH_ACK_EVENT));
+		const url = event.detail;
+		let detail;
+		try {
+			const response = await fetch(url, { cache: "force-cache" });
+			detail = { url, response: await response.arrayBuffer(), headers: [...response.headers], status: response.status };
+		} catch (error) {
+			detail = { url, error: error && error.toString() };
+		}
+		dispatchEvent(new CustomEvent(FETCH_RESPONSE_EVENT, { detail }));
 	});
 
 	if (globalThis.FontFace) {
