@@ -299,10 +299,10 @@
 
 	addEventListener(FETCH_REQUEST_EVENT, async event => {
 		dispatchEvent(new CustomEvent(FETCH_ACK_EVENT));
-		const url = event.detail;
+		const { url, options } = JSON.parse(event.detail);
 		let detail;
 		try {
-			const response = await fetch(url, { cache: "force-cache" });
+			const response = await fetch(url, options);
 			detail = { url, response: await response.arrayBuffer(), headers: [...response.headers], status: response.status };
 		} catch (error) {
 			detail = { url, error: error && error.toString() };
