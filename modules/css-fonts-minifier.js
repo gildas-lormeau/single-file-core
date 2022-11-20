@@ -84,7 +84,7 @@ function process(doc, stylesheets, styles, options) {
 		}));
 		fontsInfo.used = fontsInfo.used.map(fontNames => helper.flatten(fontNames));
 	}
-	const variableFound = fontsInfo.used.find(fontNames => fontNames.find(fontName => fontName.startsWith("var(--")));
+	const variableFound = fontsInfo.used.find(fontNames => fontNames.find(fontName => fontName.match(/^var\(--/)));
 	let unusedFonts, filteredUsedFonts;
 	if (variableFound) {
 		unusedFonts = [];
