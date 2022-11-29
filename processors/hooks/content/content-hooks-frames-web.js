@@ -117,31 +117,27 @@
 				return function () {
 					const image = new Image(...arguments);
 					const result = new Image(...arguments);
-					result.__defineSetter__("src", function (value) {
+					result.__defineSetter__("src", value => {
 						image.src = value;
 						dispatchEvent(new CustomEvent(LOAD_IMAGE_EVENT, { detail: image.src }));
 					});
-					result.__defineGetter__("src", function () {
-						return image.src;
-					});
-					result.__defineSetter__("srcset", function (value) {
+					result.__defineGetter__("src", () => image.src);
+					result.__defineSetter__("srcset", value => {
 						dispatchEvent(new CustomEvent(LOAD_IMAGE_EVENT));
 						image.srcset = value;
 					});
-					result.__defineGetter__("srcset", function () {
-						return image.srcset;
-					});
+					result.__defineGetter__("srcset", () => image.srcset);
 					result.__defineGetter__("height", () => image.height);
 					result.__defineGetter__("width", () => image.width);
 					result.__defineGetter__("naturalHeight", () => image.naturalHeight);
 					result.__defineGetter__("naturalWidth", () => image.naturalWidth);
+					if (image.decode) {
+						result.__defineGetter__("decode", () => () => image.decode());
+					}
 					image.onload = image.onloadend = image.onerror = event => {
 						dispatchEvent(new CustomEvent(IMAGE_LOADED_EVENT, { detail: image.src }));
 						result.dispatchEvent(new Event(event.type, event));
 					};
-					if (image.decode) {
-						result.decode = () => image.decode();
-					}
 					return result;
 				};
 			});
