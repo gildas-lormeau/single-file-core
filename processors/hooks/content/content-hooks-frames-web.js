@@ -64,6 +64,7 @@
 	const screen = globalThis.screen;
 	const Element = globalThis.Element;
 	const UIEvent = globalThis.UIEvent;
+	const Event = globalThis.Event;
 	const FileReader = globalThis.FileReader;
 	const Blob = globalThis.Blob;
 	const console = globalThis.console;
@@ -136,7 +137,7 @@
 					result.__defineGetter__("naturalWidth", () => image.naturalWidth);
 					image.onload = image.onloadend = image.onerror = event => {
 						dispatchEvent(new CustomEvent(IMAGE_LOADED_EVENT, { detail: image.src }));
-						result.dispatchEvent(new UIEvent(event.type, event));
+						result.dispatchEvent(new Event(event.type, event));
 					};
 					if (image.decode) {
 						result.decode = () => image.decode();
