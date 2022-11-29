@@ -132,6 +132,10 @@
 					});
 					image.onload = image.onloadend = image.onerror = event => {
 						dispatchEvent(new CustomEvent(IMAGE_LOADED_EVENT, { detail: image.src }));
+						result.__defineGetter__("height", () => image.height);
+						result.__defineGetter__("width", () => image.width);
+						result.__defineGetter__("naturalHeight", () => image.naturalHeight);
+						result.__defineGetter__("naturalWidth", () => image.naturalWidth);
 						result.dispatchEvent(new UIEvent(event.type, event));
 					};
 					if (image.decode) {
