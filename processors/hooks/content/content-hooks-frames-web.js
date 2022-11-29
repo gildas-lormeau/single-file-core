@@ -132,7 +132,10 @@
 					});
 					image.onload = image.onloadend = image.onerror = event => {
 						dispatchEvent(new CustomEvent(IMAGE_LOADED_EVENT, { detail: image.src }));
-						result.dispatchEvent(new UIEvent(event.type, event));
+						event.__defineGetter__("currentTarget", () => result);
+						event.__defineGetter__("target", () => result);
+						event.__defineGetter__("srcElement", () => result);
+						result.dispatchEvent(event);
 					};
 					if (image.decode) {
 						result.decode = () => image.decode();
