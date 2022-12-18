@@ -71,7 +71,7 @@ async function process(options) {
 		timeouts.clear();
 		const maxScrollY = Math.max(document.documentElement.scrollHeight - (document.documentElement.clientHeight * 1.5), 0);
 		const maxScrollX = Math.max(document.documentElement.scrollWidth - (document.documentElement.clientWidth * 1.5), 0);
-		if (globalThis.scrollY <= maxScrollY && globalThis.scrollX <= maxScrollX) {
+		if (globalThis.scrollY < maxScrollY && globalThis.scrollX < maxScrollX) {
 			return triggerLazyLoading(options);
 		}
 	}
