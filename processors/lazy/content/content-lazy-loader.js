@@ -69,8 +69,8 @@ export {
 async function process(options) {
 	if (document.documentElement) {
 		timeouts.clear();
-		const bodyHeight = (document.body && document.body.clientHeight) || document.documentElement.clientHeight;
-		const bodyWidth = (document.body && document.body.clientWidth) || document.documentElement.clientWidth;
+		const bodyHeight = (document.body && document.body.scrollHeight) || document.documentElement.scrollHeight;
+		const bodyWidth = (document.body && document.body.scrollWidth) || document.documentElement.scrollWidth;
 		if (bodyHeight > globalThis.innerHeight || bodyWidth > globalThis.innerWidth) {
 			const maxScrollY =  Math.max(bodyHeight - (globalThis.innerHeight * 1.5), 0);
 			const maxScrollX =  Math.max(bodyWidth - (globalThis.innerWidth * 1.5), 0);
