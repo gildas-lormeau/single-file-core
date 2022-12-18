@@ -142,10 +142,10 @@
 		let singleFileComment = result && result.singleNodeValue;
 		if (singleFileComment && isSingleFileComment(singleFileComment)) {
 			const info = singleFileComment.textContent.split("\n");
-			const [, , urlData, saveDate, ...infoData] = info;
+			const [, , urlData, ...optionalData] = info;
 			const urlMatch = urlData.match(/^ url: (.*) $/);
 			const url = urlMatch && urlMatch[1];
-			if (url && saveDate) {
+			if (url) {
 				let options;
 				if (browser && browser.runtime && browser.runtime.sendMessage) {
 					try {
@@ -157,7 +157,7 @@
 					options = { displayInfobar: true };
 				}
 				if (options.displayInfobar) {
-					await initInfobar(url, saveDate, infoData);
+					await initInfobar(url, optionalData);
 				}
 			}
 		}
@@ -167,19 +167,26 @@
 		return node.nodeType == Node.COMMENT_NODE && node.textContent.includes(SINGLEFILE_COMMENT);
 	}
 
-	async function initInfobar(url, saveDate, infoData) {
+	async function initInfobar(url, optionalData /* saveDate, infoData */) {
 		let infobarElement = document.querySelector(INFOBAR_TAGNAME);
 		if (!infobarElement) {
-			saveDate = saveDate.split("saved date: ")[1];
-			if (infoData && infoData.length > 1) {
-				let content = infoData[0].split("info: ")[1].trim();
-				for (let indexLine = 1; indexLine < infoData.length - 1; indexLine++) {
-					content += "\n" + infoData[indexLine].trim();
+			let infoData = "";
+			if (optionalData.length) {
+				const saveDate = optionalData[0].split("saved date: ")[1];
+				if (saveDate) {
+					optionalData.shift();
 				}
-				infoData = content.trim();
-			} else {
-				infoData = saveDate;
+				if (optionalData.length > 1) {
+					let content = optionalData[0].split("info: ")[1].trim();
+					for (let indexLine = 1; indexLine < optionalData.length - 1; indexLine++) {
+						content += "\n" + optionalData[indexLine].trim();
+					}
+					infoData = content.trim();
+				} else {
+					infoData = saveDate;
+				}
 			}
+			infoData = infoData || "No info";
 			infobarElement = createElement(INFOBAR_TAGNAME, document.body);
 			infobarElement.className = SINGLE_FILE_UI_ELEMENT_CLASS;
 			const shadowRoot = await getShadowRoot(infobarElement);
