@@ -72,13 +72,12 @@ async function process(options) {
 		const bodyHeight = (document.body && document.body.scrollHeight) || document.documentElement.scrollHeight;
 		const bodyWidth = (document.body && document.body.scrollWidth) || document.documentElement.scrollWidth;
 		if (bodyHeight > globalThis.innerHeight || bodyWidth > globalThis.innerWidth) {
-			const maxScrollY =  Math.max(bodyHeight - (globalThis.innerHeight * 1.5), 0);
-			const maxScrollX =  Math.max(bodyWidth - (globalThis.innerWidth * 1.5), 0);
-			if (globalThis.scrollY < maxScrollY ||  globalThis.scrollX < maxScrollX) {
+			const maxScrollY = Math.max(bodyHeight - (globalThis.innerHeight * 1.5), 0);
+			const maxScrollX = Math.max(bodyWidth - (globalThis.innerWidth * 1.5), 0);
+			if (globalThis.scrollY < maxScrollY || globalThis.scrollX < maxScrollX) {
 				return triggerLazyLoading(options);
 			}
 		}
-		
 	}
 }
 
