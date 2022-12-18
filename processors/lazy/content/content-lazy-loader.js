@@ -69,11 +69,16 @@ export {
 async function process(options) {
 	if (document.documentElement) {
 		timeouts.clear();
-		const maxScrollY = Math.max(document.documentElement.scrollHeight - (document.documentElement.clientHeight * 1.5), 0);
-		const maxScrollX = Math.max(document.documentElement.scrollWidth - (document.documentElement.clientWidth * 1.5), 0);
-		if (globalThis.scrollY < maxScrollY || globalThis.scrollX < maxScrollX) {
-			return triggerLazyLoading(options);
+		const bodyHeight = (document.body && document.body.clientHeight) || document.documentElement.clientHeight;
+		const bodyWidth = (document.body && document.body.clientWidth) || document.documentElement.clientWidth;
+		if (bodyHeight > globalThis.innerHeight || bodyWidth > globalThis.innerWidth) {
+			const maxScrollY =  Math.max(bodyHeight - (globalThis.innerHeight * 1.5), 0);
+			const maxScrollX =  Math.max(bodyWidth - (globalThis.innerWidth * 1.5), 0);
+			if (globalThis.scrollY < maxScrollY ||  globalThis.scrollX < maxScrollX) {
+				return triggerLazyLoading(options);
+			}
 		}
+		
 	}
 }
 
