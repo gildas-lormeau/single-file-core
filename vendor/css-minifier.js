@@ -367,7 +367,9 @@ function collectComments(content, comments) {
  */
 
 // const REGEXP_EMPTY_RULES = /[^};{/]+\{\}/g;
-const REGEXP_PRESERVE_STRING = /"([^\\"]|\\.|\\)*"/g;
+const REGEXP_PRESERVE_STRING1 = /"([^\\"])*"/g;
+const REGEXP_PRESERVE_STRING1_BIS = /"(\\.)*"/g;
+const REGEXP_PRESERVE_STRING1_TER = /"(\\)*"/g;
 const REGEXP_PRESERVE_STRING2 = /'([^\\']|\\.|\\)*'/g;
 const REGEXP_MINIFY_ALPHA = /progid:DXImageTransform.Microsoft.Alpha\(Opacity=/gi;
 const REGEXP_PRESERVE_TOKEN1 = /\r\n/g;
@@ -444,7 +446,9 @@ function processString(content = "", options = defaultOptions) {
 	content = collectComments(content, comments);
 
 	// preserve strings so their content doesn't get accidentally minified
-	preserveString(REGEXP_PRESERVE_STRING);
+	preserveString(REGEXP_PRESERVE_STRING1);
+	preserveString(REGEXP_PRESERVE_STRING1_BIS);
+	preserveString(REGEXP_PRESERVE_STRING1_TER);
 	preserveString(REGEXP_PRESERVE_STRING2);
 
 	function preserveString(pattern) {
@@ -562,8 +566,12 @@ function processString(content = "", options = defaultOptions) {
 	// remove the spaces before the things that should not have spaces before them.
 	// but, be careful not to turn 'p :link {...}' into 'p:link{...}'
 	// swap out any pseudo-class colons with the token, and then swap back.
-	pattern = REGEXP_REMOVE_SPACES;
-	content = content.replace(pattern, token => token.replace(REGEXP_COLUMN, "___PSEUDOCLASSCOLON___"));
+	try {
+		pattern = REGEXP_REMOVE_SPACES;
+		content = content.replace(pattern, token => token.replace(REGEXP_COLUMN, "___PSEUDOCLASSCOLON___"));
+	} catch (_error) {
+		// ignored
+	}
 
 	// remove spaces before the things that should not have spaces before them.
 	content = content.replace(REGEXP_REMOVE_SPACES2, "$1");
