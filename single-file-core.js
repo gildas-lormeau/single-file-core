@@ -887,10 +887,10 @@ class Processor {
 
 	insertFonts() {
 		if (this.options.fonts && this.options.fonts.length) {
-			let stylesheetContent = "";
+			let firstStylesheet = this.doc.querySelector("style, link[rel=stylesheet]"), previousStyleElement;
 			this.options.fonts.forEach(fontData => {
 				if (fontData["font-family"] && fontData.src) {
-					stylesheetContent += "@font-face{";
+					let stylesheetContent = "@font-face{";
 					let stylesContent = "";
 					Object.keys(fontData).forEach(fontStyle => {
 						if (stylesContent) {
@@ -899,18 +899,18 @@ class Processor {
 						stylesContent += fontStyle + ":" + fontData[fontStyle];
 					});
 					stylesheetContent += stylesContent + "}";
+					const styleElement = this.doc.createElement("style");
+					styleElement.textContent = stylesheetContent;
+					if (previousStyleElement) {
+						previousStyleElement.insertAdjacentElement("afterend", styleElement);
+					} else if (firstStylesheet) {
+						firstStylesheet.parentElement.insertBefore(styleElement, firstStylesheet);
+					} else {
+						this.doc.head.appendChild(styleElement);
+					}
+					previousStyleElement = styleElement;
 				}
 			});
-			if (stylesheetContent) {
-				const styleElement = this.doc.createElement("style");
-				styleElement.textContent = stylesheetContent;
-				const existingStyleElement = this.doc.querySelector("style");
-				if (existingStyleElement) {
-					existingStyleElement.parentElement.insertBefore(styleElement, existingStyleElement);
-				} else {
-					this.doc.head.insertBefore(styleElement, this.doc.head.firstChild);
-				}
-			}
 		}
 	}
 
