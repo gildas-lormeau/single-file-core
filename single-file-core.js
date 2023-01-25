@@ -764,7 +764,7 @@ class Processor {
 			placeholderElement.replaceWith(noscriptElement);
 		});
 		this.doc.querySelectorAll("meta[http-equiv=\"content-security-policy\"]").forEach(element => element.remove());
-		const objectElements = this.doc.querySelectorAll("applet, object[data]:not([type=\"image/svg+xml\"]):not([type=\"image/svg-xml\"]):not([type=\"text/html\"]), embed[src]:not([src*=\".svg\"]):not([src*=\".pdf\"])");
+		const objectElements = this.doc.querySelectorAll("applet, object[data]:not([type=\"image/svg+xml\"]):not([type=\"image/svg-xml\"]):not([type=\"text/html\"]):not([data*=\".svg\"]):not([data*=\".pdf\"]), embed[src]:not([src*=\".svg\"]):not([src*=\".pdf\"])");
 		this.stats.set("discarded", "objects", objectElements.length);
 		this.stats.set("processed", "objects", objectElements.length);
 		objectElements.forEach(element => element.remove());
@@ -1222,7 +1222,7 @@ class Processor {
 	async processPageResources() {
 		const processAttributeArgs = [
 			["link[href][rel*=\"icon\"]", "href", false, true],
-			["object[type=\"image/svg+xml\"], object[type=\"image/svg-xml\"]", "data"],
+			["object[type=\"image/svg+xml\"], object[type=\"image/svg-xml\"], object[data*=\".svg\"], object[data*=\".pdf\"]", "data"],
 			["img[src], input[src][type=image]", "src", true],
 			["embed[src*=\".svg\"], embed[src*=\".pdf\"]", "src"],
 			["video[poster]", "poster"],
