@@ -791,14 +791,16 @@ class Processor {
 	replaceInvalidElements() {
 		this.doc.querySelectorAll("template[" + util.INVALID_ELEMENT_ATTRIBUTE_NAME + "]").forEach(templateElement => {
 			const placeHolderElement = this.doc.createElement("span");
-			const originalElement = templateElement.content.firstChild;
-			if (originalElement) {
-				if (originalElement.hasAttributes()) {
-					Array.from(originalElement.attributes).forEach(attribute => placeHolderElement.setAttribute(attribute.name, attribute.value));
+			if (templateElement.content) {
+				const originalElement = templateElement.content.firstChild;
+				if (originalElement) {
+					if (originalElement.hasAttributes()) {
+						Array.from(originalElement.attributes).forEach(attribute => placeHolderElement.setAttribute(attribute.name, attribute.value));
+					}
+					originalElement.childNodes.forEach(childNode => placeHolderElement.appendChild(childNode.cloneNode(true)));
 				}
-				originalElement.childNodes.forEach(childNode => placeHolderElement.appendChild(childNode.cloneNode(true)));
+				templateElement.replaceWith(placeHolderElement);
 			}
-			templateElement.replaceWith(placeHolderElement);
 		});
 	}
 
