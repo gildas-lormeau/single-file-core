@@ -664,7 +664,7 @@ class Processor {
 
 	insertVideoPosters() {
 		if (this.options.posters) {
-			this.doc.querySelectorAll("video[src], video > source[src]").forEach(element => {
+			this.doc.querySelectorAll("video, video > source").forEach(element => {
 				let videoElement;
 				if (element.tagName == "VIDEO") {
 					videoElement = element;
@@ -969,7 +969,9 @@ class Processor {
 	}
 
 	async insertMissingVideoPosters() {
+		debugger;
 		await Promise.all(Array.from(this.doc.querySelectorAll("video[src], video > source[src]")).map(async element => {
+			debugger;
 			let videoElement;
 			if (element.tagName == "VIDEO") {
 				videoElement = element;
