@@ -969,9 +969,7 @@ class Processor {
 	}
 
 	async insertMissingVideoPosters() {
-		debugger;
 		await Promise.all(Array.from(this.doc.querySelectorAll("video[src], video > source[src]")).map(async element => {
-			debugger;
 			let videoElement;
 			if (element.tagName == "VIDEO") {
 				videoElement = element;
