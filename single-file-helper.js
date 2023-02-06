@@ -300,7 +300,7 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 			});
 			element.setAttribute(VIDEO_ATTRIBUTE_NAME, data.videos.length - 1);
 		}
-		if (!element.poster) {
+		if (!element.getAttribute("poster")) {
 			const canvasElement = doc.createElement("canvas");
 			const context = canvasElement.getContext("2d");
 			canvasElement.width = element.clientWidth;

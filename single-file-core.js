@@ -674,7 +674,7 @@ class Processor {
 				const attributeValue = element.getAttribute(util.POSTER_ATTRIBUTE_NAME);
 				if (attributeValue) {
 					const posterURL = this.options.posters[Number(attributeValue)];
-					if (!videoElement.poster && posterURL) {
+					if (!videoElement.getAttribute("poster") && posterURL) {
 						videoElement.setAttribute("poster", posterURL);
 					}
 				}
