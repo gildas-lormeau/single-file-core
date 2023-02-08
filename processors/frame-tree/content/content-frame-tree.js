@@ -63,6 +63,7 @@ const addEventListener = (type, listener, options) => globalThis.addEventListene
 const top = globalThis.top;
 const MessageChannel = globalThis.MessageChannel;
 const document = globalThis.document;
+const JSON = globalThis.JSON;
 
 let sessions = globalThis.sessions;
 if (!sessions) {

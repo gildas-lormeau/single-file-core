@@ -27,6 +27,7 @@ const DEBUG = false;
 
 const Set = globalThis.Set;
 const Map = globalThis.Map;
+const JSON = globalThis.JSON;
 
 let util, cssTree;
 

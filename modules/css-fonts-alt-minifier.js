@@ -35,6 +35,7 @@ const helper = {
 };
 
 const FontFace = globalThis.FontFace;
+const JSON = globalThis.JSON;
 
 const REGEXP_URL_SIMPLE_QUOTES_FN = /url\s*\(\s*'(.*?)'\s*\)/i;
 const REGEXP_URL_DOUBLE_QUOTES_FN = /url\s*\(\s*"(.*?)"\s*\)/i;

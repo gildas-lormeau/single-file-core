@@ -46,6 +46,7 @@ const dispatchEvent = event => { try { globalThis.dispatchEvent(event); } catch 
 const CustomEvent = globalThis.CustomEvent;
 const document = globalThis.document;
 const Document = globalThis.Document;
+const JSON = globalThis.JSON;
 
 let fontFaces;
 if (window._singleFile_fontFaces) {

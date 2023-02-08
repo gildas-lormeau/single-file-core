@@ -64,6 +64,7 @@ const SINGLE_FILE_UI_ELEMENT_CLASS = "single-file-ui-element";
 const EMPTY_RESOURCE = "data:,";
 const addEventListener = (type, listener, options) => globalThis.addEventListener(type, listener, options);
 const dispatchEvent = event => { try { globalThis.dispatchEvent(event); } catch (error) {  /* ignored */ } };
+const JSON = globalThis.JSON;
 
 export {
 	initUserScriptHandler,
