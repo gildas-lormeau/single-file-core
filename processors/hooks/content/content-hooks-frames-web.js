@@ -323,7 +323,7 @@
 			getDetailObject(...arguments).then(detail => dispatchEvent(new CustomEvent(NEW_FONT_FACE_EVENT, { detail })));
 			return new FontFace(...arguments);
 		};
-		globalThis.FontFace.toString = function () { return "function FontFace() { [native code] }"; };
+		globalThis.FontFace.prototype = FontFace.prototype;
 		const deleteFont = document.fonts.delete;
 		document.fonts.delete = function (fontFace) {
 			getDetailObject(fontFace.family).then(detail => dispatchEvent(new CustomEvent(DELETE_FONT_EVENT, { detail })));
