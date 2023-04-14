@@ -325,6 +325,7 @@ async function getFetchResponse(resourceURL, options, data, charset, contentType
 				charset = "utf-8";
 				data = new TextDecoder(charset).decode(data);
 			}
+			data = data.replace(/\ufeff/gi, "");
 		}
 	} else {
 		data = options.asBinary ? helper.EMPTY_RESOURCE : "";
