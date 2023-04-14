@@ -1697,25 +1697,27 @@ class ProcessorHelper {
 		urls.map(urlNode => {
 			const originalResourceURL = urlNode.value;
 			let resourceURL = normalizeURL(originalResourceURL);
-			workStylesheet.textContent = "tmp { content:\"" + resourceURL + "\"}";
-			if (workStylesheet.sheet && workStylesheet.sheet.cssRules) {
-				resourceURL = util.removeQuotes(workStylesheet.sheet.cssRules[0].style.getPropertyValue("content"));
-			}
 			if (!testIgnoredPath(resourceURL)) {
-				if (!resourceURL || testValidPath(resourceURL)) {
-					let resolvedURL;
-					if (!originalResourceURL.startsWith("#")) {
-						try {
-							resolvedURL = util.resolveURL(resourceURL, baseURI);
-						} catch (error) {
-							// ignored
+				workStylesheet.textContent = "tmp { content:\"" + resourceURL + "\"}";
+				if (workStylesheet.sheet && workStylesheet.sheet.cssRules) {
+					resourceURL = util.removeQuotes(workStylesheet.sheet.cssRules[0].style.getPropertyValue("content"));
+				}
+				if (!testIgnoredPath(resourceURL)) {
+					if (!resourceURL || testValidPath(resourceURL)) {
+						let resolvedURL;
+						if (!originalResourceURL.startsWith("#")) {
+							try {
+								resolvedURL = util.resolveURL(resourceURL, baseURI);
+							} catch (error) {
+								// ignored
+							}
 						}
+						if (testValidURL(resolvedURL)) {
+							urlNode.value = resolvedURL;
+						}
+					} else {
+						urlNode.value = util.EMPTY_RESOURCE;
 					}
-					if (testValidURL(resolvedURL)) {
-						urlNode.value = resolvedURL;
-					}
-				} else {
-					urlNode.value = util.EMPTY_RESOURCE;
 				}
 			}
 		});
