@@ -517,21 +517,7 @@ class Processor {
 			this.stats.set("processed", "HTML bytes", contentSize);
 			this.stats.add("discarded", "HTML bytes", size - contentSize);
 		}
-		let filename = (await ProcessorHelper.evalTemplate(this.options.filenameTemplate, this.options, content)) || "";
-		const replacementCharacter = this.options.filenameReplacementCharacter;
-		filename = util.getValidFilename(filename, this.options.filenameReplacedCharacters, replacementCharacter);
-		if (!this.options.backgroundSave) {
-			filename = filename.replace(/\//g, replacementCharacter);
-		}
-		if (!this.options.keepFilename && ((this.options.filenameMaxLengthUnit == "bytes" && util.getContentSize(filename) > this.options.filenameMaxLength) || filename.length > this.options.filenameMaxLength)) {
-			const extensionMatch = filename.match(/(\.[^.]{3,4})$/);
-			const extension = extensionMatch && extensionMatch[0] && extensionMatch[0].length > 1 ? extensionMatch[0] : "";
-			filename = this.options.filenameMaxLengthUnit == "bytes" ? await util.truncateText(filename, this.options.filenameMaxLength - extension.length) : filename.substring(0, this.options.filenameMaxLength - extension.length);
-			filename = filename + "…" + extension;
-		}
-		if (!filename) {
-			filename = "Unnamed page";
-		}
+		const filename = await util.formatFilename(content, this.options);
 		const matchTitle = this.baseURI.match(/([^/]*)\/?(\.html?.*)$/) || this.baseURI.match(/\/\/([^/]*)\/?$/);
 		const pageData = {
 			stats: this.stats.data,
@@ -1479,7 +1465,7 @@ class Processor {
 			publisher: publisherElement && publisherElement.content ? publisherElement.content.trim() : "",
 			heading: headingElement && headingElement.textContent ? headingElement.textContent.trim() : ""
 		};
-		this.options.infobarContent = await ProcessorHelper.evalTemplate(this.options.infobarTemplate, this.options, null, true);
+		this.options.infobarContent = await util.evalTemplate(this.options.infobarTemplate, this.options, null, true);
 	}
 }
 
@@ -1493,86 +1479,6 @@ const SINGLE_FILE_VARIABLE_NAME_PREFIX = "--sf-img-";
 const SINGLE_FILE_VARIABLE_MAX_SIZE = 512 * 1024;
 
 class ProcessorHelper {
-	static async evalTemplate(template = "", options, content, dontReplaceSlash) {
-		const url = util.parseURL(options.saveUrl);
-		template = await evalTemplateVariable(template, "page-title", () => options.title || "No title", dontReplaceSlash, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "page-heading", () => options.info.heading || "No heading", dontReplaceSlash, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "page-language", () => options.info.lang || "No language", dontReplaceSlash, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "page-description", () => options.info.description || "No description", dontReplaceSlash, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "page-author", () => options.info.author || "No author", dontReplaceSlash, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "page-creator", () => options.info.creator || "No creator", dontReplaceSlash, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "page-publisher", () => options.info.publisher || "No publisher", dontReplaceSlash, options.filenameReplacementCharacter);
-		await evalDate(options.saveDate);
-		await evalDate(options.visitDate, "visit-");
-		template = await evalTemplateVariable(template, "url-hash", () => url.hash.substring(1) || "No hash", dontReplaceSlash, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "url-host", () => url.host.replace(/\/$/, "") || "No host", dontReplaceSlash, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "url-hostname", () => url.hostname.replace(/\/$/, "") || "No hostname", dontReplaceSlash, options.filenameReplacementCharacter);
-		const urlHref = decode(url.href);
-		template = await evalTemplateVariable(template, "url-href", () => urlHref || "No href", dontReplaceSlash === undefined ? true : dontReplaceSlash, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "url-href-digest-sha-1", urlHref ? async () => util.digest("SHA-1", urlHref) : "No href", dontReplaceSlash, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "url-href-flat", () => decode(url.href) || "No href", false, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "url-referrer", () => decode(options.referrer) || "No referrer", dontReplaceSlash === undefined ? true : dontReplaceSlash, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "url-referrer-flat", () => decode(options.referrer) || "No referrer", false, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "url-password", () => url.password || "No password", dontReplaceSlash, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "url-pathname", () => decode(url.pathname).replace(/^\//, "").replace(/\/$/, "") || "No pathname", dontReplaceSlash === undefined ? true : dontReplaceSlash, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "url-pathname-flat", () => decode(url.pathname) || "No pathname", false, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "url-port", () => url.port || "No port", dontReplaceSlash, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "url-protocol", () => url.protocol || "No protocol", dontReplaceSlash, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "url-search", () => url.search.substring(1) || "No search", dontReplaceSlash, options.filenameReplacementCharacter);
-		const params = util.getSearchParams(url.search);
-		for (const [name, value] of params) {
-			template = await evalTemplateVariable(template, "url-search-" + name, () => value || "", dontReplaceSlash, options.filenameReplacementCharacter);
-		}
-		template = template.replace(/{\s*url-search-[^}\s]*\s*}/gi, "");
-		template = await evalTemplateVariable(template, "url-username", () => url.username || "No username", dontReplaceSlash, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "tab-id", () => String(options.tabId || "No tab id"), dontReplaceSlash, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "tab-index", () => String(options.tabIndex || "No tab index"), dontReplaceSlash, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "url-last-segment", () => decode(getLastSegment(url, options.filenameReplacementCharacter)) || "No last segment", dontReplaceSlash, options.filenameReplacementCharacter);
-		if (content) {
-			template = await evalTemplateVariable(template, "digest-sha-256", async () => util.digest("SHA-256", content), dontReplaceSlash, options.filenameReplacementCharacter);
-			template = await evalTemplateVariable(template, "digest-sha-384", async () => util.digest("SHA-384", content), dontReplaceSlash, options.filenameReplacementCharacter);
-			template = await evalTemplateVariable(template, "digest-sha-512", async () => util.digest("SHA-512", content), dontReplaceSlash, options.filenameReplacementCharacter);
-		}
-		const bookmarkFolder = (options.bookmarkFolders && options.bookmarkFolders.join("/")) || "";
-		template = await evalTemplateVariable(template, "bookmark-pathname", () => bookmarkFolder, dontReplaceSlash === undefined ? true : dontReplaceSlash, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "bookmark-pathname-flat", () => bookmarkFolder, false, options.filenameReplacementCharacter);
-		template = await evalTemplateVariable(template, "profile-name", () => options.profileName, dontReplaceSlash, options.filenameReplacementCharacter);
-		return template.trim();
-
-		function decode(value) {
-			try {
-				return decodeURI(value);
-			} catch (error) {
-				return value;
-			}
-		}
-
-		async function evalDate(date, prefix = "") {
-			if (date) {
-				template = await evalTemplateVariable(template, prefix + "datetime-iso", () => date.toISOString(), dontReplaceSlash, options.filenameReplacementCharacter);
-				template = await evalTemplateVariable(template, prefix + "date-iso", () => date.toISOString().split("T")[0], dontReplaceSlash, options.filenameReplacementCharacter);
-				template = await evalTemplateVariable(template, prefix + "time-iso", () => date.toISOString().split("T")[1].split("Z")[0], dontReplaceSlash, options.filenameReplacementCharacter);
-				template = await evalTemplateVariable(template, prefix + "date-locale", () => date.toLocaleDateString(), dontReplaceSlash, options.filenameReplacementCharacter);
-				template = await evalTemplateVariable(template, prefix + "time-locale", () => date.toLocaleTimeString(), dontReplaceSlash, options.filenameReplacementCharacter);
-				template = await evalTemplateVariable(template, prefix + "day-locale", () => String(date.getDate()).padStart(2, "0"), dontReplaceSlash, options.filenameReplacementCharacter);
-				template = await evalTemplateVariable(template, prefix + "month-locale", () => String(date.getMonth() + 1).padStart(2, "0"), dontReplaceSlash, options.filenameReplacementCharacter);
-				template = await evalTemplateVariable(template, prefix + "year-locale", () => String(date.getFullYear()), dontReplaceSlash, options.filenameReplacementCharacter);
-				template = await evalTemplateVariable(template, prefix + "datetime-locale", () => date.toLocaleString(), dontReplaceSlash, options.filenameReplacementCharacter);
-				template = await evalTemplateVariable(template, prefix + "datetime-utc", () => date.toUTCString(), dontReplaceSlash, options.filenameReplacementCharacter);
-				template = await evalTemplateVariable(template, prefix + "day-utc", () => String(date.getUTCDate()).padStart(2, "0"), dontReplaceSlash, options.filenameReplacementCharacter);
-				template = await evalTemplateVariable(template, prefix + "month-utc", () => String(date.getUTCMonth() + 1).padStart(2, "0"), dontReplaceSlash, options.filenameReplacementCharacter);
-				template = await evalTemplateVariable(template, prefix + "year-utc", () => String(date.getUTCFullYear()), dontReplaceSlash, options.filenameReplacementCharacter);
-				template = await evalTemplateVariable(template, prefix + "hours-locale", () => String(date.getHours()).padStart(2, "0"), dontReplaceSlash, options.filenameReplacementCharacter);
-				template = await evalTemplateVariable(template, prefix + "minutes-locale", () => String(date.getMinutes()).padStart(2, "0"), dontReplaceSlash, options.filenameReplacementCharacter);
-				template = await evalTemplateVariable(template, prefix + "seconds-locale", () => String(date.getSeconds()).padStart(2, "0"), dontReplaceSlash, options.filenameReplacementCharacter);
-				template = await evalTemplateVariable(template, prefix + "hours-utc", () => String(date.getUTCHours()).padStart(2, "0"), dontReplaceSlash, options.filenameReplacementCharacter);
-				template = await evalTemplateVariable(template, prefix + "minutes-utc", () => String(date.getUTCMinutes()).padStart(2, "0"), dontReplaceSlash, options.filenameReplacementCharacter);
-				template = await evalTemplateVariable(template, prefix + "seconds-utc", () => String(date.getUTCSeconds()).padStart(2, "0"), dontReplaceSlash, options.filenameReplacementCharacter);
-				template = await evalTemplateVariable(template, prefix + "time-ms", () => String(date.getTime()), dontReplaceSlash, options.filenameReplacementCharacter);
-			}
-		}
-	}
-
 	static setBackgroundImage(element, url, style) {
 		element.style.setProperty("background-blend-mode", "normal", "important");
 		element.style.setProperty("background-clip", "content-box", "important");
@@ -2100,65 +2006,6 @@ function getOnEventAttributeNames(doc) {
 	}
 	attributeNames.push("onunload");
 	return attributeNames;
-}
-
-async function evalTemplateVariable(template, variableName, valueGetter, dontReplaceSlash, replacementCharacter) {
-	let maxLength, maxCharLength;
-	if (template) {
-		const regExpVariable = "{\\s*" + variableName.replace(/\W|_/g, "[$&]") + "\\s*}";
-		let replaceRegExp = new RegExp(regExpVariable + "\\[\\d+(ch)?\\]", "g");
-		if (template.match(replaceRegExp)) {
-			const matchedLength = template.match(replaceRegExp)[0];
-			if (matchedLength.match(/\[(\d+)\]$/)) {
-				maxLength = Number(matchedLength.match(/\[(\d+)\]$/)[1]);
-				if (isNaN(maxLength) || maxLength <= 0) {
-					maxLength = null;
-				}
-			} else {
-				maxCharLength = Number(matchedLength.match(/\[(\d+)ch\]$/)[1]);
-				if (isNaN(maxCharLength) || maxCharLength <= 0) {
-					maxCharLength = null;
-				}
-			}
-		} else {
-			replaceRegExp = new RegExp(regExpVariable, "g");
-		}
-		if (template.match(replaceRegExp)) {
-			let value = await valueGetter();
-			if (!dontReplaceSlash) {
-				value = value.replace(/\/+/g, replacementCharacter);
-			}
-			if (maxLength) {
-				value = await util.truncateText(value, maxLength);
-			} else if (maxCharLength) {
-				value = value.substring(0, maxCharLength);
-			}
-			return template.replace(replaceRegExp, value);
-		}
-	}
-	return template;
-}
-
-function getLastSegment(url, replacementCharacter) {
-	let lastSegmentMatch = url.pathname.match(/\/([^/]+)$/),
-		lastSegment = lastSegmentMatch && lastSegmentMatch[0];
-	if (!lastSegment) {
-		lastSegmentMatch = url.href.match(/([^/]+)\/?$/);
-		lastSegment = lastSegmentMatch && lastSegmentMatch[0];
-	}
-	if (!lastSegment) {
-		lastSegmentMatch = lastSegment.match(/(.*)\.[^.]+$/);
-		lastSegment = lastSegmentMatch && lastSegmentMatch[0];
-	}
-	if (!lastSegment) {
-		lastSegment = url.hostname.replace(/\/+/g, replacementCharacter).replace(/\/$/, "");
-	}
-	lastSegmentMatch = lastSegment.match(/(.*)\.[^.]+$/);
-	if (lastSegmentMatch && lastSegmentMatch[1]) {
-		lastSegment = lastSegmentMatch[1];
-	}
-	lastSegment = lastSegment.replace(/\/$/, "").replace(/^\//, "");
-	return lastSegment;
 }
 
 function getUrlFunctions(declarationList) {

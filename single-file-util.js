@@ -115,20 +115,11 @@ function getInstance(utilOptions) {
 		getContentSize(content) {
 			return new Blob([content]).size;
 		},
-		truncateText(content, maxSize) {
-			const blob = new Blob([content]);
-			const reader = new FileReader();
-			reader.readAsText(blob.slice(0, maxSize));
-			return new Promise((resolve, reject) => {
-				reader.addEventListener("load", () => {
-					if (content.startsWith(reader.result)) {
-						resolve(reader.result);
-					} else {
-						this.truncateText(content, maxSize - 1).then(resolve).catch(reject);
-					}
-				}, false);
-				reader.addEventListener("error", reject, false);
-			});
+		formatFilename(content, options) {
+			return modules.templateFormatter.formatFilename(content, options, this);
+		},
+		evalTemplate(template, options, content, dontReplaceSlash) {
+			return modules.templateFormatter.evalTemplate(template, options, this, content, dontReplaceSlash);
 		},
 		minifyHTML(doc, options) {
 			return modules.htmlMinifier.process(doc, options);

@@ -29,6 +29,7 @@ import * as cssRulesMinifier from "./css-rules-minifier.js";
 import * as imagesAltMinifier from "./html-images-alt-minifier.js";
 import * as htmlMinifier from "./html-minifier.js";
 import * as serializer from "./html-serializer.js";
+import * as templateFormatter from "./template-formatter.js";
 
 export {
 	fontsAltMinifier,
@@ -38,5 +39,6 @@ export {
 	cssRulesMinifier,
 	imagesAltMinifier,
 	htmlMinifier,
-	serializer
+	serializer,
+	templateFormatter
 };
