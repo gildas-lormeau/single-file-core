@@ -312,11 +312,7 @@
 
 	if (globalThis.FontFace) {
 		const FontFace = globalThis.FontFace;
-		let warningFontFaceDisplayed;
 		globalThis.FontFace = function () {
-			if (!warningFontFaceDisplayed) {
-				warningFontFaceDisplayed = true;
-			}
 			getDetailObject(...arguments).then(detail => dispatchEvent(new CustomEvent(NEW_FONT_FACE_EVENT, { detail })));
 			return new FontFace(...arguments);
 		};
@@ -337,11 +333,7 @@
 
 	if (globalThis.IntersectionObserver) {
 		const IntersectionObserver = globalThis.IntersectionObserver;
-		let warningIntersectionObserverDisplayed;
 		globalThis.IntersectionObserver = function () {
-			if (!warningIntersectionObserverDisplayed) {
-				warningIntersectionObserverDisplayed = true;
-			}
 			const intersectionObserver = new IntersectionObserver(...arguments);
 			const observeIntersection = IntersectionObserver.prototype.observe || intersectionObserver.observe;
 			const unobserveIntersection = IntersectionObserver.prototype.unobserve || intersectionObserver.unobserve;
