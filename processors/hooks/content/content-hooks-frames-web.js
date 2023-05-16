@@ -67,9 +67,7 @@
 	const Event = globalThis.Event;
 	const FileReader = globalThis.FileReader;
 	const Blob = globalThis.Blob;
-	const console = globalThis.console;
 	const JSON = globalThis.JSON;
-	const warn = (console && console.warn && ((...args) => console.warn(...args))) || (() => { });
 
 	const observers = new Map();
 	const observedElements = new Map();
@@ -317,7 +315,6 @@
 		let warningFontFaceDisplayed;
 		globalThis.FontFace = function () {
 			if (!warningFontFaceDisplayed) {
-				warn("SingleFile is hooking the FontFace constructor, document.fonts.delete and document.fonts.clear to handle dynamically loaded fonts.");
 				warningFontFaceDisplayed = true;
 			}
 			getDetailObject(...arguments).then(detail => dispatchEvent(new CustomEvent(NEW_FONT_FACE_EVENT, { detail })));
@@ -343,7 +340,6 @@
 		let warningIntersectionObserverDisplayed;
 		globalThis.IntersectionObserver = function () {
 			if (!warningIntersectionObserverDisplayed) {
-				warn("SingleFile is hooking the IntersectionObserver API to detect and load deferred images.");
 				warningIntersectionObserverDisplayed = true;
 			}
 			const intersectionObserver = new IntersectionObserver(...arguments);
