@@ -183,70 +183,72 @@ function preProcessDoc(doc, win, options) {
 }
 
 function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map(), canvases: [], images: [], posters: [], videos: [], shadowRoots: [], markedElements: [] }, ascendantHidden) {
-	const elements = Array.from(element.childNodes).filter(node => (node instanceof win.HTMLElement) || (node instanceof win.SVGElement));
-	elements.forEach(element => {
-		let elementHidden, elementKept, computedStyle;
-		if (!options.autoSaveExternalSave && (options.removeHiddenElements || options.removeUnusedFonts || options.compressHTML)) {
-			computedStyle = getComputedStyle(win, element);
-			if (element instanceof win.HTMLElement) {
-				if (options.removeHiddenElements) {
-					elementKept = ((ascendantHidden || element.closest("html > head")) && KEPT_TAG_NAMES.includes(element.tagName)) || element.closest("details");
-					if (!elementKept) {
-						elementHidden = ascendantHidden || testHiddenElement(element, computedStyle);
-						if (elementHidden) {
-							element.setAttribute(HIDDEN_CONTENT_ATTRIBUTE_NAME, "");
-							data.markedElements.push(element);
+	if (element.childNodes) {
+		const elements = Array.from(element.childNodes).filter(node => (node instanceof win.HTMLElement) || (node instanceof win.SVGElement));
+		elements.forEach(element => {
+			let elementHidden, elementKept, computedStyle;
+			if (!options.autoSaveExternalSave && (options.removeHiddenElements || options.removeUnusedFonts || options.compressHTML)) {
+				computedStyle = getComputedStyle(win, element);
+				if (element instanceof win.HTMLElement) {
+					if (options.removeHiddenElements) {
+						elementKept = ((ascendantHidden || element.closest("html > head")) && KEPT_TAG_NAMES.includes(element.tagName)) || element.closest("details");
+						if (!elementKept) {
+							elementHidden = ascendantHidden || testHiddenElement(element, computedStyle);
+							if (elementHidden) {
+								element.setAttribute(HIDDEN_CONTENT_ATTRIBUTE_NAME, "");
+								data.markedElements.push(element);
+							}
 						}
 					}
 				}
-			}
-			if (!elementHidden) {
-				if (options.compressHTML && computedStyle) {
-					const whiteSpace = computedStyle.getPropertyValue("white-space");
-					if (whiteSpace && whiteSpace.startsWith("pre")) {
-						element.setAttribute(PRESERVED_SPACE_ELEMENT_ATTRIBUTE_NAME, "");
-						data.markedElements.push(element);
+				if (!elementHidden) {
+					if (options.compressHTML && computedStyle) {
+						const whiteSpace = computedStyle.getPropertyValue("white-space");
+						if (whiteSpace && whiteSpace.startsWith("pre")) {
+							element.setAttribute(PRESERVED_SPACE_ELEMENT_ATTRIBUTE_NAME, "");
+							data.markedElements.push(element);
+						}
+					}
+					if (options.removeUnusedFonts) {
+						getUsedFont(computedStyle, options, data.usedFonts);
+						getUsedFont(getComputedStyle(win, element, ":first-letter"), options, data.usedFonts);
+						getUsedFont(getComputedStyle(win, element, ":before"), options, data.usedFonts);
+						getUsedFont(getComputedStyle(win, element, ":after"), options, data.usedFonts);
 					}
 				}
-				if (options.removeUnusedFonts) {
-					getUsedFont(computedStyle, options, data.usedFonts);
-					getUsedFont(getComputedStyle(win, element, ":first-letter"), options, data.usedFonts);
-					getUsedFont(getComputedStyle(win, element, ":before"), options, data.usedFonts);
-					getUsedFont(getComputedStyle(win, element, ":after"), options, data.usedFonts);
-				}
 			}
-		}
-		getResourcesInfo(win, doc, element, options, data, elementHidden, computedStyle);
-		const shadowRoot = !(element instanceof win.SVGElement) && getShadowRoot(element);
-		if (shadowRoot && !element.classList.contains(SINGLE_FILE_UI_ELEMENT_CLASS)) {
-			const shadowRootInfo = {};
-			element.setAttribute(SHADOW_ROOT_ATTRIBUTE_NAME, data.shadowRoots.length);
-			data.markedElements.push(element);
-			data.shadowRoots.push(shadowRootInfo);
-			getElementsInfo(win, doc, shadowRoot, options, data, elementHidden);
-			shadowRootInfo.content = shadowRoot.innerHTML;
-			shadowRootInfo.mode = shadowRoot.mode;
-			try {
-				if (shadowRoot.adoptedStyleSheets && shadowRoot.adoptedStyleSheets.length) {
-					shadowRootInfo.adoptedStyleSheets = Array.from(shadowRoot.adoptedStyleSheets).map(stylesheet => Array.from(stylesheet.cssRules).map(cssRule => cssRule.cssText).join("\n"));
-				}
-			} catch (error) {
-				// ignored
-			}
-		}
-		getElementsInfo(win, doc, element, options, data, elementHidden);
-		if (!options.autoSaveExternalSave && options.removeHiddenElements && ascendantHidden) {
-			if (elementKept || element.getAttribute(KEPT_CONTENT_ATTRIBUTE_NAME) == "") {
-				if (element.parentElement) {
-					element.parentElement.setAttribute(KEPT_CONTENT_ATTRIBUTE_NAME, "");
-					data.markedElements.push(element.parentElement);
-				}
-			} else if (elementHidden) {
-				element.setAttribute(REMOVED_CONTENT_ATTRIBUTE_NAME, "");
+			getResourcesInfo(win, doc, element, options, data, elementHidden, computedStyle);
+			const shadowRoot = !(element instanceof win.SVGElement) && getShadowRoot(element);
+			if (shadowRoot && !element.classList.contains(SINGLE_FILE_UI_ELEMENT_CLASS)) {
+				const shadowRootInfo = {};
+				element.setAttribute(SHADOW_ROOT_ATTRIBUTE_NAME, data.shadowRoots.length);
 				data.markedElements.push(element);
+				data.shadowRoots.push(shadowRootInfo);
+				getElementsInfo(win, doc, shadowRoot, options, data, elementHidden);
+				shadowRootInfo.content = shadowRoot.innerHTML;
+				shadowRootInfo.mode = shadowRoot.mode;
+				try {
+					if (shadowRoot.adoptedStyleSheets && shadowRoot.adoptedStyleSheets.length) {
+						shadowRootInfo.adoptedStyleSheets = Array.from(shadowRoot.adoptedStyleSheets).map(stylesheet => Array.from(stylesheet.cssRules).map(cssRule => cssRule.cssText).join("\n"));
+					}
+				} catch (error) {
+					// ignored
+				}
 			}
-		}
-	});
+			getElementsInfo(win, doc, element, options, data, elementHidden);
+			if (!options.autoSaveExternalSave && options.removeHiddenElements && ascendantHidden) {
+				if (elementKept || element.getAttribute(KEPT_CONTENT_ATTRIBUTE_NAME) == "") {
+					if (element.parentElement) {
+						element.parentElement.setAttribute(KEPT_CONTENT_ATTRIBUTE_NAME, "");
+						data.markedElements.push(element.parentElement);
+					}
+				} else if (elementHidden) {
+					element.setAttribute(REMOVED_CONTENT_ATTRIBUTE_NAME, "");
+					data.markedElements.push(element);
+				}
+			}
+		});
+	}
 	return data;
 }
 
