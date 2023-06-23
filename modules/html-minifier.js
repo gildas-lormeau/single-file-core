@@ -68,7 +68,7 @@ const booleanAttributes = [
 	"visible"
 ];
 
-const noWhitespaceCollapseElements = ["script", "style", "pre", "textarea"];
+const noWhitespaceCollapseElements = ["SCRIPT", "STYLE", "PRE", "TEXTAREA"];
 
 // Source: https://www.w3.org/TR/html4/sgml/dtd.html#events (Generic Attributes)
 const safeToRemoveAttrs = [
@@ -90,10 +90,10 @@ const safeToRemoveAttrs = [
 ];
 
 const redundantAttributes = {
-	"form": {
+	"FORM": {
 		"method": "get"
 	},
-	"script": {
+	"SCRIPT": {
 		"language": "javascript",
 		"type": "text/javascript",
 		// Remove attribute if the function returns false
@@ -103,11 +103,11 @@ const redundantAttributes = {
 			return !node.getAttribute("src");
 		}
 	},
-	"style": {
+	"STYLE": {
 		"media": "all",
 		"type": "text/css"
 	},
-	"link": {
+	"LINK": {
 		"media": "all"
 	}
 };
@@ -128,7 +128,7 @@ const modules = [
 	removeEmptyAttributes,
 	removeRedundantAttributes,
 	compressJSONLD,
-	node => mergeElements(node, "style", (node, previousSibling) => node.parentElement && node.parentElement.tagName == "HEAD" && node.media == previousSibling.media && node.title == previousSibling.title)
+	node => mergeElements(node, "style", (node, previousSibling) => node.parentElement && getTagName(node.parentElement) == "HEAD" && node.media == previousSibling.media && node.title == previousSibling.title)
 ];
 
 export {
@@ -169,7 +169,7 @@ function mergeTextNodes(node) {
 }
 
 function mergeElements(node, tagName, acceptMerge) {
-	if (node.nodeType == Node_ELEMENT_NODE && node.tagName.toLowerCase() == tagName.toLowerCase()) {
+	if (node.nodeType == Node_ELEMENT_NODE && getTagName(node) == tagName.toUpperCase()) {
 		let previousSibling = node.previousSibling;
 		const previousSiblings = [];
 		while (previousSibling && previousSibling.nodeType == Node_TEXT_NODE && !previousSibling.textContent.trim()) {
@@ -203,15 +203,15 @@ function collapseWhitespace(node, options) {
 }
 
 function getWhiteSpace(node) {
-	return node.parentElement && node.parentElement.tagName == "HEAD" ? "\n" : " ";
+	return node.parentElement && getTagName(node.parentElement) == "HEAD" ? "\n" : " ";
 }
 
 function noWhitespaceCollapse(element) {
-	return element && !noWhitespaceCollapseElements.includes(element.tagName.toLowerCase());
+	return element && !noWhitespaceCollapseElements.includes(getTagName(element));
 }
 
 function removeComments(node) {
-	if (node.nodeType == Node_COMMENT_NODE && node.parentElement.tagName != "HTML") {
+	if (node.nodeType == Node_COMMENT_NODE && getTagName(node.parentElement) != "HTML") {
 		return !node.textContent.toLowerCase().trim().startsWith("[if");
 	}
 }
@@ -231,7 +231,7 @@ function removeEmptyAttributes(node) {
 
 function removeRedundantAttributes(node) {
 	if (node.nodeType == Node_ELEMENT_NODE) {
-		const tagRedundantAttributes = redundantAttributes[node.tagName.toLowerCase()];
+		const tagRedundantAttributes = redundantAttributes[getTagName(node)];
 		if (tagRedundantAttributes) {
 			Object.keys(tagRedundantAttributes).forEach(redundantAttributeName => {
 				const tagRedundantAttributeValue = tagRedundantAttributes[redundantAttributeName];
@@ -244,7 +244,7 @@ function removeRedundantAttributes(node) {
 }
 
 function compressJSONLD(node) {
-	if (node.nodeType == Node_ELEMENT_NODE && node.tagName == "SCRIPT" && node.type == "application/ld+json" && node.textContent.trim()) {
+	if (node.nodeType == Node_ELEMENT_NODE && getTagName(node) == "SCRIPT" && node.type == "application/ld+json" && node.textContent.trim()) {
 		try {
 			node.textContent = JSON.stringify(JSON.parse(node.textContent));
 		} catch (error) {
@@ -259,4 +259,8 @@ function removeEmptyInlineElements(doc) {
 			element.remove();
 		}
 	});
+}
+
+function getTagName(element) {
+	return  element.tagName && element.tagName.toUpperCase();
 }

@@ -629,8 +629,8 @@ class Processor {
 
 		function canHideNode(node) {
 			if (node.nodeType == 1) {
-				const tagName = node.tagName && node.tagName.toLowerCase();
-				return tagName != "svg" && tagName != "style" && tagName != "link";
+				const tagName = node.tagName && node.tagName.toUpperCase();
+				return tagName != "SVG" && tagName != "STYLE" && tagName != "LINK";
 			}
 		}
 	}
@@ -639,7 +639,7 @@ class Processor {
 		if (this.options.posters) {
 			this.doc.querySelectorAll("video, video > source").forEach(element => {
 				let videoElement;
-				if (element.tagName == "VIDEO") {
+				if (element.tagName.toUpperCase() == "VIDEO") {
 					videoElement = element;
 				} else {
 					videoElement = element.parentElement;
@@ -919,7 +919,7 @@ class Processor {
 	resolveHrefs() {
 		this.doc.querySelectorAll("a[href], area[href], link[href]").forEach(element => {
 			const href = element.getAttribute("href").trim();
-			if (element.tagName == "LINK" && element.rel.includes("stylesheet")) {
+			if (element.tagName.toUpperCase() == "LINK" && element.rel.includes("stylesheet")) {
 				if (this.options.saveOriginalURLs && !isDataURL(href)) {
 					element.setAttribute("data-sf-original-href", href);
 				}
@@ -950,7 +950,7 @@ class Processor {
 		await Promise.all(
 			Array.from(this.doc.querySelectorAll("video[src], video > source[src]")).map(async element => {
 				let videoElement;
-				if (element.tagName == "VIDEO") {
+				if (element.tagName.toUpperCase() == "VIDEO") {
 					videoElement = element;
 				} else {
 					videoElement = element.parentElement;
@@ -1022,7 +1022,7 @@ class Processor {
 					mediaText,
 					scoped
 				};
-				if (element.tagName == "LINK" && element.charset) {
+				if (element.tagName.toUpperCase() == "LINK" && element.charset) {
 					options.charset = element.charset;
 				}
 				await processElement(element, stylesheetInfo, this.stylesheets, this.baseURI, options, this.workStyleElement);
@@ -1050,7 +1050,7 @@ class Processor {
 			let stylesheet;
 			stylesheets.set(element, stylesheetInfo);
 			if (!options.blockStylesheets) {
-				if (element.tagName == "LINK") {
+				if (element.tagName.toUpperCase() == "LINK") {
 					stylesheet = await ProcessorHelper.resolveLinkStylesheetURLs(element.href, baseURI, options, workStyleElement);
 				} else {
 					stylesheet = cssTree.parse(element.textContent, { context: "stylesheet", parseCustomProperty: true });
@@ -1076,7 +1076,7 @@ class Processor {
 			const frameElements = Array.from(this.doc.querySelectorAll("iframe, frame, object[type=\"text/html\"][data]"));
 			await Promise.all(
 				frameElements.map(async frameElement => {
-					if (frameElement.tagName == "OBJECT") {
+					if (frameElement.tagName.toUpperCase() == "OBJECT") {
 						frameElement.setAttribute("data", "data:text/html,");
 					} else {
 						const src = frameElement.getAttribute("src");
@@ -1305,10 +1305,10 @@ class Processor {
 									sandbox += " allow-scripts allow-same-origin";
 								}
 								frameElement.setAttribute("sandbox", sandbox);
-								if (frameElement.tagName == "OBJECT") {
+								if (frameElement.tagName.toUpperCase() == "OBJECT") {
 									frameElement.setAttribute("data", "data:text/html," + pageData.content);
 								} else {
-									if (frameElement.tagName == "FRAME") {
+									if (frameElement.tagName.toUpperCase() == "FRAME") {
 										frameElement.setAttribute("src", "data:text/html," + pageData.content.replace(/%/g, "%25").replace(/#/g, "%23"));
 									} else {
 										frameElement.setAttribute("srcdoc", pageData.content);
@@ -1766,7 +1766,9 @@ class ProcessorHelper {
 									// ignored
 								}
 								if (testValidURL(resourceURL)) {
-									let { content, indexResource, duplicate } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType, groupDuplicates: options.groupDuplicateImages && resourceElement.tagName == "IMG" && attributeName == "src" });
+									let { content, indexResource, duplicate } = await batchRequest.addURL(
+										resourceURL, 
+										{ asBinary: true, expectedType, groupDuplicates: options.groupDuplicateImages && resourceElement.tagName.toUpperCase() == "IMG" && attributeName == "src" });
 									if (originURL) {
 										if (content == util.EMPTY_RESOURCE) {
 											try {

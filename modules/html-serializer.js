@@ -21,7 +21,7 @@
  *   Source.
  */
 
-const SELF_CLOSED_TAG_NAMES = ["area", "base", "br", "col", "command", "embed", "hr", "img", "input", "keygen", "link", "meta", "param", "source", "track", "wbr"];
+const SELF_CLOSED_TAG_NAMES = ["AREA", "BASE", "BR", "COL", "COMMAND", "EMBED", "HR", "IMG", "INPUT", "KEYGEN", "LINK", "META", "PARAM", "SOURCE", "TRACK", "WBR"];
 
 const Node_ELEMENT_NODE = 1;
 const Node_TEXT_NODE = 3;
@@ -29,31 +29,31 @@ const Node_COMMENT_NODE = 8;
 
 // see https://www.w3.org/TR/html5/syntax.html#optional-tags
 const OMITTED_START_TAGS = [
-	{ tagName: "head", accept: element => !element.childNodes.length || element.childNodes[0].nodeType == Node_ELEMENT_NODE },
-	{ tagName: "body", accept: element => !element.childNodes.length }
+	{ tagName: "HEAD", accept: element => !element.childNodes.length || element.childNodes[0].nodeType == Node_ELEMENT_NODE },
+	{ tagName: "BODY", accept: element => !element.childNodes.length }
 ];
 const OMITTED_END_TAGS = [
-	{ tagName: "html", accept: next => !next || next.nodeType != Node_COMMENT_NODE },
-	{ tagName: "head", accept: next => !next || (next.nodeType != Node_COMMENT_NODE && (next.nodeType != Node_TEXT_NODE || !startsWithSpaceChar(next.textContent))) },
-	{ tagName: "body", accept: next => !next || next.nodeType != Node_COMMENT_NODE },
-	{ tagName: "li", accept: (next, element) => (!next && element.parentElement && (element.parentElement.tagName == "UL" || element.parentElement.tagName == "OL")) || (next && ["LI"].includes(next.tagName)) },
-	{ tagName: "dt", accept: next => !next || ["DT", "DD"].includes(next.tagName) },
-	{ tagName: "p", accept: next => next && ["ADDRESS", "ARTICLE", "ASIDE", "BLOCKQUOTE", "DETAILS", "DIV", "DL", "FIELDSET", "FIGCAPTION", "FIGURE", "FOOTER", "FORM", "H1", "H2", "H3", "H4", "H5", "H6", "HEADER", "HR", "MAIN", "NAV", "OL", "P", "PRE", "SECTION", "TABLE", "UL"].includes(next.tagName) },
-	{ tagName: "dd", accept: next => !next || ["DT", "DD"].includes(next.tagName) },
-	{ tagName: "rt", accept: next => !next || ["RT", "RP"].includes(next.tagName) },
-	{ tagName: "rp", accept: next => !next || ["RT", "RP"].includes(next.tagName) },
-	{ tagName: "optgroup", accept: next => !next || ["OPTGROUP"].includes(next.tagName) },
-	{ tagName: "option", accept: next => !next || ["OPTION", "OPTGROUP"].includes(next.tagName) },
-	{ tagName: "colgroup", accept: next => !next || (next.nodeType != Node_COMMENT_NODE && (next.nodeType != Node_TEXT_NODE || !startsWithSpaceChar(next.textContent))) },
-	{ tagName: "caption", accept: next => !next || (next.nodeType != Node_COMMENT_NODE && (next.nodeType != Node_TEXT_NODE || !startsWithSpaceChar(next.textContent))) },
-	{ tagName: "thead", accept: next => !next || ["TBODY", "TFOOT"].includes(next.tagName) },
-	{ tagName: "tbody", accept: next => !next || ["TBODY", "TFOOT"].includes(next.tagName) },
-	{ tagName: "tfoot", accept: next => !next },
-	{ tagName: "tr", accept: next => !next || ["TR"].includes(next.tagName) },
-	{ tagName: "td", accept: next => !next || ["TD", "TH"].includes(next.tagName) },
-	{ tagName: "th", accept: next => !next || ["TD", "TH"].includes(next.tagName) }
+	{ tagName: "HTML", accept: next => !next || next.nodeType != Node_COMMENT_NODE },
+	{ tagName: "HEAD", accept: next => !next || (next.nodeType != Node_COMMENT_NODE && (next.nodeType != Node_TEXT_NODE || !startsWithSpaceChar(next.textContent))) },
+	{ tagName: "BODY", accept: next => !next || next.nodeType != Node_COMMENT_NODE },
+	{ tagName: "LI", accept: (next, element) => (!next && element.parentElement && (getTagName(element.parentElement) == "UL" || getTagName(element.parentElement) == "OL")) || (next && ["LI"].includes(getTagName(next))) },
+	{ tagName: "DT", accept: next => !next || ["DT", "DD"].includes(getTagName(next)) },
+	{ tagName: "P", accept: next => next && ["ADDRESS", "ARTICLE", "ASIDE", "BLOCKQUOTE", "DETAILS", "DIV", "DL", "FIELDSET", "FIGCAPTION", "FIGURE", "FOOTER", "FORM", "H1", "H2", "H3", "H4", "H5", "H6", "HEADER", "HR", "MAIN", "NAV", "OL", "P", "PRE", "SECTION", "TABLE", "UL"].includes(getTagName(next)) },
+	{ tagName: "DD", accept: next => !next || ["DT", "DD"].includes(getTagName(next)) },
+	{ tagName: "RT", accept: next => !next || ["RT", "RP"].includes(getTagName(next)) },
+	{ tagName: "RP", accept: next => !next || ["RT", "RP"].includes(getTagName(next)) },
+	{ tagName: "OPTGROUP", accept: next => !next || ["OPTGROUP"].includes(getTagName(next)) },
+	{ tagName: "OPTION", accept: next => !next || ["OPTION", "OPTGROUP"].includes(getTagName(next)) },
+	{ tagName: "COLGROUP", accept: next => !next || (next.nodeType != Node_COMMENT_NODE && (next.nodeType != Node_TEXT_NODE || !startsWithSpaceChar(next.textContent))) },
+	{ tagName: "CAPTION", accept: next => !next || (next.nodeType != Node_COMMENT_NODE && (next.nodeType != Node_TEXT_NODE || !startsWithSpaceChar(next.textContent))) },
+	{ tagName: "THEAD", accept: next => !next || ["TBODY", "TFOOT"].includes(getTagName(next)) },
+	{ tagName: "TBODY", accept: next => !next || ["TBODY", "TFOOT"].includes(getTagName(next)) },
+	{ tagName: "TFOOT", accept: next => !next },
+	{ tagName: "TR", accept: next => !next || ["TR"].includes(getTagName(next)) },
+	{ tagName: "TD", accept: next => !next || ["TD", "TH"].includes(getTagName(next)) },
+	{ tagName: "TH", accept: next => !next || ["TD", "TH"].includes(getTagName(next)) }
 ];
-const TEXT_NODE_TAGS = ["style", "script", "xmp", "iframe", "noembed", "noframes", "plaintext", "noscript"];
+const TEXT_NODE_TAGS = ["STYLE", "SCRIPT", "XMP", "IFRAME", "NOEMBED", "NOFRAMES", "PLAINTEXT", "NOSCRIPT"];
 
 export {
 	process
@@ -91,10 +91,10 @@ function serializeTextNode(textNode) {
 	const parentNode = textNode.parentNode;
 	let parentTagName;
 	if (parentNode && parentNode.nodeType == Node_ELEMENT_NODE) {
-		parentTagName = parentNode.tagName.toLowerCase();
+		parentTagName = getTagName(parentNode);
 	}
 	if (!parentTagName || TEXT_NODE_TAGS.includes(parentTagName)) {
-		if (parentTagName == "script" || parentTagName == "style") {
+		if (parentTagName == "SCRIPT" || parentTagName == "STYLE") {
 			return textNode.textContent.replace(/<\//gi, "<\\/").replace(/\/>/gi, "\\/>");
 		}
 		return textNode.textContent;
@@ -108,22 +108,22 @@ function serializeCommentNode(commentNode) {
 }
 
 function serializeElement(element, compressHTML, isSVG) {
-	const tagName = element.tagName.toLowerCase();
-	const omittedStartTag = compressHTML && OMITTED_START_TAGS.find(omittedStartTag => tagName == omittedStartTag.tagName && omittedStartTag.accept(element));
+	const tagName = getTagName(element);
+	const omittedStartTag = compressHTML && OMITTED_START_TAGS.find(omittedStartTag => tagName == getTagName(omittedStartTag) && omittedStartTag.accept(element));
 	let content = "";
 	if (!omittedStartTag || element.attributes.length) {
-		content = "<" + tagName;
+		content = "<" + tagName.toLowerCase();
 		Array.from(element.attributes).forEach(attribute => content += serializeAttribute(attribute, element, compressHTML));
 		content += ">";
 	}
-	if (element.tagName == "TEMPLATE" && !element.childNodes.length) {
+	if (tagName == "TEMPLATE" && !element.childNodes.length) {
 		content += element.innerHTML;
 	} else {
 		Array.from(element.childNodes).forEach(childNode => content += serialize(childNode, compressHTML, isSVG || tagName == "svg"));
 	}
-	const omittedEndTag = compressHTML && OMITTED_END_TAGS.find(omittedEndTag => tagName == omittedEndTag.tagName && omittedEndTag.accept(element.nextSibling, element));
+	const omittedEndTag = compressHTML && OMITTED_END_TAGS.find(omittedEndTag => tagName == getTagName(omittedEndTag) && omittedEndTag.accept(element.nextSibling, element));
 	if (isSVG || (!omittedEndTag && !SELF_CLOSED_TAG_NAMES.includes(tagName))) {
-		content += "</" + tagName + ">";
+		content += "</" + tagName.toLowerCase() + ">";
 	}
 	return content;
 }
@@ -177,4 +177,8 @@ function serializeAttribute(attribute, element, compressHTML) {
 
 function startsWithSpaceChar(textContent) {
 	return Boolean(textContent.match(/^[ \t\n\f\r]/));
+}
+
+function getTagName(element) {
+	return  element.tagName && element.tagName.toUpperCase();
 }
