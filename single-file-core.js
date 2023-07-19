@@ -733,7 +733,7 @@ class Processor {
 			noscriptPlaceholders.set(placeholderElement, noscriptElement);
 		});
 		this.doc.querySelectorAll("meta[http-equiv=refresh], meta[disabled-http-equiv]").forEach(element => element.remove());
-		Array.from(noscriptPlaceholders).forEach(([placeholderElement, noscriptElement]) => {
+		noscriptPlaceholders.forEach((noscriptElement, placeholderElement) => {
 			noscriptElement.dataset.singleFileDisabledNoscript = placeholderElement.innerHTML;
 			placeholderElement.replaceWith(noscriptElement);
 		});

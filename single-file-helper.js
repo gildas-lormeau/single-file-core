@@ -438,7 +438,7 @@ function postProcessDoc(doc, markedElements, invalidElements) {
 		element.removeAttribute(STYLE_ATTRIBUTE_NAME);
 	});
 	if (invalidElements) {
-		Array.from(invalidElements.entries()).forEach(([element, placeholderElement]) => placeholderElement.replaceWith(element));
+		invalidElements.forEach((placeholderElement, element) => placeholderElement.replaceWith(element));
 	}
 }
 
