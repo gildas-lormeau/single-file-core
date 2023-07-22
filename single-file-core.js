@@ -1801,8 +1801,8 @@ class ProcessorHelper {
 										let forbiddenPrefixFound = PREFIXES_FORBIDDEN_DATA_URI.filter(prefixDataURI => content.startsWith(prefixDataURI)).length;
 										if (forbiddenPrefixFound) {
 											forbiddenPrefixFound = await new Promise((resolve) => {
-												const image = options.doc.createElement("img");
-												image.src = content;
+												const image = options.doc.createElement(resourceElement.tagName);
+												image.setAttribute(attributeName, content);
 												image.onload = () => resolve();
 												image.onerror = () => resolve(true);
 											});
