@@ -1798,7 +1798,15 @@ class ProcessorHelper {
 									if (removeElementIfMissing && content == util.EMPTY_RESOURCE) {
 										resourceElement.remove();
 									} else if (content !== util.EMPTY_RESOURCE) {
-										const forbiddenPrefixFound = PREFIXES_FORBIDDEN_DATA_URI.filter(prefixDataURI => content.startsWith(prefixDataURI)).length;
+										let forbiddenPrefixFound = PREFIXES_FORBIDDEN_DATA_URI.filter(prefixDataURI => content.startsWith(prefixDataURI)).length;
+										if (forbiddenPrefixFound) {
+											forbiddenPrefixFound = await new Promise((resolve) => {
+												const image = options.doc.createElement("img");
+												image.src = content;
+												image.onload = () => resolve();
+												image.onerror = () => resolve(true);
+											});
+										}
 										if (!forbiddenPrefixFound) {
 											const isSVG = content.startsWith(PREFIX_DATA_URI_IMAGE_SVG);
 											const maxSizeDuplicateImages = options.maxSizeDuplicateImages || SINGLE_FILE_VARIABLE_MAX_SIZE;
