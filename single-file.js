@@ -65,7 +65,7 @@ async function getPageData(options = {}, initOptions, doc = globalThis.document,
 			if (!options.removeFrames && frames && globalThis.frames) {
 				let frameTreePromise;
 				if (options.loadDeferredImages) {
-					frameTreePromise = new Promise(resolve => globalThis.setTimeout(() => resolve(frames.getAsync(options)), options.loadDeferredImagesBeforeFrames ? 0 : options.loadDeferredImagesMaxIdleTime / 2));
+					frameTreePromise = new Promise(resolve => globalThis.setTimeout(() => resolve(frames.getAsync(options)), options.loadDeferredImagesBeforeFrames ? 0 : options.loadDeferredImagesMaxIdleTime * .75));
 				} else {
 					frameTreePromise = frames.getAsync(options);
 				}
