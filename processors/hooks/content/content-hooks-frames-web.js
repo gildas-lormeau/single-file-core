@@ -317,6 +317,7 @@
 			return new FontFace(...arguments);
 		};
 		globalThis.FontFace.prototype = FontFace.prototype;
+		globalThis.FontFace.toString = function () { return "function FontFace() { [native code] }"; };
 		const deleteFont = document.fonts.delete;
 		document.fonts.delete = function (fontFace) {
 			getDetailObject(fontFace.family).then(detail => dispatchEvent(new CustomEvent(DELETE_FONT_EVENT, { detail })));
