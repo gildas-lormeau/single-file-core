@@ -226,6 +226,7 @@ function initResponse(message) {
 				frameData.content = messageFrameData.content;
 				frameData.baseURI = messageFrameData.baseURI;
 				frameData.title = messageFrameData.title;
+				frameData.url = messageFrameData.url;
 				frameData.canvases = messageFrameData.canvases;
 				frameData.fonts = messageFrameData.fonts;
 				frameData.stylesheets = messageFrameData.stylesheets;
@@ -392,6 +393,7 @@ function getFrameData(document, globalThis, windowId, options) {
 		windowId,
 		content,
 		baseURI,
+		url: document.location.href,
 		title: document.title,
 		canvases: docData.canvases,
 		fonts: docData.fonts,
