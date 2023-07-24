@@ -91,52 +91,67 @@ const RESOLVE_URLS_STAGE = 0;
 const REPLACE_DATA_STAGE = 1;
 const REPLACE_DOCS_STAGE = 2;
 const POST_PROCESS_STAGE = 3;
-const STAGES = [
-	{
-		sequential: [
-			{ action: "preProcessPage" },
-			{ option: "loadDeferredImagesKeepZoomLevel", action: "resetZoomLevel" },
-			{ action: "replaceStyleContents" },
-			{ action: "replaceInvalidElements" },
-			{ action: "resetCharsetMeta" },
-			{ option: "saveFavicon", action: "saveFavicon" },
-			{ action: "insertFonts" },
-			{ action: "insertShadowRootContents" },
-			{ action: "replaceCanvasElements" },
-			{ action: "setInputValues" },
-			{ option: "moveStylesInHead", action: "moveStylesInHead" },
-			{ option: "blockScripts", action: "removeEmbedScripts" },
-			{ option: "selected", action: "removeUnselectedElements" },
-			{ option: "blockVideos", action: "insertVideoPosters" },
-			{ option: "blockVideos", action: "insertVideoLinks" },
-			{ option: "removeFrames", action: "removeFrames" },
-			{ action: "removeDiscardedResources" },
-			{ option: "removeHiddenElements", action: "removeHiddenElements" },
-			{ action: "resolveHrefs" },
-			{ action: "resolveStyleAttributeURLs" }
-		],
-		parallel: [{ option: "blockVideos", action: "insertMissingVideoPosters" }, { action: "resolveStylesheetURLs" }, { option: "!removeFrames", action: "resolveFrameURLs" }]
-	},
-	{
-		sequential: [
-			{ option: "removeUnusedStyles", action: "removeUnusedStyles" },
-			{ option: "removeAlternativeMedias", action: "removeAlternativeMedias" },
-			{ option: "removeUnusedFonts", action: "removeUnusedFonts" }
-		],
-		parallel: [{ action: "processStylesheets" }, { action: "processStyleAttributes" }, { action: "processPageResources" }, { action: "processScripts" }]
-	},
-	{
-		sequential: [{ option: "removeAlternativeImages", action: "removeAlternativeImages" }],
-		parallel: [
-			{ option: "removeAlternativeFonts", action: "removeAlternativeFonts" },
-			{ option: "!removeFrames", action: "processFrames" }
-		]
-	},
-	{
-		sequential: [{ action: "replaceStylesheets" }, { action: "replaceStyleAttributes" }, { action: "insertVariables" }, { option: "compressHTML", action: "compressHTML" }, { action: "cleanupPage" }],
-		parallel: [{ option: "enableMaff", action: "insertMAFFMetaData" }, { action: "setDocInfo" }]
-	}
-];
+const STAGES = [{
+	sequential: [
+		{ action: "preProcessPage" },
+		{ option: "loadDeferredImagesKeepZoomLevel", action: "resetZoomLevel" },
+		{ action: "replaceStyleContents" },
+		{ action: "replaceInvalidElements" },
+		{ action: "resetCharsetMeta" },
+		{ option: "saveFavicon", action: "saveFavicon" },
+		{ action: "insertFonts" },
+		{ action: "insertShadowRootContents" },
+		{ action: "replaceCanvasElements" },
+		{ action: "setInputValues" },
+		{ option: "moveStylesInHead", action: "moveStylesInHead" },
+		{ option: "blockScripts", action: "removeEmbedScripts" },
+		{ option: "selected", action: "removeUnselectedElements" },
+		{ option: "blockVideos", action: "insertVideoPosters" },
+		{ option: "blockVideos", action: "insertVideoLinks" },
+		{ option: "removeFrames", action: "removeFrames" },
+		{ action: "removeDiscardedResources" },
+		{ option: "removeHiddenElements", action: "removeHiddenElements" },
+		{ action: "resolveHrefs" },
+		{ action: "resolveStyleAttributeURLs" }
+	],
+	parallel: [
+		{ option: "blockVideos", action: "insertMissingVideoPosters" },
+		{ action: "resolveStylesheetURLs" },
+		{ option: "!removeFrames", action: "resolveFrameURLs" }
+	]
+}, {
+	sequential: [
+		{ option: "removeUnusedStyles", action: "removeUnusedStyles" },
+		{ option: "removeAlternativeMedias", action: "removeAlternativeMedias" },
+		{ option: "removeUnusedFonts", action: "removeUnusedFonts" }
+	],
+	parallel: [
+		{ action: "processStylesheets" },
+		{ action: "processStyleAttributes" },
+		{ action: "processPageResources" },
+		{ action: "processScripts" }
+	]
+}, {
+	sequential: [
+		{ option: "removeAlternativeImages", action: "removeAlternativeImages" }
+	],
+	parallel: [
+		{ option: "removeAlternativeFonts", action: "removeAlternativeFonts" },
+		{ option: "!removeFrames", action: "processFrames" }
+	]
+}, {
+	sequential: [
+		{ action: "replaceStylesheets" },
+		{ action: "replaceStyleAttributes" },
+		{ action: "insertVariables" },
+		{ option: "compressHTML", action: "compressHTML" },
+		{ action: "cleanupPage" }
+	],
+	parallel: [
+		{ option: "enableMaff", action: "insertMAFFMetaData" },
+		{ action: "setDocInfo" }
+	]
+}];
 
 class Runner {
 	constructor(options, root) {
@@ -170,7 +185,7 @@ class Runner {
 			this.options.removeFrames = true;
 		}
 		this.options.content = this.options.content || (rootDocDefined ? util.serialize(this.options.doc) : null);
-		this.onprogress = options.onprogress || (() => {});
+		this.onprogress = options.onprogress || (() => { });
 	}
 
 	async loadPage() {
@@ -259,23 +274,21 @@ class Runner {
 		});
 		let parallelTasksPromise;
 		if (STAGES[step].parallel) {
-			parallelTasksPromise = await Promise.all(
-				STAGES[step].parallel.map(async task => {
-					let startTime;
-					if (DEBUG) {
-						startTime = Date.now();
-						log("  // STARTED task =", task.action);
-					}
-					this.onprogress(new ProgressEvent(STAGE_TASK_STARTED, { pageURL: this.options.url, step, task: task.action, frame }));
-					if (!this.cancelled) {
-						await this.executeTask(task);
-					}
-					this.onprogress(new ProgressEvent(STAGE_TASK_ENDED, { pageURL: this.options.url, step, task: task.action, frame }));
-					if (DEBUG) {
-						log("  // ENDED task =", task.action, "delay =", Date.now() - startTime);
-					}
-				})
-			);
+			parallelTasksPromise = await Promise.all(STAGES[step].parallel.map(async task => {
+				let startTime;
+				if (DEBUG) {
+					startTime = Date.now();
+					log("  // STARTED task =", task.action);
+				}
+				this.onprogress(new ProgressEvent(STAGE_TASK_STARTED, { pageURL: this.options.url, step, task: task.action, frame }));
+				if (!this.cancelled) {
+					await this.executeTask(task);
+				}
+				this.onprogress(new ProgressEvent(STAGE_TASK_ENDED, { pageURL: this.options.url, step, task: task.action, frame }));
+				if (DEBUG) {
+					log("  // ENDED task =", task.action, "delay =", Date.now() - startTime);
+				}
+			}));
 		} else {
 			parallelTasksPromise = Promise.resolve();
 		}
@@ -287,7 +300,7 @@ class Runner {
 	}
 
 	executeTask(task) {
-		if (!task.option || (task.option.startsWith("!") && !this.options[task.option]) || this.options[task.option]) {
+		if (!task.option || ((task.option.startsWith("!") && !this.options[task.option]) || this.options[task.option])) {
 			return this.processor[task.action]();
 		}
 	}
@@ -330,41 +343,39 @@ class BatchRequest {
 	run(onloadListener, options) {
 		const resourceURLs = [...this.requests.keys()];
 		let indexResource = 0;
-		return Promise.all(
-			resourceURLs.map(async requestKey => {
-				const [resourceURL, asBinary, expectedType, baseURI, blockMixedContent] = JSON.parse(requestKey);
-				const resourceRequests = this.requests.get(requestKey);
-				try {
-					const currentIndexResource = indexResource;
-					indexResource = indexResource + 1;
-					const content = await util.getContent(resourceURL, {
-						asBinary,
-						expectedType,
-						maxResourceSize: options.maxResourceSize,
-						maxResourceSizeEnabled: options.maxResourceSizeEnabled,
-						frameId: options.windowId,
-						resourceReferrer: options.resourceReferrer,
-						baseURI,
-						blockMixedContent,
-						acceptHeaders: options.acceptHeaders,
-						networkTimeout: options.networkTimeout
+		return Promise.all(resourceURLs.map(async requestKey => {
+			const [resourceURL, asBinary, expectedType, baseURI, blockMixedContent] = JSON.parse(requestKey);
+			const resourceRequests = this.requests.get(requestKey);
+			try {
+				const currentIndexResource = indexResource;
+				indexResource = indexResource + 1;
+				const content = await util.getContent(resourceURL, {
+					asBinary,
+					expectedType,
+					maxResourceSize: options.maxResourceSize,
+					maxResourceSizeEnabled: options.maxResourceSizeEnabled,
+					frameId: options.windowId,
+					resourceReferrer: options.resourceReferrer,
+					baseURI,
+					blockMixedContent,
+					acceptHeaders: options.acceptHeaders,
+					networkTimeout: options.networkTimeout
+				});
+				onloadListener({ url: resourceURL });
+				if (!this.cancelled) {
+					resourceRequests.forEach(callbacks => {
+						const duplicateCallbacks = this.duplicates.get(requestKey);
+						const duplicate = duplicateCallbacks && duplicateCallbacks.length > 1 && duplicateCallbacks.includes(callbacks);
+						callbacks.resolve({ content: content.data, indexResource: currentIndexResource, duplicate });
 					});
-					onloadListener({ url: resourceURL });
-					if (!this.cancelled) {
-						resourceRequests.forEach(callbacks => {
-							const duplicateCallbacks = this.duplicates.get(requestKey);
-							const duplicate = duplicateCallbacks && duplicateCallbacks.length > 1 && duplicateCallbacks.includes(callbacks);
-							callbacks.resolve({ content: content.data, indexResource: currentIndexResource, duplicate });
-						});
-					}
-				} catch (error) {
-					indexResource = indexResource + 1;
-					onloadListener({ url: resourceURL });
-					resourceRequests.forEach(resourceRequest => resourceRequest.reject(error));
 				}
-				this.requests.delete(requestKey);
-			})
-		);
+			} catch (error) {
+				indexResource = indexResource + 1;
+				onloadListener({ url: resourceURL });
+				resourceRequests.forEach(resourceRequest => resourceRequest.reject(error));
+			}
+			this.requests.delete(requestKey);
+		}));
 	}
 
 	cancel() {
@@ -459,8 +470,7 @@ class Processor {
 		const url = util.parseURL(this.baseURI);
 		if (this.options.insertSingleFileComment) {
 			const firstComment = this.doc.documentElement.firstChild;
-			let infobarURL = this.options.saveUrl,
-				infobarSaveDate = this.options.saveDate;
+			let infobarURL = this.options.saveUrl, infobarSaveDate = this.options.saveDate;
 			if (firstComment.nodeType == 8 && (firstComment.textContent.includes(util.COMMENT_HEADER_LEGACY) || firstComment.textContent.includes(util.COMMENT_HEADER))) {
 				const info = this.doc.documentElement.firstChild.textContent.split("\n");
 				try {
@@ -474,7 +484,10 @@ class Processor {
 			}
 			const infobarContent = (this.options.infobarContent || "").replace(/\\n/g, "\n").replace(/\\t/g, "\t");
 			const commentNode = this.doc.createComment(
-				"\n " + (this.options.useLegacyCommentHeader ? util.COMMENT_HEADER_LEGACY : util.COMMENT_HEADER) + " \n url: " + infobarURL + (this.options.removeSavedDate ? " " : " \n saved date: " + infobarSaveDate) + (infobarContent ? " \n info: " + infobarContent : "") + "\n"
+				"\n " + (this.options.useLegacyCommentHeader ? util.COMMENT_HEADER_LEGACY : util.COMMENT_HEADER) + 
+				" \n url: " + infobarURL + 
+				(this.options.removeSavedDate ? " " : " \n saved date: " + infobarSaveDate) + 
+				(infobarContent ? " \n info: " + infobarContent : "") + "\n"
 			);
 			this.doc.documentElement.insertBefore(commentNode, this.doc.documentElement.firstChild);
 		}
@@ -656,8 +669,7 @@ class Processor {
 	}
 
 	insertVideoLinks() {
-		const LINK_ICON =
-			"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAgMAAADXB5lNAAABhmlDQ1BJQ0MgcHJvZmlsZQAAKJF9kj1Iw0AYht+mSkUrDnYQcchQnSyIijqWKhbBQmkrtOpgcukfNGlIUlwcBdeCgz+LVQcXZ10dXAVB8AfEydFJ0UVK/C4ptIjx4LiH9+59+e67A4RGhalm1wSgapaRisfEbG5VDLyiDwEAvZiVmKkn0osZeI6ve/j4ehfhWd7n/hz9St5kgE8kjjLdsIg3iGc2LZ3zPnGIlSSF+Jx43KACiR+5Lrv8xrnosMAzQ0YmNU8cIhaLHSx3MCsZKvE0cVhRNcoXsi4rnLc4q5Uaa9XJbxjMaytprtMcQRxLSCAJETJqKKMCCxFaNVJMpGg/5uEfdvxJcsnkKoORYwFVqJAcP/gb/O6tWZiadJOCMaD7xbY/RoHALtCs2/b3sW03TwD/M3Cltf3VBjD3SXq9rYWPgIFt4OK6rcl7wOUOMPSkS4bkSH6aQqEAvJ/RM+WAwVv6EGtu31r7OH0AMtSr5Rvg4BAYK1L2use9ezr79u+ZVv9+AFlNcp0UUpiqAAAACXBIWXMAAC4jAAAuIwF4pT92AAAAB3RJTUUH5AsHAB8H+DhhoQAAABl0RVh0Q29tbWVudABDcmVhdGVkIHdpdGggR0lNUFeBDhcAAAAJUExURQAAAICHi4qKioTuJAkAAAABdFJOUwBA5thmAAAAAWJLR0QCZgt8ZAAAAJJJREFUOI3t070NRCEMA2CnYAOyDyPwpHj/Va7hJ3FzV7zy3ET5JIwoAF6Jk4wzAJAkzxAYG9YRTgB+24wBgKmfrGAKTcEfAY4KRlRoIeBTgKOCERVaCPgU4Khge2GqKOBTgKOCERVaAEC/4PNcnyoSWHpjqkhwKxbcig0Q6AorXYF/+A6eIYD1lVbwG/jdA6/kA2THRAURVubcAAAAAElFTkSuQmCC";
+		const LINK_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAgMAAADXB5lNAAABhmlDQ1BJQ0MgcHJvZmlsZQAAKJF9kj1Iw0AYht+mSkUrDnYQcchQnSyIijqWKhbBQmkrtOpgcukfNGlIUlwcBdeCgz+LVQcXZ10dXAVB8AfEydFJ0UVK/C4ptIjx4LiH9+59+e67A4RGhalm1wSgapaRisfEbG5VDLyiDwEAvZiVmKkn0osZeI6ve/j4ehfhWd7n/hz9St5kgE8kjjLdsIg3iGc2LZ3zPnGIlSSF+Jx43KACiR+5Lrv8xrnosMAzQ0YmNU8cIhaLHSx3MCsZKvE0cVhRNcoXsi4rnLc4q5Uaa9XJbxjMaytprtMcQRxLSCAJETJqKKMCCxFaNVJMpGg/5uEfdvxJcsnkKoORYwFVqJAcP/gb/O6tWZiadJOCMaD7xbY/RoHALtCs2/b3sW03TwD/M3Cltf3VBjD3SXq9rYWPgIFt4OK6rcl7wOUOMPSkS4bkSH6aQqEAvJ/RM+WAwVv6EGtu31r7OH0AMtSr5Rvg4BAYK1L2use9ezr79u+ZVv9+AFlNcp0UUpiqAAAACXBIWXMAAC4jAAAuIwF4pT92AAAAB3RJTUUH5AsHAB8H+DhhoQAAABl0RVh0Q29tbWVudABDcmVhdGVkIHdpdGggR0lNUFeBDhcAAAAJUExURQAAAICHi4qKioTuJAkAAAABdFJOUwBA5thmAAAAAWJLR0QCZgt8ZAAAAJJJREFUOI3t070NRCEMA2CnYAOyDyPwpHj/Va7hJ3FzV7zy3ET5JIwoAF6Jk4wzAJAkzxAYG9YRTgB+24wBgKmfrGAKTcEfAY4KRlRoIeBTgKOCERVaCPgU4Khge2GqKOBTgKOCERVaAEC/4PNcnyoSWHpjqkhwKxbcig0Q6AorXYF/+A6eIYD1lVbwG/jdA6/kA2THRAURVubcAAAAAElFTkSuQmCC";
 		const ICON_SIZE = "16px";
 		this.doc.querySelectorAll("video").forEach(videoElement => {
 			const attributeValue = videoElement.getAttribute(util.VIDEO_ATTRIBUTE_NAME);
@@ -866,8 +878,7 @@ class Processor {
 
 	insertFonts() {
 		if (this.options.fonts && this.options.fonts.length) {
-			let firstStylesheet = this.doc.querySelector("style, link[rel=stylesheet]"),
-				previousStyleElement;
+			let firstStylesheet = this.doc.querySelector("style, link[rel=stylesheet]"), previousStyleElement;
 			this.options.fonts.forEach(fontData => {
 				if (fontData["font-family"] && fontData.src) {
 					let stylesheetContent = "@font-face{";
@@ -947,53 +958,51 @@ class Processor {
 	}
 
 	async insertMissingVideoPosters() {
-		await Promise.all(
-			Array.from(this.doc.querySelectorAll("video[src], video > source[src]")).map(async element => {
-				let videoElement;
-				if (element.tagName.toUpperCase() == "VIDEO") {
-					videoElement = element;
-				} else {
-					videoElement = element.parentElement;
-				}
-				if (!videoElement.poster) {
-					const attributeValue = videoElement.getAttribute(util.VIDEO_ATTRIBUTE_NAME);
-					if (attributeValue) {
-						const videoData = this.options.videos[Number(attributeValue)];
-						const src = videoData.src || videoElement.src;
-						if (src) {
-							const temporaryVideoElement = this.doc.createElement("video");
-							temporaryVideoElement.src = src;
-							temporaryVideoElement.style.setProperty("width", videoData.size.pxWidth + "px", "important");
-							temporaryVideoElement.style.setProperty("height", videoData.size.pxHeight + "px", "important");
-							temporaryVideoElement.style.setProperty("display", "none", "important");
-							temporaryVideoElement.crossOrigin = "anonymous";
-							const canvasElement = this.doc.createElement("canvas");
-							const context = canvasElement.getContext("2d");
-							this.options.doc.body.appendChild(temporaryVideoElement);
-							return new Promise(resolve => {
-								temporaryVideoElement.currentTime = videoData.currentTime;
-								temporaryVideoElement.oncanplay = () => {
-									canvasElement.width = videoData.size.pxWidth;
-									canvasElement.height = videoData.size.pxHeight;
-									context.drawImage(temporaryVideoElement, 0, 0, canvasElement.width, canvasElement.height);
-									try {
-										videoElement.poster = canvasElement.toDataURL("image/png", "");
-									} catch (error) {
-										// ignored
-									}
-									temporaryVideoElement.remove();
-									resolve();
-								};
-								temporaryVideoElement.onerror = () => {
-									temporaryVideoElement.remove();
-									resolve();
-								};
-							});
-						}
+		await Promise.all(Array.from(this.doc.querySelectorAll("video[src], video > source[src]")).map(async element => {
+			let videoElement;
+			if (element.tagName.toUpperCase() == "VIDEO") {
+				videoElement = element;
+			} else {
+				videoElement = element.parentElement;
+			}
+			if (!videoElement.poster) {
+				const attributeValue = videoElement.getAttribute(util.VIDEO_ATTRIBUTE_NAME);
+				if (attributeValue) {
+					const videoData = this.options.videos[Number(attributeValue)];
+					const src = videoData.src || videoElement.src;
+					if (src) {
+						const temporaryVideoElement = this.doc.createElement("video");
+						temporaryVideoElement.src = src;
+						temporaryVideoElement.style.setProperty("width", videoData.size.pxWidth + "px", "important");
+						temporaryVideoElement.style.setProperty("height", videoData.size.pxHeight + "px", "important");
+						temporaryVideoElement.style.setProperty("display", "none", "important");
+						temporaryVideoElement.crossOrigin = "anonymous";
+						const canvasElement = this.doc.createElement("canvas");
+						const context = canvasElement.getContext("2d");
+						this.options.doc.body.appendChild(temporaryVideoElement);
+						return new Promise(resolve => {
+							temporaryVideoElement.currentTime = videoData.currentTime;
+							temporaryVideoElement.oncanplay = () => {
+								canvasElement.width = videoData.size.pxWidth;
+								canvasElement.height = videoData.size.pxHeight;
+								context.drawImage(temporaryVideoElement, 0, 0, canvasElement.width, canvasElement.height);
+								try {
+									videoElement.poster = canvasElement.toDataURL("image/png", "");
+								} catch (error) {
+									// ignored
+								}
+								temporaryVideoElement.remove();
+								resolve();
+							};
+							temporaryVideoElement.onerror = () => {
+								temporaryVideoElement.remove();
+								resolve();
+							};
+						});
 					}
 				}
-			})
-		);
+			}
+		}));
 	}
 
 	resolveStyleAttributeURLs() {
@@ -1010,40 +1019,36 @@ class Processor {
 	}
 
 	async resolveStylesheetURLs() {
-		await Promise.all(
-			Array.from(this.doc.querySelectorAll("style, link[rel*=stylesheet]")).map(async element => {
-				const options = Object.assign({}, this.options, { charset: this.charset });
-				let mediaText;
-				if (element.media) {
-					mediaText = element.media.toLowerCase();
-				}
-				const scoped = Boolean(element.closest("[" + SHADOWROOT_ATTRIBUTE_NAME + "]"));
-				const stylesheetInfo = {
-					mediaText,
-					scoped
-				};
-				if (element.tagName.toUpperCase() == "LINK" && element.charset) {
-					options.charset = element.charset;
-				}
-				await processElement(element, stylesheetInfo, this.stylesheets, this.baseURI, options, this.workStyleElement);
-			})
-		);
+		await Promise.all(Array.from(this.doc.querySelectorAll("style, link[rel*=stylesheet]")).map(async element => {
+			const options = Object.assign({}, this.options, { charset: this.charset });
+			let mediaText;
+			if (element.media) {
+				mediaText = element.media.toLowerCase();
+			}
+			const scoped = Boolean(element.closest("[" + SHADOWROOT_ATTRIBUTE_NAME + "]"));
+			const stylesheetInfo = {
+				mediaText,
+				scoped
+			};
+			if (element.tagName.toUpperCase() == "LINK" && element.charset) {
+				options.charset = element.charset;
+			}
+			await processElement(element, stylesheetInfo, this.stylesheets, this.baseURI, options, this.workStyleElement);
+		}));
 		if (this.options.rootDocument) {
 			const newResources = Object.keys(this.options.updatedResources)
 				.filter(url => this.options.updatedResources[url].type == "stylesheet" && !this.options.updatedResources[url].retrieved)
 				.map(url => this.options.updatedResources[url]);
-			await Promise.all(
-				newResources.map(async resource => {
-					resource.retrieved = true;
-					if (!this.options.blockStylesheets) {
-						const stylesheetInfo = {};
-						const element = this.doc.createElement("style");
-						this.doc.body.appendChild(element);
-						element.textContent = resource.content;
-						await processElement(element, stylesheetInfo, this.stylesheets, this.baseURI, this.options, this.workStyleElement);
-					}
-				})
-			);
+			await Promise.all(newResources.map(async resource => {
+				resource.retrieved = true;
+				if (!this.options.blockStylesheets) {
+					const stylesheetInfo = {};
+					const element = this.doc.createElement("style");
+					this.doc.body.appendChild(element);
+					element.textContent = resource.content;
+					await processElement(element, stylesheetInfo, this.stylesheets, this.baseURI, this.options, this.workStyleElement);
+				}
+			}));
 		}
 
 		async function processElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement) {
@@ -1074,28 +1079,26 @@ class Processor {
 	async resolveFrameURLs() {
 		if (!this.options.saveRawPage) {
 			const frameElements = Array.from(this.doc.querySelectorAll("iframe, frame, object[type=\"text/html\"][data]"));
-			await Promise.all(
-				frameElements.map(async frameElement => {
-					if (frameElement.tagName.toUpperCase() == "OBJECT") {
-						frameElement.setAttribute("data", "data:text/html,");
-					} else {
-						const src = frameElement.getAttribute("src");
-						if (this.options.saveOriginalURLs && src && !isDataURL(src)) {
-							frameElement.setAttribute("data-sf-original-src", src);
-						}
-						frameElement.removeAttribute("src");
-						frameElement.removeAttribute("srcdoc");
+			await Promise.all(frameElements.map(async frameElement => {
+				if (frameElement.tagName.toUpperCase() == "OBJECT") {
+					frameElement.setAttribute("data", "data:text/html,");
+				} else {
+					const src = frameElement.getAttribute("src");
+					if (this.options.saveOriginalURLs && src && !isDataURL(src)) {
+						frameElement.setAttribute("data-sf-original-src", src);
 					}
-					Array.from(frameElement.childNodes).forEach(node => node.remove());
-					const frameWindowId = frameElement.getAttribute(util.WIN_ID_ATTRIBUTE_NAME);
-					if (this.options.frames && frameWindowId) {
-						const frameData = this.options.frames.find(frame => frame.windowId == frameWindowId);
-						if (frameData) {
-							await initializeProcessor(frameData, frameElement, frameWindowId, this.batchRequest, Object.create(this.options));
-						}
+					frameElement.removeAttribute("src");
+					frameElement.removeAttribute("srcdoc");
+				}
+				Array.from(frameElement.childNodes).forEach(node => node.remove());
+				const frameWindowId = frameElement.getAttribute(util.WIN_ID_ATTRIBUTE_NAME);
+				if (this.options.frames && frameWindowId) {
+					const frameData = this.options.frames.find(frame => frame.windowId == frameWindowId);
+					if (frameData) {
+						await initializeProcessor(frameData, frameElement, frameWindowId, this.batchRequest, Object.create(this.options));
 					}
-				})
-			);
+				}
+			}));
 		}
 
 		async function initializeProcessor(frameData, frameElement, frameWindowId, batchRequest, options) {
@@ -1198,11 +1201,15 @@ class Processor {
 
 	async processStylesheets() {
 		this.options.fontDeclarations = new Map();
-		await Promise.all([...this.stylesheets].map(([, stylesheetInfo]) => ProcessorHelper.processStylesheet(stylesheetInfo.stylesheet.children, this.baseURI, this.options, this.cssVariables, this.batchRequest)));
+		await Promise.all([...this.stylesheets].map(([, stylesheetInfo]) => 
+			ProcessorHelper.processStylesheet(stylesheetInfo.stylesheet.children, this.baseURI, this.options, this.cssVariables, this.batchRequest)
+		));
 	}
 
 	async processStyleAttributes() {
-		return Promise.all([...this.styles].map(([, stylesheet]) => ProcessorHelper.processStyle(stylesheet, this.baseURI, this.options, this.cssVariables, this.batchRequest)));
+		return Promise.all([...this.styles].map(([, stylesheet]) => 
+			ProcessorHelper.processStyle(stylesheet, this.baseURI, this.options, this.cssVariables, this.batchRequest)
+		));
 	}
 
 	async processPageResources() {
@@ -1232,49 +1239,47 @@ class Processor {
 	}
 
 	async processScripts() {
-		await Promise.all(
-			Array.from(this.doc.querySelectorAll("script[src]")).map(async element => {
-				let resourceURL;
-				let scriptSrc;
-				scriptSrc = element.getAttribute("src");
-				if (this.options.saveOriginalURLs && !isDataURL(scriptSrc)) {
-					element.setAttribute("data-sf-original-src", scriptSrc);
+		await Promise.all(Array.from(this.doc.querySelectorAll("script[src]")).map(async element => {
+			let resourceURL;
+			let scriptSrc;
+			scriptSrc = element.getAttribute("src");
+			if (this.options.saveOriginalURLs && !isDataURL(scriptSrc)) {
+				element.setAttribute("data-sf-original-src", scriptSrc);
+			}
+			element.removeAttribute("integrity");
+			if (!this.options.blockScripts) {
+				element.textContent = "";
+				try {
+					resourceURL = util.resolveURL(scriptSrc, this.baseURI);
+				} catch (error) {
+					// ignored
 				}
-				element.removeAttribute("integrity");
-				if (!this.options.blockScripts) {
-					element.textContent = "";
-					try {
-						resourceURL = util.resolveURL(scriptSrc, this.baseURI);
-					} catch (error) {
-						// ignored
-					}
-					if (testValidURL(resourceURL)) {
-						element.removeAttribute("src");
-						const content = await util.getContent(resourceURL, {
-							asBinary: true,
-							charset: this.charset != UTF8_CHARSET && this.charset,
-							maxResourceSize: this.options.maxResourceSize,
-							maxResourceSizeEnabled: this.options.maxResourceSizeEnabled,
-							frameId: this.options.windowId,
-							resourceReferrer: this.options.resourceReferrer,
-							baseURI: this.options.baseURI,
-							blockMixedContent: this.options.blockMixedContent,
-							expectedType: "script",
-							acceptHeaders: this.options.acceptHeaders,
-							networkTimeout: this.options.networkTimeout
-						});
-						content.data = getUpdatedResourceContent(resourceURL, content, this.options);
-						element.setAttribute("src", content.data);
-						if (element.getAttribute("async") == "async" || element.getAttribute(util.ASYNC_SCRIPT_ATTRIBUTE_NAME) == "") {
-							element.setAttribute("async", "");
-						}
-					}
-				} else {
+				if (testValidURL(resourceURL)) {
 					element.removeAttribute("src");
+					const content = await util.getContent(resourceURL, {
+						asBinary: true,
+						charset: this.charset != UTF8_CHARSET && this.charset,
+						maxResourceSize: this.options.maxResourceSize,
+						maxResourceSizeEnabled: this.options.maxResourceSizeEnabled,
+						frameId: this.options.windowId,
+						resourceReferrer: this.options.resourceReferrer,
+						baseURI: this.options.baseURI,
+						blockMixedContent: this.options.blockMixedContent,
+						expectedType: "script",
+						acceptHeaders: this.options.acceptHeaders,
+						networkTimeout: this.options.networkTimeout
+					});
+					content.data = getUpdatedResourceContent(resourceURL, content, this.options);
+					element.setAttribute("src", content.data);
+					if (element.getAttribute("async") == "async" || element.getAttribute(util.ASYNC_SCRIPT_ATTRIBUTE_NAME) == "") {
+						element.setAttribute("async", "");
+					}
 				}
-				this.stats.add("processed", "scripts", 1);
-			})
-		);
+			} else {
+				element.removeAttribute("src");
+			}
+			this.stats.add("processed", "scripts", 1);
+		}));
 	}
 
 	removeAlternativeImages() {
@@ -1288,42 +1293,40 @@ class Processor {
 	async processFrames() {
 		if (this.options.frames) {
 			const frameElements = Array.from(this.doc.querySelectorAll("iframe, frame, object[type=\"text/html\"][data]"));
-			await Promise.all(
-				frameElements.map(async frameElement => {
-					const frameWindowId = frameElement.getAttribute(util.WIN_ID_ATTRIBUTE_NAME);
-					if (frameWindowId) {
-						const frameData = this.options.frames.find(frame => frame.windowId == frameWindowId);
-						if (frameData) {
-							this.options.frames = this.options.frames.filter(frame => frame.windowId != frameWindowId);
-							if (frameData.runner && frameElement.getAttribute(util.HIDDEN_FRAME_ATTRIBUTE_NAME) != "") {
-								this.stats.add("processed", "frames", 1);
-								await frameData.runner.run();
-								const pageData = await frameData.runner.getPageData();
-								frameElement.removeAttribute(util.WIN_ID_ATTRIBUTE_NAME);
-								let sandbox = "allow-popups allow-top-navigation allow-top-navigation-by-user-activation";
-								if (pageData.content.match(NOSCRIPT_TAG_FOUND) || pageData.content.match(CANVAS_TAG_FOUND) || pageData.content.match(SCRIPT_TAG_FOUND)) {
-									sandbox += " allow-scripts allow-same-origin";
-								}
-								frameElement.setAttribute("sandbox", sandbox);
-								if (frameElement.tagName.toUpperCase() == "OBJECT") {
-									frameElement.setAttribute("data", "data:text/html," + pageData.content);
-								} else {
-									if (frameElement.tagName.toUpperCase() == "FRAME") {
-										frameElement.setAttribute("src", "data:text/html," + pageData.content.replace(/%/g, "%25").replace(/#/g, "%23"));
-									} else {
-										frameElement.setAttribute("srcdoc", pageData.content);
-										frameElement.removeAttribute("src");
-									}
-								}
-								this.stats.addAll(pageData);
-							} else {
-								frameElement.removeAttribute(util.WIN_ID_ATTRIBUTE_NAME);
-								this.stats.add("discarded", "frames", 1);
+			await Promise.all(frameElements.map(async frameElement => {
+				const frameWindowId = frameElement.getAttribute(util.WIN_ID_ATTRIBUTE_NAME);
+				if (frameWindowId) {
+					const frameData = this.options.frames.find(frame => frame.windowId == frameWindowId);
+					if (frameData) {
+						this.options.frames = this.options.frames.filter(frame => frame.windowId != frameWindowId);
+						if (frameData.runner && frameElement.getAttribute(util.HIDDEN_FRAME_ATTRIBUTE_NAME) != "") {
+							this.stats.add("processed", "frames", 1);
+							await frameData.runner.run();
+							const pageData = await frameData.runner.getPageData();
+							frameElement.removeAttribute(util.WIN_ID_ATTRIBUTE_NAME);
+							let sandbox = "allow-popups allow-top-navigation allow-top-navigation-by-user-activation";
+							if (pageData.content.match(NOSCRIPT_TAG_FOUND) || pageData.content.match(CANVAS_TAG_FOUND) || pageData.content.match(SCRIPT_TAG_FOUND)) {
+								sandbox += " allow-scripts allow-same-origin";
 							}
+							frameElement.setAttribute("sandbox", sandbox);
+							if (frameElement.tagName.toUpperCase() == "OBJECT") {
+								frameElement.setAttribute("data", "data:text/html," + pageData.content);
+							} else {
+								if (frameElement.tagName.toUpperCase() == "FRAME") {
+									frameElement.setAttribute("src", "data:text/html," + pageData.content.replace(/%/g, "%25").replace(/#/g, "%23"));
+								} else {
+									frameElement.setAttribute("srcdoc", pageData.content);
+									frameElement.removeAttribute("src");
+								}
+							}
+							this.stats.addAll(pageData);
+						} else {
+							frameElement.removeAttribute(util.WIN_ID_ATTRIBUTE_NAME);
+							this.stats.add("discarded", "frames", 1);
 						}
 					}
-				})
-			);
+				}
+			}));
 		}
 	}
 
@@ -1511,56 +1514,56 @@ class ProcessorHelper {
 	}
 
 	static removeSingleLineCssComments(stylesheet) {
-		const removedRules = [];
-		for (let cssRule = stylesheet.children.head; cssRule; cssRule = cssRule.next) {
-			const ruleData = cssRule.data;
-			if (ruleData.type == "Raw" && ruleData.value && ruleData.value.trim().startsWith("//")) {
-				removedRules.push(cssRule);
+		if (stylesheet.children) {
+			const removedRules = [];
+			for (let cssRule = stylesheet.children.head; cssRule; cssRule = cssRule.next) {
+				const ruleData = cssRule.data;
+				if (ruleData.type == "Raw" && ruleData.value && ruleData.value.trim().startsWith("//")) {
+					removedRules.push(cssRule);
+				}
 			}
+			removedRules.forEach(cssRule => stylesheet.children.remove(cssRule));
 		}
-		removedRules.forEach(cssRule => stylesheet.children.remove(cssRule));
 	}
 
 	static async resolveImportURLs(stylesheet, baseURI, options, workStylesheet, importedStyleSheets = new Set()) {
 		let importFound;
 		ProcessorHelper.resolveStylesheetURLs(stylesheet, baseURI, workStylesheet);
 		const imports = getImportFunctions(stylesheet);
-		await Promise.all(
-			imports.map(async node => {
-				const urlNode = cssTree.find(node, node => node.type == "Url") || cssTree.find(node, node => node.type == "String");
-				if (urlNode) {
-					let resourceURL = normalizeURL(urlNode.value);
-					if (!testIgnoredPath(resourceURL) && testValidPath(resourceURL)) {
-						urlNode.value = util.EMPTY_RESOURCE;
-						try {
-							resourceURL = util.resolveURL(resourceURL, baseURI);
-						} catch (error) {
-							// ignored
+		await Promise.all(imports.map(async node => {
+			const urlNode = cssTree.find(node, node => node.type == "Url") || cssTree.find(node, node => node.type == "String");
+			if (urlNode) {
+				let resourceURL = normalizeURL(urlNode.value);
+				if (!testIgnoredPath(resourceURL) && testValidPath(resourceURL)) {
+					urlNode.value = util.EMPTY_RESOURCE;
+					try {
+						resourceURL = util.resolveURL(resourceURL, baseURI);
+					} catch (error) {
+						// ignored
+					}
+					if (testValidURL(resourceURL) && !importedStyleSheets.has(resourceURL)) {
+						const content = await getStylesheetContent(resourceURL);
+						resourceURL = content.resourceURL;
+						content.data = getUpdatedResourceContent(resourceURL, content, options);
+						if (content.data && content.data.match(/^<!doctype /i)) {
+							content.data = "";
 						}
-						if (testValidURL(resourceURL) && !importedStyleSheets.has(resourceURL)) {
-							const content = await getStylesheetContent(resourceURL);
-							resourceURL = content.resourceURL;
-							content.data = getUpdatedResourceContent(resourceURL, content, options);
-							if (content.data && content.data.match(/^<!doctype /i)) {
-								content.data = "";
-							}
-							const mediaQueryListNode = cssTree.find(node, node => node.type == "MediaQueryList");
-							if (mediaQueryListNode) {
-								content.data = wrapMediaQuery(content.data, cssTree.generate(mediaQueryListNode));
-							}
-							const importedStylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
-							const ancestorStyleSheets = new Set(importedStyleSheets);
-							ancestorStyleSheets.add(resourceURL);
-							await ProcessorHelper.resolveImportURLs(importedStylesheet, resourceURL, options, workStylesheet, ancestorStyleSheets);
-							for (let keyName of Object.keys(importedStylesheet)) {
-								node[keyName] = importedStylesheet[keyName];
-							}
-							importFound = true;
+						const mediaQueryListNode = cssTree.find(node, node => node.type == "MediaQueryList");
+						if (mediaQueryListNode) {
+							content.data = wrapMediaQuery(content.data, cssTree.generate(mediaQueryListNode));
 						}
+						const importedStylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
+						const ancestorStyleSheets = new Set(importedStyleSheets);
+						ancestorStyleSheets.add(resourceURL);
+						await ProcessorHelper.resolveImportURLs(importedStylesheet, resourceURL, options, workStylesheet, ancestorStyleSheets);
+						for (let keyName of Object.keys(importedStylesheet)) {
+							node[keyName] = importedStylesheet[keyName];
+						}
+						importFound = true;
 					}
 				}
-			})
-		);
+			}
+		}));
 		return importFound;
 
 		async function getStylesheetContent(resourceURL) {
@@ -1685,153 +1688,147 @@ class ProcessorHelper {
 
 		async function processFontFaceRule(ruleData) {
 			const urls = getUrlFunctions(ruleData);
-			await Promise.all(
-				urls.map(async urlNode => {
-					const originalResourceURL = urlNode.value;
-					if (!options.blockFonts) {
-						const resourceURL = normalizeURL(originalResourceURL);
-						if (!testIgnoredPath(resourceURL) && testValidURL(resourceURL)) {
-							let { content } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "font", baseURI, blockMixedContent: options.blockMixedContent });
-							let resourceURLs = options.fontDeclarations.get(urlNode);
-							if (!resourceURLs) {
-								resourceURLs = [];
-								options.fontDeclarations.set(urlNode, resourceURLs);
+			await Promise.all(urls.map(async urlNode => {
+				const originalResourceURL = urlNode.value;
+				if (!options.blockFonts) {
+					const resourceURL = normalizeURL(originalResourceURL);
+					if (!testIgnoredPath(resourceURL) && testValidURL(resourceURL)) {
+						let { content } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "font", baseURI, blockMixedContent: options.blockMixedContent });
+						let resourceURLs = options.fontDeclarations.get(urlNode);
+						if (!resourceURLs) {
+							resourceURLs = [];
+							options.fontDeclarations.set(urlNode, resourceURLs);
+						}
+						resourceURLs.push(resourceURL);
+						if (!isDataURL(resourceURL) && options.saveOriginalURLs) {
+							urlNode.value = "-sf-url-original(" + JSON.stringify(originalResourceURL) + ") " + content;
+						} else {
+							urlNode.value = content;
+						}
+					}
+				} else {
+					urlNode.value = util.EMPTY_RESOURCE;
+				}
+			}));
+		}
+	}
+
+	static async processStyle(ruleData, baseURI, options, cssVariables, batchRequest) {
+		const urls = getUrlFunctions(ruleData);
+		await Promise.all(urls.map(async urlNode => {
+			const originalResourceURL = urlNode.value;
+			if (!options.blockImages) {
+				const resourceURL = normalizeURL(originalResourceURL);
+				if (!testIgnoredPath(resourceURL) && testValidURL(resourceURL)) {
+					let { content, indexResource, duplicate } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "image", groupDuplicates: options.groupDuplicateImages });
+					if (!originalResourceURL.startsWith("#")) {
+						const maxSizeDuplicateImages = options.maxSizeDuplicateImages || SINGLE_FILE_VARIABLE_MAX_SIZE;
+						if (duplicate && options.groupDuplicateImages && util.getContentSize(content) < maxSizeDuplicateImages) {
+							const varNode = cssTree.parse("var(" + SINGLE_FILE_VARIABLE_NAME_PREFIX + indexResource + ")", { context: "value" });
+							for (let keyName of Object.keys(varNode.children.head.data)) {
+								urlNode[keyName] = varNode.children.head.data[keyName];
 							}
-							resourceURLs.push(resourceURL);
+							cssVariables.set(indexResource, { content, url: originalResourceURL });
+						} else {
 							if (!isDataURL(resourceURL) && options.saveOriginalURLs) {
 								urlNode.value = "-sf-url-original(" + JSON.stringify(originalResourceURL) + ") " + content;
 							} else {
 								urlNode.value = content;
 							}
 						}
-					} else {
-						urlNode.value = util.EMPTY_RESOURCE;
 					}
-				})
-			);
-		}
+				}
+			} else {
+				urlNode.value = util.EMPTY_RESOURCE;
+			}
+		}));
 	}
 
-	static async processStyle(ruleData, baseURI, options, cssVariables, batchRequest) {
-		const urls = getUrlFunctions(ruleData);
-		await Promise.all(
-			urls.map(async urlNode => {
-				const originalResourceURL = urlNode.value;
-				if (!options.blockImages) {
-					const resourceURL = normalizeURL(originalResourceURL);
-					if (!testIgnoredPath(resourceURL) && testValidURL(resourceURL)) {
-						let { content, indexResource, duplicate } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "image", groupDuplicates: options.groupDuplicateImages });
-						if (!originalResourceURL.startsWith("#")) {
-							const maxSizeDuplicateImages = options.maxSizeDuplicateImages || SINGLE_FILE_VARIABLE_MAX_SIZE;
-							if (duplicate && options.groupDuplicateImages && util.getContentSize(content) < maxSizeDuplicateImages) {
-								const varNode = cssTree.parse("var(" + SINGLE_FILE_VARIABLE_NAME_PREFIX + indexResource + ")", { context: "value" });
-								for (let keyName of Object.keys(varNode.children.head.data)) {
-									urlNode[keyName] = varNode.children.head.data[keyName];
+	static async processAttribute(resourceElements, attributeName, baseURI, options, expectedType, cssVariables, styles, batchRequest, processDuplicates, removeElementIfMissing) {
+		await Promise.all(Array.from(resourceElements).map(async resourceElement => {
+			let resourceURL = resourceElement.getAttribute(attributeName);
+			if (resourceURL != null) {
+				resourceURL = normalizeURL(resourceURL);
+				let originURL = resourceElement.dataset.singleFileOriginURL;
+				if (options.saveOriginalURLs && !isDataURL(resourceURL)) {
+					resourceElement.setAttribute("data-sf-original-" + attributeName, resourceURL);
+				}
+				delete resourceElement.dataset.singleFileOriginURL;
+				if (!options["block" + expectedType.charAt(0).toUpperCase() + expectedType.substring(1) + "s"]) {
+					if (!testIgnoredPath(resourceURL)) {
+						setAttributeEmpty(resourceElement, attributeName, expectedType);
+						if (testValidPath(resourceURL)) {
+							try {
+								resourceURL = util.resolveURL(resourceURL, baseURI);
+							} catch (error) {
+								// ignored
+							}
+							if (testValidURL(resourceURL)) {
+								let { content, indexResource, duplicate } = await batchRequest.addURL(
+									resourceURL, 
+									{ asBinary: true, expectedType, groupDuplicates: options.groupDuplicateImages && resourceElement.tagName.toUpperCase() == "IMG" && attributeName == "src" });
+								if (originURL) {
+									if (content == util.EMPTY_RESOURCE) {
+										try {
+											originURL = util.resolveURL(originURL, baseURI);
+										} catch (error) {
+											// ignored
+										}
+										try {
+											resourceURL = originURL;
+											content = (
+												await util.getContent(resourceURL, {
+													asBinary: true,
+													expectedType,
+													maxResourceSize: options.maxResourceSize,
+													maxResourceSizeEnabled: options.maxResourceSizeEnabled,
+													frameId: options.windowId,
+													resourceReferrer: options.resourceReferrer,
+													acceptHeaders: options.acceptHeaders,
+													networkTimeout: options.networkTimeout
+												})
+											).data;
+										} catch (error) {
+											// ignored
+										}
+									}
 								}
-								cssVariables.set(indexResource, { content, url: originalResourceURL });
-							} else {
-								if (!isDataURL(resourceURL) && options.saveOriginalURLs) {
-									urlNode.value = "-sf-url-original(" + JSON.stringify(originalResourceURL) + ") " + content;
-								} else {
-									urlNode.value = content;
+								if (removeElementIfMissing && content == util.EMPTY_RESOURCE) {
+									resourceElement.remove();
+								} else if (content !== util.EMPTY_RESOURCE) {
+									let forbiddenPrefixFound = PREFIXES_FORBIDDEN_DATA_URI.filter(prefixDataURI => content.startsWith(prefixDataURI)).length;
+									if (forbiddenPrefixFound) {
+										forbiddenPrefixFound = await new Promise((resolve) => {
+											const element = options.doc.createElement(resourceElement.tagName);
+											element.setAttribute(attributeName, content);
+											element.onload = () => resolve();
+											element.onerror = () => resolve(true);
+										});
+									}
+									if (!forbiddenPrefixFound) {
+										const isSVG = content.startsWith(PREFIX_DATA_URI_IMAGE_SVG);
+										const maxSizeDuplicateImages = options.maxSizeDuplicateImages || SINGLE_FILE_VARIABLE_MAX_SIZE;
+										if (expectedType == "image" && processDuplicates && duplicate && !isSVG && util.getContentSize(content) < maxSizeDuplicateImages) {
+											if (ProcessorHelper.replaceImageSource(resourceElement, SINGLE_FILE_VARIABLE_NAME_PREFIX + indexResource, options)) {
+												cssVariables.set(indexResource, { content, url: originURL });
+												const declarationList = cssTree.parse(resourceElement.getAttribute("style"), { context: "declarationList", parseCustomProperty: true });
+												styles.set(resourceElement, declarationList);
+											} else {
+												resourceElement.setAttribute(attributeName, content);
+											}
+										} else {
+											resourceElement.setAttribute(attributeName, content);
+										}
+									}
 								}
 							}
 						}
 					}
 				} else {
-					urlNode.value = util.EMPTY_RESOURCE;
+					setAttributeEmpty(resourceElement, attributeName, expectedType);
 				}
-			})
-		);
-	}
-
-	static async processAttribute(resourceElements, attributeName, baseURI, options, expectedType, cssVariables, styles, batchRequest, processDuplicates, removeElementIfMissing) {
-		await Promise.all(
-			Array.from(resourceElements).map(async resourceElement => {
-				let resourceURL = resourceElement.getAttribute(attributeName);
-				if (resourceURL != null) {
-					resourceURL = normalizeURL(resourceURL);
-					let originURL = resourceElement.dataset.singleFileOriginURL;
-					if (options.saveOriginalURLs && !isDataURL(resourceURL)) {
-						resourceElement.setAttribute("data-sf-original-" + attributeName, resourceURL);
-					}
-					delete resourceElement.dataset.singleFileOriginURL;
-					if (!options["block" + expectedType.charAt(0).toUpperCase() + expectedType.substring(1) + "s"]) {
-						if (!testIgnoredPath(resourceURL)) {
-							setAttributeEmpty(resourceElement, attributeName, expectedType);
-							if (testValidPath(resourceURL)) {
-								try {
-									resourceURL = util.resolveURL(resourceURL, baseURI);
-								} catch (error) {
-									// ignored
-								}
-								if (testValidURL(resourceURL)) {
-									let { content, indexResource, duplicate } = await batchRequest.addURL(
-										resourceURL, 
-										{ asBinary: true, expectedType, groupDuplicates: options.groupDuplicateImages && resourceElement.tagName.toUpperCase() == "IMG" && attributeName == "src" });
-									if (originURL) {
-										if (content == util.EMPTY_RESOURCE) {
-											try {
-												originURL = util.resolveURL(originURL, baseURI);
-											} catch (error) {
-												// ignored
-											}
-											try {
-												resourceURL = originURL;
-												content = (
-													await util.getContent(resourceURL, {
-														asBinary: true,
-														expectedType,
-														maxResourceSize: options.maxResourceSize,
-														maxResourceSizeEnabled: options.maxResourceSizeEnabled,
-														frameId: options.windowId,
-														resourceReferrer: options.resourceReferrer,
-														acceptHeaders: options.acceptHeaders,
-														networkTimeout: options.networkTimeout
-													})
-												).data;
-											} catch (error) {
-												// ignored
-											}
-										}
-									}
-									if (removeElementIfMissing && content == util.EMPTY_RESOURCE) {
-										resourceElement.remove();
-									} else if (content !== util.EMPTY_RESOURCE) {
-										let forbiddenPrefixFound = PREFIXES_FORBIDDEN_DATA_URI.filter(prefixDataURI => content.startsWith(prefixDataURI)).length;
-										if (forbiddenPrefixFound) {
-											forbiddenPrefixFound = await new Promise((resolve) => {
-												const element = options.doc.createElement(resourceElement.tagName);
-												element.setAttribute(attributeName, content);
-												element.onload = () => resolve();
-												element.onerror = () => resolve(true);
-											});
-										}
-										if (!forbiddenPrefixFound) {
-											const isSVG = content.startsWith(PREFIX_DATA_URI_IMAGE_SVG);
-											const maxSizeDuplicateImages = options.maxSizeDuplicateImages || SINGLE_FILE_VARIABLE_MAX_SIZE;
-											if (expectedType == "image" && processDuplicates && duplicate && !isSVG && util.getContentSize(content) < maxSizeDuplicateImages) {
-												if (ProcessorHelper.replaceImageSource(resourceElement, SINGLE_FILE_VARIABLE_NAME_PREFIX + indexResource, options)) {
-													cssVariables.set(indexResource, { content, url: originURL });
-													const declarationList = cssTree.parse(resourceElement.getAttribute("style"), { context: "declarationList", parseCustomProperty: true });
-													styles.set(resourceElement, declarationList);
-												} else {
-													resourceElement.setAttribute(attributeName, content);
-												}
-											} else {
-												resourceElement.setAttribute(attributeName, content);
-											}
-										}
-									}
-								}
-							}
-						}
-					} else {
-						setAttributeEmpty(resourceElement, attributeName, expectedType);
-					}
-				}
-			})
-		);
+			}
+		}));
 
 		function setAttributeEmpty(resourceElement, attributeName, expectedType) {
 			if (expectedType == "video" || expectedType == "audio") {
@@ -1844,102 +1841,96 @@ class ProcessorHelper {
 
 	static async processXLinks(resourceElements, doc, baseURI, options, batchRequest) {
 		let attributeName = "xlink:href";
-		await Promise.all(
-			Array.from(resourceElements).map(async resourceElement => {
-				let originalResourceURL = resourceElement.getAttribute(attributeName);
-				if (originalResourceURL == null) {
-					attributeName = "href";
-					originalResourceURL = resourceElement.getAttribute(attributeName);
-				}
-				if (options.saveOriginalURLs && !isDataURL(originalResourceURL)) {
-					resourceElement.setAttribute("data-sf-original-href", originalResourceURL);
-				}
-				let resourceURL = normalizeURL(originalResourceURL);
-				if (!options.blockImages) {
-					if (testValidPath(resourceURL) && !testIgnoredPath(resourceURL)) {
-						resourceElement.setAttribute(attributeName, util.EMPTY_RESOURCE);
-						try {
-							resourceURL = util.resolveURL(resourceURL, baseURI);
-						} catch (error) {
-							// ignored
-						}
-						if (testValidURL(resourceURL)) {
-							const hashMatch = originalResourceURL.match(REGEXP_URL_HASH);
-							if (originalResourceURL.startsWith(baseURI + "#")) {
-								resourceElement.setAttribute(attributeName, hashMatch[0]);
-							} else {
-								const response = await batchRequest.addURL(resourceURL, { expectedType: "image" });
-								const svgDoc = util.parseSVGContent(response.content);
-								if (hashMatch && hashMatch[0]) {
-									let symbolElement;
-									try {
-										symbolElement = svgDoc.querySelector(hashMatch[0]);
-									} catch (error) {
-										// ignored
-									}
-									if (symbolElement) {
-										resourceElement.setAttribute(attributeName, hashMatch[0]);
-										resourceElement.parentElement.insertBefore(symbolElement, resourceElement.parentElement.firstChild);
-									}
-								} else {
-									const content = await batchRequest.addURL(resourceURL, { expectedType: "image" });
-									resourceElement.setAttribute(attributeName, PREFIX_DATA_URI_IMAGE_SVG + "," + content);
+		await Promise.all(Array.from(resourceElements).map(async resourceElement => {
+			let originalResourceURL = resourceElement.getAttribute(attributeName);
+			if (originalResourceURL == null) {
+				attributeName = "href";
+				originalResourceURL = resourceElement.getAttribute(attributeName);
+			}
+			if (options.saveOriginalURLs && !isDataURL(originalResourceURL)) {
+				resourceElement.setAttribute("data-sf-original-href", originalResourceURL);
+			}
+			let resourceURL = normalizeURL(originalResourceURL);
+			if (!options.blockImages) {
+				if (testValidPath(resourceURL) && !testIgnoredPath(resourceURL)) {
+					resourceElement.setAttribute(attributeName, util.EMPTY_RESOURCE);
+					try {
+						resourceURL = util.resolveURL(resourceURL, baseURI);
+					} catch (error) {
+						// ignored
+					}
+					if (testValidURL(resourceURL)) {
+						const hashMatch = originalResourceURL.match(REGEXP_URL_HASH);
+						if (originalResourceURL.startsWith(baseURI + "#")) {
+							resourceElement.setAttribute(attributeName, hashMatch[0]);
+						} else {
+							const response = await batchRequest.addURL(resourceURL, { expectedType: "image" });
+							const svgDoc = util.parseSVGContent(response.content);
+							if (hashMatch && hashMatch[0]) {
+								let symbolElement;
+								try {
+									symbolElement = svgDoc.querySelector(hashMatch[0]);
+								} catch (error) {
+									// ignored
 								}
+								if (symbolElement) {
+									resourceElement.setAttribute(attributeName, hashMatch[0]);
+									resourceElement.parentElement.insertBefore(symbolElement, resourceElement.parentElement.firstChild);
+								}
+							} else {
+								const content = await batchRequest.addURL(resourceURL, { expectedType: "image" });
+								resourceElement.setAttribute(attributeName, PREFIX_DATA_URI_IMAGE_SVG + "," + content);
 							}
 						}
-					} else if (resourceURL == options.url) {
-						resourceElement.setAttribute(attributeName, originalResourceURL.substring(resourceURL.length));
 					}
-				} else {
-					resourceElement.setAttribute(attributeName, util.EMPTY_RESOURCE);
+				} else if (resourceURL == options.url) {
+					resourceElement.setAttribute(attributeName, originalResourceURL.substring(resourceURL.length));
 				}
-			})
-		);
+			} else {
+				resourceElement.setAttribute(attributeName, util.EMPTY_RESOURCE);
+			}
+		}));
 	}
 
 	static async processSrcset(resourceElements, baseURI, options, batchRequest) {
-		await Promise.all(
-			Array.from(resourceElements).map(async resourceElement => {
-				const originSrcset = resourceElement.getAttribute("srcset");
-				const srcset = util.parseSrcset(originSrcset);
-				if (options.saveOriginalURLs && !isDataURL(originSrcset)) {
-					resourceElement.setAttribute("data-sf-original-srcset", originSrcset);
-				}
-				if (!options.blockImages) {
-					const srcsetValues = await Promise.all(
-						srcset.map(async srcsetValue => {
-							let resourceURL = normalizeURL(srcsetValue.url);
-							if (!testIgnoredPath(resourceURL)) {
-								if (testValidPath(resourceURL)) {
-									try {
-										resourceURL = util.resolveURL(resourceURL, baseURI);
-									} catch (error) {
-										// ignored
-									}
-									if (testValidURL(resourceURL)) {
-										const { content } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "image" });
-										const forbiddenPrefixFound = PREFIXES_FORBIDDEN_DATA_URI.filter(prefixDataURI => content.startsWith(prefixDataURI)).length;
-										if (forbiddenPrefixFound) {
-											return "";
-										}
-										return content + (srcsetValue.w ? " " + srcsetValue.w + "w" : srcsetValue.d ? " " + srcsetValue.d + "x" : "");
-									} else {
-										return "";
-									}
-								} else {
+		await Promise.all(Array.from(resourceElements).map(async resourceElement => {
+			const originSrcset = resourceElement.getAttribute("srcset");
+			const srcset = util.parseSrcset(originSrcset);
+			if (options.saveOriginalURLs && !isDataURL(originSrcset)) {
+				resourceElement.setAttribute("data-sf-original-srcset", originSrcset);
+			}
+			if (!options.blockImages) {
+				const srcsetValues = await Promise.all(srcset.map(async srcsetValue => {
+					let resourceURL = normalizeURL(srcsetValue.url);
+					if (!testIgnoredPath(resourceURL)) {
+						if (testValidPath(resourceURL)) {
+							try {
+								resourceURL = util.resolveURL(resourceURL, baseURI);
+							} catch (error) {
+								// ignored
+							}
+							if (testValidURL(resourceURL)) {
+								const { content } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "image" });
+								const forbiddenPrefixFound = PREFIXES_FORBIDDEN_DATA_URI.filter(prefixDataURI => content.startsWith(prefixDataURI)).length;
+								if (forbiddenPrefixFound) {
 									return "";
 								}
+								return content + (srcsetValue.w ? " " + srcsetValue.w + "w" : srcsetValue.d ? " " + srcsetValue.d + "x" : "");
 							} else {
-								return resourceURL + (srcsetValue.w ? " " + srcsetValue.w + "w" : srcsetValue.d ? " " + srcsetValue.d + "x" : "");
+								return "";
 							}
-						})
-					);
-					resourceElement.setAttribute("srcset", srcsetValues.join(", "));
-				} else {
-					resourceElement.setAttribute("srcset", "");
-				}
-			})
-		);
+						} else {
+							return "";
+						}
+					} else {
+						return resourceURL + (srcsetValue.w ? " " + srcsetValue.w + "w" : srcsetValue.d ? " " + srcsetValue.d + "x" : "");
+					}
+				}));
+				resourceElement.setAttribute("srcset", srcsetValues.join(", "));
+			} else {
+				resourceElement.setAttribute("srcset", "");
+			}
+		}));
 	}
 
 	static replaceImageSource(imgElement, variableName, options) {
@@ -2137,4 +2128,6 @@ class Stats {
 	}
 }
 
-export { getClass };
+export { 
+	getClass
+};
