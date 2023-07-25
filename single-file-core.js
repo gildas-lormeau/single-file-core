@@ -29,6 +29,7 @@ const Set = globalThis.Set;
 const Map = globalThis.Map;
 const JSON = globalThis.JSON;
 const setTimeout = globalThis.setTimeout;
+const clearTimeout = globalThis.clearTimeout;
 const Image = globalThis.Image;
 
 let util, cssTree;
@@ -1807,10 +1808,15 @@ class ProcessorHelper {
 									if (forbiddenPrefixFound && isImage) {
 										forbiddenPrefixFound = await new Promise((resolve) => {
 											const image = new Image();
-											setTimeout(() => resolve(true), 100);
+											const timeoutId = setTimeout(() => resolve(true), 100);
 											image.src = content;
-											image.onload = () => resolve();
-											image.onerror = () => resolve(true);
+											image.onload = () => cleanupAndResolve();
+											image.onerror = () => cleanupAndResolve(true);
+
+											function cleanupAndResolve(value) {
+												clearTimeout(timeoutId);
+												resolve(value);
+											}
 										});
 									}
 									if (!forbiddenPrefixFound) {
