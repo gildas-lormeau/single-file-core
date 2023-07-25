@@ -1802,6 +1802,8 @@ class ProcessorHelper {
 									let forbiddenPrefixFound = PREFIXES_FORBIDDEN_DATA_URI.filter(prefixDataURI => content.startsWith(prefixDataURI)).length;
 									if (forbiddenPrefixFound) {
 										forbiddenPrefixFound = await new Promise((resolve) => {
+											// eslint-disable-next-line no-undef
+											globalThis,setTimeout(() => resolve(), 2000);
 											const element = doc.createElement(resourceElement.tagName);
 											element.setAttribute(attributeName, content);
 											element.onload = () => resolve();
