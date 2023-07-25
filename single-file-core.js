@@ -28,6 +28,8 @@ const DEBUG = false;
 const Set = globalThis.Set;
 const Map = globalThis.Map;
 const JSON = globalThis.JSON;
+const setTimeout = globalThis.setTimeout;
+const Image = globalThis.Image;
 
 let util, cssTree;
 
@@ -1804,8 +1806,8 @@ class ProcessorHelper {
 									let forbiddenPrefixFound = PREFIXES_FORBIDDEN_DATA_URI.filter(prefixDataURI => content.startsWith(prefixDataURI)).length;
 									if (forbiddenPrefixFound && isImage) {
 										forbiddenPrefixFound = await new Promise((resolve) => {
-											const image = new globalThis.Image();
-											globalThis.setTimeout(() => resolve(true), 100);
+											const image = new Image();
+											setTimeout(() => resolve(true), 100);
 											image.src = content;
 											image.onload = () => resolve();
 											image.onerror = () => resolve(true);
