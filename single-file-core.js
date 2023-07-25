@@ -1220,26 +1220,26 @@ class Processor {
 
 	async processPageResources() {
 		const processAttributeArgs = [
-			[true, "link[href][rel*=\"icon\"]", "href", false, true],
-			[true, "object[type=\"image/svg+xml\"], object[type=\"image/svg-xml\"], object[data*=\".svg\"]", "data"],
-			[true, "img[src], input[src][type=image]", "src", true],
-			[true, "embed[src*=\".svg\"]", "src"],
-			[true, "video[poster]", "poster"],
-			[true, "*[background]", "background"],
-			[true, "image", "xlink:href"],
-			[true, "image", "href"],
-			[false, "object[data*=\".pdf\"]", "data"],
-			[false, "embed[src*=\".pdf\"]", "src"]
+			["link[href][rel*=\"icon\"]", "href", false, true],
+			["object[type=\"image/svg+xml\"], object[type=\"image/svg-xml\"], object[data*=\".svg\"]", "data"],
+			["img[src], input[src][type=image]", "src", true],
+			["embed[src*=\".svg\"]", "src"],
+			["video[poster]", "poster"],
+			["*[background]", "background"],
+			["image", "xlink:href"],
+			["image", "href"]
 		];
 		if (this.options.blockImages) {
 			this.doc.querySelectorAll("svg").forEach(element => element.remove());
 		}
-		let resourcePromises = processAttributeArgs.map(([isImage, selector, attributeName, processDuplicates, removeElementIfMissing]) =>
-			ProcessorHelper.processAttribute(isImage, this.doc.querySelectorAll(selector), attributeName, this.baseURI, this.options, "image", this.cssVariables, this.styles, this.batchRequest, processDuplicates, removeElementIfMissing)
+		let resourcePromises = processAttributeArgs.map(([selector, attributeName, processDuplicates, removeElementIfMissing]) =>
+			ProcessorHelper.processAttribute(this.doc.querySelectorAll(selector), attributeName, this.baseURI, this.options, "image", this.cssVariables, this.styles, this.batchRequest, processDuplicates, removeElementIfMissing)
 		);
+		resourcePromises.push(ProcessorHelper.processAttribute(this.doc.querySelectorAll("object[data*=\".pdf\"]"), "data", this.baseURI, this.options, null, this.cssVariables, this.styles, this.batchRequest));
+		resourcePromises.push(ProcessorHelper.processAttribute(this.doc.querySelectorAll("embed[src*=\".pdf\"]"), "src", this.baseURI, this.options, null, this.cssVariables, this.styles, this.batchRequest));
 		resourcePromises = resourcePromises.concat([ProcessorHelper.processXLinks(this.doc.querySelectorAll("use"), this.doc, this.baseURI, this.options, this.batchRequest), ProcessorHelper.processSrcset(this.doc.querySelectorAll("img[srcset], source[srcset]"), this.baseURI, this.options, this.batchRequest)]);
-		resourcePromises.push(ProcessorHelper.processAttribute(false, this.doc.querySelectorAll("audio[src], audio > source[src]"), "src", this.baseURI, this.options, "audio", this.cssVariables, this.styles, this.batchRequest));
-		resourcePromises.push(ProcessorHelper.processAttribute(false, this.doc.querySelectorAll("video[src], video > source[src]"), "src", this.baseURI, this.options, "video", this.cssVariables, this.styles, this.batchRequest));
+		resourcePromises.push(ProcessorHelper.processAttribute(this.doc.querySelectorAll("audio[src], audio > source[src]"), "src", this.baseURI, this.options, "audio", this.cssVariables, this.styles, this.batchRequest));
+		resourcePromises.push(ProcessorHelper.processAttribute(this.doc.querySelectorAll("video[src], video > source[src]"), "src", this.baseURI, this.options, "video", this.cssVariables, this.styles, this.batchRequest));
 		await Promise.all(resourcePromises);
 		if (this.options.saveFavicon) {
 			ProcessorHelper.processShortcutIcons(this.doc);
@@ -1752,7 +1752,7 @@ class ProcessorHelper {
 		}));
 	}
 
-	static async processAttribute(isImage, resourceElements, attributeName, baseURI, options, expectedType, cssVariables, styles, batchRequest, processDuplicates, removeElementIfMissing) {
+	static async processAttribute(resourceElements, attributeName, baseURI, options, expectedType, cssVariables, styles, batchRequest, processDuplicates, removeElementIfMissing) {
 		await Promise.all(Array.from(resourceElements).map(async resourceElement => {
 			let resourceURL = resourceElement.getAttribute(attributeName);
 			if (resourceURL != null) {
@@ -1805,34 +1805,38 @@ class ProcessorHelper {
 									resourceElement.remove();
 								} else if (content !== util.EMPTY_RESOURCE) {
 									let forbiddenPrefixFound = PREFIXES_FORBIDDEN_DATA_URI.filter(prefixDataURI => content.startsWith(prefixDataURI)).length;
-									if (forbiddenPrefixFound && isImage) {
-										forbiddenPrefixFound = await new Promise((resolve) => {
-											const image = new Image();
-											const timeoutId = setTimeout(() => resolve(true), 100);
-											image.src = content;
-											image.onload = () => cleanupAndResolve();
-											image.onerror = () => cleanupAndResolve(true);
-
-											function cleanupAndResolve(value) {
-												clearTimeout(timeoutId);
-												resolve(value);
-											}
-										});
-									}
-									if (!forbiddenPrefixFound) {
-										const isSVG = content.startsWith(PREFIX_DATA_URI_IMAGE_SVG);
-										const maxSizeDuplicateImages = options.maxSizeDuplicateImages || SINGLE_FILE_VARIABLE_MAX_SIZE;
-										if (expectedType == "image" && processDuplicates && duplicate && !isSVG && util.getContentSize(content) < maxSizeDuplicateImages) {
-											if (ProcessorHelper.replaceImageSource(resourceElement, SINGLE_FILE_VARIABLE_NAME_PREFIX + indexResource, options)) {
-												cssVariables.set(indexResource, { content, url: originURL });
-												const declarationList = cssTree.parse(resourceElement.getAttribute("style"), { context: "declarationList", parseCustomProperty: true });
-												styles.set(resourceElement, declarationList);
+									if (expectedType == "image") {
+										if (forbiddenPrefixFound) {
+											forbiddenPrefixFound = await new Promise((resolve) => {
+												const image = new Image();
+												const timeoutId = setTimeout(() => resolve(true), 100);
+												image.src = content;
+												image.onload = () => cleanupAndResolve();
+												image.onerror = () => cleanupAndResolve(true);
+	
+												function cleanupAndResolve(value) {
+													clearTimeout(timeoutId);
+													resolve(value);
+												}
+											});
+										}
+										if (!forbiddenPrefixFound) {
+											const isSVG = content.startsWith(PREFIX_DATA_URI_IMAGE_SVG);
+											const maxSizeDuplicateImages = options.maxSizeDuplicateImages || SINGLE_FILE_VARIABLE_MAX_SIZE;
+											if (processDuplicates && duplicate && !isSVG && util.getContentSize(content) < maxSizeDuplicateImages) {
+												if (ProcessorHelper.replaceImageSource(resourceElement, SINGLE_FILE_VARIABLE_NAME_PREFIX + indexResource, options)) {
+													cssVariables.set(indexResource, { content, url: originURL });
+													const declarationList = cssTree.parse(resourceElement.getAttribute("style"), { context: "declarationList", parseCustomProperty: true });
+													styles.set(resourceElement, declarationList);
+												} else {
+													resourceElement.setAttribute(attributeName, content);
+												}
 											} else {
 												resourceElement.setAttribute(attributeName, content);
 											}
-										} else {
-											resourceElement.setAttribute(attributeName, content);
 										}
+									} else {
+										resourceElement.setAttribute(attributeName, content);
 									}
 								}
 							}
