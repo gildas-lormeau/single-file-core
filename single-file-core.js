@@ -1806,7 +1806,7 @@ class ProcessorHelper {
 								} else if (content !== util.EMPTY_RESOURCE) {
 									let forbiddenPrefixFound = PREFIXES_FORBIDDEN_DATA_URI.filter(prefixDataURI => content.startsWith(prefixDataURI)).length;
 									if (expectedType == "image") {
-										if (forbiddenPrefixFound) {
+										if (forbiddenPrefixFound && Image) {
 											forbiddenPrefixFound = await new Promise((resolve) => {
 												const image = new Image();
 												const timeoutId = setTimeout(() => resolve(true), 100);
