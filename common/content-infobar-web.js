@@ -136,6 +136,11 @@
 			displayIcon();
 		}
 	}
+	if (globalThis.singlefile) {
+		globalThis.singlefile.infobar = { 
+			displayIcon
+		};
+	}
 
 	async function displayIcon() {
 		const result = document.evaluate("//comment()", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
