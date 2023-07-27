@@ -55,13 +55,6 @@ async function getPageData(options = {}, initOptions, doc = globalThis.document,
 		helper.initDoc(doc);
 		const preInitializationPromises = [];
 		if (!options.saveRawPage) {
-			if (options.loadDeferredImages) {
-				if (options.loadDeferredImagesBeforeFrames) {
-					await processors.lazy.process(options);
-				} else {
-					preInitializationPromises.push(processors.lazy.process(options));
-				}
-			}
 			if (!options.removeFrames && frames && globalThis.frames) {
 				let frameTreePromise;
 				if (options.loadDeferredImages) {
@@ -75,9 +68,16 @@ async function getPageData(options = {}, initOptions, doc = globalThis.document,
 					preInitializationPromises.push(frameTreePromise);
 				}
 			}
+			if (options.loadDeferredImages) {
+				if (options.loadDeferredImagesBeforeFrames) {
+					await processors.lazy.process(options);
+				} else {
+					preInitializationPromises.push(processors.lazy.process(options));
+				}
+			}
 		}
 		if (!options.loadDeferredImagesBeforeFrames) {
-			[,options.frames] = await Promise.all(preInitializationPromises);
+			[options.frames] = await Promise.all(preInitializationPromises);
 		}
 		framesSessionId = options.frames && options.frames.sessionId;
 	}
