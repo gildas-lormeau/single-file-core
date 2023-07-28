@@ -55,10 +55,17 @@ async function getPageData(options = {}, initOptions, doc = globalThis.document,
 		helper.initDoc(doc);
 		const preInitializationPromises = [];
 		if (!options.saveRawPage) {
+			let lazyLoadPromise;
+			if (options.loadDeferredImages) {
+				lazyLoadPromise = processors.lazy.process(options);
+				if (options.loadDeferredImagesBeforeFrames) {
+					await lazyLoadPromise;
+				}
+			}
 			if (!options.removeFrames && frames && globalThis.frames) {
 				let frameTreePromise;
 				if (options.loadDeferredImages) {
-					frameTreePromise = new Promise(resolve => globalThis.setTimeout(() => resolve(frames.getAsync(options)), options.loadDeferredImagesBeforeFrames ? 0 : options.loadDeferredImagesMaxIdleTime * .75));
+					frameTreePromise = new Promise(resolve => globalThis.setTimeout(() => resolve(frames.getAsync(options)), options.loadDeferredImagesBeforeFrames ? 0 : options.loadDeferredImagesMaxIdleTime));
 				} else {
 					frameTreePromise = frames.getAsync(options);
 				}
@@ -68,12 +75,8 @@ async function getPageData(options = {}, initOptions, doc = globalThis.document,
 					preInitializationPromises.push(frameTreePromise);
 				}
 			}
-			if (options.loadDeferredImages) {
-				if (options.loadDeferredImagesBeforeFrames) {
-					await processors.lazy.process(options);
-				} else {
-					preInitializationPromises.push(processors.lazy.process(options));
-				}
+			if (options.loadDeferredImages && !options.loadDeferredImagesBeforeFrames) {
+				preInitializationPromises.push(lazyLoadPromise);
 			}
 		}
 		if (!options.loadDeferredImagesBeforeFrames) {
