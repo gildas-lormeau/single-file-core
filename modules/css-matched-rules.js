@@ -209,7 +209,7 @@ function getFilteredSelector(selector, selectorText) {
 	function filterNamespace(selector) {
 		if (selector.data.children) {
 			for (let childSelector = selector.data.children.head; childSelector; childSelector = childSelector.next) {
-				filterNamespace(childSelector, selector);
+				filterNamespace(childSelector);
 			}
 		}
 		if (selector.data.type == "TypeSelector" && selector.data.name.includes("|")) {
