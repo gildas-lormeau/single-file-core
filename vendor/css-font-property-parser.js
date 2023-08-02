@@ -172,12 +172,19 @@ function parse(value) {
 				throw error("Missing required font-family.");
 			}
 			font.family = [];
-			for (; tokenNode; tokenNode = tokenNode.next) {
+			let familyName = "";
+			while (tokenNode) {
 				while (tokenNode && tokenNode.data.type == "Operator" && tokenNode.data.value == ",") {
 					tokenNode = tokenNode.next;
 				}
-				if (tokenNode) {
-					font.family.push(removeQuotes(cssTree.generate(tokenNode.data)));
+				while (tokenNode && tokenNode.data.type == "Identifier") {
+					familyName += " " + removeQuotes(cssTree.generate(tokenNode.data));
+					tokenNode = tokenNode.next;
+				}
+				familyName = familyName.trim();
+				if (familyName) {
+					font.family.push(familyName);
+					familyName = "";
 				}
 			}
 			return font;
