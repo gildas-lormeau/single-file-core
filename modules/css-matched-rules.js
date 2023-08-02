@@ -174,12 +174,13 @@ function getMatchedElementsSelector(doc, selectorInfo, styles, matchedElementsCa
 }
 
 function getFilteredSelector(selector, selectorText) {
-	const namespaceSeparatorIndex = selectorText.lastIndexOf("|");
-	if (namespaceSeparatorIndex > -1) {
-		return selectorText.substring(namespaceSeparatorIndex + 1);
-	}
 	const removedSelectors = [];
+	let namespaceFound;
 	selector = { data: cssTree.parse(cssTree.generate(selector.data), { context: "selector" }) };
+	filterNamespace(selector);
+	if (namespaceFound)	{
+		selectorText = cssTree.generate(selector.data).trim();
+	}
 	filterPseudoClasses(selector);
 	if (removedSelectors.length) {
 		removedSelectors.forEach(({ parentSelector, selector }) => {
@@ -202,6 +203,18 @@ function getFilteredSelector(selector, selectorText) {
 		if ((selector.data.type == "PseudoClassSelector") ||
 			(selector.data.type == "PseudoElementSelector" && (testVendorPseudo(selector) || IGNORED_PSEUDO_ELEMENTS.includes(selector.data.name)))) {
 			removedSelectors.push({ parentSelector, selector });
+		}
+	}
+
+	function filterNamespace(selector) {
+		if (selector.data.children) {
+			for (let childSelector = selector.data.children.head; childSelector; childSelector = childSelector.next) {
+				filterNamespace(childSelector, selector);
+			}
+		}
+		if (selector.data.type == "TypeSelector" && selector.data.name.includes("|")) {
+			namespaceFound = true;
+			selector.data.name = selector.data.name.substring(selector.data.name.lastIndexOf("|") + 1);
 		}
 	}
 
