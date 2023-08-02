@@ -177,8 +177,13 @@ function parse(value) {
 				while (tokenNode && tokenNode.data.type == "Operator" && tokenNode.data.value == ",") {
 					tokenNode = tokenNode.next;
 				}
-				while (tokenNode && tokenNode.data.type == "Identifier") {
-					familyName += " " + removeQuotes(cssTree.generate(tokenNode.data));
+				if (tokenNode.data.type == "Identifier") {
+					while (tokenNode && tokenNode.data.type == "Identifier") {
+						familyName += " " + removeQuotes(cssTree.generate(tokenNode.data));
+						tokenNode = tokenNode.next;
+					}
+				} else {
+					familyName = removeQuotes(cssTree.generate(tokenNode.data));
 					tokenNode = tokenNode.next;
 				}
 				familyName = familyName.trim();
