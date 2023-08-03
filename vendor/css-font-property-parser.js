@@ -180,7 +180,7 @@ function parse(value) {
 				if (tokenNode) {
 					if (tokenNode.data.type == "Identifier") {
 						while (tokenNode && tokenNode.data.type == "Identifier") {
-							familyName += " " + removeQuotes(cssTree.generate(tokenNode.data));
+							familyName += " " + cssTree.generate(tokenNode.data);
 							tokenNode = tokenNode.next;
 						}
 					} else {
