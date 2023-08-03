@@ -28,6 +28,8 @@ import * as hooksFrames from "./processors/hooks/content/content-hooks-frames.js
 
 const ON_BEFORE_CAPTURE_EVENT_NAME = "single-file-on-before-capture";
 const ON_AFTER_CAPTURE_EVENT_NAME = "single-file-on-after-capture";
+const GET_ADOPTED_STYLESHEETS_REQUEST_EVENT = "single-file-request-get-adopted-stylesheets";
+const GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT = "single-file-response-get-adopted-stylesheets";
 const REMOVED_CONTENT_ATTRIBUTE_NAME = "data-single-file-removed-content";
 const HIDDEN_CONTENT_ATTRIBUTE_NAME = "data-single-file-hidden-content";
 const KEPT_CONTENT_ATTRIBUTE_NAME = "data-single-file-kept-content";
@@ -228,8 +230,15 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 				shadowRootInfo.content = shadowRoot.innerHTML;
 				shadowRootInfo.mode = shadowRoot.mode;
 				try {
-					if (shadowRoot.adoptedStyleSheets && shadowRoot.adoptedStyleSheets.length) {
-						shadowRootInfo.adoptedStyleSheets = Array.from(shadowRoot.adoptedStyleSheets).map(stylesheet => Array.from(stylesheet.cssRules).map(cssRule => cssRule.cssText).join("\n"));
+					if (shadowRoot.adoptedStyleSheets) {
+						if (shadowRoot.adoptedStyleSheets.length) {
+							shadowRootInfo.adoptedStyleSheets = Array.from(shadowRoot.adoptedStyleSheets).map(stylesheet => Array.from(stylesheet.cssRules).map(cssRule => cssRule.cssText).join("\n"));
+						} else if (shadowRoot.adoptedStyleSheets.length === undefined) {
+							const listener = event => shadowRootInfo.adoptedStyleSheets = event.detail.adoptedStyleSheets;
+							element.addEventListener(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, listener);
+							element.dispatchEvent(new CustomEvent(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, { options: { bubbles: true, composed: true }}));
+							element.removeEventListener(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, listener);
+						}
 					}
 				} catch (error) {
 					// ignored

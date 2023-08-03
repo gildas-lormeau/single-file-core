@@ -43,6 +43,8 @@
 	const FETCH_REQUEST_EVENT = "single-file-request-fetch";
 	const FETCH_ACK_EVENT = "single-file-ack-fetch";
 	const FETCH_RESPONSE_EVENT = "single-file-response-fetch";
+	const GET_ADOPTED_STYLESHEETS_REQUEST_EVENT = "single-file-request-get-adopted-stylesheets";
+	const GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT = "single-file-response-get-adopted-stylesheets";
 	const NEW_FONT_FACE_EVENT = "single-file-new-font-face";
 	const DELETE_FONT_EVENT = "single-file-delete-font";
 	const CLEAR_FONTS_EVENT = "single-file-clear-fonts";
@@ -309,6 +311,14 @@
 		}
 		dispatchEvent(new CustomEvent(FETCH_RESPONSE_EVENT, { detail }));
 	});
+
+	addEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, event => {
+		const shadowRoot = event.target.shadowRoot;
+		const adoptedStyleSheets = Array.from(shadowRoot.adoptedStyleSheets).map(stylesheet => Array.from(stylesheet.cssRules).map(cssRule => cssRule.cssText).join("\n"));
+		if (adoptedStyleSheets.length) {
+			event.target.dispatchEvent(new CustomEvent(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, { detail: { adoptedStyleSheets } }));
+		}
+	}, { capture: true });
 
 	if (globalThis.FontFace) {
 		const FontFace = globalThis.FontFace;
