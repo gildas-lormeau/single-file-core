@@ -265,7 +265,10 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 	const tagName = element.tagName && element.tagName.toUpperCase();
 	if (tagName == "CANVAS") {
 		try {
-			data.canvases.push({ dataURI: element.toDataURL("image/png", "") });
+			data.canvases.push({ 
+				dataURI: element.toDataURL("image/png", ""), 
+				backgroundColor: computedStyle.getPropertyValue("background-color") 
+			});
 			element.setAttribute(CANVAS_ATTRIBUTE_NAME, data.canvases.length - 1);
 			data.markedElements.push(element);
 		} catch (error) {

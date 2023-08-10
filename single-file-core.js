@@ -875,7 +875,11 @@ class Processor {
 				if (attributeValue) {
 					const canvasData = this.options.canvases[Number(attributeValue)];
 					if (canvasData) {
-						ProcessorHelper.setBackgroundImage(canvasElement, "url(" + canvasData.dataURI + ")");
+						const backgroundStyle = {};
+						if (canvasData.backgroundColor) {
+							backgroundStyle["background-color"] = canvasData.backgroundColor;
+						}
+						ProcessorHelper.setBackgroundImage(canvasElement, "url(" + canvasData.dataURI + ")", backgroundStyle);
 						this.stats.add("processed", "canvas", 1);
 					}
 				}
