@@ -724,15 +724,16 @@ class Processor {
 
 	removeEmbedScripts() {
 		const JAVASCRIPT_URI_PREFIX = "javascript:";
+		const DISABLED_SCRIPT = "javascript:void(0)";
 		this.onEventAttributeNames.forEach(attributeName => this.doc.querySelectorAll("[" + attributeName + "]").forEach(element => element.removeAttribute(attributeName)));
 		this.doc.querySelectorAll("[href]").forEach(element => {
 			if (element.href && element.href.match && element.href.trim().startsWith(JAVASCRIPT_URI_PREFIX)) {
-				element.removeAttribute("href");
+				element.setAttribute("href", DISABLED_SCRIPT);
 			}
 		});
 		this.doc.querySelectorAll("[src]").forEach(element => {
 			if (element.src && element.src.trim().startsWith(JAVASCRIPT_URI_PREFIX)) {
-				element.removeAttribute("src");
+				element.setAttribute("src", DISABLED_SCRIPT);
 			}
 		});
 		const scriptElements = this.doc.querySelectorAll("script:not([type=\"application/ld+json\"]):not([" + SCRIPT_TEMPLATE_SHADOW_ROOT + "])");
