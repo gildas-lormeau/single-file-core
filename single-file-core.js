@@ -864,9 +864,9 @@ class Processor {
 	}
 
 	saveFavicon() {
-		let faviconElement = this.doc.querySelector("link[href][rel=\"icon\"]");
+		let faviconElement = this.doc.querySelector("link[href][rel=\"shortcut icon\"]");
 		if (!faviconElement) {
-			faviconElement = this.doc.querySelector("link[href][rel=\"shortcut icon\"]");
+			faviconElement = this.doc.querySelector("link[href][rel=\"icon\"]");
 		}
 		if (!faviconElement) {
 			faviconElement = this.doc.createElement("link");
@@ -1513,11 +1513,14 @@ class ProcessorHelper {
 	}
 
 	static processShortcutIcons(doc) {
-		let shortcutIcon = findShortcutIcon(Array.from(doc.querySelectorAll("link[href][rel=\"icon\"], link[href][rel=\"shortcut icon\"]")));
+		let shortcutIcon = findShortcutIcon(Array.from(doc.querySelectorAll("link[href][rel=\"shortcut icon\"]")));
+		if (!shortcutIcon) {
+			shortcutIcon = findShortcutIcon(Array.from(doc.querySelectorAll("link[href][rel=\"icon\"]")));
+		}
 		if (!shortcutIcon) {
 			shortcutIcon = findShortcutIcon(Array.from(doc.querySelectorAll("link[href][rel*=\"icon\"]")));
 			if (shortcutIcon) {
-				shortcutIcon.rel = "icon";
+				shortcutIcon.rel = "shortcut icon";
 			}
 		}
 		if (shortcutIcon) {
