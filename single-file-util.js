@@ -160,6 +160,9 @@ function getInstance(utilOptions) {
 		removeQuotes(string) {
 			return helper.removeQuotes(string);
 		},
+		appendInfobar(doc, options) {
+			return helper.appendInfobar(doc, options);
+		},
 		ON_BEFORE_CAPTURE_EVENT_NAME: helper.ON_BEFORE_CAPTURE_EVENT_NAME,
 		ON_AFTER_CAPTURE_EVENT_NAME: helper.ON_AFTER_CAPTURE_EVENT_NAME,
 		WIN_ID_ATTRIBUTE_NAME: helper.WIN_ID_ATTRIBUTE_NAME,
