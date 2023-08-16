@@ -494,6 +494,9 @@ class Processor {
 			);
 			this.doc.documentElement.insertBefore(commentNode, this.doc.documentElement.firstChild);
 		}
+		if (this.options.includeInfobar) {
+			util.appendInfobar(this.doc, this.options);
+		}
 		if (this.doc.querySelector("template[" + SHADOWROOT_ATTRIBUTE_NAME + "]") || (this.options.shadowRoots && this.options.shadowRoots.length)) {
 			if (this.options.blockScripts) {
 				this.doc.querySelectorAll("script[" + SCRIPT_TEMPLATE_SHADOW_ROOT + "]").forEach(element => element.remove());
