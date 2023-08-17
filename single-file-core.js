@@ -184,8 +184,6 @@ class Runner {
 			this.options.referrer = docData.referrer;
 			this.markedElements = docData.markedElements;
 			this.invalidElements = docData.invalidElements;
-		} else {
-			this.options.includeInfobar = false;
 		}
 		if (this.options.saveRawPage) {
 			this.options.removeFrames = true;
@@ -1141,6 +1139,7 @@ class Processor {
 			options.insertCanonicalLink = false;
 			options.insertMetaNoIndex = false;
 			options.saveFavicon = false;
+			options.includeInfobar = false;
 			options.url = frameData.baseURI;
 			options.windowId = frameWindowId;
 			if (frameData.content) {
