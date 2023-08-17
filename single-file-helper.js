@@ -64,6 +64,7 @@ const FONT_WEIGHTS = {
 const COMMENT_HEADER = "Page saved with SingleFile";
 const COMMENT_HEADER_LEGACY = "Archive processed by SingleFile";
 const SINGLE_FILE_UI_ELEMENT_CLASS = "single-file-ui-element";
+const INFOBAR_TAGNAME = infobar.INFOBAR_TAGNAME;
 const EMPTY_RESOURCE = "data:,";
 const addEventListener = (type, listener, options) => globalThis.addEventListener(type, listener, options);
 const dispatchEvent = event => { try { globalThis.dispatchEvent(event); } catch (error) {  /* ignored */ } };
@@ -103,7 +104,8 @@ export {
 	COMMENT_HEADER,
 	COMMENT_HEADER_LEGACY,
 	SINGLE_FILE_UI_ELEMENT_CLASS,
-	EMPTY_RESOURCE
+	EMPTY_RESOURCE,
+	INFOBAR_TAGNAME
 };
 
 function initUserScriptHandler() {

@@ -499,6 +499,10 @@ class Processor {
 		if (legacyInfobarElement) {
 			legacyInfobarElement.remove();
 		}
+		const infobarElement = this.doc.querySelector(util.INFOBAR_TAGNAME);
+		if (infobarElement) {
+			infobarElement.remove();
+		}
 		if (this.options.includeInfobar) {
 			util.appendInfobar(this.doc, this.options);
 		}
