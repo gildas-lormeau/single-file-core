@@ -173,7 +173,7 @@ function initRequestSync(message) {
 		if (message.options.userScriptEnabled && waitForUserScript) {
 			waitForUserScript(helper.ON_BEFORE_CAPTURE_EVENT_NAME);
 		}
-		sendInitResponse({ frames: [getFrameData(document, globalThis, windowId, message.options)], sessionId, requestedFrameId: document.documentElement.dataset.requestedFrameId && windowId });
+		sendInitResponse({ frames: [getFrameData(document, globalThis, windowId, message.options, message.scrolling)], sessionId, requestedFrameId: document.documentElement.dataset.requestedFrameId && windowId });
 		if (message.options.userScriptEnabled && waitForUserScript) {
 			waitForUserScript(helper.ON_AFTER_CAPTURE_EVENT_NAME);
 		}
@@ -193,7 +193,7 @@ async function initRequestAsync(message) {
 		if (message.options.userScriptEnabled && waitForUserScript) {
 			await waitForUserScript(helper.ON_BEFORE_CAPTURE_EVENT_NAME);
 		}
-		sendInitResponse({ frames: [getFrameData(document, globalThis, windowId, message.options)], sessionId, requestedFrameId: document.documentElement.dataset.requestedFrameId && windowId });
+		sendInitResponse({ frames: [getFrameData(document, globalThis, windowId, message.options, message.scrolling)], sessionId, requestedFrameId: document.documentElement.dataset.requestedFrameId && windowId });
 		if (message.options.userScriptEnabled && waitForUserScript) {
 			await waitForUserScript(helper.ON_AFTER_CAPTURE_EVENT_NAME);
 		}
@@ -236,6 +236,8 @@ function initResponse(message) {
 				frameData.usedFonts = messageFrameData.usedFonts;
 				frameData.shadowRoots = messageFrameData.shadowRoots;
 				frameData.processed = messageFrameData.processed;
+				frameData.scrollPosition = messageFrameData.scrollPosition;
+				frameData.scrolling = messageFrameData.scrolling;
 			}
 		});
 		const remainingFrames = windowData.frames.filter(frameData => !frameData.processed).length;
@@ -280,7 +282,7 @@ function processFramesAsync(doc, frameElements, options, parentWindowId, session
 	frameElements.forEach((frameElement, frameIndex) => {
 		const windowId = parentWindowId + WINDOW_ID_SEPARATOR + frameIndex;
 		try {
-			sendMessage(frameElement.contentWindow, { method: INIT_REQUEST_MESSAGE, windowId, sessionId, options });
+			sendMessage(frameElement.contentWindow, { method: INIT_REQUEST_MESSAGE, windowId, sessionId, options, scrolling: frameElement.scrolling });
 		} catch (error) {
 			// ignored
 		}
@@ -305,7 +307,7 @@ function processFramesSync(doc, frameElements, options, parentWindowId, sessionI
 				frameWindow.stop();
 				clearFrameTimeout("requestTimeouts", sessionId, windowId);
 				processFrames(frameDoc, options, windowId, sessionId);
-				frames.push(getFrameData(frameDoc, frameWindow, windowId, options));
+				frames.push(getFrameData(frameDoc, frameWindow, windowId, options, frameElement.scrolling));
 			} catch (error) {
 				frames.push({ windowId, processed: true });
 			}
@@ -384,7 +386,7 @@ function sendMessage(targetWindow, message, useChannel) {
 	}
 }
 
-function getFrameData(document, globalThis, windowId, options) {
+function getFrameData(document, globalThis, windowId, options, scrolling) {
 	const docData = helper.preProcessDoc(document, globalThis, options);
 	const content = helper.serialize(document);
 	helper.postProcessDoc(document, docData.markedElements, docData.invalidElements);
@@ -403,6 +405,8 @@ function getFrameData(document, globalThis, windowId, options) {
 		videos: docData.videos,
 		usedFonts: docData.usedFonts,
 		shadowRoots: docData.shadowRoots,
+		scrollPosition: docData.scrollPosition,
+		scrolling,
 		processed: true
 	};
 }

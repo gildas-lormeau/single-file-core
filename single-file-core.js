@@ -114,6 +114,7 @@ const STAGES = [{
 		{ option: "removeFrames", action: "removeFrames" },
 		{ action: "removeDiscardedResources" },
 		{ option: "removeHiddenElements", action: "removeHiddenElements" },
+		{ action: "saveScrollPosition" },
 		{ action: "resolveHrefs" },
 		{ action: "resolveStyleAttributeURLs" }
 	],
@@ -882,6 +883,14 @@ class Processor {
 		this.doc.head.appendChild(faviconElement);
 	}
 
+	saveScrollPosition() {
+		if (this.options.scrollPosition && this.options.scrolling == "no" && (this.options.scrollPosition.x || this.options.scrollPosition.y)) {
+			const scriptElement = this.doc.createElement("script");
+			scriptElement.textContent = "document.currentScript.remove();addEventListener(\"load\",()=>scrollTo(" + this.options.scrollPosition.x + "," + this.options.scrollPosition.y + "))";
+			this.doc.body.appendChild(scriptElement);
+		}
+	}
+
 	replaceCanvasElements() {
 		if (this.options.canvases) {
 			this.doc.querySelectorAll("canvas").forEach(canvasElement => {
@@ -1144,6 +1153,8 @@ class Processor {
 				options.videos = frameData.videos;
 				options.usedFonts = frameData.usedFonts;
 				options.shadowRoots = frameData.shadowRoots;
+				options.scrollPosition = frameData.scrollPosition;
+				options.scrolling = frameData.scrolling;
 				frameData.runner = new Runner(options);
 				frameData.frameElement = frameElement;
 				await frameData.runner.loadPage();
