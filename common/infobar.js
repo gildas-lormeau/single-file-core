@@ -193,27 +193,9 @@ function appendInfobar(doc, options, useShadowRoot) {
 			infobarContainer.appendChild(shadowRootContent);
 		} else {
 			const scriptElement = doc.createElement("script");
-			let scriptContent = (refreshInfobarInfo.toString());
-			scriptContent += (extractInfobarData.toString());
-			scriptContent += "refreshInfobarInfo(document, extractInfobarData(document))";
-			scriptContent = scriptContent
-				.replace(/ == /g, "==")
-				.replace(/ > /g, ">")
-				.replace(/ < /g, "<")
-				.replace(/ \+ /g, "+")
-				.replace(/ - /g, "-")
-				.replace(/ = /g, "=")
-				.replace(/ \+= /g, "+=")
-				.replace(/ && /g, "&&")
-				.replace(/ \|\| /g, "||")
-				.replace(/{ /g, "{")
-				.replace(/ }/g, "}")
-				.replace(/, /g, ",")
-				.replace(/; /g, ";")
-				.replace(/ \(/g, "(")
-				.replace(/ \)/g, ")")
-				.replace(/\t/g, "")
-				.replace(/\n/g, "");
+			let scriptContent = refreshInfobarInfo.toString();
+			scriptContent += extractInfobarData.toString();
+			scriptContent += "(" + initInfobar.toString() + ")(document)";
 			scriptElement.textContent = scriptContent;
 			shadowRootContent.appendChild(scriptElement);
 			infobarContainer.innerHTML = shadowRootContent.outerHTML;
@@ -265,6 +247,13 @@ function displayIcon(doc, useShadowRoot) {
 	const infoData = extractInfobarData(doc);
 	if (infoData.saveUrl) {
 		appendInfobar(doc, infoData, useShadowRoot);
+		refreshInfobarInfo(doc, infoData);
+	}
+}
+
+function initInfobar(doc) {
+	const infoData = extractInfobarData(doc);
+	if (infoData.saveUrl) {
 		refreshInfobarInfo(doc, infoData);
 	}
 }
