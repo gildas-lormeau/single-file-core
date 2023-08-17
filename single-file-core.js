@@ -183,6 +183,8 @@ class Runner {
 			this.options.referrer = docData.referrer;
 			this.markedElements = docData.markedElements;
 			this.invalidElements = docData.invalidElements;
+		} else {
+			this.options.includeInfobar = false;
 		}
 		if (this.options.saveRawPage) {
 			this.options.removeFrames = true;
