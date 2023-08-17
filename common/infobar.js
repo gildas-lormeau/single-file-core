@@ -253,7 +253,7 @@ function displayIcon(doc, useShadowRoot) {
 
 function initInfobar(doc) {
 	const infoData = extractInfobarData(doc);
-	if (infoData.saveUrl) {
+	if (infoData && infoData.saveUrl) {
 		refreshInfobarInfo(doc, infoData);
 	}
 }
