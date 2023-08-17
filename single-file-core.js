@@ -495,6 +495,10 @@ class Processor {
 			);
 			this.doc.documentElement.insertBefore(commentNode, this.doc.documentElement.firstChild);
 		}
+		const legacyInfobarElement = this.doc.querySelector("singlefile-infobar");
+		if (legacyInfobarElement) {
+			legacyInfobarElement.remove();
+		}
 		if (this.options.includeInfobar) {
 			util.appendInfobar(this.doc, this.options);
 		}
