@@ -184,7 +184,6 @@ function appendInfobar(doc, options, useShadowRoot) {
 		closeButtonElement.classList.add("infobar-close-icon");
 		contentElement.appendChild(closeButtonElement);
 		const textElement = doc.createElement("span");
-		debugger;
 		textElement.textContent = infoData;
 		contentElement.appendChild(textElement);
 		const linkElement = doc.createElement("a");
