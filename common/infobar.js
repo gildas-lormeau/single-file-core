@@ -143,7 +143,12 @@ export { displayIcon, appendInfobar, refreshInfobarInfo, extractInfobarData, INF
 
 function appendInfobar(doc, options, useShadowRoot) {
 	if (!doc.querySelector(INFOBAR_TAGNAME)) {
-		let infoData = options.infobarContent ? options.infobarContent : options.saveDate;
+		let infoData;
+		if (options.infobarContent) {
+			infoData = options.infobarContent.replace(/\\n/g, "\n").replace(/\\t/g, "\t");
+		} else if (options.saveDate) {
+			infoData = options.saveDate;
+		}
 		infoData = infoData || "No info";
 		const infobarElement = createElement(doc, INFOBAR_TAGNAME, doc.body);
 		let infobarContainer;
@@ -179,6 +184,7 @@ function appendInfobar(doc, options, useShadowRoot) {
 		closeButtonElement.classList.add("infobar-close-icon");
 		contentElement.appendChild(closeButtonElement);
 		const textElement = doc.createElement("span");
+		debugger;
 		textElement.textContent = infoData;
 		contentElement.appendChild(textElement);
 		const linkElement = doc.createElement("a");
