@@ -185,7 +185,8 @@ function preProcessDoc(doc, win, options) {
 		referrer: doc.referrer,
 		markedElements: elementsInfo.markedElements,
 		invalidElements,
-		scrollPosition: { x: win.scrollX, y: win.scrollY }
+		scrollPosition: { x: win.scrollX, y: win.scrollY },
+		adoptedStyleSheets: getStylesheetsContent(doc.adoptedStyleSheets)
 	};
 }
 
@@ -237,7 +238,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 				try {
 					if (shadowRoot.adoptedStyleSheets) {
 						if (shadowRoot.adoptedStyleSheets.length) {
-							shadowRootInfo.adoptedStyleSheets = Array.from(shadowRoot.adoptedStyleSheets).map(stylesheet => Array.from(stylesheet.cssRules).map(cssRule => cssRule.cssText).join("\n"));
+							shadowRootInfo.adoptedStyleSheets = getStylesheetsContent(shadowRoot.adoptedStyleSheets);
 						} else if (shadowRoot.adoptedStyleSheets.length === undefined) {
 							const listener = event => shadowRootInfo.adoptedStyleSheets = event.detail.adoptedStyleSheets;
 							element.addEventListener(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, listener);
@@ -264,6 +265,10 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 		});
 	}
 	return data;
+}
+
+function getStylesheetsContent(styleSheets) {
+	return Array.from(styleSheets).map(stylesheet => Array.from(stylesheet.cssRules).map(cssRule => cssRule.cssText).join("\n"));
 }
 
 function getResourcesInfo(win, doc, element, options, data, elementHidden, computedStyle) {
