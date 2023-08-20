@@ -242,7 +242,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 						} else if (shadowRoot.adoptedStyleSheets.length === undefined) {
 							const listener = event => shadowRootInfo.adoptedStyleSheets = event.detail.adoptedStyleSheets;
 							element.addEventListener(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, listener);
-							element.dispatchEvent(new CustomEvent(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, { options: { bubbles: true, composed: true }}));
+							element.dispatchEvent(new CustomEvent(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, { bubbles: true, composed: true }));
 							element.removeEventListener(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, listener);
 						}
 					}
