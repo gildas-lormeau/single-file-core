@@ -44,6 +44,7 @@
 	const FETCH_ACK_EVENT = "single-file-ack-fetch";
 	const FETCH_RESPONSE_EVENT = "single-file-response-fetch";
 	const GET_ADOPTED_STYLESHEETS_REQUEST_EVENT = "single-file-request-get-adopted-stylesheets";
+	const UNREGISTER_GET_ADOPTED_STYLESHEETS_REQUEST_EVENT = "single-file-unregister-request-get-adopted-stylesheets";
 	const GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT = "single-file-response-get-adopted-stylesheets";
 	const NEW_FONT_FACE_EVENT = "single-file-new-font-face";
 	const DELETE_FONT_EVENT = "single-file-delete-font";
@@ -312,15 +313,7 @@
 		dispatchEvent(new CustomEvent(FETCH_RESPONSE_EVENT, { detail }));
 	});
 
-	addEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, event => {
-		const shadowRoot = event.target.shadowRoot;
-		if (shadowRoot) {
-			const adoptedStyleSheets = Array.from(shadowRoot.adoptedStyleSheets).map(stylesheet => Array.from(stylesheet.cssRules).map(cssRule => cssRule.cssText).join("\n"));
-			if (adoptedStyleSheets.length) {
-				event.target.dispatchEvent(new CustomEvent(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, { detail: { adoptedStyleSheets } }));
-			}
-		}		
-	}, { capture: true });
+	addEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, getAdoptedStylesheetsListener);
 
 	if (globalThis.FontFace) {
 		const FontFace = globalThis.FontFace;
@@ -383,6 +376,19 @@
 		};
 		globalThis.IntersectionObserver.prototype = IntersectionObserver.prototype;
 		globalThis.IntersectionObserver.toString = function () { return "function IntersectionObserver() { [native code] }"; };
+	}
+
+	function getAdoptedStylesheetsListener(event) {
+		const shadowRoot = event.target.shadowRoot;
+		event.stopPropagation();
+		if (shadowRoot) {
+			shadowRoot.addEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, getAdoptedStylesheetsListener, {});
+			shadowRoot.addEventListener(UNREGISTER_GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, () => shadowRoot.removeEventListener(getAdoptedStylesheetsListener), { once: true });
+			const adoptedStyleSheets = Array.from(shadowRoot.adoptedStyleSheets).map(stylesheet => Array.from(stylesheet.cssRules).map(cssRule => cssRule.cssText).join("\n"));
+			if (adoptedStyleSheets.length) {
+				event.target.dispatchEvent(new CustomEvent(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, { detail: { adoptedStyleSheets } }));
+			}
+		}
 	}
 
 	async function getDetailObject(fontFamily, src, descriptors) {

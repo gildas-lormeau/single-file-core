@@ -30,6 +30,7 @@ import * as infobar from "./common/infobar.js";
 const ON_BEFORE_CAPTURE_EVENT_NAME = "single-file-on-before-capture";
 const ON_AFTER_CAPTURE_EVENT_NAME = "single-file-on-after-capture";
 const GET_ADOPTED_STYLESHEETS_REQUEST_EVENT = "single-file-request-get-adopted-stylesheets";
+const UNREGISTER_GET_ADOPTED_STYLESHEETS_REQUEST_EVENT = "single-file-unregister-request-get-adopted-stylesheets";
 const GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT = "single-file-response-get-adopted-stylesheets";
 const REMOVED_CONTENT_ATTRIBUTE_NAME = "data-single-file-removed-content";
 const HIDDEN_CONTENT_ATTRIBUTE_NAME = "data-single-file-hidden-content";
@@ -232,9 +233,6 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 				element.setAttribute(SHADOW_ROOT_ATTRIBUTE_NAME, data.shadowRoots.length);
 				data.markedElements.push(element);
 				data.shadowRoots.push(shadowRootInfo);
-				getElementsInfo(win, doc, shadowRoot, options, data, elementHidden);
-				shadowRootInfo.content = shadowRoot.innerHTML;
-				shadowRootInfo.mode = shadowRoot.mode;
 				try {
 					if (shadowRoot.adoptedStyleSheets) {
 						if (shadowRoot.adoptedStyleSheets.length) {
@@ -242,9 +240,19 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 						} else if (shadowRoot.adoptedStyleSheets.length === undefined) {
 							const listener = event => shadowRootInfo.adoptedStyleSheets = event.detail.adoptedStyleSheets;
 							element.addEventListener(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, listener);
-							element.dispatchEvent(new CustomEvent(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, { bubbles: true, composed: true }));
+							element.dispatchEvent(new CustomEvent(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, { bubbles: true }));
 							element.removeEventListener(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, listener);
 						}
+					}
+				} catch (error) {
+					// ignored
+				}
+				getElementsInfo(win, doc, shadowRoot, options, data, elementHidden);
+				shadowRootInfo.content = shadowRoot.innerHTML;
+				shadowRootInfo.mode = shadowRoot.mode;
+				try {
+					if (shadowRoot.adoptedStyleSheets && shadowRoot.adoptedStyleSheets.length === undefined) {
+						element.dispatchEvent(new CustomEvent(UNREGISTER_GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, { bubbles: true }));
 					}
 				} catch (error) {
 					// ignored
