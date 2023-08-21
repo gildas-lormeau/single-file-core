@@ -626,7 +626,7 @@ class Processor {
 				}
 			});
 		}
-		if (this.options.adoptedStyleSheets.length) {
+		if (this.options.adoptedStyleSheets && this.options.adoptedStyleSheets.length) {
 			const styleElement = this.doc.createElement("style");
 			styleElement.textContent = this.options.adoptedStyleSheets.join("\n");
 			this.doc.body.appendChild(styleElement);
@@ -1194,7 +1194,7 @@ class Processor {
 					if (shadowRootData) {
 						const templateElement = doc.createElement("template");
 						templateElement.setAttribute(SHADOWROOT_ATTRIBUTE_NAME, shadowRootData.mode);
-						if (shadowRootData.adoptedStyleSheets) {
+						if (shadowRootData.adoptedStyleSheets && shadowRootData.adoptedStyleSheets.length) {
 							shadowRootData.adoptedStyleSheets.forEach(stylesheetContent => {
 								const styleElement = doc.createElement("style");
 								styleElement.textContent = stylesheetContent;
