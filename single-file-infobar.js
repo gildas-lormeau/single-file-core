@@ -21,4 +21,43 @@
  *   Source.
  */
 
-import "./common/content-infobar-web.js";
+/* global globalThis, window, document */
+
+import { appendInfobar, refreshInfobarInfo, extractInfobarData } from "./core/infobar.js";
+
+(globalThis => {
+
+	const browser = globalThis.browser;
+
+	if (globalThis.window == globalThis.top) {
+		if (document.readyState == "loading") {
+			document.addEventListener("DOMContentLoaded", displayIcon, false);
+		} else {
+			displayIcon();
+		}
+	}
+	if (globalThis.singlefile) {
+		globalThis.singlefile.infobar = {
+			displayIcon
+		};
+	}
+
+	async function displayIcon() {
+		let options = { displayInfobar: true };
+		const infoData = extractInfobarData(document);
+		if (infoData && infoData.saveUrl) {
+			if (browser && browser.runtime && browser.runtime.sendMessage) {
+				try {
+					options = await browser.runtime.sendMessage({ method: "tabs.getOptions", url: infoData.saveUrl });
+				} catch (error) {
+					// ignored
+				}
+			}
+			if (options.displayInfobar) {
+				appendInfobar(document, options, true);
+				refreshInfobarInfo(document, infoData);
+			}
+		}
+	}
+
+})(typeof globalThis == "object" ? globalThis : window);
