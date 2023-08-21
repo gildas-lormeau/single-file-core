@@ -34,6 +34,10 @@ const Image = globalThis.Image;
 
 let util, cssTree;
 
+export { 
+	getClass
+};
+
 function getClass(...args) {
 	[util, cssTree] = args;
 	return SingleFileClass;
@@ -489,9 +493,9 @@ class Processor {
 			}
 			const infobarContent = (this.options.infobarContent || "").replace(/\\n/g, "\n").replace(/\\t/g, "\t");
 			const commentNode = this.doc.createComment(
-				"\n " + (this.options.useLegacyCommentHeader ? util.COMMENT_HEADER_LEGACY : util.COMMENT_HEADER) + 
-				" \n url: " + infobarURL + 
-				(this.options.removeSavedDate ? " " : " \n saved date: " + infobarSaveDate) + 
+				"\n " + (this.options.useLegacyCommentHeader ? util.COMMENT_HEADER_LEGACY : util.COMMENT_HEADER) +
+				" \n url: " + infobarURL +
+				(this.options.removeSavedDate ? " " : " \n saved date: " + infobarSaveDate) +
 				(infobarContent ? " \n info: " + infobarContent : "") + "\n"
 			);
 			this.doc.documentElement.insertBefore(commentNode, this.doc.documentElement.firstChild);
@@ -583,7 +587,7 @@ class Processor {
 					const imageData = this.options.images[Number(attributeValue)];
 					if (imageData) {
 						if (this.options.removeHiddenElements && (
-							(imageData.size && !imageData.size.pxWidth && !imageData.size.pxHeight) || 
+							(imageData.size && !imageData.size.pxWidth && !imageData.size.pxHeight) ||
 							imgElement.getAttribute(util.HIDDEN_CONTENT_ATTRIBUTE_NAME) == "")
 						) {
 							imgElement.setAttribute("src", util.EMPTY_RESOURCE);
@@ -1245,13 +1249,13 @@ class Processor {
 
 	async processStylesheets() {
 		this.options.fontDeclarations = new Map();
-		await Promise.all([...this.stylesheets].map(([, stylesheetInfo]) => 
+		await Promise.all([...this.stylesheets].map(([, stylesheetInfo]) =>
 			ProcessorHelper.processStylesheet(stylesheetInfo.stylesheet.children, this.baseURI, this.options, this.cssVariables, this.batchRequest)
 		));
 	}
 
 	async processStyleAttributes() {
-		return Promise.all([...this.styles].map(([, stylesheet]) => 
+		return Promise.all([...this.styles].map(([, stylesheet]) =>
 			ProcessorHelper.processStyle(stylesheet, this.baseURI, this.options, this.cssVariables, this.batchRequest)
 		));
 	}
@@ -1854,7 +1858,7 @@ class ProcessorHelper {
 							}
 							if (testValidURL(resourceURL)) {
 								let { content, indexResource, duplicate } = await batchRequest.addURL(
-									resourceURL, 
+									resourceURL,
 									{ asBinary: true, expectedType, groupDuplicates: options.groupDuplicateImages && resourceElement.tagName.toUpperCase() == "IMG" && attributeName == "src" });
 								if (originURL) {
 									if (content == util.EMPTY_RESOURCE) {
@@ -1894,7 +1898,7 @@ class ProcessorHelper {
 												image.src = content;
 												image.onload = () => cleanupAndResolve();
 												image.onerror = () => cleanupAndResolve(true);
-	
+
 												function cleanupAndResolve(value) {
 													clearTimeout(timeoutId);
 													resolve(value);
@@ -2226,7 +2230,3 @@ class Stats {
 		}
 	}
 }
-
-export { 
-	getClass
-};

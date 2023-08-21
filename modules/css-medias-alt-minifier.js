@@ -23,7 +23,7 @@
 
 import * as cssTree from "./../vendor/css-tree.js";
 import * as mediaQueryParser from "./../vendor/css-media-query-parser.js";
-import { flatten } from "./../single-file-helper.js";
+import { flatten } from "./../core/single-file-helper.js";
 
 const helper = {
 	flatten

@@ -23,8 +23,8 @@
 
 /* global globalThis, URLSearchParams */
 
-import * as vendor from "./vendor/index.js";
-import * as modules from "./modules/index.js";
+import * as vendor from "./../vendor/index.js";
+import * as modules from "./../modules/index.js";
 import * as helper from "./single-file-helper.js";
 
 const DEBUG = false;

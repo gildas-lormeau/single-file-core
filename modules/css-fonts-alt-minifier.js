@@ -27,7 +27,7 @@ import * as cssTree from "./../vendor/css-tree.js";
 import {
 	normalizeFontFamily,
 	getFontWeight
-} from "./../single-file-helper.js";
+} from "./../core/single-file-helper.js";
 
 const helper = {
 	normalizeFontFamily,

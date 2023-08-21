@@ -30,7 +30,7 @@ import {
 	flatten,
 	getFontWeight,
 	removeQuotes
-} from "./../single-file-helper.js";
+} from "./../core/single-file-helper.js";
 
 const helper = {
 	normalizeFontFamily,

@@ -32,7 +32,7 @@ import {
 	preProcessDoc,
 	postProcessDoc,
 	getShadowRoot
-} from "./single-file-helper.js";
+} from "./core/single-file-helper.js";
 
 const processors = { frameTree };
 const helper = {

@@ -27,7 +27,7 @@ import * as hooksFrames from "./../../hooks/content/content-hooks-frames.js";
 import {
 	LAZY_SRC_ATTRIBUTE_NAME,
 	SINGLE_FILE_UI_ELEMENT_CLASS
-} from "./../../../single-file-helper.js";
+} from "./../../../core/single-file-helper.js";
 const helper = {
 	LAZY_SRC_ATTRIBUTE_NAME,
 	SINGLE_FILE_UI_ELEMENT_CLASS

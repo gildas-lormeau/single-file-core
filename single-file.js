@@ -26,11 +26,12 @@
 import * as processors from "./processors/index.js";
 import * as vendor from "./vendor/index.js";
 import * as modules from "./modules/index.js";
-import * as core from "./single-file-core.js";
-import * as helper from "./single-file-helper.js";
-import * as util from "./single-file-util.js";
+import * as core from "./core/single-file-core.js";
+import * as helper from "./core/single-file-helper.js";
+import * as util from "./core/single-file-util.js";
 
 let SingleFile;
+
 export {
 	init,
 	getPageData,
