@@ -23,7 +23,7 @@
 
 import * as serializer from "./modules/html-serializer.js";
 import * as infobar from "./core/infobar.js";
-import { getInstance } from "./core/single-file-util.js";
+import { getInstance } from "./core/util.js";
 
 const util = getInstance();
 const helper = {

@@ -26,9 +26,9 @@
 import * as processors from "./processors/index.js";
 import * as vendor from "./vendor/index.js";
 import * as modules from "./modules/index.js";
-import * as core from "./core/single-file-core.js";
-import * as helper from "./core/single-file-helper.js";
-import * as util from "./core/single-file-util.js";
+import * as core from "./core/index.js";
+import * as helper from "./core/helper.js";
+import * as util from "./core/util.js";
 
 let SingleFile;
 

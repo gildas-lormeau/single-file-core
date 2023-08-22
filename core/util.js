@@ -25,7 +25,7 @@
 
 import * as vendor from "./../vendor/index.js";
 import * as modules from "./../modules/index.js";
-import * as helper from "./single-file-helper.js";
+import * as helper from "./helper.js";
 
 const DEBUG = false;
 const ONE_MB = 1024 * 1024;

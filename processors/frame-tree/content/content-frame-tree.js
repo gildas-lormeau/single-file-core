@@ -32,7 +32,7 @@ import {
 	serialize,
 	postProcessDoc,
 	getShadowRoot
-} from "./../../../core/single-file-helper.js";
+} from "./../../../core/helper.js";
 
 const helper = {
 	ON_BEFORE_CAPTURE_EVENT_NAME,
