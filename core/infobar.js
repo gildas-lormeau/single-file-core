@@ -245,6 +245,7 @@ function refreshInfobarInfo(doc, { saveUrl, infobarContent, saveDate }) {
 		infobarContentElement.textContent = infobarContent || saveDate;
 		const linkElement = shadowRootFragment.querySelector(".infobar-content .infobar-link-icon");
 		linkElement.href = saveUrl;
+		linkElement.title = "Open source URL: " + saveUrl;
 	}
 }
 
