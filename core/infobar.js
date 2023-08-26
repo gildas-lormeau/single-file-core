@@ -182,6 +182,7 @@ function appendInfobar(doc, options, useShadowRoot) {
 		closeButtonElement.type = "checkbox";
 		closeButtonElement.required = true;
 		closeButtonElement.classList.add("infobar-close-icon");
+		closeButtonElement.title = "Close";
 		contentElement.appendChild(closeButtonElement);
 		const textElement = doc.createElement("span");
 		textElement.textContent = infoData;
