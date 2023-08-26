@@ -276,7 +276,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 }
 
 function getStylesheetsContent(styleSheets) {
-	return styleSheets ? Array.from(styleSheets).map(stylesheet => Array.from(stylesheet.cssRules).map(cssRule => cssRule.cssText).join("\n")) : "";
+	return styleSheets ? Array.from(styleSheets).map(stylesheet => Array.from(stylesheet.cssRules).map(cssRule => cssRule.cssText).join("\n")) : [];
 }
 
 function getResourcesInfo(win, doc, element, options, data, elementHidden, computedStyle) {
