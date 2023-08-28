@@ -69,8 +69,8 @@ export {
 async function process(options) {
 	if (document.documentElement) {
 		timeouts.clear();
-		const bodyHeight = (document.body && document.body.scrollHeight) || document.documentElement.scrollHeight;
-		const bodyWidth = (document.body && document.body.scrollWidth) || document.documentElement.scrollWidth;
+		const bodyHeight = document.body ? Math.max(document.body.scrollHeight, document.documentElement.scrollHeight) : document.documentElement.scrollHeight;
+		const bodyWidth = document.body ? Math.max(document.body.scrollWidth, document.documentElement.scrollWidth) : document.documentElement.scrollWidth;
 		if (bodyHeight > globalThis.innerHeight || bodyWidth > globalThis.innerWidth) {
 			const maxScrollY = Math.max(bodyHeight - (globalThis.innerHeight * 1.5), 0);
 			const maxScrollX = Math.max(bodyWidth - (globalThis.innerWidth * 1.5), 0);
@@ -98,7 +98,7 @@ function triggerLazyLoading(options) {
 						mutation.target.setAttribute(helper.LAZY_SRC_ATTRIBUTE_NAME, mutation.target.src);
 						mutation.target.addEventListener("load", onResourceLoad);
 					}
-					if (mutation.attributeName == "src" || mutation.attributeName == "srcset" || 
+					if (mutation.attributeName == "src" || mutation.attributeName == "srcset" ||
 						(mutation.target.tagName && mutation.target.tagName.toUpperCase() == "SOURCE")) {
 						return !mutation.target.classList || !mutation.target.classList.contains(helper.SINGLE_FILE_UI_ELEMENT_CLASS);
 					}
