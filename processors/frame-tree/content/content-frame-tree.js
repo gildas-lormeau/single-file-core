@@ -29,6 +29,7 @@ import {
 	ON_AFTER_CAPTURE_EVENT_NAME,
 	WIN_ID_ATTRIBUTE_NAME,
 	WAIT_FOR_USERSCRIPT_PROPERTY_NAME,
+	MESSAGE_PREFIX,
 	preProcessDoc,
 	serialize,
 	postProcessDoc,
@@ -46,7 +47,6 @@ const helper = {
 	getShadowRoot
 };
 
-const MESSAGE_PREFIX = "__frameTree__::";
 const FRAMES_CSS_SELECTOR = "iframe, frame, object[type=\"text/html\"][data]";
 const ALL_ELEMENTS_CSS_SELECTOR = "*";
 const INIT_REQUEST_MESSAGE = "singlefile.frameTree.initRequest";
