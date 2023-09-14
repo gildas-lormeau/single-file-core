@@ -28,7 +28,8 @@ import * as hooksFrames from "./../processors/hooks/content/content-hooks-frames
 import * as infobar from "./infobar.js";
 import {
 	SINGLE_FILE_PREFIX,
-	COMMENT_HEADER
+	COMMENT_HEADER,
+	WAIT_FOR_USERSCRIPT_PROPERTY_NAME
 } from "./constants.js";
 
 const ON_BEFORE_CAPTURE_EVENT_NAME = SINGLE_FILE_PREFIX + "on-before-capture";
@@ -110,11 +111,12 @@ export {
 	COMMENT_HEADER_LEGACY,
 	SINGLE_FILE_UI_ELEMENT_CLASS,
 	EMPTY_RESOURCE,
-	INFOBAR_TAGNAME
+	INFOBAR_TAGNAME,
+	WAIT_FOR_USERSCRIPT_PROPERTY_NAME
 };
 
 function initUserScriptHandler() {
-	addEventListener(ON_INIT_USERSCRIPT_EVENT, () => globalThis._singleFile_waitForUserScript = async eventPrefixName => {
+	addEventListener(ON_INIT_USERSCRIPT_EVENT, () => globalThis[WAIT_FOR_USERSCRIPT_PROPERTY_NAME] = async eventPrefixName => {
 		const event = new CustomEvent(eventPrefixName + "-request", { cancelable: true });
 		const promiseResponse = new Promise(resolve => addEventListener(eventPrefixName + "-response", resolve));
 		dispatchEvent(event);

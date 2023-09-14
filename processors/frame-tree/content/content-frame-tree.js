@@ -28,6 +28,7 @@ import {
 	ON_BEFORE_CAPTURE_EVENT_NAME,
 	ON_AFTER_CAPTURE_EVENT_NAME,
 	WIN_ID_ATTRIBUTE_NAME,
+	WAIT_FOR_USERSCRIPT_PROPERTY_NAME,
 	preProcessDoc,
 	serialize,
 	postProcessDoc,
@@ -38,6 +39,7 @@ const helper = {
 	ON_BEFORE_CAPTURE_EVENT_NAME,
 	ON_AFTER_CAPTURE_EVENT_NAME,
 	WIN_ID_ATTRIBUTE_NAME,
+	WAIT_FOR_USERSCRIPT_PROPERTY_NAME,
 	preProcessDoc,
 	serialize,
 	postProcessDoc,
@@ -163,7 +165,7 @@ function getNewSessionId() {
 
 function initRequestSync(message) {
 	const sessionId = message.sessionId;
-	const waitForUserScript = globalThis._singleFile_waitForUserScript;
+	const waitForUserScript = globalThis[helper.WAIT_FOR_USERSCRIPT_PROPERTY_NAME];
 	delete globalThis._singleFile_cleaningUp;
 	if (!TOP_WINDOW) {
 		windowId = globalThis.frameId = message.windowId;
@@ -183,7 +185,7 @@ function initRequestSync(message) {
 
 async function initRequestAsync(message) {
 	const sessionId = message.sessionId;
-	const waitForUserScript = globalThis._singleFile_waitForUserScript;
+	const waitForUserScript = globalThis[helper.WAIT_FOR_USERSCRIPT_PROPERTY_NAME];
 	delete globalThis._singleFile_cleaningUp;
 	if (!TOP_WINDOW) {
 		windowId = globalThis.frameId = message.windowId;
