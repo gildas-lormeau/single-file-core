@@ -34,7 +34,7 @@ const Image = globalThis.Image;
 
 let util, cssTree;
 
-export { 
+export {
 	getClass
 };
 
@@ -430,7 +430,7 @@ class Processor {
 		}
 		this.maxResources = this.batchRequest.getMaxResources();
 		if (!this.options.saveRawPage && !this.options.removeFrames && this.options.frames) {
-			this.options.frames.forEach(frameData => (this.maxResources += frameData.maxResources || 0));
+			this.options.frames.forEach(frameData => this.maxResources += frameData.maxResources || 0);
 		}
 		this.stats.set("processed", "resources", this.maxResources);
 	}
@@ -448,7 +448,7 @@ class Processor {
 				acceptHeaders: this.options.acceptHeaders,
 				networkTimeout: this.options.networkTimeout
 			});
-			pageContent = content.data;
+			pageContent = content.data || "";
 		}
 		this.doc = util.parseDocContent(pageContent, this.baseURI);
 		if (this.options.saveRawPage) {
@@ -1277,9 +1277,12 @@ class Processor {
 		let resourcePromises = processAttributeArgs.map(([selector, attributeName, processDuplicates, removeElementIfMissing]) =>
 			ProcessorHelper.processAttribute(this.doc.querySelectorAll(selector), attributeName, this.baseURI, this.options, "image", this.cssVariables, this.styles, this.batchRequest, processDuplicates, removeElementIfMissing)
 		);
+		resourcePromises = resourcePromises.concat([
+			ProcessorHelper.processXLinks(this.doc.querySelectorAll("use"), this.doc, this.baseURI, this.options, this.batchRequest),
+			ProcessorHelper.processSrcset(this.doc.querySelectorAll("img[srcset], source[srcset]"), this.baseURI, this.options, this.batchRequest)
+		]);
 		resourcePromises.push(ProcessorHelper.processAttribute(this.doc.querySelectorAll("object[data*=\".pdf\"]"), "data", this.baseURI, this.options, null, this.cssVariables, this.styles, this.batchRequest));
 		resourcePromises.push(ProcessorHelper.processAttribute(this.doc.querySelectorAll("embed[src*=\".pdf\"]"), "src", this.baseURI, this.options, null, this.cssVariables, this.styles, this.batchRequest));
-		resourcePromises = resourcePromises.concat([ProcessorHelper.processXLinks(this.doc.querySelectorAll("use"), this.doc, this.baseURI, this.options, this.batchRequest), ProcessorHelper.processSrcset(this.doc.querySelectorAll("img[srcset], source[srcset]"), this.baseURI, this.options, this.batchRequest)]);
 		resourcePromises.push(ProcessorHelper.processAttribute(this.doc.querySelectorAll("audio[src], audio > source[src]"), "src", this.baseURI, this.options, "audio", this.cssVariables, this.styles, this.batchRequest));
 		resourcePromises.push(ProcessorHelper.processAttribute(this.doc.querySelectorAll("video[src], video > source[src]"), "src", this.baseURI, this.options, "video", this.cssVariables, this.styles, this.batchRequest));
 		await Promise.all(resourcePromises);
@@ -2087,7 +2090,7 @@ function normalizeURL(url) {
 	}
 }
 
-function matchCharsetEquals(stylesheetContent, charset = UTF8_CHARSET) {
+function matchCharsetEquals(stylesheetContent = "", charset = UTF8_CHARSET) {
 	const stylesheetCharset = getCharset(stylesheetContent);
 	if (stylesheetCharset) {
 		return stylesheetCharset == charset.toLowerCase();
@@ -2096,7 +2099,7 @@ function matchCharsetEquals(stylesheetContent, charset = UTF8_CHARSET) {
 	}
 }
 
-function getCharset(stylesheetContent) {
+function getCharset(stylesheetContent = "") {
 	const match = stylesheetContent.match(/^@charset\s+"([^"]*)";/i);
 	if (match && match[1]) {
 		return match[1].toLowerCase().trim();

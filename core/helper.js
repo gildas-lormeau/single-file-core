@@ -30,8 +30,8 @@ import * as infobar from "./infobar.js";
 const ON_BEFORE_CAPTURE_EVENT_NAME = "single-file-on-before-capture";
 const ON_AFTER_CAPTURE_EVENT_NAME = "single-file-on-after-capture";
 const GET_ADOPTED_STYLESHEETS_REQUEST_EVENT = "single-file-request-get-adopted-stylesheets";
-const UNREGISTER_GET_ADOPTED_STYLESHEETS_REQUEST_EVENT = "single-file-unregister-request-get-adopted-stylesheets";
 const GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT = "single-file-response-get-adopted-stylesheets";
+const UNREGISTER_GET_ADOPTED_STYLESHEETS_REQUEST_EVENT = "single-file-unregister-request-get-adopted-stylesheets";
 const REMOVED_CONTENT_ATTRIBUTE_NAME = "data-single-file-removed-content";
 const HIDDEN_CONTENT_ATTRIBUTE_NAME = "data-single-file-hidden-content";
 const KEPT_CONTENT_ATTRIBUTE_NAME = "data-single-file-kept-content";
@@ -283,9 +283,9 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 	const tagName = element.tagName && element.tagName.toUpperCase();
 	if (tagName == "CANVAS") {
 		try {
-			data.canvases.push({ 
-				dataURI: element.toDataURL("image/png", ""), 
-				backgroundColor: computedStyle.getPropertyValue("background-color") 
+			data.canvases.push({
+				dataURI: element.toDataURL("image/png", ""),
+				backgroundColor: computedStyle.getPropertyValue("background-color")
 			});
 			element.setAttribute(CANVAS_ATTRIBUTE_NAME, data.canvases.length - 1);
 			data.markedElements.push(element);
