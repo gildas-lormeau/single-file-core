@@ -23,6 +23,10 @@
 
 /* global getComputedStyle, XPathResult, Node */
 
+import {
+	SINGLE_FILE_SIGNATURE,
+} from "./constants.js";
+
 const INFOBAR_TAGNAME = "single-file-infobar";
 const INFOBAR_STYLES = `
 .infobar,
@@ -213,7 +217,7 @@ function appendInfobar(doc, options, useShadowRoot) {
 function extractInfobarData(doc) {
 	const result = doc.evaluate("//comment()", doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
 	let singleFileComment = result && result.singleNodeValue;
-	if (singleFileComment && singleFileComment.nodeType == Node.COMMENT_NODE && singleFileComment.textContent.includes("SingleFile")) {
+	if (singleFileComment && singleFileComment.nodeType == Node.COMMENT_NODE && singleFileComment.textContent.includes(SINGLE_FILE_SIGNATURE)) {
 		const info = singleFileComment.textContent.split("\n");
 		const [, , urlData, ...optionalData] = info;
 		const urlMatch = urlData.match(/^ url: (.*) ?$/);

@@ -26,31 +26,36 @@
 import * as cssUnescape from "./../vendor/css-unescape.js";
 import * as hooksFrames from "./../processors/hooks/content/content-hooks-frames.js";
 import * as infobar from "./infobar.js";
+import {
+	SINGLE_FILE_PREFIX,
+	COMMENT_HEADER
+} from "./constants.js";
 
-const ON_BEFORE_CAPTURE_EVENT_NAME = "single-file-on-before-capture";
-const ON_AFTER_CAPTURE_EVENT_NAME = "single-file-on-after-capture";
-const GET_ADOPTED_STYLESHEETS_REQUEST_EVENT = "single-file-request-get-adopted-stylesheets";
-const GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT = "single-file-response-get-adopted-stylesheets";
-const UNREGISTER_GET_ADOPTED_STYLESHEETS_REQUEST_EVENT = "single-file-unregister-request-get-adopted-stylesheets";
-const REMOVED_CONTENT_ATTRIBUTE_NAME = "data-single-file-removed-content";
-const HIDDEN_CONTENT_ATTRIBUTE_NAME = "data-single-file-hidden-content";
-const KEPT_CONTENT_ATTRIBUTE_NAME = "data-single-file-kept-content";
-const HIDDEN_FRAME_ATTRIBUTE_NAME = "data-single-file-hidden-frame";
-const PRESERVED_SPACE_ELEMENT_ATTRIBUTE_NAME = "data-single-file-preserved-space-element";
-const SHADOW_ROOT_ATTRIBUTE_NAME = "data-single-file-shadow-root-element";
-const WIN_ID_ATTRIBUTE_NAME = "data-single-file-win-id";
-const IMAGE_ATTRIBUTE_NAME = "data-single-file-image";
-const POSTER_ATTRIBUTE_NAME = "data-single-file-poster";
-const VIDEO_ATTRIBUTE_NAME = "data-single-file-video";
-const CANVAS_ATTRIBUTE_NAME = "data-single-file-canvas";
-const STYLE_ATTRIBUTE_NAME = "data-single-file-movable-style";
-const INPUT_VALUE_ATTRIBUTE_NAME = "data-single-file-input-value";
-const LAZY_SRC_ATTRIBUTE_NAME = "data-single-file-lazy-loaded-src";
-const STYLESHEET_ATTRIBUTE_NAME = "data-single-file-stylesheet";
-const DISABLED_NOSCRIPT_ATTRIBUTE_NAME = "data-single-file-disabled-noscript";
-const SELECTED_CONTENT_ATTRIBUTE_NAME = "data-single-file-selected-content";
-const INVALID_ELEMENT_ATTRIBUTE_NAME = "data-single-file-invalid-element";
-const ASYNC_SCRIPT_ATTRIBUTE_NAME = "data-single-file-async-script";
+const ON_BEFORE_CAPTURE_EVENT_NAME = SINGLE_FILE_PREFIX + "on-before-capture";
+const ON_AFTER_CAPTURE_EVENT_NAME = SINGLE_FILE_PREFIX + "on-after-capture";
+const GET_ADOPTED_STYLESHEETS_REQUEST_EVENT = SINGLE_FILE_PREFIX + "request-get-adopted-stylesheets";
+const GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT = SINGLE_FILE_PREFIX + "response-get-adopted-stylesheets";
+const UNREGISTER_GET_ADOPTED_STYLESHEETS_REQUEST_EVENT = SINGLE_FILE_PREFIX + "unregister-request-get-adopted-stylesheets";
+const ON_INIT_USERSCRIPT_EVENT = SINGLE_FILE_PREFIX + "user-script-init";
+const REMOVED_CONTENT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "removed-content";
+const HIDDEN_CONTENT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "hidden-content";
+const KEPT_CONTENT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "kept-content";
+const HIDDEN_FRAME_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "hidden-frame";
+const PRESERVED_SPACE_ELEMENT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "preserved-space-element";
+const SHADOW_ROOT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "shadow-root-element";
+const WIN_ID_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "win-id";
+const IMAGE_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "image";
+const POSTER_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "poster";
+const VIDEO_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "video";
+const CANVAS_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "canvas";
+const STYLE_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "movable-style";
+const INPUT_VALUE_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "input-value";
+const LAZY_SRC_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "lazy-loaded-src";
+const STYLESHEET_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "stylesheet";
+const DISABLED_NOSCRIPT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "disabled-noscript";
+const SELECTED_CONTENT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "selected-content";
+const INVALID_ELEMENT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "invalid-element";
+const ASYNC_SCRIPT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "async-script";
 const FLOW_ELEMENTS_SELECTOR = "*:not(base):not(link):not(meta):not(noscript):not(script):not(style):not(template):not(title)";
 const KEPT_TAG_NAMES = ["NOSCRIPT", "DISABLED-NOSCRIPT", "META", "LINK", "STYLE", "TITLE", "TEMPLATE", "SOURCE", "OBJECT", "SCRIPT", "HEAD", "BODY"];
 const REGEXP_SIMPLE_QUOTES_STRING = /^'(.*?)'$/;
@@ -62,7 +67,6 @@ const FONT_WEIGHTS = {
 	bolder: "700",
 	lighter: "100"
 };
-const COMMENT_HEADER = "Page saved with SingleFile";
 const COMMENT_HEADER_LEGACY = "Archive processed by SingleFile";
 const SINGLE_FILE_UI_ELEMENT_CLASS = "single-file-ui-element";
 const INFOBAR_TAGNAME = infobar.INFOBAR_TAGNAME;
@@ -110,7 +114,7 @@ export {
 };
 
 function initUserScriptHandler() {
-	addEventListener("single-file-user-script-init", () => globalThis._singleFile_waitForUserScript = async eventPrefixName => {
+	addEventListener(ON_INIT_USERSCRIPT_EVENT, () => globalThis._singleFile_waitForUserScript = async eventPrefixName => {
 		const event = new CustomEvent(eventPrefixName + "-request", { cancelable: true });
 		const promiseResponse = new Promise(resolve => addEventListener(eventPrefixName + "-response", resolve));
 		dispatchEvent(event);
