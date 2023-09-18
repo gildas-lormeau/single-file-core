@@ -218,27 +218,13 @@ function getFontFamilyNames(declarations) {
 	let fontFamilyName = declarations.children.filter(node => node.property == "font-family").tail;
 	let fontFamilyNames = [];
 	if (fontFamilyName) {
-		let familyName = "";
 		if (fontFamilyName.data.value.children) {
-			let previousType;
-			fontFamilyName.data.value.children.forEach(node => {
-				if (node.type == "Operator" && node.value == "," && familyName) {
-					fontFamilyNames.push(helper.normalizeFontFamily(familyName));
-					familyName = "";
-					previousType = null;
-				} else {
-					if (previousType == "Identifier" && node.type == "Identifier") {
-						familyName += " ";
-					}
-					familyName += cssTree.generate(node);
-				}
-				previousType = node.type;
-			});
+			parseFamilyNames(fontFamilyName.data.value, fontFamilyNames);
 		} else {
 			fontFamilyName = cssTree.generate(fontFamilyName.data.value);
-		}
-		if (familyName) {
-			fontFamilyNames.push(helper.normalizeFontFamily(familyName));
+			if (fontFamilyName) {
+				fontFamilyNames.push(helper.normalizeFontFamily(fontFamilyName));
+			}
 		}
 	}
 	const font = declarations.children.filter(node => node.property == "font").tail;
@@ -251,6 +237,43 @@ function getFontFamilyNames(declarations) {
 		}
 	}
 	return fontFamilyNames;
+}
+
+function parseFamilyNames(fontFamilyNameTokenData, fontFamilyNames) {
+	let nextToken = fontFamilyNameTokenData.children.head;
+	while (nextToken) {
+		if (nextToken.data.type == "Identifier") {
+			let familyName = nextToken.data.name;
+			let nextIdentifierToken = nextToken.next;
+			while (nextIdentifierToken && nextIdentifierToken.data.type != "Operator" && nextIdentifierToken.data.value != ",") {
+				familyName += " " + nextIdentifierToken.data.name;
+				nextIdentifierToken = nextIdentifierToken.next;
+			}
+			fontFamilyNames.push(helper.normalizeFontFamily(familyName));
+			nextToken = nextToken.next;
+		} else if (nextToken.data.type == "Function" && nextToken.data.name == "var" && nextToken.data.children) {
+			const varName = nextToken.data.children.head.data.name;
+			fontFamilyNames.push(helper.normalizeFontFamily("var(" + varName + ")"));
+			let nextValueToken = nextToken.data.children.head.next;
+			while (nextValueToken && nextValueToken.data.type == "Operator" && nextValueToken.data.value == ",") {
+				nextValueToken = nextValueToken.next;
+			}
+			const fallbackToken = nextValueToken;
+			if (fallbackToken) {
+				if (fallbackToken.data.children) {
+					parseFamilyNames(fallbackToken.data, fontFamilyNames);
+				} else {
+					fontFamilyNames.push(helper.normalizeFontFamily(fallbackToken.data.value));
+				}
+			}
+			nextToken = nextToken.next;
+		} else if (nextToken.data.type == "String") {
+			fontFamilyNames.push(helper.normalizeFontFamily(nextToken.data.value));
+			nextToken = nextToken.next;
+		} else if (nextToken.data.type == "Operator" && nextToken.data.value == ",") {
+			nextToken = nextToken.next;
+		}
+	}
 }
 
 function getUsedFontWeight(fontInfo, fontStyle, fontWeights) {
