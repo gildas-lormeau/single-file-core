@@ -406,7 +406,7 @@ const PREFIX_DATA_URI_IMAGE_SVG = "data:image/svg+xml";
 const SCRIPT_TAG_FOUND = /<script/gi;
 const NOSCRIPT_TAG_FOUND = /<noscript/gi;
 const CANVAS_TAG_FOUND = /<canvas/gi;
-const SHADOWROOT_ATTRIBUTE_NAME = "shadowroot";
+const SHADOWROOT_ATTRIBUTE_NAME = "shadowrootmode";
 const SCRIPT_TEMPLATE_SHADOW_ROOT = "data-template-shadow-root";
 const UTF8_CHARSET = "utf-8";
 

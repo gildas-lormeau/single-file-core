@@ -160,7 +160,7 @@ function appendInfobar(doc, options, useShadowRoot) {
 			infobarContainer = infobarElement.attachShadow({ mode: "open" });
 		} else {
 			const shadowRootTemplate = doc.createElement("template");
-			shadowRootTemplate.setAttribute("shadowroot", "open");
+			shadowRootTemplate.setAttribute("shadowrootmode", "open");
 			infobarElement.appendChild(shadowRootTemplate);
 			infobarContainer = shadowRootTemplate;
 		}
