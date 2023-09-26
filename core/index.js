@@ -1285,6 +1285,7 @@ class Processor {
 		resourcePromises.push(ProcessorHelper.processAttribute(this.doc.querySelectorAll("embed[src*=\".pdf\"]"), "src", this.baseURI, this.options, null, this.cssVariables, this.styles, this.batchRequest));
 		resourcePromises.push(ProcessorHelper.processAttribute(this.doc.querySelectorAll("audio[src], audio > source[src]"), "src", this.baseURI, this.options, "audio", this.cssVariables, this.styles, this.batchRequest));
 		resourcePromises.push(ProcessorHelper.processAttribute(this.doc.querySelectorAll("video[src], video > source[src]"), "src", this.baseURI, this.options, "video", this.cssVariables, this.styles, this.batchRequest));
+		resourcePromises.push(ProcessorHelper.processAttribute(this.doc.querySelectorAll("model[src]"), "src", this.baseURI, this.options, null, this.cssVariables, this.styles, this.batchRequest));
 		await Promise.all(resourcePromises);
 		if (this.options.saveFavicon) {
 			ProcessorHelper.processShortcutIcons(this.doc);
