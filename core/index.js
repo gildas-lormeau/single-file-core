@@ -1083,7 +1083,7 @@ class Processor {
 			if (element.tagName.toUpperCase() == "LINK" && element.charset) {
 				options.charset = element.charset;
 			}
-			await processElement(element, stylesheetInfo, this.stylesheets, this.baseURI, options, this.workStyleElement);
+			await processStylesheetElement(element, stylesheetInfo, this.stylesheets, this.baseURI, options, this.workStyleElement);
 		}));
 		if (this.options.rootDocument) {
 			const newResources = Object.keys(this.options.updatedResources)
@@ -1096,12 +1096,12 @@ class Processor {
 					const element = this.doc.createElement("style");
 					this.doc.body.appendChild(element);
 					element.textContent = resource.content;
-					await processElement(element, stylesheetInfo, this.stylesheets, this.baseURI, this.options, this.workStyleElement);
+					await processStylesheetElement(element, stylesheetInfo, this.stylesheets, this.baseURI, this.options, this.workStyleElement);
 				}
 			}));
 		}
 
-		async function processElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement) {
+		async function processStylesheetElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement) {
 			let stylesheet;
 			stylesheets.set(element, stylesheetInfo);
 			if (!options.blockStylesheets) {
