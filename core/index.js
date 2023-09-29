@@ -1229,7 +1229,7 @@ class Processor {
 
 	async processStyleAttributes() {
 		return Promise.all([...this.styles].map(([, stylesheet]) =>
-			ProcessorHelper.processStyle(stylesheet, this.baseURI, this.options, this.cssVariables, this.batchRequest)
+			ProcessorHelper.processStyle(stylesheet, this.options, this.cssVariables, this.batchRequest)
 		));
 	}
 
@@ -1647,7 +1647,7 @@ class ProcessorHelper {
 				removedRules.push(cssRule);
 			} else if (ruleData.block && ruleData.block.children) {
 				if (ruleData.type == "Rule") {
-					promises.push(ProcessorHelper.processStyle(ruleData, baseURI, options, cssVariables, batchRequest));
+					promises.push(ProcessorHelper.processStyle(ruleData, options, cssVariables, batchRequest));
 				} else if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports")) {
 					promises.push(ProcessorHelper.processStylesheet(ruleData.block.children, baseURI, options, fontDeclarations, cssVariables, batchRequest));
 				} else if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
@@ -1685,7 +1685,7 @@ class ProcessorHelper {
 		}
 	}
 
-	static async processStyle(ruleData, baseURI, options, cssVariables, batchRequest) {
+	static async processStyle(ruleData, options, cssVariables, batchRequest) {
 		const urls = getUrlFunctions(ruleData);
 		await Promise.all(urls.map(async urlNode => {
 			const originalResourceURL = urlNode.value;
