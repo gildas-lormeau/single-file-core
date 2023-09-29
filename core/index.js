@@ -1873,18 +1873,16 @@ class ProcessorHelper {
 										}
 										try {
 											resourceURL = originURL;
-											content = (
-												await util.getContent(resourceURL, {
-													asBinary: true,
-													expectedType,
-													maxResourceSize: options.maxResourceSize,
-													maxResourceSizeEnabled: options.maxResourceSizeEnabled,
-													frameId: options.windowId,
-													resourceReferrer: options.resourceReferrer,
-													acceptHeaders: options.acceptHeaders,
-													networkTimeout: options.networkTimeout
-												})
-											).data;
+											content = (await util.getContent(resourceURL, {
+												asBinary: true,
+												expectedType,
+												maxResourceSize: options.maxResourceSize,
+												maxResourceSizeEnabled: options.maxResourceSizeEnabled,
+												frameId: options.windowId,
+												resourceReferrer: options.resourceReferrer,
+												acceptHeaders: options.acceptHeaders,
+												networkTimeout: options.networkTimeout
+											})).data;
 										} catch (error) {
 											// ignored
 										}
