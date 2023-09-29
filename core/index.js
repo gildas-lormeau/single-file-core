@@ -124,7 +124,7 @@ const STAGES = [{
 	],
 	parallel: [
 		{ option: "blockVideos", action: "insertMissingVideoPosters" },
-		{ action: "resolveStylesheetURLs" },
+		{ action: "resolveStylesheetsURLs" },
 		{ option: "!removeFrames", action: "resolveFrameURLs" }
 	]
 }, {
@@ -1070,7 +1070,7 @@ class Processor {
 		});
 	}
 
-	async resolveStylesheetURLs() {
+	async resolveStylesheetsURLs() {
 		await Promise.all(Array.from(this.doc.querySelectorAll("style, link[rel*=stylesheet]")).map(async element => {
 			const options = Object.assign({}, this.options, { charset: this.charset });
 			let mediaText;
@@ -1082,10 +1082,7 @@ class Processor {
 				mediaText,
 				scoped
 			};
-			if (element.tagName.toUpperCase() == "LINK" && element.charset) {
-				options.charset = element.charset;
-			}
-			await ProcessorHelper.processStylesheetElement(element, stylesheetInfo, this.stylesheets, this.baseURI, options, this.workStyleElement);
+			await ProcessorHelper.processLinkElement(element, stylesheetInfo, this.stylesheets, this.baseURI, options, this.workStyleElement);
 		}));
 		if (this.options.rootDocument) {
 			const newResources = Object.keys(this.options.updatedResources)
@@ -1306,21 +1303,7 @@ class Processor {
 							await frameData.runner.run();
 							const pageData = await frameData.runner.getPageData();
 							frameElement.removeAttribute(util.WIN_ID_ATTRIBUTE_NAME);
-							let sandbox = "allow-popups allow-top-navigation allow-top-navigation-by-user-activation";
-							if (pageData.content.match(NOSCRIPT_TAG_FOUND) || pageData.content.match(CANVAS_TAG_FOUND) || pageData.content.match(SCRIPT_TAG_FOUND)) {
-								sandbox += " allow-scripts allow-same-origin";
-							}
-							frameElement.setAttribute("sandbox", sandbox);
-							if (frameElement.tagName.toUpperCase() == "OBJECT") {
-								frameElement.setAttribute("data", "data:text/html," + pageData.content);
-							} else {
-								if (frameElement.tagName.toUpperCase() == "FRAME") {
-									frameElement.setAttribute("src", "data:text/html," + pageData.content.replace(/%/g, "%25").replace(/#/g, "%23"));
-								} else {
-									frameElement.setAttribute("srcdoc", pageData.content);
-									frameElement.removeAttribute("src");
-								}
-							}
+							ProcessorHelper.processFrame(frameElement, pageData);
 							this.stats.addAll(pageData);
 						} else {
 							frameElement.removeAttribute(util.WIN_ID_ATTRIBUTE_NAME);
@@ -1495,6 +1478,13 @@ class ProcessorHelper {
 		}
 	}
 
+	static async processLinkElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement) {
+		if (element.tagName.toUpperCase() == "LINK" && element.charset) {
+			options.charset = element.charset;
+		}
+		await ProcessorHelper.processStylesheetElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement);
+	}
+
 	static async processStylesheetElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement) {
 		let stylesheet;
 		stylesheets.set(element, stylesheetInfo);
@@ -1627,6 +1617,24 @@ class ProcessorHelper {
 				stylesheet = cssTree.parse(cssTree.generate(stylesheet), { context: "stylesheet", parseCustomProperty: true });
 			}
 			return stylesheet;
+		}
+	}
+
+	static async processFrame(frameElement, pageData) {
+		let sandbox = "allow-popups allow-top-navigation allow-top-navigation-by-user-activation";
+		if (pageData.content.match(NOSCRIPT_TAG_FOUND) || pageData.content.match(CANVAS_TAG_FOUND) || pageData.content.match(SCRIPT_TAG_FOUND)) {
+			sandbox += " allow-scripts allow-same-origin";
+		}
+		frameElement.setAttribute("sandbox", sandbox);
+		if (frameElement.tagName.toUpperCase() == "OBJECT") {
+			frameElement.setAttribute("data", "data:text/html," + pageData.content);
+		} else {
+			if (frameElement.tagName.toUpperCase() == "FRAME") {
+				frameElement.setAttribute("src", "data:text/html," + pageData.content.replace(/%/g, "%25").replace(/#/g, "%23"));
+			} else {
+				frameElement.setAttribute("srcdoc", pageData.content);
+				frameElement.removeAttribute("src");
+			}
 		}
 	}
 
