@@ -418,6 +418,7 @@ class Processor {
 		this.batchRequest = batchRequest;
 		this.stylesheets = new Map();
 		this.styles = new Map();
+		this.fontDeclarations = new Map();
 		this.cssVariables = new Map();
 		this.fontTests = options.fontTests;
 	}
@@ -1248,9 +1249,8 @@ class Processor {
 	}
 
 	async processStylesheets() {
-		this.options.fontDeclarations = new Map();
 		await Promise.all([...this.stylesheets].map(([, stylesheetInfo]) =>
-			ProcessorHelper.processStylesheet(stylesheetInfo.stylesheet.children, this.baseURI, this.options, this.cssVariables, this.batchRequest)
+			ProcessorHelper.processStylesheet(stylesheetInfo.stylesheet.children, this.baseURI, this.options, this.fontDeclarations, this.cssVariables, this.batchRequest)
 		));
 	}
 
@@ -1341,7 +1341,7 @@ class Processor {
 	}
 
 	async removeAlternativeFonts() {
-		await util.removeAlternativeFonts(this.doc, this.stylesheets, this.options.fontDeclarations, this.options.fontTests);
+		await util.removeAlternativeFonts(this.doc, this.stylesheets, this.fontDeclarations, this.options.fontTests);
 	}
 
 	async processFrames() {
@@ -1763,7 +1763,7 @@ class ProcessorHelper {
 		}
 	}
 
-	static async processStylesheet(cssRules, baseURI, options, cssVariables, batchRequest) {
+	static async processStylesheet(cssRules, baseURI, options, fontDeclarations, cssVariables, batchRequest) {
 		const promises = [];
 		const removedRules = [];
 		for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
@@ -1774,7 +1774,7 @@ class ProcessorHelper {
 				if (ruleData.type == "Rule") {
 					promises.push(this.processStyle(ruleData, baseURI, options, cssVariables, batchRequest));
 				} else if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports")) {
-					promises.push(this.processStylesheet(ruleData.block.children, baseURI, options, cssVariables, batchRequest));
+					promises.push(this.processStylesheet(ruleData.block.children, baseURI, options, fontDeclarations, cssVariables, batchRequest));
 				} else if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
 					promises.push(processFontFaceRule(ruleData));
 				}
@@ -1791,10 +1791,10 @@ class ProcessorHelper {
 					const resourceURL = normalizeURL(originalResourceURL);
 					if (!testIgnoredPath(resourceURL) && testValidURL(resourceURL)) {
 						let { content } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "font", baseURI, blockMixedContent: options.blockMixedContent });
-						let resourceURLs = options.fontDeclarations.get(urlNode);
+						let resourceURLs = fontDeclarations.get(urlNode);
 						if (!resourceURLs) {
 							resourceURLs = [];
-							options.fontDeclarations.set(urlNode, resourceURLs);
+							fontDeclarations.set(urlNode, resourceURLs);
 						}
 						resourceURLs.push(resourceURL);
 						if (!isDataURL(resourceURL) && options.saveOriginalURLs) {
