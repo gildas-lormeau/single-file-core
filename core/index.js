@@ -1865,7 +1865,7 @@ class ProcessorHelper {
 									resourceURL,
 									{ asBinary: true, expectedType, groupDuplicates: options.groupDuplicateImages && resourceElement.tagName.toUpperCase() == "IMG" && attributeName == "src" });
 								if (originURL) {
-									if (content == util.EMPTY_RESOURCE) {
+									if (testEmptyResource(content)) {
 										try {
 											originURL = util.resolveURL(originURL, baseURI);
 										} catch (error) {
@@ -1888,9 +1888,9 @@ class ProcessorHelper {
 										}
 									}
 								}
-								if (removeElementIfMissing && content == util.EMPTY_RESOURCE) {
+								if (removeElementIfMissing && testEmptyResource(content)) {
 									resourceElement.remove();
-								} else if (content !== util.EMPTY_RESOURCE) {
+								} else if (!testEmptyResource(content)) {
 									let forbiddenPrefixFound = PREFIXES_FORBIDDEN_DATA_URI.filter(prefixDataURI => content.startsWith(prefixDataURI)).length;
 									if (expectedType == "image") {
 										if (forbiddenPrefixFound && Image) {
@@ -2168,6 +2168,10 @@ function wrapMediaQuery(stylesheetContent, mediaQuery) {
 	} else {
 		return stylesheetContent;
 	}
+}
+
+function testEmptyResource(resource) {
+	return resource == util.EMPTY_RESOURCE;
 }
 
 function log(...args) {
