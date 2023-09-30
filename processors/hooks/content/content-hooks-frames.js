@@ -40,6 +40,7 @@ const IMAGE_LOADED_EVENT = "single-file-image-loaded";
 const NEW_FONT_FACE_EVENT = "single-file-new-font-face";
 const DELETE_FONT_EVENT = "single-file-delete-font";
 const CLEAR_FONTS_EVENT = "single-file-clear-fonts";
+const FONT_FACE_PROPERTY_NAME = "_singleFile_fontFaces";
 
 const addEventListener = (type, listener, options) => globalThis.addEventListener(type, listener, options);
 const dispatchEvent = event => { try { globalThis.dispatchEvent(event); } catch (error) {  /* ignored */ } };
@@ -49,10 +50,10 @@ const Document = globalThis.Document;
 const JSON = globalThis.JSON;
 
 let fontFaces;
-if (window._singleFile_fontFaces) {
-	fontFaces = window._singleFile_fontFaces;
+if (window[FONT_FACE_PROPERTY_NAME]) {
+	fontFaces = window[FONT_FACE_PROPERTY_NAME];
 } else {
-	fontFaces = window._singleFile_fontFaces = new Map();
+	fontFaces = window[FONT_FACE_PROPERTY_NAME] = new Map();
 }
 
 if (document instanceof Document) {
