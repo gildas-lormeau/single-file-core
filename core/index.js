@@ -779,13 +779,13 @@ class Processor {
 		const noscriptPlaceholders = new Map();
 		this.doc.querySelectorAll("noscript").forEach(noscriptElement => {
 			const placeholderElement = this.doc.createElement("div");
-			placeholderElement.innerHTML = noscriptElement.dataset.singleFileDisabledNoscript;
+			placeholderElement.innerHTML = noscriptElement.dataset[util.NO_SCRIPT_PROPERTY_NAME];
 			noscriptElement.replaceWith(placeholderElement);
 			noscriptPlaceholders.set(placeholderElement, noscriptElement);
 		});
 		this.doc.querySelectorAll("meta[http-equiv=refresh], meta[disabled-http-equiv]").forEach(element => element.remove());
 		noscriptPlaceholders.forEach((noscriptElement, placeholderElement) => {
-			noscriptElement.dataset.singleFileDisabledNoscript = placeholderElement.innerHTML;
+			noscriptElement.dataset[util.NO_SCRIPT_PROPERTY_NAME] = placeholderElement.innerHTML;
 			placeholderElement.replaceWith(noscriptElement);
 		});
 		this.doc.querySelectorAll("meta[http-equiv=\"content-security-policy\"]").forEach(element => element.remove());
