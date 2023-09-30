@@ -39,15 +39,14 @@ export {
 
 function getClass(...args) {
 	[util, cssTree] = args;
-	const ProcessorHelper = getProcessorHelperClass(util, cssTree);
-	SingleFileClass.ProcessorHelper = ProcessorHelper;
 	return SingleFileClass;
 }
 
 class SingleFileClass {
 	constructor(options) {
 		this.options = options;
-		this.processorHelper = new SingleFileClass.ProcessorHelper();
+		const ProcessorHelper = getProcessorHelperClass(util, cssTree);
+		this.processorHelper = new ProcessorHelper();
 	}
 	async run() {
 		const waitForUserScript = globalThis[util.WAIT_FOR_USERSCRIPT_PROPERTY_NAME];
