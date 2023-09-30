@@ -416,8 +416,10 @@ class Processor {
 		this.batchRequest = batchRequest;
 		this.stylesheets = new Map();
 		this.styles = new Map();
-		this.fontDeclarations = new Map();
-		this.cssVariables = new Map();
+		this.resources = {
+			cssVariables: new Map(),
+			fonts: new Map()
+		};
 		this.fontTests = options.fontTests;
 	}
 
@@ -1080,7 +1082,7 @@ class Processor {
 				mediaText,
 				scoped
 			};
-			await this.processorHelper.processLinkElement(element, stylesheetInfo, this.stylesheets, this.baseURI, options, this.workStyleElement);
+			await this.processorHelper.processLinkElement(element, stylesheetInfo, this.stylesheets, this.baseURI, options, this.workStyleElement, this.resources);
 		}));
 		if (this.options.rootDocument) {
 			const newResources = Object.keys(this.options.updatedResources)
@@ -1093,7 +1095,7 @@ class Processor {
 					const element = this.doc.createElement("style");
 					this.doc.body.appendChild(element);
 					element.textContent = resource.content;
-					await this.processorHelper.processStylesheetElement(element, stylesheetInfo, this.stylesheets, this.baseURI, this.options, this.workStyleElement);
+					await this.processorHelper.processStylesheetElement(element, stylesheetInfo, this.stylesheets, this.baseURI, this.options, this.workStyleElement, this.resources);
 				}
 			}));
 		}
@@ -1222,18 +1224,18 @@ class Processor {
 
 	async processStylesheets() {
 		await Promise.all([...this.stylesheets].map(([, stylesheetInfo]) =>
-			this.processorHelper.processStylesheet(stylesheetInfo.stylesheet.children, this.baseURI, this.options, this.fontDeclarations, this.cssVariables, this.batchRequest)
+			this.processorHelper.processStylesheet(stylesheetInfo.stylesheet.children, this.baseURI, this.options, this.resources, this.batchRequest)
 		));
 	}
 
 	async processStyleAttributes() {
 		return Promise.all([...this.styles].map(([, stylesheet]) =>
-			this.processorHelper.processStyle(stylesheet, this.options, this.cssVariables, this.batchRequest)
+			this.processorHelper.processStyle(stylesheet, this.options, this.resources, this.batchRequest)
 		));
 	}
 
 	async processPageResources() {
-		await this.processorHelper.processPageResources(this.doc, this.baseURI, this.options, this.cssVariables, this.styles, this.batchRequest);
+		await this.processorHelper.processPageResources(this.doc, this.baseURI, this.options, this.resources, this.styles, this.batchRequest);
 	}
 
 	async processScripts() {
@@ -1285,7 +1287,7 @@ class Processor {
 	}
 
 	async removeAlternativeFonts() {
-		await util.removeAlternativeFonts(this.doc, this.stylesheets, this.fontDeclarations, this.options.fontTests);
+		await util.removeAlternativeFonts(this.doc, this.stylesheets, this.resources.fonts, this.options.fontTests);
 	}
 
 	async processFrames() {
@@ -1302,7 +1304,7 @@ class Processor {
 							await frameData.runner.run();
 							const pageData = await frameData.runner.getPageData();
 							frameElement.removeAttribute(util.WIN_ID_ATTRIBUTE_NAME);
-							this.processorHelper.processFrame(frameElement, pageData);
+							this.processorHelper.processFrame(frameElement, pageData, this.resources, frameWindowId, frameData);
 							this.stats.addAll(pageData);
 						} else {
 							frameElement.removeAttribute(util.WIN_ID_ATTRIBUTE_NAME);
@@ -1315,7 +1317,7 @@ class Processor {
 	}
 
 	replaceStylesheets() {
-		this.processorHelper.replaceStylesheets(this.doc, this.stylesheets, this.options);
+		this.processorHelper.replaceStylesheets(this.doc, this.stylesheets, this.resources, this.options);
 	}
 
 	replaceStyleAttributes() {
@@ -1331,7 +1333,8 @@ class Processor {
 	}
 
 	insertVariables() {
-		if (this.cssVariables.size) {
+		const { cssVariables } = this.resources;
+		if (cssVariables.size) {
 			const styleElement = this.doc.createElement("style");
 			const firstStyleElement = this.doc.head.querySelector("style");
 			if (firstStyleElement) {
@@ -1340,8 +1343,8 @@ class Processor {
 				this.doc.head.appendChild(styleElement);
 			}
 			let stylesheetContent = "";
-			this.cssVariables.forEach(({ content, url }, indexResource) => {
-				this.cssVariables.delete(indexResource);
+			cssVariables.forEach(({ content, url }, indexResource) => {
+				cssVariables.delete(indexResource);
 				if (stylesheetContent) {
 					stylesheetContent += ";";
 				}

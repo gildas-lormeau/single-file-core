@@ -65,7 +65,7 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 	const ProcessorHelperCommon = getProcessorHelperCommonClass(util, cssTree);
 
 	return class ProcessorHelper extends ProcessorHelperCommon {
-		async processPageResources(doc, baseURI, options, cssVariables, styles, batchRequest) {
+		async processPageResources(doc, baseURI, options, resources, styles, batchRequest) {
 			const processAttributeArgs = [
 				["link[href][rel*=\"icon\"]", "href", false, true],
 				["object[type=\"image/svg+xml\"], object[type=\"image/svg-xml\"], object[data*=\".svg\"]", "data"],
@@ -80,17 +80,17 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 				doc.querySelectorAll("svg").forEach(element => element.remove());
 			}
 			let resourcePromises = processAttributeArgs.map(([selector, attributeName, processDuplicates, removeElementIfMissing]) =>
-				this.processAttribute(doc.querySelectorAll(selector), attributeName, baseURI, options, "image", cssVariables, styles, batchRequest, processDuplicates, removeElementIfMissing)
+				this.processAttribute(doc.querySelectorAll(selector), attributeName, baseURI, options, "image", resources, styles, batchRequest, processDuplicates, removeElementIfMissing)
 			);
 			resourcePromises = resourcePromises.concat([
 				this.processXLinks(doc.querySelectorAll("use"), doc, baseURI, options, batchRequest),
 				this.processSrcset(doc.querySelectorAll("img[srcset], source[srcset]"), baseURI, options, batchRequest)
 			]);
-			resourcePromises.push(this.processAttribute(doc.querySelectorAll("object[data*=\".pdf\"]"), "data", baseURI, options, null, cssVariables, styles, batchRequest));
-			resourcePromises.push(this.processAttribute(doc.querySelectorAll("embed[src*=\".pdf\"]"), "src", baseURI, options, null, cssVariables, styles, batchRequest));
-			resourcePromises.push(this.processAttribute(doc.querySelectorAll("audio[src], audio > source[src]"), "src", baseURI, options, "audio", cssVariables, styles, batchRequest));
-			resourcePromises.push(this.processAttribute(doc.querySelectorAll("video[src], video > source[src]"), "src", baseURI, options, "video", cssVariables, styles, batchRequest));
-			resourcePromises.push(this.processAttribute(doc.querySelectorAll("model[src]"), "src", baseURI, options, null, cssVariables, styles, batchRequest));
+			resourcePromises.push(this.processAttribute(doc.querySelectorAll("object[data*=\".pdf\"]"), "data", baseURI, options, null, resources, styles, batchRequest));
+			resourcePromises.push(this.processAttribute(doc.querySelectorAll("embed[src*=\".pdf\"]"), "src", baseURI, options, null, resources, styles, batchRequest));
+			resourcePromises.push(this.processAttribute(doc.querySelectorAll("audio[src], audio > source[src]"), "src", baseURI, options, "audio", resources, styles, batchRequest));
+			resourcePromises.push(this.processAttribute(doc.querySelectorAll("video[src], video > source[src]"), "src", baseURI, options, "video", resources, styles, batchRequest));
+			resourcePromises.push(this.processAttribute(doc.querySelectorAll("model[src]"), "src", baseURI, options, null, resources, styles, batchRequest));
 			await Promise.all(resourcePromises);
 			if (options.saveFavicon) {
 				this.processShortcutIcons(doc);
@@ -129,7 +129,7 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 			}
 		}
 
-		replaceStylesheets(doc, stylesheets, options) {
+		replaceStylesheets(doc, stylesheets, resources, options) {
 			doc.querySelectorAll("style").forEach(styleElement => {
 				const stylesheetInfo = stylesheets.get(styleElement);
 				if (stylesheetInfo) {
@@ -257,7 +257,7 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 			}
 		}
 
-		async processStylesheet(cssRules, baseURI, options, fontDeclarations, cssVariables, batchRequest) {
+		async processStylesheet(cssRules, baseURI, options, resources, batchRequest) {
 			const promises = [];
 			const removedRules = [];
 			for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
@@ -266,9 +266,9 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 					removedRules.push(cssRule);
 				} else if (ruleData.block && ruleData.block.children) {
 					if (ruleData.type == "Rule") {
-						promises.push(this.processStyle(ruleData, options, cssVariables, batchRequest));
+						promises.push(this.processStyle(ruleData, options, resources, batchRequest));
 					} else if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports")) {
-						promises.push(this.processStylesheet(ruleData.block.children, baseURI, options, fontDeclarations, cssVariables, batchRequest));
+						promises.push(this.processStylesheet(ruleData.block.children, baseURI, options, resources, batchRequest));
 					} else if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
 						promises.push(processFontFaceRule(ruleData));
 					}
@@ -285,10 +285,10 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 						const resourceURL = normalizeURL(originalResourceURL);
 						if (!testIgnoredPath(resourceURL) && testValidURL(resourceURL)) {
 							let { content } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "font", baseURI, blockMixedContent: options.blockMixedContent });
-							let resourceURLs = fontDeclarations.get(urlNode);
+							let resourceURLs = resources.fonts.get(urlNode);
 							if (!resourceURLs) {
 								resourceURLs = [];
-								fontDeclarations.set(urlNode, resourceURLs);
+								resources.fonts.set(urlNode, resourceURLs);
 							}
 							resourceURLs.push(resourceURL);
 							if (!isDataURL(resourceURL) && options.saveOriginalURLs) {
@@ -304,7 +304,7 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 			}
 		}
 
-		async processStyle(ruleData, options, cssVariables, batchRequest) {
+		async processStyle(ruleData, options, { cssVariables }, batchRequest) {
 			const urls = getUrlFunctions(ruleData);
 			await Promise.all(urls.map(async urlNode => {
 				const originalResourceURL = urlNode.value;
@@ -335,7 +335,7 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 			}));
 		}
 
-		async processAttribute(resourceElements, attributeName, baseURI, options, expectedType, cssVariables, styles, batchRequest, processDuplicates, removeElementIfMissing) {
+		async processAttribute(resourceElements, attributeName, baseURI, options, expectedType, { cssVariables }, styles, batchRequest, processDuplicates, removeElementIfMissing) {
 			await Promise.all(Array.from(resourceElements).map(async resourceElement => {
 				let resourceURL = resourceElement.getAttribute(attributeName);
 				if (resourceURL != null) {
