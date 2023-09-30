@@ -26,7 +26,7 @@
 import {
 	getProcessorHelperClass,
 	cssTree
-} from "./lib/processor-helper.js";
+} from "./processor-helper.js";
 
 const DEBUG = false;
 
@@ -48,7 +48,7 @@ function getClass(...args) {
 class SingleFileClass {
 	constructor(options) {
 		this.options = options;
-		const ProcessorHelper = getProcessorHelperClass(util);
+		const ProcessorHelper = getProcessorHelperClass(options, util);
 		this.processorHelper = new ProcessorHelper();
 	}
 	async run() {
@@ -1289,7 +1289,7 @@ class Processor {
 	}
 
 	async removeAlternativeFonts() {
-		await util.removeAlternativeFonts(this.doc, this.stylesheets, this.resources.fonts, this.options.fontTests);
+		await this.processorHelper.removeAlternativeFonts(this.doc, this.stylesheets, this.resources.fonts, this.options.fontTests);
 	}
 
 	async processFrames() {
