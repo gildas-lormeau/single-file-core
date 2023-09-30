@@ -254,7 +254,7 @@ function getInstance(utilOptions) {
 		try {
 			buffer = await response.arrayBuffer();
 		} catch (error) {
-			return { data: options.asBinary ? helper.EMPTY_RESOURCE : "", resourceURL };
+			return options.inline ? { data: options.asBinary ? helper.EMPTY_RESOURCE : "", resourceURL } : { resourceURL };
 		}
 		resourceURL = response.url || resourceURL;
 		let contentType = "", charset;
@@ -313,12 +313,16 @@ function getInstance(utilOptions) {
 async function getFetchResponse(resourceURL, options, data, charset, contentType) {
 	if (data) {
 		if (options.asBinary) {
-			const reader = new FileReader();
-			reader.readAsDataURL(new Blob([data], { type: contentType + (options.charset ? ";charset=" + options.charset : "") }));
-			data = await new Promise((resolve, reject) => {
-				reader.addEventListener("load", () => resolve(reader.result), false);
-				reader.addEventListener("error", reject, false);
-			});
+			if (options.inline)	{
+				const reader = new FileReader();
+				reader.readAsDataURL(new Blob([data], { type: contentType + (options.charset ? ";charset=" + options.charset : "") }));
+				data = await new Promise((resolve, reject) => {
+					reader.addEventListener("load", () => resolve(reader.result), false);
+					reader.addEventListener("error", reject, false);
+				});
+			} else {
+				data = new Uint8Array(data);
+			}
 		} else {
 			const firstBytes = new Uint8Array(data.slice(0, 4));
 			if (firstBytes[0] == 132 && firstBytes[1] == 49 && firstBytes[2] == 149 && firstBytes[3] == 51) {
@@ -336,10 +340,10 @@ async function getFetchResponse(resourceURL, options, data, charset, contentType
 			}
 			data = data.replace(/\ufeff/gi, "");
 		}
-	} else {
+	} else if (options.inline) {
 		data = options.asBinary ? helper.EMPTY_RESOURCE : "";
 	}
-	return { data, resourceURL, charset };
+	return { data, resourceURL, charset, contentType };
 }
 
 function guessMIMEType(expectedType, buffer) {

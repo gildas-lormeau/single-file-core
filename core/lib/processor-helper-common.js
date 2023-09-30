@@ -69,6 +69,7 @@ class ProcessorHelperCommon {
 
 	async getStylesheetContent(resourceURL, options) {
 		const content = await util.getContent(resourceURL, {
+			inline: true,
 			maxResourceSize: options.maxResourceSize,
 			maxResourceSizeEnabled: options.maxResourceSizeEnabled,
 			validateTextContentType: true,
@@ -84,6 +85,7 @@ class ProcessorHelperCommon {
 		if (!(matchCharsetEquals(content.data, content.charset) || matchCharsetEquals(content.data, options.charset))) {
 			options = Object.assign({}, options, { charset: getCharset(content.data) });
 			return util.getContent(resourceURL, {
+				inline: true,
 				maxResourceSize: options.maxResourceSize,
 				maxResourceSizeEnabled: options.maxResourceSizeEnabled,
 				validateTextContentType: true,

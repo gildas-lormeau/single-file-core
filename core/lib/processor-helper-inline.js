@@ -241,6 +241,7 @@ function getProcessorHelperClass(utilInstance) {
 			resourceURL = normalizeURL(resourceURL);
 			if (resourceURL && resourceURL != baseURI && resourceURL != ABOUT_BLANK_URI) {
 				const content = await util.getContent(resourceURL, {
+					inline: true,
 					maxResourceSize: options.maxResourceSize,
 					maxResourceSizeEnabled: options.maxResourceSizeEnabled,
 					charset: options.charset,
@@ -404,6 +405,7 @@ function getProcessorHelperClass(utilInstance) {
 												resourceURL = originURL;
 												content = (await util.getContent(resourceURL, {
 													asBinary: true,
+													inline: true,
 													expectedType,
 													maxResourceSize: options.maxResourceSize,
 													maxResourceSizeEnabled: options.maxResourceSizeEnabled,
@@ -572,6 +574,7 @@ function getProcessorHelperClass(utilInstance) {
 		async processScript(element, resourceURL) {
 			const content = await util.getContent(resourceURL, {
 				asBinary: true,
+				inline: true,
 				charset: this.charset != UTF8_CHARSET && this.charset,
 				maxResourceSize: this.options.maxResourceSize,
 				maxResourceSizeEnabled: this.options.maxResourceSizeEnabled,
