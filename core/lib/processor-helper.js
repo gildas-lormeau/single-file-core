@@ -65,7 +65,7 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 	const ProcessorHelperCommon = getProcessorHelperCommonClass(util, cssTree);
 
 	return class ProcessorHelper extends ProcessorHelperCommon {
-		static async processPageResources(doc, baseURI, options, cssVariables, styles, batchRequest) {
+		async processPageResources(doc, baseURI, options, cssVariables, styles, batchRequest) {
 			const processAttributeArgs = [
 				["link[href][rel*=\"icon\"]", "href", false, true],
 				["object[type=\"image/svg+xml\"], object[type=\"image/svg-xml\"], object[data*=\".svg\"]", "data"],
@@ -80,39 +80,39 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 				doc.querySelectorAll("svg").forEach(element => element.remove());
 			}
 			let resourcePromises = processAttributeArgs.map(([selector, attributeName, processDuplicates, removeElementIfMissing]) =>
-				ProcessorHelper.processAttribute(doc.querySelectorAll(selector), attributeName, baseURI, options, "image", cssVariables, styles, batchRequest, processDuplicates, removeElementIfMissing)
+				this.processAttribute(doc.querySelectorAll(selector), attributeName, baseURI, options, "image", cssVariables, styles, batchRequest, processDuplicates, removeElementIfMissing)
 			);
 			resourcePromises = resourcePromises.concat([
-				ProcessorHelper.processXLinks(doc.querySelectorAll("use"), doc, baseURI, options, batchRequest),
-				ProcessorHelper.processSrcset(doc.querySelectorAll("img[srcset], source[srcset]"), baseURI, options, batchRequest)
+				this.processXLinks(doc.querySelectorAll("use"), doc, baseURI, options, batchRequest),
+				this.processSrcset(doc.querySelectorAll("img[srcset], source[srcset]"), baseURI, options, batchRequest)
 			]);
-			resourcePromises.push(ProcessorHelper.processAttribute(doc.querySelectorAll("object[data*=\".pdf\"]"), "data", baseURI, options, null, cssVariables, styles, batchRequest));
-			resourcePromises.push(ProcessorHelper.processAttribute(doc.querySelectorAll("embed[src*=\".pdf\"]"), "src", baseURI, options, null, cssVariables, styles, batchRequest));
-			resourcePromises.push(ProcessorHelper.processAttribute(doc.querySelectorAll("audio[src], audio > source[src]"), "src", baseURI, options, "audio", cssVariables, styles, batchRequest));
-			resourcePromises.push(ProcessorHelper.processAttribute(doc.querySelectorAll("video[src], video > source[src]"), "src", baseURI, options, "video", cssVariables, styles, batchRequest));
-			resourcePromises.push(ProcessorHelper.processAttribute(doc.querySelectorAll("model[src]"), "src", baseURI, options, null, cssVariables, styles, batchRequest));
+			resourcePromises.push(this.processAttribute(doc.querySelectorAll("object[data*=\".pdf\"]"), "data", baseURI, options, null, cssVariables, styles, batchRequest));
+			resourcePromises.push(this.processAttribute(doc.querySelectorAll("embed[src*=\".pdf\"]"), "src", baseURI, options, null, cssVariables, styles, batchRequest));
+			resourcePromises.push(this.processAttribute(doc.querySelectorAll("audio[src], audio > source[src]"), "src", baseURI, options, "audio", cssVariables, styles, batchRequest));
+			resourcePromises.push(this.processAttribute(doc.querySelectorAll("video[src], video > source[src]"), "src", baseURI, options, "video", cssVariables, styles, batchRequest));
+			resourcePromises.push(this.processAttribute(doc.querySelectorAll("model[src]"), "src", baseURI, options, null, cssVariables, styles, batchRequest));
 			await Promise.all(resourcePromises);
 			if (options.saveFavicon) {
-				ProcessorHelper.processShortcutIcons(doc);
+				this.processShortcutIcons(doc);
 			}
 		}
 
-		static async processLinkElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement) {
+		async processLinkElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement) {
 			if (element.tagName.toUpperCase() == "LINK" && element.charset) {
 				options.charset = element.charset;
 			}
-			await ProcessorHelper.processStylesheetElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement);
+			await this.processStylesheetElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement);
 		}
 
-		static async processStylesheetElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement) {
+		async processStylesheetElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement) {
 			let stylesheet;
 			stylesheets.set(element, stylesheetInfo);
 			if (!options.blockStylesheets) {
 				if (element.tagName.toUpperCase() == "LINK") {
-					stylesheet = await ProcessorHelper.resolveLinkStylesheetURLs(element.href, baseURI, options, workStyleElement);
+					stylesheet = await this.resolveLinkStylesheetURLs(element.href, baseURI, options, workStyleElement);
 				} else {
 					stylesheet = cssTree.parse(element.textContent, { context: "stylesheet", parseCustomProperty: true });
-					const importFound = await ProcessorHelper.resolveImportURLs(stylesheet, baseURI, options, workStyleElement);
+					const importFound = await this.resolveImportURLs(stylesheet, baseURI, options, workStyleElement);
 					if (importFound) {
 						stylesheet = cssTree.parse(cssTree.generate(stylesheet), { context: "stylesheet", parseCustomProperty: true });
 					}
@@ -120,21 +120,21 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 			}
 			if (stylesheet && stylesheet.children) {
 				if (options.compressCSS) {
-					ProcessorHelper.removeSingleLineCssComments(stylesheet);
+					this.removeSingleLineCssComments(stylesheet);
 				}
-				ProcessorHelper.replacePseudoClassDefined(stylesheet);
+				this.replacePseudoClassDefined(stylesheet);
 				stylesheetInfo.stylesheet = stylesheet;
 			} else {
 				stylesheets.delete(element);
 			}
 		}
 
-		static replaceStylesheets(doc, stylesheets, options) {
+		replaceStylesheets(doc, stylesheets, options) {
 			doc.querySelectorAll("style").forEach(styleElement => {
 				const stylesheetInfo = stylesheets.get(styleElement);
 				if (stylesheetInfo) {
 					stylesheets.delete(styleElement);
-					styleElement.textContent = ProcessorHelper.generateStylesheetContent(stylesheetInfo.stylesheet, options);
+					styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
 					if (stylesheetInfo.mediaText) {
 						styleElement.media = stylesheetInfo.mediaText;
 					}
@@ -150,7 +150,7 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 					if (stylesheetInfo.mediaText) {
 						styleElement.media = stylesheetInfo.mediaText;
 					}
-					styleElement.textContent = ProcessorHelper.generateStylesheetContent(stylesheetInfo.stylesheet, options);
+					styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
 					linkElement.parentElement.replaceChild(styleElement, linkElement);
 				} else {
 					linkElement.remove();
@@ -158,9 +158,9 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 			});
 		}
 
-		static async resolveImportURLs(stylesheet, baseURI, options, workStylesheet, importedStyleSheets = new Set()) {
+		async resolveImportURLs(stylesheet, baseURI, options, workStylesheet, importedStyleSheets = new Set()) {
 			let importFound;
-			ProcessorHelper.resolveStylesheetURLs(stylesheet, baseURI, workStylesheet);
+			this.resolveStylesheetURLs(stylesheet, baseURI, workStylesheet);
 			const imports = getImportFunctions(stylesheet);
 			await Promise.all(imports.map(async node => {
 				const urlNode = cssTree.find(node, node => node.type == "Url") || cssTree.find(node, node => node.type == "String");
@@ -174,7 +174,7 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 							// ignored
 						}
 						if (testValidURL(resourceURL) && !importedStyleSheets.has(resourceURL)) {
-							const content = await ProcessorHelper.getStylesheetContent(resourceURL, options);
+							const content = await this.getStylesheetContent(resourceURL, options);
 							resourceURL = content.resourceURL;
 							content.data = getUpdatedResourceContent(resourceURL, content, options);
 							if (content.data && content.data.match(/^<!doctype /i)) {
@@ -182,7 +182,7 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 							}
 							const mediaQueryListNode = cssTree.find(node, node => node.type == "MediaQueryList");
 							if (mediaQueryListNode) {
-								content.data = ProcessorHelper.wrapMediaQuery(content.data, cssTree.generate(mediaQueryListNode));
+								content.data = this.wrapMediaQuery(content.data, cssTree.generate(mediaQueryListNode));
 							}
 
 							content.data = content.data.replace(/:defined/gi, "*");
@@ -190,7 +190,7 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 							const importedStylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
 							const ancestorStyleSheets = new Set(importedStyleSheets);
 							ancestorStyleSheets.add(resourceURL);
-							await ProcessorHelper.resolveImportURLs(importedStylesheet, resourceURL, options, workStylesheet, ancestorStyleSheets);
+							await this.resolveImportURLs(importedStylesheet, resourceURL, options, workStylesheet, ancestorStyleSheets);
 							for (let keyName of Object.keys(importedStylesheet)) {
 								node[keyName] = importedStylesheet[keyName];
 							}
@@ -202,7 +202,7 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 			return importFound;
 		}
 
-		static async resolveLinkStylesheetURLs(resourceURL, baseURI, options, workStylesheet) {
+		async resolveLinkStylesheetURLs(resourceURL, baseURI, options, workStylesheet) {
 			resourceURL = normalizeURL(resourceURL);
 			if (resourceURL && resourceURL != baseURI && resourceURL != ABOUT_BLANK_URI) {
 				const content = await util.getContent(resourceURL, {
@@ -220,7 +220,7 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 				});
 				if (!(matchCharsetEquals(content.data, content.charset) || matchCharsetEquals(content.data, options.charset))) {
 					options = Object.assign({}, options, { charset: getCharset(content.data) });
-					return ProcessorHelper.resolveLinkStylesheetURLs(resourceURL, baseURI, options, workStylesheet);
+					return this.resolveLinkStylesheetURLs(resourceURL, baseURI, options, workStylesheet);
 				}
 				resourceURL = content.resourceURL;
 				content.data = getUpdatedResourceContent(content.resourceURL, content, options);
@@ -231,7 +231,7 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 				content.data = content.data.replace(/:defined/gi, "*");
 
 				let stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
-				const importFound = await ProcessorHelper.resolveImportURLs(stylesheet, resourceURL, options, workStylesheet);
+				const importFound = await this.resolveImportURLs(stylesheet, resourceURL, options, workStylesheet);
 				if (importFound) {
 					stylesheet = cssTree.parse(cssTree.generate(stylesheet), { context: "stylesheet", parseCustomProperty: true });
 				}
@@ -239,7 +239,7 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 			}
 		}
 
-		static async processFrame(frameElement, pageData) {
+		async processFrame(frameElement, pageData) {
 			let sandbox = "allow-popups allow-top-navigation allow-top-navigation-by-user-activation";
 			if (pageData.content.match(NOSCRIPT_TAG_FOUND) || pageData.content.match(CANVAS_TAG_FOUND) || pageData.content.match(SCRIPT_TAG_FOUND)) {
 				sandbox += " allow-scripts allow-same-origin";
@@ -257,7 +257,7 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 			}
 		}
 
-		static async processStylesheet(cssRules, baseURI, options, fontDeclarations, cssVariables, batchRequest) {
+		async processStylesheet(cssRules, baseURI, options, fontDeclarations, cssVariables, batchRequest) {
 			const promises = [];
 			const removedRules = [];
 			for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
@@ -266,9 +266,9 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 					removedRules.push(cssRule);
 				} else if (ruleData.block && ruleData.block.children) {
 					if (ruleData.type == "Rule") {
-						promises.push(ProcessorHelper.processStyle(ruleData, options, cssVariables, batchRequest));
+						promises.push(this.processStyle(ruleData, options, cssVariables, batchRequest));
 					} else if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports")) {
-						promises.push(ProcessorHelper.processStylesheet(ruleData.block.children, baseURI, options, fontDeclarations, cssVariables, batchRequest));
+						promises.push(this.processStylesheet(ruleData.block.children, baseURI, options, fontDeclarations, cssVariables, batchRequest));
 					} else if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
 						promises.push(processFontFaceRule(ruleData));
 					}
@@ -304,7 +304,7 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 			}
 		}
 
-		static async processStyle(ruleData, options, cssVariables, batchRequest) {
+		async processStyle(ruleData, options, cssVariables, batchRequest) {
 			const urls = getUrlFunctions(ruleData);
 			await Promise.all(urls.map(async urlNode => {
 				const originalResourceURL = urlNode.value;
@@ -335,7 +335,7 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 			}));
 		}
 
-		static async processAttribute(resourceElements, attributeName, baseURI, options, expectedType, cssVariables, styles, batchRequest, processDuplicates, removeElementIfMissing) {
+		async processAttribute(resourceElements, attributeName, baseURI, options, expectedType, cssVariables, styles, batchRequest, processDuplicates, removeElementIfMissing) {
 			await Promise.all(Array.from(resourceElements).map(async resourceElement => {
 				let resourceURL = resourceElement.getAttribute(attributeName);
 				if (resourceURL != null) {
@@ -359,7 +359,7 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 										resourceURL,
 										{ asBinary: true, expectedType, groupDuplicates: options.groupDuplicateImages && resourceElement.tagName.toUpperCase() == "IMG" && attributeName == "src" });
 									if (originURL) {
-										if (ProcessorHelper.testEmptyResource(content)) {
+										if (this.testEmptyResource(content)) {
 											try {
 												originURL = util.resolveURL(originURL, baseURI);
 											} catch (error) {
@@ -382,9 +382,9 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 											}
 										}
 									}
-									if (removeElementIfMissing && ProcessorHelper.testEmptyResource(content)) {
+									if (removeElementIfMissing && this.testEmptyResource(content)) {
 										resourceElement.remove();
-									} else if (!ProcessorHelper.testEmptyResource(content)) {
+									} else if (!this.testEmptyResource(content)) {
 										let forbiddenPrefixFound = PREFIXES_FORBIDDEN_DATA_URI.filter(prefixDataURI => content.startsWith(prefixDataURI)).length;
 										if (expectedType == "image") {
 											if (forbiddenPrefixFound && Image) {
@@ -405,7 +405,7 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 												const isSVG = content.startsWith(PREFIX_DATA_URI_IMAGE_SVG);
 												const maxSizeDuplicateImages = options.maxSizeDuplicateImages || SINGLE_FILE_VARIABLE_MAX_SIZE;
 												if (processDuplicates && duplicate && !isSVG && util.getContentSize(content) < maxSizeDuplicateImages) {
-													if (ProcessorHelper.replaceImageSource(resourceElement, SINGLE_FILE_VARIABLE_NAME_PREFIX + indexResource, options)) {
+													if (this.replaceImageSource(resourceElement, SINGLE_FILE_VARIABLE_NAME_PREFIX + indexResource, options)) {
 														cssVariables.set(indexResource, { content, url: originURL });
 														const declarationList = cssTree.parse(resourceElement.getAttribute("style"), { context: "declarationList", parseCustomProperty: true });
 														styles.set(resourceElement, declarationList);
@@ -438,7 +438,7 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 			}
 		}
 
-		static async processSrcset(resourceElements, baseURI, options, batchRequest) {
+		async processSrcset(resourceElements, baseURI, options, batchRequest) {
 			await Promise.all(Array.from(resourceElements).map(async resourceElement => {
 				const originSrcset = resourceElement.getAttribute("srcset");
 				const srcset = util.parseSrcset(originSrcset);
@@ -479,11 +479,11 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 			}));
 		}
 
-		static testEmptyResource(resource) {
+		testEmptyResource(resource) {
 			return resource == util.EMPTY_RESOURCE;
 		}
 
-		static generateStylesheetContent(stylesheet, options) {
+		generateStylesheetContent(stylesheet, options) {
 			let stylesheetContent = cssTree.generate(stylesheet);
 			if (options.compressCSS) {
 				stylesheetContent = util.compressCSS(stylesheetContent);
@@ -494,7 +494,7 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 			return stylesheetContent;
 		}
 
-		static replaceImageSource(imgElement, variableName, options) {
+		replaceImageSource(imgElement, variableName, options) {
 			const attributeValue = imgElement.getAttribute(util.IMAGE_ATTRIBUTE_NAME);
 			if (attributeValue) {
 				const imageData = options.images[Number(imgElement.getAttribute(util.IMAGE_ATTRIBUTE_NAME))];
@@ -511,14 +511,14 @@ function getProcessorHelperClass(utilInstance, cssTreeInstance) {
 					if (imageData.backgroundColor) {
 						backgroundStyle["background-color"] = imageData.backgroundColor;
 					}
-					ProcessorHelper.setBackgroundImage(imgElement, "var(" + variableName + ")", backgroundStyle);
+					this.setBackgroundImage(imgElement, "var(" + variableName + ")", backgroundStyle);
 					imgElement.removeAttribute(util.IMAGE_ATTRIBUTE_NAME);
 					return true;
 				}
 			}
 		}
 
-		static wrapMediaQuery(stylesheetContent, mediaQuery) {
+		wrapMediaQuery(stylesheetContent, mediaQuery) {
 			if (mediaQuery) {
 				return "@media " + mediaQuery + "{ " + stylesheetContent + " }";
 			} else {

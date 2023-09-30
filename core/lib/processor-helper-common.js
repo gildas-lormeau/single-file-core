@@ -56,7 +56,7 @@ function getProcessorHelperCommonClass(utilInstance, cssTreeInstance) {
 }
 
 class ProcessorHelperCommon {
-	static setBackgroundImage(element, url, style) {
+	setBackgroundImage(element, url, style) {
 		element.style.setProperty("background-blend-mode", "normal", "important");
 		element.style.setProperty("background-clip", "content-box", "important");
 		element.style.setProperty("background-position", style && style["background-position"] ? style["background-position"] : "center", "important");
@@ -67,7 +67,7 @@ class ProcessorHelperCommon {
 		element.style.setProperty("background-repeat", "no-repeat", "important");
 	}
 
-	static async getStylesheetContent(resourceURL, options) {
+	async getStylesheetContent(resourceURL, options) {
 		const content = await util.getContent(resourceURL, {
 			maxResourceSize: options.maxResourceSize,
 			maxResourceSizeEnabled: options.maxResourceSizeEnabled,
@@ -101,7 +101,7 @@ class ProcessorHelperCommon {
 		}
 	}
 
-	static processShortcutIcons(doc) {
+	processShortcutIcons(doc) {
 		let shortcutIcon = findShortcutIcon(Array.from(doc.querySelectorAll("link[href][rel=\"shortcut icon\"]")));
 		if (!shortcutIcon) {
 			shortcutIcon = findShortcutIcon(Array.from(doc.querySelectorAll("link[href][rel=\"icon\"]")));
@@ -121,7 +121,7 @@ class ProcessorHelperCommon {
 		}
 	}
 
-	static removeSingleLineCssComments(stylesheet) {
+	removeSingleLineCssComments(stylesheet) {
 		if (stylesheet.children) {
 			const removedRules = [];
 			for (let cssRule = stylesheet.children.head; cssRule; cssRule = cssRule.next) {
@@ -134,7 +134,7 @@ class ProcessorHelperCommon {
 		}
 	}
 
-	static replacePseudoClassDefined(stylesheet) {
+	replacePseudoClassDefined(stylesheet) {
 		const removedSelectors = [];
 		if (stylesheet.children) {
 			for (let cssRule = stylesheet.children.head; cssRule; cssRule = cssRule.next) {
@@ -168,7 +168,7 @@ class ProcessorHelperCommon {
 		}
 	}
 
-	static resolveStylesheetURLs(stylesheet, baseURI, workStylesheet) {
+	resolveStylesheetURLs(stylesheet, baseURI, workStylesheet) {
 		const urls = getUrlFunctions(stylesheet);
 		urls.map(urlNode => {
 			const originalResourceURL = urlNode.value;
@@ -199,7 +199,7 @@ class ProcessorHelperCommon {
 		});
 	}
 
-	static async processXLinks(resourceElements, doc, baseURI, options, batchRequest) {
+	async processXLinks(resourceElements, doc, baseURI, options, batchRequest) {
 		let attributeName = "xlink:href";
 		await Promise.all(Array.from(resourceElements).map(async resourceElement => {
 			let originalResourceURL = resourceElement.getAttribute(attributeName);
