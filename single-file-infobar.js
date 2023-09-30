@@ -35,6 +35,7 @@ import { appendInfobar, refreshInfobarInfo, extractInfobarData } from "./core/in
 		} else {
 			displayIcon();
 		}
+		document.addEventListener("single-file-display-infobar", displayIcon, false);
 	}
 	if (globalThis.singlefile) {
 		globalThis.singlefile.infobar = {
