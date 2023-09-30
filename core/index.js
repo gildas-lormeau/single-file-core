@@ -564,12 +564,13 @@ class Processor {
 		}
 		const filename = await util.formatFilename(content, this.options);
 		const matchTitle = this.baseURI.match(/([^/]*)\/?(\.html?.*)$/) || this.baseURI.match(/\/\/([^/]*)\/?$/);
-		const pageData = {
+		const additionalData = this.processorHelper.getAdditionalPageData(this.doc, content, this.resources);
+		const pageData = Object.assign({
 			stats: this.stats.data,
 			title: this.options.title || (this.baseURI && matchTitle ? matchTitle[1] : url.hostname ? url.hostname : ""),
 			filename,
 			content
-		};
+		}, additionalData);
 		if (this.options.addProof) {
 			pageData.hash = await util.digest("SHA-256", content);
 		}

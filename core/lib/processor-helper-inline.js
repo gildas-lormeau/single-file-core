@@ -561,6 +561,10 @@ function getProcessorHelperClass(utilInstance) {
 			}
 		}
 
+		getAdditionalPageData() {
+			return { };
+		}
+
 		removeAlternativeFonts(doc, stylesheets, fonts, fontTests) {
 			return removeAlternativeFonts(doc, stylesheets, fonts, fontTests);
 		}
