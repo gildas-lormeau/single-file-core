@@ -23,7 +23,10 @@
 
 /* global globalThis */
 
-import { getProcessorHelperClass } from "./lib/processor-helper.js";
+import {
+	getProcessorHelperClass,
+	cssTree
+} from "./lib/processor-helper.js";
 
 const DEBUG = false;
 
@@ -31,21 +34,21 @@ const Set = globalThis.Set;
 const Map = globalThis.Map;
 const JSON = globalThis.JSON;
 
-let util, cssTree;
+let util;
 
 export {
 	getClass
 };
 
 function getClass(...args) {
-	[util, cssTree] = args;
+	[util] = args;
 	return SingleFileClass;
 }
 
 class SingleFileClass {
 	constructor(options) {
 		this.options = options;
-		const ProcessorHelper = getProcessorHelperClass(util, cssTree);
+		const ProcessorHelper = getProcessorHelperClass(util);
 		this.processorHelper = new ProcessorHelper();
 	}
 	async run() {

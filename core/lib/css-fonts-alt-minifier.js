@@ -23,11 +23,11 @@
 
 /* global globalThis */
 
-import * as cssTree from "./../vendor/css-tree.js";
+import { cssTree } from "./processor-helper.js";
 import {
 	normalizeFontFamily,
 	getFontWeight
-} from "./../core/helper.js";
+} from "./../helper.js";
 
 const helper = {
 	normalizeFontFamily,

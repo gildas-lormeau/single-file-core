@@ -23,6 +23,8 @@
 
 /* global globalThis */
 
+import * as cssTree from "./../../vendor/css-tree.js";
+
 const Set = globalThis.Set;
 const JSON = globalThis.JSON;
 const setTimeout = globalThis.setTimeout;
@@ -38,7 +40,7 @@ const CANVAS_TAG_FOUND = /<canvas/gi;
 const SINGLE_FILE_VARIABLE_NAME_PREFIX = "--sf-img-";
 const SINGLE_FILE_VARIABLE_MAX_SIZE = 512 * 1024;
 
-let util, cssTree;
+let util;
 
 import {
 	getProcessorHelperCommonClass,
@@ -56,12 +58,12 @@ import {
 } from "./processor-helper-common.js";
 
 export {
-	getProcessorHelperClass
+	getProcessorHelperClass,
+	cssTree
 };
 
-function getProcessorHelperClass(utilInstance, cssTreeInstance) {
+function getProcessorHelperClass(utilInstance) {
 	util = utilInstance;
-	cssTree = cssTreeInstance;
 	const ProcessorHelperCommon = getProcessorHelperCommonClass(util, cssTree);
 
 	return class ProcessorHelper extends ProcessorHelperCommon {

@@ -44,7 +44,7 @@ export {
 
 function init(initOptions) {
 	if (typeof SingleFile == "undefined") {
-		SingleFile = core.getClass(util.getInstance(initOptions), vendor.cssTree);
+		SingleFile = core.getClass(util.getInstance(initOptions));
 	}
 }
 
