@@ -29,12 +29,12 @@ import {
 	getFontWeight
 } from "./../helper.js";
 
-const Set = globalThis.Set;
 const JSON = globalThis.JSON;
+const FontFace = globalThis.FontFace;
+const Set = globalThis.Set;
 const setTimeout = globalThis.setTimeout;
 const clearTimeout = globalThis.clearTimeout;
 const Image = globalThis.Image;
-const FontFace = globalThis.FontFace;
 
 const ABOUT_BLANK_URI = "about:blank";
 const UTF8_CHARSET = "utf-8";
