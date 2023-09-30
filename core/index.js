@@ -376,10 +376,11 @@ class BatchRequest {
 				});
 				onloadListener({ url: resourceURL });
 				if (!this.cancelled) {
+					const extension = util.getContentTypeExtension(content.contentType) || util.getFilenameExtension(resourceURL, options.filenameReplacedCharacters, options.filenameReplacementCharacter);
 					resourceRequests.forEach(callbacks => {
 						const duplicateCallbacks = this.duplicates.get(requestKey);
 						const duplicate = duplicateCallbacks && duplicateCallbacks.length > 1 && duplicateCallbacks.includes(callbacks);
-						callbacks.resolve({ content: content.data, indexResource: currentIndexResource, duplicate });
+						callbacks.resolve({ content: content.data, indexResource: currentIndexResource, duplicate, contentType: content.contentType, extension });
 					});
 				}
 			} catch (error) {

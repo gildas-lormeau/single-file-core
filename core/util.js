@@ -32,6 +32,13 @@ const ONE_MB = 1024 * 1024;
 const PREFIX_CONTENT_TYPE_TEXT = "text/";
 const DEFAULT_REPLACED_CHARACTERS = ["~", "+", "\\\\", "?", "%", "*", ":", "|", "\"", "<", ">", "\x00-\x1f", "\x7F"];
 const DEFAULT_REPLACEMENT_CHARACTER = "_";
+const CONTENT_TYPE_EXTENSIONS = {
+	"image/svg+xml": ".svg",
+	"image/png": ".png",
+	"image/jpeg": ".jpg",
+	"image/gif": ".gif",
+	"image/webp": ".webp"
+};
 
 const URL = globalThis.URL;
 const DOMParser = globalThis.DOMParser;
@@ -51,6 +58,14 @@ function getInstance(utilOptions) {
 	utilOptions.fetch = utilOptions.fetch || fetch;
 	utilOptions.frameFetch = utilOptions.frameFetch || utilOptions.fetch || fetch;
 	return {
+		getDoctypeString,
+		getFilenameExtension(resourceURL, replacedCharacters, replacementCharacter) {
+			const matchExtension = new URL(resourceURL).pathname.match(/(\.[^\\/.]*)$/);
+			return ((matchExtension && matchExtension[1] && this.getValidFilename(matchExtension[1], replacedCharacters, replacementCharacter)) || "").toLowerCase();
+		},
+		getContentTypeExtension(contentType) {
+			return CONTENT_TYPE_EXTENSIONS[contentType] || "";
+		},
 		getContent,
 		parseURL(resourceURL, baseURI) {
 			if (baseURI === undefined) {
@@ -400,6 +415,24 @@ function hex(buffer) {
 		hexCodes.push(paddedValue);
 	}
 	return hexCodes.join("");
+}
+
+function getDoctypeString(doc) {
+	const docType = doc.doctype;
+	let docTypeString = "";
+	if (docType) {
+		docTypeString = "<!DOCTYPE " + docType.nodeName;
+		if (docType.publicId) {
+			docTypeString += " PUBLIC \"" + docType.publicId + "\"";
+			if (docType.systemId)
+				docTypeString += " \"" + docType.systemId + "\"";
+		} else if (docType.systemId)
+			docTypeString += " SYSTEM \"" + docType.systemId + "\"";
+		if (docType.internalSubset)
+			docTypeString += " [" + docType.internalSubset + "]";
+		docTypeString += "> ";
+	}
+	return docTypeString;
 }
 
 function log(...args) {
