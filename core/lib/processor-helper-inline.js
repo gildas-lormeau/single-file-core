@@ -37,6 +37,7 @@ const Image = globalThis.Image;
 const FontFace = globalThis.FontFace;
 
 const ABOUT_BLANK_URI = "about:blank";
+const UTF8_CHARSET = "utf-8";
 const PREFIX_DATA_URI_IMAGE_SVG = "data:image/svg+xml";
 const PREFIXES_FORBIDDEN_DATA_URI = ["data:text/"];
 const SCRIPT_TAG_FOUND = /<script/gi;
@@ -562,6 +563,24 @@ function getProcessorHelperClass(utilInstance) {
 
 		removeAlternativeFonts(doc, stylesheets, fonts, fontTests) {
 			return removeAlternativeFonts(doc, stylesheets, fonts, fontTests);
+		}
+
+		async processScript(element, resourceURL) {
+			const content = await util.getContent(resourceURL, {
+				asBinary: true,
+				charset: this.charset != UTF8_CHARSET && this.charset,
+				maxResourceSize: this.options.maxResourceSize,
+				maxResourceSizeEnabled: this.options.maxResourceSizeEnabled,
+				frameId: this.options.windowId,
+				resourceReferrer: this.options.resourceReferrer,
+				baseURI: this.options.baseURI,
+				blockMixedContent: this.options.blockMixedContent,
+				expectedType: "script",
+				acceptHeaders: this.options.acceptHeaders,
+				networkTimeout: this.options.networkTimeout
+			});
+			content.data = getUpdatedResourceContent(resourceURL, content, this.options);
+			element.setAttribute("src", content.data);
 		}
 	};
 }
