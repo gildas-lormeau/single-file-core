@@ -21,11 +21,13 @@
  *   Source.
  */
 
+import * as compression from "./compression/compression.js";
 import * as frameTree from "./frame-tree/content/content-frame-tree.js";
 import * as hooksFrames from "./hooks/content/content-hooks-frames.js";
 import * as lazy from "./lazy/content/content-lazy-loader.js";
 
 export {
+	compression,
 	frameTree,
 	hooksFrames,
 	lazy

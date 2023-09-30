@@ -21,7 +21,8 @@
  *   Source.
  */
 
-import { getProcessorHelperClass as getHelperClass, cssTree } from "./lib/processor-helper-inline.js";
+import { getProcessorHelperClass as getHelperInlineClass, cssTree } from "./lib/processor-helper-inline.js";
+import { getProcessorHelperClass as getHelperClass } from "./lib/processor-helper.js";
 
 export {
 	getProcessorHelperClass,
@@ -29,5 +30,5 @@ export {
 };
 
 function getProcessorHelperClass(options, utilInstance) {
-	return getHelperClass(utilInstance);
+	return options.compressContent ? getHelperClass(utilInstance) : getHelperInlineClass(utilInstance);
 }

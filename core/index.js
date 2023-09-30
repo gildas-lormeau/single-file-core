@@ -364,7 +364,7 @@ class BatchRequest {
 				indexResource = indexResource + 1;
 				const content = await util.getContent(resourceURL, {
 					asBinary,
-					inline: true,
+					inline: !options.compressContent,
 					expectedType,
 					maxResourceSize: options.maxResourceSize,
 					maxResourceSizeEnabled: options.maxResourceSizeEnabled,
@@ -448,7 +448,7 @@ class Processor {
 		let content;
 		if (!pageContent || this.options.saveRawPage) {
 			content = await util.getContent(this.baseURI, {
-				inline: true,
+				inline: !this.options.compressContent,
 				maxResourceSize: this.options.maxResourceSize,
 				maxResourceSizeEnabled: this.options.maxResourceSizeEnabled,
 				charset,
