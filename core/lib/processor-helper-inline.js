@@ -209,6 +209,7 @@ function getProcessorHelperClass(utilInstance) {
 							// ignored
 						}
 						if (testValidURL(resourceURL) && !importedStyleSheets.has(resourceURL)) {
+							options.inline = true;
 							const content = await this.getStylesheetContent(resourceURL, options);
 							resourceURL = content.resourceURL;
 							content.data = getUpdatedResourceContent(resourceURL, content, options);
