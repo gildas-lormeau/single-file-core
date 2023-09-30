@@ -535,10 +535,10 @@ class Processor {
 			}
 		}
 		if (this.options.insertMetaCSP) {
-			const metaTag = this.doc.createElement("meta");
-			metaTag.httpEquiv = "content-security-policy";
-			metaTag.content = "default-src 'none'; font-src 'self' data:; img-src 'self' data:; style-src 'unsafe-inline'; media-src 'self' data:; script-src 'unsafe-inline' data:; object-src 'self' data:; frame-src 'self' data:;";
-			this.doc.head.appendChild(metaTag);
+			const metaElement = this.doc.createElement("meta");
+			metaElement.httpEquiv = "content-security-policy";
+			this.processorHelper.setMetaCSP(metaElement);
+			this.doc.head.appendChild(metaElement);
 		}
 		if (this.options.insertMetaNoIndex) {
 			let metaElement = this.doc.querySelector("meta[name=robots][content*=noindex]");

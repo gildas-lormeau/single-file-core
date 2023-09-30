@@ -586,6 +586,10 @@ function getProcessorHelperClass(utilInstance) {
 			content.data = getUpdatedResourceContent(resourceURL, content, this.options);
 			element.setAttribute("src", content.data);
 		}
+
+		setMetaCSP(metaElement) {
+			metaElement.content = "default-src 'none'; font-src 'self' data:; img-src 'self' data:; style-src 'unsafe-inline'; media-src 'self' data:; script-src 'unsafe-inline' data:; object-src 'self' data:; frame-src 'self' data:;";
+		}
 	};
 }
 
