@@ -453,6 +453,11 @@ function postProcessDoc(doc, markedElements, invalidElements) {
 	doc.querySelectorAll("[" + DISABLED_NOSCRIPT_ATTRIBUTE_NAME + "]").forEach(element => {
 		element.textContent = element.getAttribute(DISABLED_NOSCRIPT_ATTRIBUTE_NAME);
 		element.removeAttribute(DISABLED_NOSCRIPT_ATTRIBUTE_NAME);
+		if (doc.body.firstChild) {
+			doc.body.insertBefore(element, doc.body.firstChild);
+		} else {
+			doc.body.appendChild(element);
+		}
 	});
 	doc.querySelectorAll("meta[disabled-http-equiv]").forEach(element => {
 		element.setAttribute("http-equiv", element.getAttribute("disabled-http-equiv"));
