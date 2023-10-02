@@ -55,7 +55,7 @@ async function display(document, docContent, { disableFramePointerEvents } = {})
 	document.querySelectorAll("link[rel*=icon]").forEach(element => element.parentElement.replaceChild(element, element));
 	document.open = document.write = document.close = () => { };
 	for (let element of Array.from(document.querySelectorAll("script"))) {
-		await new Promise((resolve, reject) => {
+		await new Promise(resolve => {
 			const scriptElement = document.createElement("script");
 			Array.from(element.attributes).forEach(attribute => scriptElement.setAttribute(attribute.name, attribute.value));
 			const async = element.getAttribute("async") == "" || element.getAttribute("async") == "async";
@@ -63,7 +63,7 @@ async function display(document, docContent, { disableFramePointerEvents } = {})
 				scriptElement.textContent = element.textContent;
 			} else if (!async) {
 				scriptElement.addEventListener("load", resolve);
-				scriptElement.addEventListener("error", reject);
+				scriptElement.addEventListener("error", () => resolve());
 			}
 			element.parentElement.replaceChild(scriptElement, element);
 			if (element.textContent || async) {
