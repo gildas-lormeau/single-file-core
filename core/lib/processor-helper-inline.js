@@ -565,29 +565,29 @@ function getProcessorHelperClass(utilInstance) {
 		}
 
 		getAdditionalPageData() {
-			return { };
+			return {};
 		}
 
 		removeAlternativeFonts(doc, stylesheets, fonts, fontTests) {
 			return removeAlternativeFonts(doc, stylesheets, fonts, fontTests);
 		}
 
-		async processScript(element, resourceURL) {
+		async processScript(element, resourceURL, options, charset) {
 			const content = await util.getContent(resourceURL, {
 				asBinary: true,
 				inline: true,
-				charset: this.charset != UTF8_CHARSET && this.charset,
-				maxResourceSize: this.options.maxResourceSize,
-				maxResourceSizeEnabled: this.options.maxResourceSizeEnabled,
-				frameId: this.options.windowId,
-				resourceReferrer: this.options.resourceReferrer,
-				baseURI: this.options.baseURI,
-				blockMixedContent: this.options.blockMixedContent,
+				charset: charset != UTF8_CHARSET && charset,
+				maxResourceSize: options.maxResourceSize,
+				maxResourceSizeEnabled: options.maxResourceSizeEnabled,
+				frameId: options.windowId,
+				resourceReferrer: options.resourceReferrer,
+				baseURI: options.baseURI,
+				blockMixedContent: options.blockMixedContent,
 				expectedType: "script",
-				acceptHeaders: this.options.acceptHeaders,
-				networkTimeout: this.options.networkTimeout
+				acceptHeaders: options.acceptHeaders,
+				networkTimeout: options.networkTimeout
 			});
-			content.data = getUpdatedResourceContent(resourceURL, content, this.options);
+			content.data = getUpdatedResourceContent(resourceURL, content, options);
 			element.setAttribute("src", content.data);
 		}
 
