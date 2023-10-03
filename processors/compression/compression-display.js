@@ -28,7 +28,7 @@ export {
 };
 
 async function display(document, docContent, { disableFramePointerEvents } = {}) {
-	const DISABLED_NOSCRIPT_ATTRIBUTE_NAME = "data-single-filez-disabled-noscript";
+	const DISABLED_NOSCRIPT_ATTRIBUTE_NAME = "data-single-file-disabled-noscript";
 	const doc = (new DOMParser()).parseFromString(docContent, "text/html");
 	doc.querySelectorAll("noscript:not([" + DISABLED_NOSCRIPT_ATTRIBUTE_NAME + "])").forEach(element => {
 		element.setAttribute(DISABLED_NOSCRIPT_ATTRIBUTE_NAME, element.innerHTML);
