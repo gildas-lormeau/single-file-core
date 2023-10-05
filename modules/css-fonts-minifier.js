@@ -273,7 +273,7 @@ function parseFamilyNames(fontFamilyNameTokenData, fontFamilyNames) {
 		} else if (nextToken.data.type == "Number") {
 			fontFamilyNames.push(helper.normalizeFontFamily(String(nextToken.data.value)));
 			nextToken = nextToken.next;
-		} else if (nextToken.data.type == "Operator" && nextToken.data.value == ",") {
+		} else {
 			nextToken = nextToken.next;
 		}
 	}
