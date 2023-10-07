@@ -51,6 +51,15 @@ async function display(document, docContent, { disableFramePointerEvents } = {})
 		});
 	}
 	document.replaceChild(document.importNode(doc.documentElement, true), document.documentElement);
+	document.querySelectorAll("[" + DISABLED_NOSCRIPT_ATTRIBUTE_NAME + "]").forEach(element => {
+		element.textContent = element.getAttribute(DISABLED_NOSCRIPT_ATTRIBUTE_NAME);
+		element.removeAttribute(DISABLED_NOSCRIPT_ATTRIBUTE_NAME);
+		if (document.body.firstChild) {
+			document.body.insertBefore(element, document.body.firstChild);
+		} else {
+			document.body.appendChild(element);
+		}
+	});
 	document.documentElement.setAttribute("data-sfz", "");
 	document.querySelectorAll("link[rel*=icon]").forEach(element => element.parentElement.replaceChild(element, element));
 	document.open = document.write = document.close = () => { };
