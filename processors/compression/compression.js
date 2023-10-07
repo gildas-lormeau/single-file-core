@@ -183,8 +183,12 @@ async function process(pageData, options, lastModDate = new Date()) {
 					return process(pageData, options, lastModDate);
 				}
 			} else {
-				options.extraDataSize = undefined;
-				pageContent += extraData;
+				if (options.extraDataSize) {
+					options.extraDataSize = undefined;
+					return process(pageData, options, lastModDate);
+				} else {
+					pageContent += extraData;
+				}
 			}
 		}
 		pageContent += endTags;
