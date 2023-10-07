@@ -21,7 +21,7 @@
  *   Source.
  */
 
-/* global globalThis, FileReader, TextDecoder */
+/* global globalThis, FileReader, TextDecoder, Node */
 
 import {
 	configure,
@@ -48,7 +48,7 @@ export {
 	process
 };
 
-async function process(pageData, options) {
+async function process(pageData, options, lastModDate = new Date()) {
 	let script;
 	if (options.zipScript) {
 		script = options.zipScript;
@@ -58,6 +58,7 @@ async function process(pageData, options) {
 	}
 	const zipDataWriter = new Uint8ArrayWriter();
 	zipDataWriter.init();
+	let extraDataOffset, extraData;
 	if (options.selfExtractingArchive) {
 		let pageContent = "";
 		if (options.includeBOM && !options.extractDataFromPage) {
@@ -80,8 +81,8 @@ async function process(pageData, options) {
 		pageContent += "<div id='sfz-wait-message'>Please wait...</div>";
 		pageContent += "<div id='sfz-error-message'><strong>Error</strong>: Cannot open the page from the filesystem.";
 		pageContent += "<ul style='line-height:20px;'>";
-		pageContent += "<li style='margin-bottom:10px'><strong>Chrome</strong>: Install <a href='https://chrome.google.com/webstore/detail/singlefile/mpiodijhokgodhhofbcjdecpffjipkle'>SingleFile</a> and enable the option \"Allow access to file URLs\" in the details page of the extension (chrome://extensions/?id=mpiodijhokgodhhofbcjdecpffjipkle).</li>";
-		pageContent += "<li style='margin-bottom:10px'><strong>Microsoft Edge</strong>: Install <a href='https://microsoftedge.microsoft.com/addons/detail/singlefile/efnbkdcfmcmnhlkaijjjmhjjgladedno'>SingleFile</a> and enable the option \"Allow access to file URLs\" in the details page of the extension (edge://extensions/?id=efnbkdcfmcmnhlkaijjjmhjjgladedno).</li>";
+		pageContent += "<li style='margin-bottom:10px'><strong>Chrome</strong>: Install <a href='https://chrome.google.com/webstore/detail/singlefilez/offkdfbbigofcgdokjemgjpdockaafjg'>SingleFileZ</a> and enable the option \"Allow access to file URLs\" in the details page of the extension (chrome://extensions/?id=offkdfbbigofcgdokjemgjpdockaafjg).</li>";
+		pageContent += "<li style='margin-bottom:10px'><strong>Microsoft Edge</strong>: Install <a href='https://microsoftedge.microsoft.com/addons/detail/singlefilez/gofneaifncimeglaecpnanbnmnpfjekk'>SingleFileZ</a> and enable the option \"Allow access to file URLs\" in the details page of the extension (edge://extensions/?id=gofneaifncimeglaecpnanbnmnpfjekk).</li>";
 		pageContent += "<li><strong>Safari</strong>: Select \"Security > Disable Local File Restrictions\" in the \"Develop > Developer settings\" menu.</li></ul></div>";
 		if (options.insertTextBody) {
 			const doc = (new DOMParser()).parseFromString(pageData.content, "text/html");
@@ -101,19 +102,29 @@ async function process(pageData, options) {
 			textBody = textBody.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n +/g, "\n").replace(/\n\n\n+/g, "\n\n").trim();
 			pageContent += "\n<main hidden>\n" + textBody + "\n</main>\n";
 		}
-		script += "document.currentScript.remove();globalThis.bootstrap=(()=>{let bootstrapStarted;return async content=>{if (bootstrapStarted) return bootstrapStarted;bootstrapStarted = (" +
+		script = "<script>" +
+			script +
+			"document.currentScript.remove();" +
+			"globalThis.onload = () => {" +
+			"globalThis.bootstrap=(()=>{let bootstrapStarted;return async content=>{if (bootstrapStarted) return bootstrapStarted;bootstrapStarted = (" +
 			extract.toString().replace(/\n|\t/g, "") + ")(content,{prompt}).then(({docContent}) => " +
 			display.toString().replace(/\n|\t/g, "") + "(document,docContent));return bootstrapStarted;}})();(" +
-			getContent.toString().replace(/\n|\t/g, "") + ")().then(globalThis.bootstrap).catch(()=>{});";
-		pageContent += "<script defer>" + script + "</script>";
-		if (options.extractDataFromPageTags) {
-			pageContent += options.extractDataFromPageTags[0];
-		} else {
-			pageContent += "<xmp>";
+			getContent.toString().replace(/\n|\t/g, "") + ")().then(globalThis.bootstrap).catch(()=>{});" +
+			"};" +
+			"</script>";
+		pageContent += script;
+		let extraData = "";
+		if (options.extractDataFromPage && options.extraDataSize) {
+			const extraTags = "<sfz-extra-data></sfz-extra-data>";
+			extraData += extraTags + new Array(options.extraDataSize - extraTags.length).fill(" ").join("");
 		}
+		pageContent += extraData;
+		const startTag = options.extractDataFromPageTags ? options.extractDataFromPageTags[0] : "<xmp>";
+		pageContent += startTag;
+		extraDataOffset = startTag.length + extraData.length;
 		await writeData(zipDataWriter.writable, (new TextEncoder()).encode(pageContent));
 	}
-	const zipWriter = new ZipWriter(zipDataWriter, { bufferedWrite: true, keepOrder: false });
+	const zipWriter = new ZipWriter(zipDataWriter, { bufferedWrite: true, keepOrder: false, lastModDate });
 	let startOffset = zipDataWriter.offset;
 	pageData.url = options.url;
 	pageData.archiveTime = (new Date()).toISOString();
@@ -132,14 +143,14 @@ async function process(pageData, options) {
 						const matchTextAreaTagComment = textContent.match(/<\/\s*textarea>/i);
 						if (matchTextAreaTagComment) {
 							options.extractDataFromPage = false;
-							return process(pageData, options);
+							return process(pageData, options, lastModDate);
 						} else {
 							options.extractDataFromPageTags = ["<textarea>", "</textarea>"];
-							return process(pageData, options);
+							return process(pageData, options, lastModDate);
 						}
 					} else {
 						options.extractDataFromPageTags = ["<!--", "-->"];
-						return process(pageData, options);
+						return process(pageData, options, lastModDate);
 					}
 				}
 			}
@@ -159,16 +170,38 @@ async function process(pageData, options) {
 		} else {
 			pageContent += "</xmp>";
 		}
-		const extraData =
-			await arrayToBase64(insertionsCRLF) + "," +
-			await arrayToBase64(substitutionsLF) + "," +
-			await arrayToBase64([startOffset]);
-		pageContent += "<sfz-extra-data>" + extraData + "</sfz-extra-data>";
-		pageContent += "</body></html>";
+		const endTags = "</body></html>";
+		if (options.extractDataFromPage) {
+			extraData = "<sfz-extra-data>" +
+				await arrayToBase64(insertionsCRLF) + "," +
+				await arrayToBase64(substitutionsLF) + "," +
+				await arrayToBase64([startOffset]) +
+				"</sfz-extra-data>";
+			if (extraData.length > 65535 - endTags.length) {
+				if (!options.extraDataSize) {
+					options.extraDataSize = Math.floor(extraData.length * 1.001);
+					return process(pageData, options, lastModDate);
+				}
+			} else {
+				options.extraDataSize = undefined;
+				return process(pageData, options, lastModDate);
+			}
+		}
+		pageContent += endTags;
 		await writeData(zipDataWriter.writable, (new TextEncoder()).encode(pageContent));
 	}
 	await zipDataWriter.writable.close();
-	return new Blob([zipDataWriter.getData()], { type: "application/octet-stream" });
+	const pageContent = await zipDataWriter.getData();
+	if (options.extractDataFromPage && options.extraDataSize !== undefined) {
+		if (options.extraDataSize >= extraData.length) {
+			pageContent.set(Array.from(extraData).map(character => character.charCodeAt(0)), startOffset - extraDataOffset);
+		} else {
+			options.extraData = extraData;
+			options.extraDataSize = Math.floor(extraData.length * 1.001);
+			return process(pageData, options, lastModDate);
+		}
+	}
+	return new Blob([pageContent], { type: "application/octet-stream" });
 }
 
 async function arrayToBase64(data) {
@@ -280,7 +313,14 @@ async function getContent() {
 	async function extractPageData() {
 		const zipDataElement = document.querySelector("sfz-extra-data");
 		if (zipDataElement) {
-			const dataNode = zipDataElement.previousSibling;
+			let dataNode = zipDataElement.nextSibling;
+			if (dataNode) {
+				if (dataNode.nodeType == Node.TEXT_NODE) {
+					dataNode = dataNode.nextSibling;
+				}
+			} else {
+				dataNode = zipDataElement.previousSibling;
+			}
 			const zipData = [];
 			let { textContent } = dataNode;
 			for (let index = 0; index < textContent.length; index++) {
