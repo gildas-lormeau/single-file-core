@@ -184,7 +184,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 				}
 			} else {
 				options.extraDataSize = undefined;
-				return process(pageData, options, lastModDate);
+				pageContent += extraData;
 			}
 		}
 		pageContent += endTags;
