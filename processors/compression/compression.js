@@ -101,6 +101,11 @@ async function process(pageData, options) {
 			textBody = textBody.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n +/g, "\n").replace(/\n\n\n+/g, "\n\n").trim();
 			pageContent += "\n<main hidden>\n" + textBody + "\n</main>\n";
 		}
+		script += "document.currentScript.remove();globalThis.bootstrap=(()=>{let bootstrapStarted;return async content=>{if (bootstrapStarted) return bootstrapStarted;bootstrapStarted = (" +
+			extract.toString().replace(/\n|\t/g, "") + ")(content,{prompt}).then(({docContent}) => " +
+			display.toString().replace(/\n|\t/g, "") + "(document,docContent));return bootstrapStarted;}})();(" +
+			getContent.toString().replace(/\n|\t/g, "") + ")().then(globalThis.bootstrap).catch(()=>{});";
+		pageContent += "<script defer>" + script + "</script>";
 		if (options.extractDataFromPageTags) {
 			pageContent += options.extractDataFromPageTags[0];
 		} else {
@@ -161,11 +166,7 @@ async function process(pageData, options) {
 				await arrayToBase64([startOffset]);
 			pageContent += "<sfz-extra-data>" + extraData + "</sfz-extra-data>";
 		}
-		script += "document.currentScript.remove();globalThis.bootstrap=(()=>{let bootstrapStarted;return async content=>{if (bootstrapStarted) return bootstrapStarted;bootstrapStarted = (" +
-			extract.toString().replace(/\n|\t/g, "") + ")(content,{prompt}).then(({docContent}) => " +
-			display.toString().replace(/\n|\t/g, "") + "(document,docContent));return bootstrapStarted;}})();(" +
-			getContent.toString().replace(/\n|\t/g, "") + ")().then(globalThis.bootstrap).catch(()=>{});";
-		pageContent += "<script>" + script + "</script></body></html>";
+		pageContent += "</body></html>";
 		await writeData(zipDataWriter.writable, (new TextEncoder()).encode(pageContent));
 	}
 	await zipDataWriter.writable.close();
