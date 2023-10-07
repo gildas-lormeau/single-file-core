@@ -140,8 +140,14 @@ async function process(pageData, options, lastModDate = new Date()) {
 				if (matchEndTagComment) {
 					const matchEndTagXMP = textContent.match(/<\/\s*xmp>/i);
 					if (matchEndTagXMP) {
-						options.extractDataFromPage = false;
-						return process(pageData, options, lastModDate);
+						const matchEndTagPlainText = textContent.match(/<\/\s*plaintext>/i);
+						if (matchEndTagPlainText) {
+							options.extractDataFromPage = false;
+							return process(pageData, options, lastModDate);
+						} else {
+							options.extractDataFromPageTags = ["<plaintext>", "</plaintext>"];
+							return process(pageData, options, lastModDate);
+						}
 					} else {
 						options.extractDataFromPageTags = ["<xmp>", "</xmp>"];
 						return process(pageData, options, lastModDate);
