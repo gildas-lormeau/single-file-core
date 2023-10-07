@@ -159,13 +159,11 @@ async function process(pageData, options) {
 		} else {
 			pageContent += "</xmp>";
 		}
-		if (insertionsCRLF.length || substitutionsLF.length) {
-			const extraData =
-				await arrayToBase64(insertionsCRLF) + "," +
-				await arrayToBase64(substitutionsLF) + "," +
-				await arrayToBase64([startOffset]);
-			pageContent += "<sfz-extra-data>" + extraData + "</sfz-extra-data>";
-		}
+		const extraData =
+			await arrayToBase64(insertionsCRLF) + "," +
+			await arrayToBase64(substitutionsLF) + "," +
+			await arrayToBase64([startOffset]);
+		pageContent += "<sfz-extra-data>" + extraData + "</sfz-extra-data>";
 		pageContent += "</body></html>";
 		await writeData(zipDataWriter.writable, (new TextEncoder()).encode(pageContent));
 	}
