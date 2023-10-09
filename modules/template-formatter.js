@@ -1973,6 +1973,7 @@ async function evalTemplate(template = "", options, util, content, dontReplaceSl
 	template = await evalTemplateVariable(template, "bookmark-pathname", () => bookmarkFolder, dontReplaceSlash === undefined ? true : dontReplaceSlash, options.filenameReplacementCharacter);
 	template = await evalTemplateVariable(template, "bookmark-pathname-flat", () => bookmarkFolder, false, options.filenameReplacementCharacter);
 	template = await evalTemplateVariable(template, "profile-name", () => options.profileName, dontReplaceSlash, options.filenameReplacementCharacter);
+	template = await evalTemplateVariable(template, "filename-extension", () => getFilenameExtension(options), dontReplaceSlash, options.filenameReplacementCharacter);
 	return template.trim();
 
 	function decode(value) {
@@ -2101,4 +2102,20 @@ function truncateText(content, maxSize) {
 		);
 		reader.addEventListener("error", reject, false);
 	});
+}
+
+function getFilenameExtension(options) {
+	if (options.compressContent) {
+		if (options.selfExtractingArchive) {
+			if (options.extractDataFromPage) {
+				return "u.zip.html";
+			} else {
+				return "zip.html";
+			}
+		} else {
+			return "zip";
+		}
+	} else {
+		return "html";
+	}
 }
