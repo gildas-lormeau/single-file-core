@@ -71,12 +71,10 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 	const options = { password };
 	await Promise.all(entries.map(async entry => {
 		const { filename } = entry;
-		let dataWriter, content, textContent, name, blob;
+		let dataWriter, content, textContent, mimeType;
 		if (!options.password && entry.encrypted) {
 			options.password = prompt("Please enter the password to view the page");
 		}
-		name = filename.match(/^([0-9_]+\/)?(.*)$/)[2];
-		let mimeType;
 		if (filename.match(REGEXP_INDEX) || filename.match(REGEXP_MATCH_STYLESHEET) || filename.match(REGEXP_MATCH_SCRIPT)) {
 			dataWriter = new zip.TextWriter();
 			textContent = await entry.getData(dataWriter, options);
@@ -104,11 +102,11 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 			if (filename.match(/frames\//) || noBlobURL) {
 				content = await entry.getData(new zip.Data64URIWriter(mimeType), options);
 			} else {
-				blob = await entry.getData(new zip.BlobWriter(mimeType), options);
+				const blob = await entry.getData(new zip.BlobWriter(mimeType), options);
 				content = URL.createObjectURL(blob);
 			}
 		}
-		resources.push({ filename: entry.filename, name, url: entry.comment, content, mimeType, blob, textContent, parentResources: [] });
+		resources.push({ filename: entry.filename, url: entry.comment, content, mimeType, textContent, parentResources: [] });
 	}));
 	await zipReader.close();
 	let docContent, origDocContent, url;
