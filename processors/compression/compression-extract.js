@@ -108,39 +108,43 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 	resources = resources.sort((resourceLeft, resourceRight) => resourceRight.filename.length - resourceLeft.filename.length);
 	const REGEXP_ESCAPE = /([{}()^$&.*?/+|[\\\\]|\]|-)/g;
 	for (const resource of resources) {
-		if (resource.textContent !== undefined) {
+		let { textContent, mimeType, filename } = resource;
+		if (textContent !== undefined) {
 			let prefixPath = "";
-			const prefixPathMatch = resource.filename.match(/(.*\/)[^/]+$/);
+			const prefixPathMatch = filename.match(/(.*\/)[^/]+$/);
 			if (prefixPathMatch && prefixPathMatch[1]) {
 				prefixPath = prefixPathMatch[1];
 			}
-			if (resource.filename.match(/^([0-9_]+\/)?index\.html$/)) {
-				origDocContent = resource.textContent;
+			if (filename.match(/^([0-9_]+\/)?index\.html$/)) {
+				origDocContent = textContent;
 			}
-			const isScript = resource.filename.match(/scripts\/[0-9]+\.js/);
+			const isScript = filename.match(/scripts\/[0-9]+\.js/);
 			if (!isScript) {
+				const resourceFilename = filename;
 				await Promise.all(resources.map(async innerResource => {
-					if (innerResource.filename.startsWith(prefixPath) && innerResource.filename != resource.filename) {
-						const filename = innerResource.filename.substring(prefixPath.length);
-						if (!filename.match(/manifest\.json$/)) {
-							const searchRegExp = new RegExp(filename.replace(REGEXP_ESCAPE, "\\$1"), "g");
-							const position = resource.textContent.search(searchRegExp);
+					const { filename, parentResources, content } = innerResource;
+					if (filename.startsWith(prefixPath) && filename != resourceFilename) {
+						const relativeFilename = filename.substring(prefixPath.length);
+						if (!relativeFilename.match(/manifest\.json$/)) {
+							const searchRegExp = new RegExp(relativeFilename.replace(REGEXP_ESCAPE, "\\$1"), "g");
+							const position = textContent.search(searchRegExp);
 							if (position != -1) {
-								innerResource.parentResources.push(resource.filename);
-								resource.textContent = resource.textContent.replace(searchRegExp, innerResource.content);
+								parentResources.push(resourceFilename);
+								textContent = textContent.replace(searchRegExp, content);
 							}
 						}
 					}
 				}));
-				resource.content = await getDataURI(resource.textContent, resource.mimeType);
+				resource.content = noBlobURL ? await getDataURI(textContent, mimeType) : URL.createObjectURL(new Blob([textContent], { type: mimeType }));
+				resource.textContent = textContent;
 			}
-			if (resource.filename.match(/index\.html$/)) {
+			if (filename.match(/index\.html$/)) {
 				if (shadowRootScriptURL) {
-					resource.textContent = resource.textContent.replace(/<script data-template-shadow-root.*<\/script>/g, "<script data-template-shadow-root src=" + shadowRootScriptURL + "></" + "script>");
+					resource.textContent = textContent.replace(/<script data-template-shadow-root.*<\/script>/g, "<script data-template-shadow-root src=" + shadowRootScriptURL + "></" + "script>");
 				}
 			}
-			if (resource.filename.match(/^([0-9_]+\/)?index\.html$/)) {
-				docContent = resource.textContent;
+			if (filename.match(/^([0-9_]+\/)?index\.html$/)) {
+				docContent = textContent;
 				url = resource.url;
 			}
 		}
