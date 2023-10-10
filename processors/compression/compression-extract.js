@@ -54,6 +54,12 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 		"wav": "audio/wav",
 		"weba": "audio/webm"
 	};
+	const REGEXP_MATCH_STYLESHEET = /stylesheet_[0-9]+\.css/;
+	const REGEXP_MATCH_SCRIPT = /scripts\/[0-9]+\.js/;
+	const REGEXP_ROOT_INDEX = /^([0-9_]+\/)?index\.html$/;
+	const REGEXP_INDEX = /index\.html$/;
+	const REGEXP_ESCAPE = /([{}()^$&.*?/+|[\\\\]|\]|-)/g;
+	const CHARSET_UTF8 = ";charset=utf-8";
 	if (Array.isArray(content)) {
 		content = new Blob([new Uint8Array(content)]);
 	}
@@ -64,22 +70,23 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 	const entries = await zipReader.getEntries();
 	const options = { password };
 	await Promise.all(entries.map(async entry => {
+		const { filename } = entry;
 		let dataWriter, content, textContent, name, blob;
 		if (!options.password && entry.encrypted) {
 			options.password = prompt("Please enter the password to view the page");
 		}
-		name = entry.filename.match(/^([0-9_]+\/)?(.*)$/)[2];
+		name = filename.match(/^([0-9_]+\/)?(.*)$/)[2];
 		let mimeType;
-		if (entry.filename.match(/index\.html$/) || entry.filename.match(/stylesheet_[0-9]+\.css/) || entry.filename.match(/scripts\/[0-9]+\.js/)) {
+		if (filename.match(REGEXP_INDEX) || filename.match(REGEXP_MATCH_STYLESHEET) || filename.match(REGEXP_MATCH_SCRIPT)) {
 			dataWriter = new zip.TextWriter();
 			textContent = await entry.getData(dataWriter, options);
-			if (entry.filename.match(/index\.html$/)) {
-				mimeType = "text/html;charset=utf-8";
+			if (filename.match(REGEXP_INDEX)) {
+				mimeType = "text/html" + CHARSET_UTF8;
 			} else {
-				if (entry.filename.match(/stylesheet_[0-9]+\.css/)) {
-					mimeType = "text/css;charset=utf-8";
-				} else if (entry.filename.match(/scripts\/[0-9]+\.js/)) {
-					mimeType = "text/javascript;charset=utf-8";
+				if (filename.match(REGEXP_MATCH_STYLESHEET)) {
+					mimeType = "text/css" + CHARSET_UTF8;
+				} else if (filename.match(REGEXP_MATCH_SCRIPT)) {
+					mimeType = "text/javascript" + CHARSET_UTF8;
 				}
 				if (textContent !== undefined) {
 					content = noBlobURL ? await getDataURI(textContent, mimeType) : URL.createObjectURL(new Blob([textContent], { type: mimeType }));
@@ -88,13 +95,13 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 				}
 			}
 		} else {
-			const extension = entry.filename.match(/\.([^.]+)/);
+			const extension = filename.match(/\.([^.]+)/);
 			if (extension && extension[1] && KNOWN_MIMETYPES[extension[1]]) {
 				mimeType = KNOWN_MIMETYPES[extension[1]];
 			} else {
 				mimeType = "application/octet-stream";
 			}
-			if (entry.filename.match(/frames\//) || noBlobURL) {
+			if (filename.match(/frames\//) || noBlobURL) {
 				content = await entry.getData(new zip.Data64URIWriter(mimeType), options);
 			} else {
 				blob = await entry.getData(new zip.BlobWriter(mimeType), options);
@@ -106,7 +113,6 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 	await zipReader.close();
 	let docContent, origDocContent, url;
 	resources = resources.sort((resourceLeft, resourceRight) => resourceRight.filename.length - resourceLeft.filename.length);
-	const REGEXP_ESCAPE = /([{}()^$&.*?/+|[\\\\]|\]|-)/g;
 	for (const resource of resources) {
 		let { textContent, mimeType, filename } = resource;
 		if (textContent !== undefined) {
@@ -115,10 +121,10 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 			if (prefixPathMatch && prefixPathMatch[1]) {
 				prefixPath = prefixPathMatch[1];
 			}
-			if (filename.match(/^([0-9_]+\/)?index\.html$/)) {
+			if (filename.match(REGEXP_ROOT_INDEX)) {
 				origDocContent = textContent;
 			}
-			const isScript = filename.match(/scripts\/[0-9]+\.js/);
+			const isScript = filename.match(REGEXP_MATCH_SCRIPT);
 			if (!isScript) {
 				const resourceFilename = filename;
 				await Promise.all(resources.map(async innerResource => {
@@ -138,12 +144,12 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 				resource.content = noBlobURL ? await getDataURI(textContent, mimeType) : URL.createObjectURL(new Blob([textContent], { type: mimeType }));
 				resource.textContent = textContent;
 			}
-			if (filename.match(/index\.html$/)) {
+			if (filename.match(REGEXP_INDEX)) {
 				if (shadowRootScriptURL) {
 					resource.textContent = textContent.replace(/<script data-template-shadow-root.*<\/script>/g, "<script data-template-shadow-root src=" + shadowRootScriptURL + "></" + "script>");
 				}
 			}
-			if (filename.match(/^([0-9_]+\/)?index\.html$/)) {
+			if (filename.match(REGEXP_ROOT_INDEX)) {
 				docContent = textContent;
 				url = resource.url;
 			}
@@ -155,8 +161,8 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 		const reader = new FileReader();
 		reader.readAsDataURL(new Blob([textContent], { type: mimeType }));
 		return new Promise((resolve, reject) => {
-			reader.addEventListener("load", () => resolve(reader.result), false);
-			reader.addEventListener("error", reject, false);
+			reader.onload = () => resolve(reader.result);
+			reader.onerror = reject;
 		});
 	}
 }
