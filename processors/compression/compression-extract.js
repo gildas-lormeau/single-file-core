@@ -56,8 +56,8 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 	};
 	const REGEXP_MATCH_STYLESHEET = /stylesheet_[0-9]+\.css/;
 	const REGEXP_MATCH_SCRIPT = /scripts\/[0-9]+\.js/;
-	const REGEXP_ROOT_INDEX = /^([0-9_]+\/)?index\.html$/;
-	const REGEXP_INDEX = /index\.html$/;
+	const REGEXP_MATCH_ROOT_INDEX = /^([0-9_]+\/)?index\.html$/;
+	const REGEXP_MATCH_INDEX = /index\.html$/;
 	const REGEXP_ESCAPE = /([{}()^$&.*?/+|[\\\\]|\]|-)/g;
 	const CHARSET_UTF8 = ";charset=utf-8";
 	if (Array.isArray(content)) {
@@ -75,10 +75,10 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 		if (!options.password && entry.encrypted) {
 			options.password = prompt("Please enter the password to view the page");
 		}
-		if (filename.match(REGEXP_INDEX) || filename.match(REGEXP_MATCH_STYLESHEET) || filename.match(REGEXP_MATCH_SCRIPT)) {
+		if (filename.match(REGEXP_MATCH_INDEX) || filename.match(REGEXP_MATCH_STYLESHEET) || filename.match(REGEXP_MATCH_SCRIPT)) {
 			dataWriter = new zip.TextWriter();
 			textContent = await entry.getData(dataWriter, options);
-			if (filename.match(REGEXP_INDEX)) {
+			if (filename.match(REGEXP_MATCH_INDEX)) {
 				mimeType = "text/html" + CHARSET_UTF8;
 			} else {
 				if (filename.match(REGEXP_MATCH_STYLESHEET)) {
@@ -118,7 +118,7 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 			if (prefixPathMatch && prefixPathMatch[1]) {
 				prefixPath = prefixPathMatch[1];
 			}
-			if (filename.match(REGEXP_ROOT_INDEX)) {
+			if (filename.match(REGEXP_MATCH_ROOT_INDEX)) {
 				origDocContent = textContent;
 			}
 			if (!filename.match(REGEXP_MATCH_SCRIPT)) {
@@ -140,12 +140,12 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 				resource.content = noBlobURL ? await getDataURI(textContent, mimeType) : URL.createObjectURL(new Blob([textContent], { type: mimeType }));
 				resource.textContent = textContent;
 			}
-			if (filename.match(REGEXP_INDEX)) {
+			if (filename.match(REGEXP_MATCH_INDEX)) {
 				if (shadowRootScriptURL) {
 					resource.textContent = textContent.replace(/<script data-template-shadow-root.*<\/script>/g, "<script data-template-shadow-root src=" + shadowRootScriptURL + "></" + "script>");
 				}
 			}
-			if (filename.match(REGEXP_ROOT_INDEX)) {
+			if (filename.match(REGEXP_MATCH_ROOT_INDEX)) {
 				docContent = textContent;
 				url = resource.url;
 			}
