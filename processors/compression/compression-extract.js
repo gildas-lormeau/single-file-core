@@ -121,8 +121,7 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 			if (filename.match(REGEXP_ROOT_INDEX)) {
 				origDocContent = textContent;
 			}
-			const isScript = filename.match(REGEXP_MATCH_SCRIPT);
-			if (!isScript) {
+			if (!filename.match(REGEXP_MATCH_SCRIPT)) {
 				const resourceFilename = filename;
 				await Promise.all(resources.map(async innerResource => {
 					const { filename, parentResources, content } = innerResource;
