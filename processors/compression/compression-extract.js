@@ -65,10 +65,10 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 	}
 	zip.configure(zipOptions);
 	const blobReader = new zip.BlobReader(content);
-	let resources = [];
 	const zipReader = new zip.ZipReader(blobReader);
 	const entries = await zipReader.getEntries();
 	const options = { password };
+	let docContent, origDocContent, url, resources = [];
 	await Promise.all(entries.map(async entry => {
 		const { filename } = entry;
 		let dataWriter, content, textContent, mimeType;
@@ -109,7 +109,6 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 		resources.push({ filename: entry.filename, url: entry.comment, content, mimeType, textContent, parentResources: [] });
 	}));
 	await zipReader.close();
-	let docContent, origDocContent, url;
 	resources = resources.sort((resourceLeft, resourceRight) => resourceRight.filename.length - resourceLeft.filename.length);
 	for (const resource of resources) {
 		let { textContent, mimeType, filename } = resource;
