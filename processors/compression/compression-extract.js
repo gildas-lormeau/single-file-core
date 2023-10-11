@@ -87,7 +87,7 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 					mimeType = "text/javascript" + CHARSET_UTF8;
 				}
 				if (textContent !== undefined) {
-					content = await getURI(textContent, mimeType);
+					content = await getDataURI(textContent, mimeType);
 				} else {
 					content = "data:text/plain,";
 				}
@@ -137,7 +137,7 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 						}
 					}
 				}));
-				resource.content = await getURI(textContent, mimeType);
+				resource.content = await getDataURI(textContent, mimeType);
 				resource.textContent = textContent;
 			}
 			if (filename.match(REGEXP_MATCH_INDEX)) {
@@ -152,10 +152,6 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 		}
 	}
 	return { docContent, origDocContent, resources, url };
-
-	async function getURI(textContent, mimeType) {
-		return noBlobURL ? getDataURI(textContent, mimeType) : URL.createObjectURL(new Blob([textContent], { type: mimeType }));
-	}
 
 	async function getDataURI(textContent, mimeType) {
 		const reader = new FileReader();
