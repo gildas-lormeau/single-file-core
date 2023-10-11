@@ -114,6 +114,7 @@ function getProcessorHelperClass(utilInstance) {
 			resourcePromises.push(this.processAttribute(doc.querySelectorAll("embed[src*=\".pdf\"]"), "src", baseURI, options, null, resources, batchRequest));
 			resourcePromises.push(this.processAttribute(doc.querySelectorAll("audio[src], audio > source[src]"), "src", baseURI, options, "audio", resources, batchRequest));
 			resourcePromises.push(this.processAttribute(doc.querySelectorAll("video[src], video > source[src]"), "src", baseURI, options, "video", resources, batchRequest));
+			resourcePromises.push(this.processAttribute(doc.querySelectorAll("audio track[src], video track[src]"), "src", baseURI, options, null, resources, batchRequest));
 			resourcePromises.push(this.processAttribute(doc.querySelectorAll("model[src]"), "src", baseURI, options, null, resources, batchRequest));
 			await Promise.all(resourcePromises);
 			if (options.saveFavicon) {
