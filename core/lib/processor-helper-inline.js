@@ -382,7 +382,7 @@ function getProcessorHelperClass(utilInstance) {
 						resourceElement.setAttribute("data-sf-original-" + attributeName, resourceURL);
 					}
 					delete resourceElement.dataset.singleFileOriginURL;
-					if (!options["block" + expectedType.charAt(0).toUpperCase() + expectedType.substring(1) + "s"]) {
+					if (!expectedType || !options["block" + expectedType.charAt(0).toUpperCase() + expectedType.substring(1) + "s"]) {
 						if (!testIgnoredPath(resourceURL)) {
 							setAttributeEmpty(resourceElement, attributeName, expectedType);
 							if (testValidPath(resourceURL)) {
