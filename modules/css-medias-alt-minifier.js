@@ -38,12 +38,15 @@ export {
 
 function process(stylesheets) {
 	const stats = { processed: 0, discarded: 0 };
-	stylesheets.forEach((stylesheetInfo, element) => {
+	stylesheets.forEach((stylesheetInfo, key) => {
 		if (matchesMediaType(stylesheetInfo.mediaText || MEDIA_ALL, MEDIA_SCREEN) && stylesheetInfo.stylesheet.children) {
 			const removedRules = processRules(stylesheetInfo.stylesheet.children, stats);
 			removedRules.forEach(({ cssRules, cssRule }) => cssRules.remove(cssRule));
 		} else {
-			stylesheets.delete(element);
+			stylesheets.delete(key);
+			if (key.element) {
+				key.element.remove();
+			}
 		}
 	});
 	return stats;
