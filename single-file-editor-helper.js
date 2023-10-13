@@ -24,6 +24,9 @@
 import * as serializer from "./modules/html-serializer.js";
 import * as infobar from "./core/infobar.js";
 import { getInstance } from "./core/util.js";
+import * as zip from "./vendor/zip/zip.js";
+import { extract } from "./processors/compression/compression-extract.js";
+import { display } from "./processors/compression/compression-display.js";
 
 const util = getInstance();
 const helper = {
@@ -42,6 +45,9 @@ const helper = {
 	displayIcon(doc, useShadowRoot) {
 		return infobar.displayIcon(doc, useShadowRoot);
 	},
+	zip,
+	extract,
+	display,
 	INFOBAR_TAGNAME: infobar.INFOBAR_TAGNAME
 };
 
