@@ -59,7 +59,6 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 	const REGEXP_MATCH_ROOT_INDEX = /^([0-9_]+\/)?index\.html$/;
 	const REGEXP_MATCH_INDEX = /index\.html$/;
 	const REGEXP_MATCH_FRAMES = /frames\//;
-	const REGEXP_ESCAPE = /([{}()^$&.*?/+|[\\\\]|\]|-)/g;
 	const CHARSET_UTF8 = ";charset=utf-8";
 	if (Array.isArray(content)) {
 		content = new Blob([new Uint8Array(content)]);
@@ -130,11 +129,10 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 					if (filename.startsWith(prefixPath) && filename != resourceFilename) {
 						const relativeFilename = filename.substring(prefixPath.length);
 						if (!relativeFilename.match(/manifest\.json$/)) {
-							const searchRegExp = new RegExp(relativeFilename.replace(REGEXP_ESCAPE, "\\$1"), "g");
-							const position = textContent.search(searchRegExp);
+							const position = textContent.indexOf(relativeFilename);
 							if (position != -1) {
 								parentResources.push(resourceFilename);
-								textContent = textContent.replace(searchRegExp, content);
+								textContent = textContent.replaceAll(relativeFilename, content);
 							}
 						}
 					}
@@ -163,7 +161,7 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 		const reader = new FileReader();
 		reader.readAsDataURL(new Blob([textContent], { type: mimeType }));
 		return new Promise((resolve, reject) => {
-			reader.onload = () => resolve(reader.result);
+			reader.onload = () => resolve(reader.result.replace("charset=utf-8;", ""));
 			reader.onerror = reject;
 		});
 	}
