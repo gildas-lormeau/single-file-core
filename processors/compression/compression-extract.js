@@ -87,7 +87,7 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 					mimeType = "text/javascript" + CHARSET_UTF8;
 				}
 				if (textContent !== undefined) {
-					content = await getDataURI(textContent, mimeType);
+					content = noBlobURL ? await getDataURI(textContent, mimeType) : URL.createObjectURL(new Blob([textContent], { type: mimeType }));
 				} else {
 					content = "data:text/plain,";
 				}
