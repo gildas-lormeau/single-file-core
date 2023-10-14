@@ -161,7 +161,7 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 		const reader = new FileReader();
 		reader.readAsDataURL(new Blob([textContent], { type: mimeType }));
 		return new Promise((resolve, reject) => {
-			reader.onload = () => resolve(reader.result.replace("charset=utf-8;", ""));
+			reader.onload = () => resolve(reader.result.replace(CHARSET_UTF8, ""));
 			reader.onerror = reject;
 		});
 	}
