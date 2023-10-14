@@ -58,6 +58,7 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 	const REGEXP_MATCH_SCRIPT = /scripts\/[0-9]+\.js/;
 	const REGEXP_MATCH_ROOT_INDEX = /^([0-9_]+\/)?index\.html$/;
 	const REGEXP_MATCH_INDEX = /index\.html$/;
+	const REGEXP_MATCH_FRAMES = /frames\//;
 	const REGEXP_ESCAPE = /([{}()^$&.*?/+|[\\\\]|\]|-)/g;
 	const CHARSET_UTF8 = ";charset=utf-8";
 	if (Array.isArray(content)) {
@@ -99,7 +100,7 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 			} else {
 				mimeType = "application/octet-stream";
 			}
-			if (filename.match(/frames\//) || noBlobURL) {
+			if (filename.match(REGEXP_MATCH_FRAMES) || noBlobURL) {
 				content = await entry.getData(new zip.Data64URIWriter(mimeType), options);
 			} else {
 				const blob = await entry.getData(new zip.BlobWriter(mimeType), options);
@@ -138,7 +139,11 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 						}
 					}
 				}));
-				resource.content = await getDataURI(textContent, mimeType);
+				if (filename.match(REGEXP_MATCH_INDEX) || filename.match(REGEXP_MATCH_FRAMES) || noBlobURL) {
+					resource.content = await getDataURI(textContent, mimeType);
+				} else {
+					resource.content = URL.createObjectURL(new Blob([textContent], { type: mimeType }));
+				}
 				resource.textContent = textContent;
 			}
 			if (filename.match(REGEXP_MATCH_INDEX)) {
