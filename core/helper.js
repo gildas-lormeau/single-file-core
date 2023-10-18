@@ -203,12 +203,12 @@ function preProcessDoc(doc, win, options) {
 
 function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map(), canvases: [], images: [], posters: [], videos: [], shadowRoots: [], markedElements: [] }, ascendantHidden) {
 	if (element.childNodes) {
-		const elements = Array.from(element.childNodes).filter(node => (node instanceof win.HTMLElement) || (node instanceof win.SVGElement));
+		const elements = Array.from(element.childNodes).filter(node => (node instanceof win.HTMLElement) || (node instanceof win.SVGElement) || (node instanceof globalThis.HTMLElement) || (node instanceof globalThis.SVGElement));
 		elements.forEach(element => {
 			let elementHidden, elementKept, computedStyle;
 			if (!options.autoSaveExternalSave && (options.removeHiddenElements || options.removeUnusedFonts || options.compressHTML)) {
 				computedStyle = getComputedStyle(win, element);
-				if (element instanceof win.HTMLElement) {
+				if ((element instanceof win.HTMLElement) || (element instanceof globalThis.HTMLElement)) {
 					if (options.removeHiddenElements) {
 						elementKept = ((ascendantHidden || element.closest("html > head")) && KEPT_TAG_NAMES.includes(element.tagName.toUpperCase())) || element.closest("details");
 						if (!elementKept) {
