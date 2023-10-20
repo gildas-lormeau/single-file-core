@@ -496,7 +496,9 @@ function getStylesheetsData(doc) {
 				doc.body.appendChild(tempStyleElement);
 				const stylesheet = tempStyleElement.sheet;
 				tempStyleElement.remove();
-				if (!stylesheet || stylesheet.cssRules.length != styleElement.sheet.cssRules.length) {
+				const textContentStylesheet = Array.from(stylesheet.cssRules).map(cssRule => cssRule.cssText).join("\n");
+				const sheetStylesheet = Array.from(styleElement.sheet.cssRules).map(cssRule => cssRule.cssText).join("\n");
+				if (!stylesheet || textContentStylesheet != sheetStylesheet) {
 					styleElement.setAttribute(STYLESHEET_ATTRIBUTE_NAME, styleIndex);
 					contents[styleIndex] = Array.from(styleElement.sheet.cssRules).map(cssRule => cssRule.cssText).join("\n");
 				}
