@@ -16897,7 +16897,9 @@ async function evalTemplate(template = "", options, util, content, doc, dontRepl
 	let urlSubDomains = urlDomainName.substring(0, urlDomainName.lastIndexOf("."));
 	const urlDomain = urlDomainName.substring(urlSubDomains.length + 1);
 	const urlRoot = urlDomain + "." + urlSuffix;
-	if (urlSubDomains == "www") {
+	if (urlSubDomains.startsWith("www.")) {
+		urlSubDomains = urlSubDomains.substring(4);
+	} else if (urlSubDomains == "www") {
 		urlSubDomains = "";
 	}
 	const variables = {
