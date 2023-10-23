@@ -130,11 +130,11 @@ function getInstance(utilOptions) {
 		getContentSize(content) {
 			return new Blob([content]).size;
 		},
-		formatFilename(content, options) {
-			return modules.templateFormatter.formatFilename(content, options, this);
+		formatFilename(content, doc, options) {
+			return modules.templateFormatter.formatFilename(content, doc, options, this);
 		},
-		evalTemplate(template, options, content, dontReplaceSlash) {
-			return modules.templateFormatter.evalTemplate(template, options, this, content, dontReplaceSlash);
+		async evalTemplate(template, options, content, doc, dontReplaceSlash) {
+			return modules.templateFormatter.evalTemplate(template, options, this, content, doc, dontReplaceSlash);
 		},
 		minifyHTML(doc, options) {
 			return modules.htmlMinifier.process(doc, options);
@@ -313,7 +313,7 @@ function getInstance(utilOptions) {
 async function getFetchResponse(resourceURL, options, data, charset, contentType) {
 	if (data) {
 		if (options.asBinary) {
-			if (options.inline)	{
+			if (options.inline) {
 				const reader = new FileReader();
 				reader.readAsDataURL(new Blob([data], { type: contentType + (options.charset ? ";charset=" + options.charset : "") }));
 				data = await new Promise((resolve, reject) => {
