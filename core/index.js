@@ -588,7 +588,11 @@ class Processor {
 	}
 
 	preProcessPage() {
-		this.doc.body.querySelectorAll(":not(svg) title, meta, link[href][rel*=\"icon\"]").forEach(element => ((element instanceof (this.options.win && this.options.win.HTMLElement)) || (element instanceof globalThis.HTMLElement)) && this.doc.head.appendChild(element));
+		this.doc.body.querySelectorAll(":not(svg) title, meta, link[href][rel*=\"icon\"]").forEach(element => {
+			if ((this.options.win && element instanceof this.options.win.HTMLElement) || element instanceof globalThis.HTMLElement) {
+				this.doc.head.appendChild(element);
+			}
+		});
 		if (this.options.images && !this.options.saveRawPage) {
 			this.doc.querySelectorAll("img[" + util.IMAGE_ATTRIBUTE_NAME + "]").forEach(imgElement => {
 				const attributeValue = imgElement.getAttribute(util.IMAGE_ATTRIBUTE_NAME);
