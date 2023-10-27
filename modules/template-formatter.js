@@ -16959,16 +16959,23 @@ async function evalTemplate(template = "", options, util, content, doc, dontRepl
 			const foundValue = values.find(value => value);
 			return foundValue ? defaultValue : foundValue;
 		},
+		"if-equals": (value, otherValue, trueValue, falseValue) => value == otherValue ? trueValue : falseValue,
+		"if-not-equals": (value, otherValue, trueValue, falseValue) => value != otherValue ? trueValue : falseValue,
+		"if-contains": (value, otherValue, trueValue, falseValue) => otherValue && value.includes(otherValue) ? trueValue : falseValue,
+		"if-not-contains": (value, otherValue, trueValue, falseValue) => otherValue && !value.includes(otherValue) ? trueValue : falseValue,
 		"substring": (value, start, end) => value.substring(start, end),
 		"lowercase": value => value.toLowerCase(),
 		"uppercase": value => value.toUpperCase(),
-		"capitalize": value => value.replace(/(?:^|\s)\S/g, a => a.toUpperCase()),
 		"replace": (value, searchValue, replaceValue) => searchValue && replaceValue ? value.replaceAll(searchValue, replaceValue) : value,
 		"trim": value => value.trim(),
 		"trim-left": value => value.trimLeft(),
 		"trim-right": value => value.trimRight(),
 		"pad-left": (value, length, padString) => length > 0 ? value.padStart(length, padString) : value,
 		"pad-right": (value, length, padString) => length > 0 ? value.padEnd(length, padString) : value,
+		"repeat": (value, count) => count > 0 ? value.repeat(count) : "",
+		"index-of": (value, searchValue) => value.indexOf(searchValue),
+		"last-index-of": (value, searchValue) => value.lastIndexOf(searchValue),
+		"length": value => value.length,
 		"url-search-name": (index = 0) => params[index] && params[index][0],
 		"url-search-value": (index = 0) => params[index] && params[index][1],
 		"url-search": name => {
@@ -16984,7 +16991,12 @@ async function evalTemplate(template = "", options, util, content, doc, dontRepl
 		"url-hostname-subdomain": (index = 0) => {
 			const subdomains = urlSubDomains.split(".");
 			return subdomains[subdomains.length - index - 1];
-		}
+		},
+		"stringify": value => JSON.stringify(value),
+		"encode-uri": value => encodeURIComponent(value),
+		"decode-uri": value => decodeURIComponent(value),
+		"encode-uri-component": value => encodeURI(value),
+		"decode-uri-component": value => decodeURI(value)
 	};
 	if (doc) {
 		functions["page-element-text"] = (selector) => {
