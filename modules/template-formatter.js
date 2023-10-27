@@ -16963,17 +16963,17 @@ async function evalTemplate(template = "", options, util, content, doc, dontRepl
 		"lowercase": value => value.toLowerCase(),
 		"uppercase": value => value.toUpperCase(),
 		"capitalize": value => value.replace(/(?:^|\s)\S/g, a => a.toUpperCase()),
-		"replace": (value, searchValue, replaceValue) => value.replaceAll(searchValue, replaceValue),
+		"replace": (value, searchValue, replaceValue) => searchValue ? value.replaceAll(searchValue, replaceValue) : value,
 		"trim": value => value.trim(),
 		"trim-left": value => value.trimLeft(),
 		"trim-right": value => value.trimRight(),
-		"pad-left": (value, length, padString) => value.padStart(length, padString),
-		"pad-right": (value, length, padString) => value.padEnd(length, padString),
-		"url-search-name": (index = 0) => params[index] && params[index][0],
-		"url-search-value": (index = 0) => params[index] && params[index][1],
+		"pad-left": (value, length, padString) => length > 0 ? value.padStart(length, padString) : value,
+		"pad-right": (value, length, padString) => length > 0 ? value.padEnd(length, padString) : value,
+		"url-search-name": (index = 0) => (params[index] && params[index][0]) || "",
+		"url-search-value": (index = 0) => (params[index] && params[index][1]) || "",
 		"url-search": name => {
 			const param = params.find(param => param[0] == name);
-			return param && param[1];
+			return (param && param[1]) || "";
 		}
 	};
 	if (doc) {
@@ -16996,7 +16996,11 @@ async function evalTemplate(template = "", options, util, content, doc, dontRepl
 			if (fn) {
 				argument = argument.replace(/\\\\(.)/g, "$1");
 				optionalArguments = optionalArguments.map(argument => argument.replace(/\\\\(.)/g, "$1"));
-				return getValue(() => fn(argument, ...optionalArguments), true, options.filenameReplacementCharacter, lengthData);
+				if (argument) {
+					return getValue(() => fn(argument, ...optionalArguments), true, options.filenameReplacementCharacter, lengthData);
+				} else {
+					return "";
+				}
 			} else {
 				return "";
 			}
@@ -17043,7 +17047,7 @@ async function evalTemplate(template = "", options, util, content, doc, dontRepl
 
 async function getValue(valueGetter, dontReplaceSlash, replacementCharacter, lengthData) {
 	const { maxLength, maxCharLength } = extractMaxLength(lengthData);
-	let value = await valueGetter();
+	let value = (await valueGetter()) || "";
 	if (!dontReplaceSlash) {
 		value = value.replace(/\/+/g, replacementCharacter);
 	}
