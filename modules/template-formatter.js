@@ -16883,7 +16883,7 @@ async function formatFilename(content, doc, options, util) {
 	if (!filename) {
 		filename = "Unnamed page";
 	}
-	return filename;
+	return filename.trim();
 }
 
 async function evalTemplate(template = "", options, util, content, doc, dontReplaceSlash) {
