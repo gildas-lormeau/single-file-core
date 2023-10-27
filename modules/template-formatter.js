@@ -17001,13 +17001,17 @@ async function evalTemplate(template = "", options, util, content, doc, dontRepl
 	template = template.replaceAll("\\|", "\\\\|");
 	template = template.replaceAll("\\>", "\\\\>");
 	const result = (await parse(template, {
-		callFunction(name, [argument, optionalArguments], lengthData) {
+		async callFunction(name, [argument, optionalArguments], lengthData) {
 			const fn = functions[name];
 			if (fn) {
 				argument = argument.replace(/\\\\(.)/g, "$1");
 				optionalArguments = optionalArguments.map(argument => argument.replace(/\\\\(.)/g, "$1"));
-				if (argument) {
-					return getValue(() => fn(argument, ...optionalArguments), true, options.filenameReplacementCharacter, lengthData);
+				if (argument != undefined && argument != null && argument != "") {
+					try {
+						return await getValue(() => fn(argument, ...optionalArguments), true, options.filenameReplacementCharacter, lengthData);
+					} catch (error) {
+						return "";
+					}
 				} else {
 					return "";
 				}
