@@ -16974,6 +16974,16 @@ async function evalTemplate(template = "", options, util, content, doc, dontRepl
 		"url-search": name => {
 			const param = params.find(param => param[0] == name);
 			return (param && param[1]);
+		},
+		"url-segment": (index = 0) => {
+			const segments = decode(url.pathname).split("/");
+			segments.pop();
+			segments.push(getLastSegment(url, options.filenameReplacementCharacter));
+			return segments[index];
+		},
+		"url-hostname-subdomain": (index = 0) => {
+			const subdomains = urlSubDomains.split(".");
+			return subdomains[subdomains.length - index - 1];
 		}
 	};
 	if (doc) {
