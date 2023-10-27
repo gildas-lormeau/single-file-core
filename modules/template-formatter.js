@@ -16969,11 +16969,11 @@ async function evalTemplate(template = "", options, util, content, doc, dontRepl
 		"trim-right": value => value.trimRight(),
 		"pad-left": (value, length, padString) => length > 0 ? value.padStart(length, padString) : value,
 		"pad-right": (value, length, padString) => length > 0 ? value.padEnd(length, padString) : value,
-		"url-search-name": (index = 0) => (params[index] && params[index][0]) || "",
-		"url-search-value": (index = 0) => (params[index] && params[index][1]) || "",
+		"url-search-name": (index = 0) => params[index] && params[index][0],
+		"url-search-value": (index = 0) => params[index] && params[index][1],
 		"url-search": name => {
 			const param = params.find(param => param[0] == name);
-			return (param && param[1]) || "";
+			return (param && param[1]);
 		}
 	};
 	if (doc) {
