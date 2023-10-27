@@ -16954,7 +16954,7 @@ async function evalTemplate(template = "", options, util, content, doc, dontRepl
 			const foundValue = values.find(value => value);
 			return foundValue ? foundValue : defaultValue;
 		},
-		"if-not-empty": (values) => {
+		"if-not-empty": (...values) => {
 			const defaultValue = values.pop();
 			const foundValue = values.find(value => value);
 			return foundValue ? defaultValue : foundValue;
