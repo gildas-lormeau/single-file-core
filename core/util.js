@@ -39,6 +39,7 @@ const CONTENT_TYPE_EXTENSIONS = {
 	"image/gif": ".gif",
 	"image/webp": ".webp"
 };
+const MIME_TYPE_OCTET_STREAM = "application/octet-stream";
 
 const URL = globalThis.URL;
 const DOMParser = globalThis.DOMParser;
@@ -265,8 +266,8 @@ function getInstance(utilOptions) {
 		} catch (error) {
 			// ignored
 		}
-		if (!contentType) {
-			contentType = guessMIMEType(options.expectedType, buffer);
+		if (!contentType || (contentType == MIME_TYPE_OCTET_STREAM && options.asBinary)) {
+			contentType = guessMIMEType(options.expectedType, buffer, options.asBinary);
 		}
 		if (!charset && options.charset) {
 			charset = options.charset;
@@ -346,7 +347,7 @@ async function getFetchResponse(resourceURL, options, data, charset, contentType
 	return { data, resourceURL, charset, contentType };
 }
 
-function guessMIMEType(expectedType, buffer) {
+function guessMIMEType(expectedType, buffer, asBinary) {
 	if (expectedType == "image") {
 		if (compareBytes([255, 255, 255, 255], [0, 0, 1, 0])) {
 			return "image/x-icon";
@@ -394,6 +395,30 @@ function guessMIMEType(expectedType, buffer) {
 			return "font/woff2";
 		}
 	}
+	if (expectedType == "video") {
+		if (compareBytes([0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255], [0, 0, 0, 0, 102, 116, 121, 112, 105, 115, 111, 109])) {
+			return "video/mp4";
+		}
+		if (compareBytes([255, 255, 255, 255, 0, 0, 0, 0, 255, 255, 255, 255], [82, 73, 70, 70, 0, 0, 0, 0, 87, 65, 86, 69])) {
+			return "video/x-msvideo";
+		}
+		if (compareBytes([255, 255, 255, 255], [0, 0, 1, 179]) || compareBytes([255, 255, 255, 255], [0, 0, 1, 186])) {
+			return "video/mpeg";
+		}
+		if (compareBytes([255, 255, 255, 255], [79, 103, 103, 83])) {
+			return "video/ogg";
+		}
+		if (compareBytes([255], [71])) {
+			return "video/mp2t";
+		}
+		if (compareBytes([255, 255, 255, 255], [26, 69, 223, 163])) {
+			return "video/webm";
+		}
+		if (compareBytes([0, 0, 0, 0, 255, 255, 255, 255, 255, 255], [0, 0, 0, 0, 102, 116, 121, 112, 51, 103])) {
+			return "video/3gpp";
+		}
+	}
+	return asBinary ? MIME_TYPE_OCTET_STREAM : "";
 
 	function compareBytes(mask, pattern) {
 		let patternMatch = true, index = 0;
