@@ -38,8 +38,7 @@ import {
 } from "./compression-display.js";
 
 const { Blob, fetch, TextEncoder, DOMParser } = globalThis;
-
-const NO_COMPRESSION_EXTENSIONS = [".jpg", ".jpeg", ".png", ".pdf", ".woff2", ".mp4", ".mp3", ".ogg", ".webp", ".webm"];
+const NO_COMPRESSION_EXTENSIONS = [ ".jpg", ".jpeg", ".png", ".pdf", ".woff2", ".mp4", ".mp3", ".ogg", ".webp", ".webm", ".avi", ".mpeg", ".ts", ".ogv" ];
 const SCRIPT_PATH = "/lib/single-file-zip.min.js";
 
 const browser = globalThis.browser;
