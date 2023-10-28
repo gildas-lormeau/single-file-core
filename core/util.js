@@ -35,11 +35,38 @@ const DEFAULT_REPLACEMENT_CHARACTER = "_";
 const CONTENT_TYPE_EXTENSIONS = {
 	"image/svg+xml": ".svg",
 	"image/png": ".png",
-	"image/jpeg": ".jpg",
 	"image/gif": ".gif",
-	"image/webp": ".webp"
+	"image/tiff": ".tiff",
+	"image/bmp": ".bmp",
+	"image/x-icon": ".ico",
+	"image/heif": ".heif",
+	"image/heic": ".heic",
+	"image/avif": ".avif",
+	"image/apng": ".apng",
+	"image/jpeg": ".jpg",
+	"image/webp": ".webp",
+	"audio/mpeg": ".mp3",
+	"audio/ogg": ".ogg",
+	"audio/wav": ".wav",
+	"audio/webm": ".webm",
+	"video/3gpp": ".3gp",
+	"video/3gpp2": ".3g2",
+	"video/mpeg": ".mpeg",
+	"video/quicktime": ".mov",
+	"video/x-msvideo": ".avi",
+	"video/webm": ".webm",
+	"video/ogg": ".ogv",
+	"video/mp4": ".mp4",
+	"video/mp2t": ".ts",
+	"font/otf": ".otf",
+	"font/ttf": ".ttf",
+	"font/woff": ".woff",
+	"font/woff2": ".woff2",
+	"application/vnd.ms-fontobject": ".eot",
+	"font/eot": ".eot",
+	"font/collection": ".ttc"
 };
-const MIME_TYPE_OCTET_STREAM = "application/octet-stream";
+const CONTENT_TYPE_OCTET_STREAM = "application/octet-stream";
 
 const URL = globalThis.URL;
 const DOMParser = globalThis.DOMParser;
@@ -266,7 +293,7 @@ function getInstance(utilOptions) {
 		} catch (error) {
 			// ignored
 		}
-		if (!contentType || (contentType == MIME_TYPE_OCTET_STREAM && options.asBinary)) {
+		if (!contentType || (contentType == CONTENT_TYPE_OCTET_STREAM && options.asBinary)) {
 			contentType = guessMIMEType(options.expectedType, buffer, options.asBinary);
 		}
 		if (!charset && options.charset) {
@@ -444,7 +471,7 @@ function guessMIMEType(expectedType, buffer, asBinary) {
 			return "audio/3gpp";
 		}
 	}
-	return asBinary ? MIME_TYPE_OCTET_STREAM : "";
+	return asBinary ? CONTENT_TYPE_OCTET_STREAM : "";
 
 	function compareBytes(mask, pattern) {
 		let patternMatch = true, index = 0;
