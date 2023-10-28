@@ -109,6 +109,7 @@ const STAGES = [{
 		{ action: "replaceStyleContents" },
 		{ action: "replaceInvalidElements" },
 		{ action: "resetCharsetMeta" },
+		{ action: "resetReferrerMeta" },
 		{ option: "saveFavicon", action: "saveFavicon" },
 		{ action: "insertFonts" },
 		{ action: "insertShadowRootContents" },
@@ -864,6 +865,10 @@ class Processor {
 		} else {
 			this.doc.head.appendChild(metaElement);
 		}
+	}
+
+	resetReferrerMeta() {
+		this.doc.querySelectorAll("meta[name=referrer]").forEach(element => element.setAttribute("content", "no-referrer"));
 	}
 
 	setInputValues() {
