@@ -63,7 +63,6 @@ const CONTENT_TYPE_EXTENSIONS = {
 	"font/woff": ".woff",
 	"font/woff2": ".woff2",
 	"application/vnd.ms-fontobject": ".eot",
-	"font/eot": ".eot",
 	"font/collection": ".ttc"
 };
 const CONTENT_TYPE_OCTET_STREAM = "application/octet-stream";
