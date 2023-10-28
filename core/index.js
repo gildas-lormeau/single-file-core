@@ -868,7 +868,11 @@ class Processor {
 	}
 
 	resetReferrerMeta() {
-		this.doc.querySelectorAll("meta[name=referrer]").forEach(element => element.setAttribute("content", "no-referrer"));
+		this.doc.querySelectorAll("meta[name=referrer]").forEach(element => element.remove();
+		const metaElement = this.doc.createElement("meta");
+		metaElement.setAttribute("name", "referrer");
+		metaElement.setAttribute("content", "no-referrer");
+		this.doc.head.appendChild(metaElement);
 	}
 
 	setInputValues() {
