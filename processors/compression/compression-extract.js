@@ -52,7 +52,17 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 		"midi": "audio/midi",
 		"opus": "audio/opus",
 		"wav": "audio/wav",
-		"weba": "audio/webm"
+		"weba": "audio/webm",
+		"heif": "image/heif",
+		"heic": "image/heic",
+		"avif": "image/avif",
+		"apng": "image/apng",
+		"mov": "video/quicktime",
+		"otf": "font/otf",
+		"ttf": "font/ttf",
+		"woff": "font/woff",
+		"woff2": "font/woff2",
+		"eot": "application/vnd.ms-fontobject"
 	};
 	const REGEXP_MATCH_STYLESHEET = /stylesheet_[0-9]+\.css/;
 	const REGEXP_MATCH_SCRIPT = /scripts\/[0-9]+\.js/;
