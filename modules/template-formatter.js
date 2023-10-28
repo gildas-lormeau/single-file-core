@@ -16992,7 +16992,7 @@ async function evalTemplate(template = "", options, util, content, doc, dontRepl
 			const subdomains = urlSubDomains.split(".");
 			return subdomains[subdomains.length - index - 1];
 		},
-		"stringify": value => JSON.stringify(value),
+		"stringify": value => { try { return JSON.stringify(value); } catch (error) { return value; } },
 		"encode-uri": value => { try { return encodeURI(value); } catch (error) { return value; } },
 		"decode-uri": value => { try { return decodeURI(value); } catch (error) { return value; } },
 		"encode-uri-component": value => { try { return encodeURIComponent(value); } catch (error) { return value; } },
