@@ -418,6 +418,32 @@ function guessMIMEType(expectedType, buffer, asBinary) {
 			return "video/3gpp";
 		}
 	}
+	if (expectedType == "audio") {
+		if (compareBytes([255, 255], [255, 249]) || compareBytes([255, 255], [255, 254])) {
+			return "audio/aac";
+		}
+		if (compareBytes([255, 255, 255, 255], [77, 84, 104, 100])) {
+			return "audio/midi";
+		}
+		if (compareBytes([255, 255, 255, 255], [0, 0, 1, 179]) || compareBytes([255, 255, 255, 255], [0, 0, 1, 186])) {
+			return "audio/mpeg";
+		}
+		if (compareBytes([255, 255], [255, 251]) || compareBytes([255, 255], [255, 243]) || compareBytes([255, 255], [255, 242]) || compareBytes([255, 255, 255], [73, 68, 51])) {
+			return "audio/mpeg";
+		}
+		if (compareBytes([255, 255, 255, 255], [79, 103, 103, 83])) {
+			return "audio/ogg";
+		}
+		if (compareBytes([255, 255, 255, 255, 0, 0, 0, 0, 255, 255, 255, 255], [82, 73, 70, 70, 0, 0, 0, 0, 87, 65, 86, 69])) {
+			return "audio/wav";
+		}
+		if (compareBytes([255, 255, 255, 255], [26, 69, 223, 163])) {
+			return "audio/webm";
+		}
+		if (compareBytes([0, 0, 0, 0, 255, 255, 255, 255, 255, 255], [0, 0, 0, 0, 102, 116, 121, 112, 51, 103])) {
+			return "audio/3gpp";
+		}
+	}
 	return asBinary ? MIME_TYPE_OCTET_STREAM : "";
 
 	function compareBytes(mask, pattern) {
