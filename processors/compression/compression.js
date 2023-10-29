@@ -38,8 +38,20 @@ import {
 } from "./compression-display.js";
 
 const { Blob, fetch, TextEncoder, DOMParser } = globalThis;
-const NO_COMPRESSION_EXTENSIONS = [ ".jpg", ".jpeg", ".png", ".pdf", ".woff2", ".mp4", ".mp3", ".ogg", ".webp", ".webm", ".avi", ".mpeg", ".ts", ".ogv" ];
+const NO_COMPRESSION_EXTENSIONS = [".jpg", ".jpeg", ".png", ".pdf", ".woff2", ".mp4", ".mp3", ".ogg", ".webp", ".webm", ".avi", ".mpeg", ".ts", ".ogv"];
 const SCRIPT_PATH = "/lib/single-file-zip.min.js";
+const EXTRA_DATA_TAGS = [
+	["<noscript>", "</noscript>"],
+	["<script type=sfz-data>", "</script>"],
+	["<xmp>", "</xmp>"],
+	["<plaintext>", "</plaintext>"]
+];
+const EXTRA_DATA_REGEXPS = [
+	[/<\/noscript>/i],
+	[/<\/script>/i],
+	[/<\/xmp>/i],
+	[/<\/plaintext>/i]
+];
 
 const browser = globalThis.browser;
 
@@ -137,20 +149,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 				const textContent = new TextDecoder().decode(data);
 				const matchEndTagComment = textContent.match(/-->/i);
 				if (matchEndTagComment) {
-					const matchEndTagXMP = textContent.match(/<\/\s*xmp>/i);
-					if (matchEndTagXMP) {
-						const matchEndTagPlainText = textContent.match(/<\/\s*plaintext>/i);
-						if (matchEndTagPlainText) {
-							options.extractDataFromPage = false;
-							return process(pageData, options, lastModDate);
-						} else {
-							options.extractDataFromPageTags = ["<plaintext>", "</plaintext>"];
-							return process(pageData, options, lastModDate);
-						}
-					} else {
-						options.extractDataFromPageTags = ["<xmp>", "</xmp>"];
-						return process(pageData, options, lastModDate);
-					}
+					return findExtraDataTags(data, pageData, options, lastModDate);
 				}
 			}
 			for (let index = 0; index < data.length; index++) {
@@ -205,6 +204,17 @@ async function process(pageData, options, lastModDate = new Date()) {
 		}
 	}
 	return new Blob([pageContent], { type: "application/octet-stream" });
+}
+
+function findExtraDataTags(data, pageData, options, lastModDate, indexExtractDataFromPageTags = 0) {
+	const textContent = new TextDecoder().decode(data);
+	const matchEndTag = textContent.match(EXTRA_DATA_REGEXPS[indexExtractDataFromPageTags]);
+	if (matchEndTag) {
+		return findExtraDataTags(data, pageData, options, lastModDate, indexExtractDataFromPageTags + 1);
+	} else {
+		options.extractDataFromPageTags = EXTRA_DATA_TAGS[indexExtractDataFromPageTags];
+		return process(pageData, options, lastModDate);
+	}
 }
 
 async function arrayToBase64(data) {
