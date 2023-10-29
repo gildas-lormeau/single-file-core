@@ -16966,6 +16966,7 @@ async function evalTemplate(template = "", options, util, content, doc, dontRepl
 		"substring": (value, start, end) => value.substring(start, end),
 		"lowercase": value => value.toLowerCase(),
 		"uppercase": value => value.toUpperCase(),
+		"capitalize": value => value.charAt(0).toUpperCase() + value.slice(1),
 		"replace": (value, searchValue, replaceValue) => searchValue && replaceValue ? value.replaceAll(searchValue, replaceValue) : value,
 		"trim": value => value.trim(),
 		"trim-left": value => value.trimLeft(),
