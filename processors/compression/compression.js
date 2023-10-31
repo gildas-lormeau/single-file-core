@@ -296,7 +296,6 @@ async function getContent() {
 		xhr.send();
 		xhr.onload = () => {
 			stop();
-			debugger;
 			displayMessage("sfz-wait-message", 2);
 			resolve(xhr.response);
 		};
