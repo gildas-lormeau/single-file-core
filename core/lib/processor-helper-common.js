@@ -240,8 +240,7 @@ class ProcessorHelperCommon {
 									resourceElement.parentElement.insertBefore(symbolElement, resourceElement.parentElement.firstChild);
 								}
 							} else {
-								const content = await batchRequest.addURL(resourceURL, { expectedType: "image" });
-								resourceElement.setAttribute(attributeName, PREFIX_DATA_URI_IMAGE_SVG + "," + content);
+								resourceElement.setAttribute(attributeName, PREFIX_DATA_URI_IMAGE_SVG + "," + response.content);
 							}
 						}
 					}
