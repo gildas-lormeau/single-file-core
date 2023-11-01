@@ -194,7 +194,9 @@ async function process(pageData, options, lastModDate = new Date()) {
 			}
 		}
 		pageContent += endTags;
-		await writeData(zipDataWriter.writable, (new TextEncoder()).encode(pageContent));
+		if (pageContent) {
+			await writeData(zipDataWriter.writable, (new TextEncoder()).encode(pageContent));
+		}
 	}
 	await zipDataWriter.writable.close();
 	const pageContent = await zipDataWriter.getData();
