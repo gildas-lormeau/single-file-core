@@ -185,13 +185,11 @@ async function process(pageData, options, lastModDate = new Date()) {
 					options.extraDataSize = Math.floor(extraData.length * 1.001);
 					return process(pageData, options, lastModDate);
 				}
+			} else if (options.extraDataSize) {
+				options.extraDataSize = undefined;
+				return process(pageData, options, lastModDate);
 			} else {
-				if (options.extraDataSize) {
-					options.extraDataSize = undefined;
-					return process(pageData, options, lastModDate);
-				} else {
-					pageContent += extraData;
-				}
+				pageContent += extraData;
 			}
 		}
 		pageContent += endTags;
