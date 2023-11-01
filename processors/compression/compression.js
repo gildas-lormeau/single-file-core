@@ -174,11 +174,12 @@ async function process(pageData, options, lastModDate = new Date()) {
 		}
 		const endTags = options.preventAppendedData ? "" : "</body></html>";
 		if (options.extractDataFromPage) {
-			extraData = "<sfz-extra-data>" +
-				await arrayToBase64(insertionsCRLF) + "," +
-				await arrayToBase64(substitutionsLF) + "," +
-				await arrayToBase64([startOffset]) +
-				"</sfz-extra-data>";
+			const payload = await Promise.all([
+				arrayToBase64(insertionsCRLF),
+				arrayToBase64(substitutionsLF),
+				arrayToBase64([startOffset])
+			]);
+			extraData = "<sfz-extra-data>" + payload.join(",") + "</sfz-extra-data>";
 			if (options.preventAppendedData || extraData.length > 65535 - endTags.length) {
 				if (!options.extraDataSize) {
 					options.extraDataSize = Math.floor(extraData.length * 1.001);
