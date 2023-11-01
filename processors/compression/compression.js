@@ -222,7 +222,12 @@ function findExtraDataTags(data, pageData, options, lastModDate, indexExtractDat
 	const textContent = new TextDecoder().decode(data);
 	const matchEndTag = textContent.match(EXTRA_DATA_REGEXPS[indexExtractDataFromPageTags]);
 	if (matchEndTag) {
-		return findExtraDataTags(data, pageData, options, lastModDate, indexExtractDataFromPageTags + 1);
+		if (indexExtractDataFromPageTags < EXTRA_DATA_TAGS.length - 1) {
+			return findExtraDataTags(data, pageData, options, lastModDate, indexExtractDataFromPageTags + 1);
+		} else {
+			options.extractDataFromPage = false;
+			return process(pageData, options, lastModDate);
+		}
 	} else {
 		options.extractDataFromPageTags = EXTRA_DATA_TAGS[indexExtractDataFromPageTags];
 		return process(pageData, options, lastModDate);
