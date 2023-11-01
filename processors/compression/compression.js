@@ -197,14 +197,12 @@ async function process(pageData, options, lastModDate = new Date()) {
 	}
 	await zipDataWriter.writable.close();
 	const pageContent = await zipDataWriter.getData();
-	if (options.extractDataFromPage && options.extraDataSize !== undefined) {
-		if (options.extraDataSize >= extraData.length) {
-			pageContent.set(Array.from(extraData).map(character => character.charCodeAt(0)), startOffset - extraDataOffset);
-		} else {
-			options.extraData = extraData;
-			options.extraDataSize = Math.floor(extraData.length * 1.001);
-			return process(pageData, options, lastModDate);
-		}
+	if (options.extractDataFromPage && options.extraDataSize >= extraData.length) {
+		pageContent.set(Array.from(extraData).map(character => character.charCodeAt(0)), startOffset - extraDataOffset);
+	} else {
+		options.extraData = extraData;
+		options.extraDataSize = Math.floor(extraData.length * 1.001);
+		return process(pageData, options, lastModDate);
 	}
 	return new Blob([pageContent], { type: "application/octet-stream" });
 }
