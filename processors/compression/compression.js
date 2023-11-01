@@ -181,10 +181,8 @@ async function process(pageData, options, lastModDate = new Date()) {
 			]);
 			extraData = "<sfz-extra-data>" + payload.join(",") + "</sfz-extra-data>";
 			if (options.preventAppendedData || extraData.length > 65535 - endTags.length) {
-				if (!options.extraDataSize) {
-					options.extraDataSize = Math.floor(extraData.length * 1.001);
-					return process(pageData, options, lastModDate);
-				}
+				options.extraDataSize = Math.floor(extraData.length * 1.001);
+				return process(pageData, options, lastModDate);
 			} else if (options.extraDataSize) {
 				options.extraDataSize = undefined;
 				return process(pageData, options, lastModDate);
