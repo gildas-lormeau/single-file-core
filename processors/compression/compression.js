@@ -165,10 +165,12 @@ async function process(pageData, options, lastModDate = new Date()) {
 			}
 		}
 		let pageContent = "";
-		if (options.extractDataFromPageTags && !options.preventAppendedData) {
-			pageContent += options.extractDataFromPageTags[1];
-		} else {
-			pageContent += "-->";
+		if (!options.preventAppendedData) {
+			if (options.extractDataFromPageTags) {
+				pageContent += options.extractDataFromPageTags[1];
+			} else {
+				pageContent += "-->";
+			}
 		}
 		const endTags = options.preventAppendedData ? "" : "</body></html>";
 		if (options.extractDataFromPage) {
