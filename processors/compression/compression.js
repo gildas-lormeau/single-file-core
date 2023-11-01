@@ -117,11 +117,12 @@ async function process(pageData, options, lastModDate = new Date()) {
 		script = "<script>" +
 			script +
 			"document.currentScript.remove();" +
-			"globalThis.bootstrap=(()=>{let bootstrapStarted;return content=>{if (bootstrapStarted) return bootstrapStarted;bootstrapStarted=" +
-			"new Promise(resolve=>{document.readyState=='complete'?resolve():globalThis.onload=resolve}).then(()=>" +
-			extract.toString().replace(/\n|\t/g, "") + "(content,{prompt}).then(({docContent}) => " +
-			display.toString().replace(/\n|\t/g, "") + "(document,docContent)));return bootstrapStarted;}})();(" +
-			getContent.toString().replace(/\n|\t/g, "") + ")().then(globalThis.bootstrap).catch(()=>{});" +
+			"globalThis.addEventListener('load', () => {" +
+			"globalThis.bootstrap=(()=>{let bootstrapStarted;return async content=>{if (bootstrapStarted) return bootstrapStarted; bootstrapStarted = (" +
+			extract.toString().replace(/\n|\t/g, "") + ")(content,{prompt}).then(({docContent}) => " +
+			display.toString().replace(/\n|\t/g, "") + "(document,docContent));return bootstrapStarted;}})();(" +
+			getContent.toString().replace(/\n|\t/g, "") + ")().then(globalThis.bootstrap).then(() => document.dispatchEvent(new CustomEvent(\"single-file-display-infobar\"))).catch(()=>{});" +
+			"});" +
 			"</script>";
 		pageContent += script;
 		let extraData = "";
