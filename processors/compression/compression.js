@@ -165,7 +165,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 			}
 		}
 		let pageContent = "";
-		if (options.extractDataFromPageTags) {
+		if (options.extractDataFromPageTags && !options.preventAppendedData) {
 			pageContent += options.extractDataFromPageTags[1];
 		} else {
 			pageContent += "-->";
