@@ -170,14 +170,14 @@ async function process(pageData, options, lastModDate = new Date()) {
 		} else {
 			pageContent += "-->";
 		}
-		const endTags = "</body></html>";
+		const endTags = options.preventAppendedData ? "" : "</body></html>";
 		if (options.extractDataFromPage) {
 			extraData = "<sfz-extra-data>" +
 				await arrayToBase64(insertionsCRLF) + "," +
 				await arrayToBase64(substitutionsLF) + "," +
 				await arrayToBase64([startOffset]) +
 				"</sfz-extra-data>";
-			if (extraData.length > 65535 - endTags.length) {
+			if (options.preventAppendedData || extraData.length > 65535 - endTags.length) {
 				if (!options.extraDataSize) {
 					options.extraDataSize = Math.floor(extraData.length * 1.001);
 					return process(pageData, options, lastModDate);
