@@ -88,11 +88,16 @@ async function getPageData(options = {}, initOptions, doc = globalThis.document,
 	options.doc = doc;
 	options.win = win;
 	options.insertCanonicalLink = true;
+
+	const externalOnProgress = options.onprogress;
 	options.onprogress = event => {
 		if (event.type === event.RESOURCES_INITIALIZED && doc && win && options.loadDeferredImages) {
 			processors.lazy.resetZoomLevel(options);
 		}
+
+		if (externalOnProgress) externalOnProgress(event);
 	};
+
 	const processor = new SingleFile(options);
 	await processor.run();
 	if (framesSessionId) {
