@@ -134,19 +134,19 @@ function getProcessorHelperClass(utilInstance) {
 		}
 
 		async processStylesheetElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement, resources) {
-			if (options.blockStylesheets) {
-				if (element.tagName.toUpperCase() == "LINK") {
-					element.href = util.EMPTY_RESOURCE;
-				} else {
-					element.textContent = "";
-				}
-			} else {
+			if (!options.blockStylesheets) {
 				if (element.tagName.toUpperCase() == "LINK") {
 					await this.resolveLinkStylesheetURLs(stylesheetInfo, element, element.href, baseURI, options, workStyleElement, resources, stylesheets);
 				} else {
 					stylesheets.set({ element }, stylesheetInfo);
 					stylesheetInfo.stylesheet = cssTree.parse(element.textContent, { context: "stylesheet", parseCustomProperty: true });
 					await this.resolveImportURLs(stylesheetInfo, baseURI, options, workStyleElement, resources, stylesheets);
+				}
+			} else {
+				if (element.tagName.toUpperCase() == "LINK") {
+					element.href = util.EMPTY_RESOURCE;
+				} else {
+					element.textContent = "";
 				}
 			}
 		}
@@ -394,43 +394,11 @@ function getProcessorHelperClass(utilInstance) {
 			}
 		}
 
-		async processSrcset(resourceElements, baseURI, options, resources, batchRequest) {
-			await Promise.all(Array.from(resourceElements).map(async resourceElement => {
-				const originSrcset = resourceElement.getAttribute("srcset");
-				const srcset = util.parseSrcset(originSrcset);
-				if (options.saveOriginalURLs && !isDataURL(originSrcset)) {
-					resourceElement.setAttribute("data-sf-original-srcset", originSrcset);
-				}
-				if (!options.blockImages) {
-					const srcsetValues = await Promise.all(srcset.map(async srcsetValue => {
-						let resourceURL = normalizeURL(srcsetValue.url);
-						if (!testIgnoredPath(resourceURL)) {
-							if (testValidPath(resourceURL)) {
-								try {
-									resourceURL = util.resolveURL(resourceURL, baseURI);
-								} catch (error) {
-									// ignored
-								}
-								if (testValidURL(resourceURL)) {
-									const { content, indexResource, extension, contentType } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "image" });
-									const name = "images/" + indexResource + extension;
-									resources.images.set(indexResource, { name, content, extension, contentType, url: resourceURL });
-									return name + (srcsetValue.w ? " " + srcsetValue.w + "w" : srcsetValue.d ? " " + srcsetValue.d + "x" : "");
-								} else {
-									return "";
-								}
-							} else {
-								return "";
-							}
-						} else {
-							return resourceURL + (srcsetValue.w ? " " + srcsetValue.w + "w" : srcsetValue.d ? " " + srcsetValue.d + "x" : "");
-						}
-					}));
-					resourceElement.setAttribute("srcset", srcsetValues.join(", "));
-				} else {
-					resourceElement.setAttribute("srcset", "");
-				}
-			}));
+		async processImageSrcset(resourceURL, srcsetValue, resources, batchRequest) {
+			const { content, indexResource, extension, contentType } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "image" });
+			const name = "images/" + indexResource + extension;
+			resources.images.set(indexResource, { name, content, extension, contentType, url: resourceURL });
+			return name + (srcsetValue.w ? " " + srcsetValue.w + "w" : srcsetValue.d ? " " + srcsetValue.d + "x" : "");
 		}
 
 		testEmptyResource(resource) {

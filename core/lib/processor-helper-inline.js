@@ -119,7 +119,7 @@ function getProcessorHelperClass(utilInstance) {
 			);
 			resourcePromises = resourcePromises.concat([
 				this.processXLinks(doc.querySelectorAll("use"), doc, baseURI, options, batchRequest),
-				this.processSrcset(doc.querySelectorAll("img[srcset], source[srcset]"), baseURI, options, batchRequest)
+				this.processSrcset(doc.querySelectorAll("img[srcset], source[srcset]"), baseURI, options, resources, batchRequest)
 			]);
 			resourcePromises.push(this.processAttribute(doc.querySelectorAll("object[data*=\".pdf\"]"), "data", baseURI, options, null, resources, styles, batchRequest));
 			resourcePromises.push(this.processAttribute(doc.querySelectorAll("embed[src*=\".pdf\"]"), "src", baseURI, options, null, resources, styles, batchRequest));
@@ -450,45 +450,13 @@ function getProcessorHelperClass(utilInstance) {
 			}
 		}
 
-		async processSrcset(resourceElements, baseURI, options, batchRequest) {
-			await Promise.all(Array.from(resourceElements).map(async resourceElement => {
-				const originSrcset = resourceElement.getAttribute("srcset");
-				const srcset = util.parseSrcset(originSrcset);
-				if (options.saveOriginalURLs && !isDataURL(originSrcset)) {
-					resourceElement.setAttribute("data-sf-original-srcset", originSrcset);
-				}
-				if (!options.blockImages) {
-					const srcsetValues = await Promise.all(srcset.map(async srcsetValue => {
-						let resourceURL = normalizeURL(srcsetValue.url);
-						if (!testIgnoredPath(resourceURL)) {
-							if (testValidPath(resourceURL)) {
-								try {
-									resourceURL = util.resolveURL(resourceURL, baseURI);
-								} catch (error) {
-									// ignored
-								}
-								if (testValidURL(resourceURL)) {
-									const { content } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "image" });
-									const forbiddenPrefixFound = PREFIXES_FORBIDDEN_DATA_URI.filter(prefixDataURI => content.startsWith(prefixDataURI)).length;
-									if (forbiddenPrefixFound) {
-										return "";
-									}
-									return content + (srcsetValue.w ? " " + srcsetValue.w + "w" : srcsetValue.d ? " " + srcsetValue.d + "x" : "");
-								} else {
-									return "";
-								}
-							} else {
-								return "";
-							}
-						} else {
-							return resourceURL + (srcsetValue.w ? " " + srcsetValue.w + "w" : srcsetValue.d ? " " + srcsetValue.d + "x" : "");
-						}
-					}));
-					resourceElement.setAttribute("srcset", srcsetValues.join(", "));
-				} else {
-					resourceElement.setAttribute("srcset", "");
-				}
-			}));
+		async processImageSrcset(resourceURL, srcsetValue, batchRequest) {
+			const { content } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "image" });
+			const forbiddenPrefixFound = PREFIXES_FORBIDDEN_DATA_URI.filter(prefixDataURI => content.startsWith(prefixDataURI)).length;
+			if (forbiddenPrefixFound) {
+				return "";
+			}
+			return content + (srcsetValue.w ? " " + srcsetValue.w + "w" : srcsetValue.d ? " " + srcsetValue.d + "x" : "");
 		}
 
 		testEmptyResource(resource) {

@@ -289,6 +289,42 @@ class ProcessorHelperCommon {
 			}));
 		}
 	}
+
+	async processSrcset(resourceElements, baseURI, options, resources, batchRequest) {
+		await Promise.all(Array.from(resourceElements).map(async resourceElement => {
+			const originSrcset = resourceElement.getAttribute("srcset");
+			const srcset = util.parseSrcset(originSrcset);
+			if (options.saveOriginalURLs && !isDataURL(originSrcset)) {
+				resourceElement.setAttribute("data-sf-original-srcset", originSrcset);
+			}
+			if (!options.blockImages) {
+				const srcsetValues = await Promise.all(srcset.map(async srcsetValue => {
+					let resourceURL = normalizeURL(srcsetValue.url);
+					if (!testIgnoredPath(resourceURL)) {
+						if (testValidPath(resourceURL)) {
+							try {
+								resourceURL = util.resolveURL(resourceURL, baseURI);
+							} catch (error) {
+								// ignored
+							}
+							if (testValidURL(resourceURL)) {
+								await this.processImageSrcset(resourceURL, srcsetValue, resources, batchRequest);
+							} else {
+								return "";
+							}
+						} else {
+							return "";
+						}
+					} else {
+						return resourceURL + (srcsetValue.w ? " " + srcsetValue.w + "w" : srcsetValue.d ? " " + srcsetValue.d + "x" : "");
+					}
+				}));
+				resourceElement.setAttribute("srcset", srcsetValues.join(", "));
+			} else {
+				resourceElement.setAttribute("srcset", "");
+			}
+		}));
+	}
 }
 
 function getUpdatedResourceContent(resourceURL, content, options) {
