@@ -72,39 +72,6 @@ function getProcessorHelperClass(utilInstance) {
 	const ProcessorHelperCommon = getProcessorHelperCommonClass(util, cssTree);
 
 	return class ProcessorHelper extends ProcessorHelperCommon {
-		async processPageResources(doc, baseURI, options, resources, styles, batchRequest) {
-			const processAttributeArgs = [
-				["link[href][rel*=\"icon\"]", "href", true],
-				["object[type=\"image/svg+xml\"], object[type=\"image/svg-xml\"], object[data*=\".svg\"]", "data"],
-				["img[src], input[src][type=image]", "src", false, true],
-				["embed[src*=\".svg\"]", "src"],
-				["video[poster]", "poster"],
-				["*[background]", "background"],
-				["image", "xlink:href"],
-				["image", "href"]
-			];
-			if (options.blockImages) {
-				doc.querySelectorAll("svg").forEach(element => element.remove());
-			}
-			let resourcePromises = processAttributeArgs.map(([selector, attributeName, removeElementIfMissing, processDuplicates]) =>
-				this.processAttribute(doc.querySelectorAll(selector), attributeName, baseURI, options, "image", resources, removeElementIfMissing, batchRequest, styles, processDuplicates)
-			);
-			resourcePromises = resourcePromises.concat([
-				this.processXLinks(doc.querySelectorAll("use"), doc, baseURI, options, batchRequest),
-				this.processSrcset(doc.querySelectorAll("img[srcset], source[srcset]"), baseURI, options, resources, batchRequest)
-			]);
-			resourcePromises.push(this.processAttribute(doc.querySelectorAll("object[data*=\".pdf\"]"), "data", baseURI, options, null, resources, batchRequest, styles));
-			resourcePromises.push(this.processAttribute(doc.querySelectorAll("embed[src*=\".pdf\"]"), "src", baseURI, options, null, resources, batchRequest, styles));
-			resourcePromises.push(this.processAttribute(doc.querySelectorAll("audio[src], audio > source[src]"), "src", baseURI, options, "audio", resources, batchRequest, styles));
-			resourcePromises.push(this.processAttribute(doc.querySelectorAll("video[src], video > source[src]"), "src", baseURI, options, "video", resources, batchRequest, styles));
-			resourcePromises.push(this.processAttribute(doc.querySelectorAll("audio track[src], video track[src]"), "src", baseURI, options, null, resources, batchRequest, styles));
-			resourcePromises.push(this.processAttribute(doc.querySelectorAll("model[src]"), "src", baseURI, options, null, resources, batchRequest, styles));
-			await Promise.all(resourcePromises);
-			if (options.saveFavicon) {
-				this.processShortcutIcons(doc);
-			}
-		}
-
 		async processLinkElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement) {
 			if (element.tagName.toUpperCase() == "LINK" && element.charset) {
 				options.charset = element.charset;
