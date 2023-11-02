@@ -284,48 +284,20 @@ function getProcessorHelperClass(utilInstance) {
 			resources.frames.set(frameWindowId, { name, content: pageData.content, resources: pageData.resources, url: frameData.url });
 		}
 
-		async processStylesheet(cssRules, baseURI, options, resources, batchRequest) {
-			const promises = [];
-			const removedRules = [];
-			for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
-				const ruleData = cssRule.data;
-				if (ruleData.type == "Atrule" && ruleData.name == "charset") {
-					removedRules.push(cssRule);
-				} else if (ruleData.block && ruleData.block.children) {
-					if (ruleData.type == "Rule") {
-						promises.push(this.processStyle(ruleData, options, resources, batchRequest));
-					} else if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports")) {
-						promises.push(this.processStylesheet(ruleData.block.children, baseURI, options, resources, batchRequest));
-					} else if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
-						promises.push(processFontFaceRule(ruleData));
-					}
-				}
+		async processFont(resourceURL, urlNode, originalResourceURL, baseURI, options, resources, batchRequest) {
+			let { content, extension, indexResource, contentType } = await batchRequest.addURL(resourceURL, {
+				asBinary: true,
+				expectedType: "font",
+				baseURI,
+				blockMixedContent: options.blockMixedContent
+			});
+			const name = "fonts/" + indexResource + extension;
+			if (!isDataURL(resourceURL) && options.saveOriginalURLs) {
+				urlNode.value = "-sf-url-original(" + JSON.stringify(originalResourceURL) + ") " + name;
+			} else {
+				urlNode.value = name;
 			}
-			removedRules.forEach(cssRule => cssRules.remove(cssRule));
-			await Promise.all(promises);
-
-			async function processFontFaceRule(ruleData) {
-				const urls = getUrlFunctions(ruleData);
-				await Promise.all(urls.map(async urlNode => {
-					const originalResourceURL = urlNode.value;
-					if (!options.blockFonts) {
-						const resourceURL = normalizeURL(originalResourceURL);
-						if (!testIgnoredPath(resourceURL) && testValidURL(resourceURL)) {
-							let { content, extension, indexResource, contentType } = await batchRequest.addURL(resourceURL,
-								{ asBinary: true, expectedType: "font", baseURI, blockMixedContent: options.blockMixedContent });
-							const name = "fonts/" + indexResource + extension;
-							if (!isDataURL(resourceURL) && options.saveOriginalURLs) {
-								urlNode.value = "-sf-url-original(" + JSON.stringify(originalResourceURL) + ") " + name;
-							} else {
-								urlNode.value = name;
-							}
-							resources.fonts.set(indexResource, { name, content, extension, contentType, url: resourceURL });
-						}
-					} else {
-						urlNode.value = util.EMPTY_RESOURCE;
-					}
-				}));
-			}
+			resources.fonts.set(indexResource, { name, content, extension, contentType, url: resourceURL });
 		}
 
 		async processStyle(ruleData, options, resources, batchRequest) {

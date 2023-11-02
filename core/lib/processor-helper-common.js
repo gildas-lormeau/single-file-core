@@ -252,6 +252,43 @@ class ProcessorHelperCommon {
 			}
 		}));
 	}
+
+	async processStylesheet(cssRules, baseURI, options, resources, batchRequest) {
+		const promises = [];
+		const removedRules = [];
+		const processorHelper = this;
+		for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
+			const ruleData = cssRule.data;
+			if (ruleData.type == "Atrule" && ruleData.name == "charset") {
+				removedRules.push(cssRule);
+			} else if (ruleData.block && ruleData.block.children) {
+				if (ruleData.type == "Rule") {
+					promises.push(processorHelper.processStyle(ruleData, options, resources, batchRequest));
+				} else if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports")) {
+					promises.push(processorHelper.processStylesheet(ruleData.block.children, baseURI, options, resources, batchRequest));
+				} else if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
+					promises.push(processFontFaceRule(ruleData));
+				}
+			}
+		}
+		removedRules.forEach(cssRule => cssRules.remove(cssRule));
+		await Promise.all(promises);
+
+		async function processFontFaceRule(ruleData) {
+			const urls = getUrlFunctions(ruleData);
+			await Promise.all(urls.map(async urlNode => {
+				const originalResourceURL = urlNode.value;
+				if (!options.blockFonts) {
+					const resourceURL = normalizeURL(originalResourceURL);
+					if (!testIgnoredPath(resourceURL) && testValidURL(resourceURL)) {
+						await processorHelper.processFont(resourceURL, urlNode, originalResourceURL, baseURI, options, resources, batchRequest);
+					}
+				} else {
+					urlNode.value = util.EMPTY_RESOURCE;
+				}
+			}));
+		}
+	}
 }
 
 function getUpdatedResourceContent(resourceURL, content, options) {

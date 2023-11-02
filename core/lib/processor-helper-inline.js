@@ -295,50 +295,23 @@ function getProcessorHelperClass(utilInstance) {
 			}
 		}
 
-		async processStylesheet(cssRules, baseURI, options, resources, batchRequest) {
-			const promises = [];
-			const removedRules = [];
-			for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
-				const ruleData = cssRule.data;
-				if (ruleData.type == "Atrule" && ruleData.name == "charset") {
-					removedRules.push(cssRule);
-				} else if (ruleData.block && ruleData.block.children) {
-					if (ruleData.type == "Rule") {
-						promises.push(this.processStyle(ruleData, options, resources, batchRequest));
-					} else if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports")) {
-						promises.push(this.processStylesheet(ruleData.block.children, baseURI, options, resources, batchRequest));
-					} else if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
-						promises.push(processFontFaceRule(ruleData));
-					}
-				}
+		async processFont(resourceURL, urlNode, originalResourceURL, baseURI, options, resources, batchRequest) {
+			let { content } = await batchRequest.addURL(resourceURL, {
+				asBinary: true,
+				expectedType: "font",
+				baseURI,
+				blockMixedContent: options.blockMixedContent
+			});
+			let resourceURLs = resources.fonts.get(urlNode);
+			if (!resourceURLs) {
+				resourceURLs = [];
+				resources.fonts.set(urlNode, resourceURLs);
 			}
-			removedRules.forEach(cssRule => cssRules.remove(cssRule));
-			await Promise.all(promises);
-
-			async function processFontFaceRule(ruleData) {
-				const urls = getUrlFunctions(ruleData);
-				await Promise.all(urls.map(async urlNode => {
-					const originalResourceURL = urlNode.value;
-					if (!options.blockFonts) {
-						const resourceURL = normalizeURL(originalResourceURL);
-						if (!testIgnoredPath(resourceURL) && testValidURL(resourceURL)) {
-							let { content } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "font", baseURI, blockMixedContent: options.blockMixedContent });
-							let resourceURLs = resources.fonts.get(urlNode);
-							if (!resourceURLs) {
-								resourceURLs = [];
-								resources.fonts.set(urlNode, resourceURLs);
-							}
-							resourceURLs.push(resourceURL);
-							if (!isDataURL(resourceURL) && options.saveOriginalURLs) {
-								urlNode.value = "-sf-url-original(" + JSON.stringify(originalResourceURL) + ") " + content;
-							} else {
-								urlNode.value = content;
-							}
-						}
-					} else {
-						urlNode.value = util.EMPTY_RESOURCE;
-					}
-				}));
+			resourceURLs.push(resourceURL);
+			if (!isDataURL(resourceURL) && options.saveOriginalURLs) {
+				urlNode.value = "-sf-url-original(" + JSON.stringify(originalResourceURL) + ") " + content;
+			} else {
+				urlNode.value = content;
 			}
 		}
 
