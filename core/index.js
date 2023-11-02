@@ -1324,7 +1324,7 @@ class Processor {
 	}
 
 	replaceStylesheets() {
-		this.processorHelper.replaceStylesheets(this.doc, this.stylesheets, this.resources, this.options);
+		this.processorHelper.replaceStylesheets(this.doc, this.stylesheets, this.options, this.resources);
 	}
 
 	replaceStyleAttributes() {

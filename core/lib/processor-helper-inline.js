@@ -24,10 +24,6 @@
 /* global globalThis */
 
 import * as cssTree from "./../../vendor/css-tree.js";
-import {
-	normalizeFontFamily,
-	getFontWeight
-} from "./../helper.js";
 
 const JSON = globalThis.JSON;
 const FontFace = globalThis.FontFace;
@@ -45,32 +41,8 @@ const NOSCRIPT_TAG_FOUND = /<noscript/gi;
 const CANVAS_TAG_FOUND = /<canvas/gi;
 const SINGLE_FILE_VARIABLE_NAME_PREFIX = "--sf-img-";
 const SINGLE_FILE_VARIABLE_MAX_SIZE = 512 * 1024;
-
-const REGEXP_URL_SIMPLE_QUOTES_FN = /url\s*\(\s*'(.*?)'\s*\)/i;
-const REGEXP_URL_DOUBLE_QUOTES_FN = /url\s*\(\s*"(.*?)"\s*\)/i;
-const REGEXP_URL_NO_QUOTES_FN = /url\s*\(\s*(.*?)\s*\)/i;
-const REGEXP_URL_FUNCTION = /(url|local|-sf-url-original)\(.*?\)\s*(,|$)/g;
-const REGEXP_SIMPLE_QUOTES_STRING = /^'(.*?)'$/;
-const REGEXP_DOUBLE_QUOTES_STRING = /^"(.*?)"$/;
-const REGEXP_URL_FUNCTION_WOFF = /^url\(\s*["']?data:font\/(woff2?)/;
-const REGEXP_URL_FUNCTION_WOFF_ALT = /^url\(\s*["']?data:application\/x-font-(woff)/;
-const REGEXP_FONT_FORMAT = /\.([^.?#]+)((\?|#).*?)?$/;
-const REGEXP_FONT_FORMAT_VALUE = /format\((.*?)\)\s*,?$/;
-const REGEXP_FONT_SRC = /(.*?)\s*,?$/;
 const EMPTY_URL_SOURCE = /^url\(["']?data:[^,]*,?["']?\)/;
 const LOCAL_SOURCE = "local(";
-const MEDIA_ALL = "all";
-const FONT_STRETCHES = {
-	"ultra-condensed": "50%",
-	"extra-condensed": "62.5%",
-	"condensed": "75%",
-	"semi-condensed": "87.5%",
-	"normal": "100%",
-	"semi-expanded": "112.5%",
-	"expanded": "125%",
-	"extra-expanded": "150%",
-	"ultra-expanded": "200%"
-};
 const FONT_MAX_LOAD_DELAY = 5000;
 
 let util;
@@ -102,9 +74,9 @@ function getProcessorHelperClass(utilInstance) {
 	return class ProcessorHelper extends ProcessorHelperCommon {
 		async processPageResources(doc, baseURI, options, resources, styles, batchRequest) {
 			const processAttributeArgs = [
-				["link[href][rel*=\"icon\"]", "href", false, true],
+				["link[href][rel*=\"icon\"]", "href", true],
 				["object[type=\"image/svg+xml\"], object[type=\"image/svg-xml\"], object[data*=\".svg\"]", "data"],
-				["img[src], input[src][type=image]", "src", true],
+				["img[src], input[src][type=image]", "src", false, true],
 				["embed[src*=\".svg\"]", "src"],
 				["video[poster]", "poster"],
 				["*[background]", "background"],
@@ -114,19 +86,19 @@ function getProcessorHelperClass(utilInstance) {
 			if (options.blockImages) {
 				doc.querySelectorAll("svg").forEach(element => element.remove());
 			}
-			let resourcePromises = processAttributeArgs.map(([selector, attributeName, processDuplicates, removeElementIfMissing]) =>
-				this.processAttribute(doc.querySelectorAll(selector), attributeName, baseURI, options, "image", resources, styles, batchRequest, processDuplicates, removeElementIfMissing)
+			let resourcePromises = processAttributeArgs.map(([selector, attributeName, removeElementIfMissing, processDuplicates]) =>
+				this.processAttribute(doc.querySelectorAll(selector), attributeName, baseURI, options, "image", resources, removeElementIfMissing, batchRequest, styles, processDuplicates)
 			);
 			resourcePromises = resourcePromises.concat([
 				this.processXLinks(doc.querySelectorAll("use"), doc, baseURI, options, batchRequest),
 				this.processSrcset(doc.querySelectorAll("img[srcset], source[srcset]"), baseURI, options, resources, batchRequest)
 			]);
-			resourcePromises.push(this.processAttribute(doc.querySelectorAll("object[data*=\".pdf\"]"), "data", baseURI, options, null, resources, styles, batchRequest));
-			resourcePromises.push(this.processAttribute(doc.querySelectorAll("embed[src*=\".pdf\"]"), "src", baseURI, options, null, resources, styles, batchRequest));
-			resourcePromises.push(this.processAttribute(doc.querySelectorAll("audio[src], audio > source[src]"), "src", baseURI, options, "audio", resources, styles, batchRequest));
-			resourcePromises.push(this.processAttribute(doc.querySelectorAll("video[src], video > source[src]"), "src", baseURI, options, "video", resources, styles, batchRequest));
-			resourcePromises.push(this.processAttribute(doc.querySelectorAll("audio track[src], video track[src]"), "src", baseURI, options, null, resources, styles, batchRequest));
-			resourcePromises.push(this.processAttribute(doc.querySelectorAll("model[src]"), "src", baseURI, options, null, resources, styles, batchRequest));
+			resourcePromises.push(this.processAttribute(doc.querySelectorAll("object[data*=\".pdf\"]"), "data", baseURI, options, null, resources, batchRequest, styles));
+			resourcePromises.push(this.processAttribute(doc.querySelectorAll("embed[src*=\".pdf\"]"), "src", baseURI, options, null, resources, batchRequest, styles));
+			resourcePromises.push(this.processAttribute(doc.querySelectorAll("audio[src], audio > source[src]"), "src", baseURI, options, "audio", resources, batchRequest, styles));
+			resourcePromises.push(this.processAttribute(doc.querySelectorAll("video[src], video > source[src]"), "src", baseURI, options, "video", resources, batchRequest, styles));
+			resourcePromises.push(this.processAttribute(doc.querySelectorAll("audio track[src], video track[src]"), "src", baseURI, options, null, resources, batchRequest, styles));
+			resourcePromises.push(this.processAttribute(doc.querySelectorAll("model[src]"), "src", baseURI, options, null, resources, batchRequest, styles));
 			await Promise.all(resourcePromises);
 			if (options.saveFavicon) {
 				this.processShortcutIcons(doc);
@@ -165,7 +137,7 @@ function getProcessorHelperClass(utilInstance) {
 			}
 		}
 
-		replaceStylesheets(doc, stylesheets, resources, options) {
+		replaceStylesheets(doc, stylesheets, options) {
 			doc.querySelectorAll("style").forEach(styleElement => {
 				const stylesheetInfo = stylesheets.get(styleElement);
 				if (stylesheetInfo) {
@@ -315,7 +287,7 @@ function getProcessorHelperClass(utilInstance) {
 			}
 		}
 
-		async processStyle(ruleData, options, { cssVariables }, batchRequest) {
+		async processStyle(ruleData, options, resources, batchRequest) {
 			const urls = getUrlFunctions(ruleData);
 			await Promise.all(urls.map(async urlNode => {
 				const originalResourceURL = urlNode.value;
@@ -330,7 +302,7 @@ function getProcessorHelperClass(utilInstance) {
 								for (let keyName of Object.keys(varNode.children.head.data)) {
 									urlNode[keyName] = varNode.children.head.data[keyName];
 								}
-								cssVariables.set(indexResource, { content, url: originalResourceURL });
+								resources.cssVariables.set(indexResource, { content, url: originalResourceURL });
 							} else {
 								if (!isDataURL(resourceURL) && options.saveOriginalURLs) {
 									urlNode.value = "-sf-url-original(" + JSON.stringify(originalResourceURL) + ") " + content;
@@ -346,7 +318,7 @@ function getProcessorHelperClass(utilInstance) {
 			}));
 		}
 
-		async processAttribute(resourceElements, attributeName, baseURI, options, expectedType, { cssVariables }, styles, batchRequest, processDuplicates, removeElementIfMissing) {
+		async processAttribute(resourceElements, attributeName, baseURI, options, expectedType, resources, removeElementIfMissing, batchRequest, styles, processDuplicates) {
 			await Promise.all(Array.from(resourceElements).map(async resourceElement => {
 				let resourceURL = resourceElement.getAttribute(attributeName);
 				if (resourceURL != null) {
@@ -418,7 +390,7 @@ function getProcessorHelperClass(utilInstance) {
 												const maxSizeDuplicateImages = options.maxSizeDuplicateImages || SINGLE_FILE_VARIABLE_MAX_SIZE;
 												if (processDuplicates && duplicate && !isSVG && util.getContentSize(content) < maxSizeDuplicateImages) {
 													if (this.replaceImageSource(resourceElement, SINGLE_FILE_VARIABLE_NAME_PREFIX + indexResource, options)) {
-														cssVariables.set(indexResource, { content, url: originURL });
+														resources.cssVariables.set(indexResource, { content, url: originURL });
 														const declarationList = cssTree.parse(resourceElement.getAttribute("style"), { context: "declarationList", parseCustomProperty: true });
 														styles.set(resourceElement, declarationList);
 													} else {
@@ -450,7 +422,7 @@ function getProcessorHelperClass(utilInstance) {
 			}
 		}
 
-		async processImageSrcset(resourceURL, srcsetValue, batchRequest) {
+		async processImageSrcset(resourceURL, srcsetValue, resources, batchRequest) {
 			const { content } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "image" });
 			const forbiddenPrefixFound = PREFIXES_FORBIDDEN_DATA_URI.filter(prefixDataURI => content.startsWith(prefixDataURI)).length;
 			if (forbiddenPrefixFound) {
@@ -510,10 +482,6 @@ function getProcessorHelperClass(utilInstance) {
 			return {};
 		}
 
-		removeAlternativeFonts(doc, stylesheets, fonts, fontTests) {
-			return removeAlternativeFonts(doc, stylesheets, fonts, fontTests);
-		}
-
 		async processScript(element, resourceURL, options, charset) {
 			const content = await util.getContent(resourceURL, {
 				asBinary: true,
@@ -540,279 +508,92 @@ function getProcessorHelperClass(utilInstance) {
 		removeUnusedStylesheets(doc) {
 			doc.querySelectorAll("link[rel*=stylesheet][rel*=alternate][title]").forEach(element => element.remove());
 		}
-	};
-}
 
-async function removeAlternativeFonts(doc, stylesheets, fontDeclarations, fontTests) {
-	const fontsDetails = {
-		fonts: new Map(),
-		medias: new Map(),
-		supports: new Map()
-	};
-	const stats = { rules: { processed: 0, discarded: 0 }, fonts: { processed: 0, discarded: 0 } };
-	let sheetIndex = 0;
-	stylesheets.forEach(stylesheetInfo => {
-		const cssRules = stylesheetInfo.stylesheet.children;
-		if (cssRules) {
-			stats.rules.processed += cssRules.size;
-			stats.rules.discarded += cssRules.size;
-			if (stylesheetInfo.mediaText && stylesheetInfo.mediaText != MEDIA_ALL) {
-				const mediaFontsDetails = createFontsDetailsInfo();
-				fontsDetails.medias.set("media-" + sheetIndex + "-" + stylesheetInfo.mediaText, mediaFontsDetails);
-				getFontsDetails(doc, cssRules, sheetIndex, mediaFontsDetails);
-			} else {
-				getFontsDetails(doc, cssRules, sheetIndex, fontsDetails);
-			}
-		}
-		sheetIndex++;
-	});
-	processFontDetails(fontsDetails);
-	await Promise.all([...stylesheets].map(async ([, stylesheetInfo], sheetIndex) => {
-		const cssRules = stylesheetInfo.stylesheet.children;
-		const media = stylesheetInfo.mediaText;
-		if (cssRules) {
-			if (media && media != MEDIA_ALL) {
-				await processFontFaceRules(cssRules, sheetIndex, fontsDetails.medias.get("media-" + sheetIndex + "-" + media), fontDeclarations, fontTests, stats);
-			} else {
-				await processFontFaceRules(cssRules, sheetIndex, fontsDetails, fontDeclarations, fontTests, stats);
-			}
-			stats.rules.discarded -= cssRules.size;
-		}
-	}));
-	return stats;
-}
-
-function getFontsDetails(doc, cssRules, sheetIndex, mediaFontsDetails) {
-	let mediaIndex = 0, supportsIndex = 0;
-	cssRules.forEach(ruleData => {
-		if (ruleData.type == "Atrule" && ruleData.name == "media" && ruleData.block && ruleData.block.children && ruleData.prelude) {
-			const mediaText = cssTree.generate(ruleData.prelude);
-			const fontsDetails = createFontsDetailsInfo();
-			mediaFontsDetails.medias.set("media-" + sheetIndex + "-" + mediaIndex + "-" + mediaText, fontsDetails);
-			mediaIndex++;
-			getFontsDetails(doc, ruleData.block.children, sheetIndex, fontsDetails);
-		} else if (ruleData.type == "Atrule" && ruleData.name == "supports" && ruleData.block && ruleData.block.children && ruleData.prelude) {
-			const supportsText = cssTree.generate(ruleData.prelude);
-			const fontsDetails = createFontsDetailsInfo();
-			mediaFontsDetails.supports.set("supports-" + sheetIndex + "-" + supportsIndex + "-" + supportsText, fontsDetails);
-			supportsIndex++;
-			getFontsDetails(doc, ruleData.block.children, sheetIndex, fontsDetails);
-		} else if (ruleData.type == "Atrule" && ruleData.name == "font-face" && ruleData.block && ruleData.block.children) {
-			const fontKey = getFontKey(ruleData);
-			let fontInfo = mediaFontsDetails.fonts.get(fontKey);
-			if (!fontInfo) {
-				fontInfo = [];
-				mediaFontsDetails.fonts.set(fontKey, fontInfo);
-			}
-			const src = getPropertyValue(ruleData, "src");
-			if (src) {
-				const fontSources = src.match(REGEXP_URL_FUNCTION);
-				if (fontSources) {
-					fontSources.forEach(source => fontInfo.unshift(source));
+		async processFontFaceRule(ruleData, fontInfo, fontDeclarations, fontTests, stats) {
+			const removedNodes = [];
+			for (let node = ruleData.block.children.head; node; node = node.next) {
+				if (node.data.property == "src") {
+					removedNodes.push(node);
 				}
 			}
-		}
-	});
-}
-
-function processFontDetails(fontsDetails) {
-	fontsDetails.fonts.forEach((fontInfo, fontKey) => {
-		fontsDetails.fonts.set(fontKey, fontInfo.map(fontSource => {
-			const fontFormatMatch = fontSource.match(REGEXP_FONT_FORMAT_VALUE);
-			let fontFormat;
-			const fontUrl = getURL(fontSource);
-			if (fontFormatMatch && fontFormatMatch[1]) {
-				fontFormat = fontFormatMatch[1].replace(REGEXP_SIMPLE_QUOTES_STRING, "$1").replace(REGEXP_DOUBLE_QUOTES_STRING, "$1").toLowerCase();
-			}
-			if (!fontFormat) {
-				const fontFormatMatch = fontSource.match(REGEXP_URL_FUNCTION_WOFF);
-				if (fontFormatMatch && fontFormatMatch[1]) {
-					fontFormat = fontFormatMatch[1];
-				} else {
-					const fontFormatMatch = fontSource.match(REGEXP_URL_FUNCTION_WOFF_ALT);
-					if (fontFormatMatch && fontFormatMatch[1]) {
-						fontFormat = fontFormatMatch[1];
-					}
-				}
-			}
-			if (!fontFormat && fontUrl) {
-				const fontFormatMatch = fontUrl.match(REGEXP_FONT_FORMAT);
-				if (fontFormatMatch && fontFormatMatch[1]) {
-					fontFormat = fontFormatMatch[1];
-				}
-			}
-			return { src: fontSource.match(REGEXP_FONT_SRC)[1], fontUrl, format: fontFormat };
-		}));
-	});
-	fontsDetails.medias.forEach(mediaFontsDetails => processFontDetails(mediaFontsDetails));
-	fontsDetails.supports.forEach(supportsFontsDetails => processFontDetails(supportsFontsDetails));
-}
-
-async function processFontFaceRules(cssRules, sheetIndex, fontsDetails, fontDeclarations, fontTests, stats) {
-	const removedRules = [];
-	let mediaIndex = 0, supportsIndex = 0;
-	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
-		const ruleData = cssRule.data;
-		if (ruleData.type == "Atrule" && ruleData.name == "media" && ruleData.block && ruleData.block.children && ruleData.prelude) {
-			const mediaText = cssTree.generate(ruleData.prelude);
-			await processFontFaceRules(ruleData.block.children, sheetIndex, fontsDetails.medias.get("media-" + sheetIndex + "-" + mediaIndex + "-" + mediaText), fontDeclarations, fontTests, stats);
-			mediaIndex++;
-		} else if (ruleData.type == "Atrule" && ruleData.name == "supports" && ruleData.block && ruleData.block.children && ruleData.prelude) {
-			const supportsText = cssTree.generate(ruleData.prelude);
-			await processFontFaceRules(ruleData.block.children, sheetIndex, fontsDetails.supports.get("supports-" + sheetIndex + "-" + supportsIndex + "-" + supportsText), fontDeclarations, fontTests, stats);
-			supportsIndex++;
-		} else if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
-			const key = getFontKey(ruleData);
-			const fontInfo = fontsDetails.fonts.get(key);
-			if (fontInfo) {
-				const processed = await processFontFaceRule(ruleData, fontInfo, fontDeclarations, fontTests, stats);
-				if (processed) {
-					fontsDetails.fonts.delete(key);
-				}
-			} else {
-				removedRules.push(cssRule);
-			}
-		}
-	}
-	removedRules.forEach(cssRule => cssRules.remove(cssRule));
-}
-
-async function processFontFaceRule(ruleData, fontInfo, fontDeclarations, fontTests, stats) {
-	const removedNodes = [];
-	for (let node = ruleData.block.children.head; node; node = node.next) {
-		if (node.data.property == "src") {
-			removedNodes.push(node);
-		}
-	}
-	removedNodes.pop();
-	removedNodes.forEach(node => ruleData.block.children.remove(node));
-	const srcDeclaration = ruleData.block.children.filter(node => node.property == "src").tail;
-	if (srcDeclaration) {
-		await Promise.all(fontInfo.map(async source => {
-			if (fontTests.has(source.src)) {
-				source.valid = fontTests.get(source.src);
-			} else {
-				if (FontFace && source.fontUrl) {
-					const fontFace = new FontFace("test-font", source.src);
-					try {
-						let timeout;
-						await Promise.race([
-							fontFace.load().then(() => fontFace.loaded).then(() => { source.valid = true; globalThis.clearTimeout(timeout); }),
-							new Promise(resolve => timeout = globalThis.setTimeout(() => { source.valid = true; resolve(); }, FONT_MAX_LOAD_DELAY))
-						]);
-					} catch (error) {
-						const urlNodes = cssTree.findAll(srcDeclaration.data, node => node.type == "Url");
-						const declarationFontURLs = Array.from(fontDeclarations).find(([node]) => urlNodes.includes(node) && node.value == source.fontUrl);
-						if (declarationFontURLs && declarationFontURLs[1].length) {
-							const fontURL = declarationFontURLs[1][0];
-							if (fontURL) {
-								const fontFace = new FontFace("test-font", "url(" + fontURL + ")");
-								try {
-									let timeout;
-									await Promise.race([
-										fontFace.load().then(() => fontFace.loaded).then(() => { source.valid = true; globalThis.clearTimeout(timeout); }),
-										new Promise(resolve => timeout = globalThis.setTimeout(() => { source.valid = true; resolve(); }, FONT_MAX_LOAD_DELAY))
-									]);
-								} catch (error) {
-									// ignored
+			removedNodes.pop();
+			removedNodes.forEach(node => ruleData.block.children.remove(node));
+			const srcDeclaration = ruleData.block.children.filter(node => node.property == "src").tail;
+			if (srcDeclaration) {
+				await Promise.all(fontInfo.map(async source => {
+					if (fontTests.has(source.src)) {
+						source.valid = fontTests.get(source.src);
+					} else {
+						if (FontFace && source.fontUrl) {
+							const fontFace = new FontFace("test-font", source.src);
+							try {
+								let timeout;
+								await Promise.race([
+									fontFace.load().then(() => fontFace.loaded).then(() => { source.valid = true; globalThis.clearTimeout(timeout); }),
+									new Promise(resolve => timeout = globalThis.setTimeout(() => { source.valid = true; resolve(); }, FONT_MAX_LOAD_DELAY))
+								]);
+							} catch (error) {
+								const urlNodes = cssTree.findAll(srcDeclaration.data, node => node.type == "Url");
+								const declarationFontURLs = Array.from(fontDeclarations).find(([node]) => urlNodes.includes(node) && node.value == source.fontUrl);
+								if (declarationFontURLs && declarationFontURLs[1].length) {
+									const fontURL = declarationFontURLs[1][0];
+									if (fontURL) {
+										const fontFace = new FontFace("test-font", "url(" + fontURL + ")");
+										try {
+											let timeout;
+											await Promise.race([
+												fontFace.load().then(() => fontFace.loaded).then(() => { source.valid = true; globalThis.clearTimeout(timeout); }),
+												new Promise(resolve => timeout = globalThis.setTimeout(() => { source.valid = true; resolve(); }, FONT_MAX_LOAD_DELAY))
+											]);
+										} catch (error) {
+											// ignored
+										}
+									}
+								} else {
+									source.valid = true;
 								}
 							}
 						} else {
 							source.valid = true;
 						}
+						fontTests.set(source.src, source.valid);
 					}
+				}));
+				const findSourceByFormat = (fontFormat, testValidity) => fontInfo.find(source => !source.src.match(EMPTY_URL_SOURCE) && source.format == fontFormat && (!testValidity || source.valid));
+				const filterSources = fontSource => fontInfo.filter(source => source == fontSource || source.src.startsWith(LOCAL_SOURCE));
+				stats.fonts.processed += fontInfo.length;
+				stats.fonts.discarded += fontInfo.length;
+				const woffFontFound =
+					findSourceByFormat("woff2-variations", true) || findSourceByFormat("woff2", true) || findSourceByFormat("woff", true);
+				if (woffFontFound) {
+					fontInfo = filterSources(woffFontFound);
 				} else {
-					source.valid = true;
+					const ttfFontFound =
+						findSourceByFormat("truetype-variations", true) || findSourceByFormat("truetype", true);
+					if (ttfFontFound) {
+						fontInfo = filterSources(ttfFontFound);
+					} else {
+						const otfFontFound =
+							findSourceByFormat("opentype") || findSourceByFormat("embedded-opentype");
+						if (otfFontFound) {
+							fontInfo = filterSources(otfFontFound);
+						} else {
+							fontInfo = fontInfo.filter(source => !source.src.match(EMPTY_URL_SOURCE) && (source.valid) || source.src.startsWith(LOCAL_SOURCE));
+						}
+					}
 				}
-				fontTests.set(source.src, source.valid);
-			}
-		}));
-		const findSourceByFormat = (fontFormat, testValidity) => fontInfo.find(source => !source.src.match(EMPTY_URL_SOURCE) && source.format == fontFormat && (!testValidity || source.valid));
-		const filterSources = fontSource => fontInfo.filter(source => source == fontSource || source.src.startsWith(LOCAL_SOURCE));
-		stats.fonts.processed += fontInfo.length;
-		stats.fonts.discarded += fontInfo.length;
-		const woffFontFound =
-			findSourceByFormat("woff2-variations", true) || findSourceByFormat("woff2", true) || findSourceByFormat("woff", true);
-		if (woffFontFound) {
-			fontInfo = filterSources(woffFontFound);
-		} else {
-			const ttfFontFound =
-				findSourceByFormat("truetype-variations", true) || findSourceByFormat("truetype", true);
-			if (ttfFontFound) {
-				fontInfo = filterSources(ttfFontFound);
+				stats.fonts.discarded -= fontInfo.length;
+				fontInfo.reverse();
+				try {
+					srcDeclaration.data.value = cssTree.parse(fontInfo.map(fontSource => fontSource.src).join(","), { context: "value", parseCustomProperty: true });
+				}
+				catch (error) {
+					// ignored
+				}
+				return true;
 			} else {
-				const otfFontFound =
-					findSourceByFormat("opentype") || findSourceByFormat("embedded-opentype");
-				if (otfFontFound) {
-					fontInfo = filterSources(otfFontFound);
-				} else {
-					fontInfo = fontInfo.filter(source => !source.src.match(EMPTY_URL_SOURCE) && (source.valid) || source.src.startsWith(LOCAL_SOURCE));
-				}
+				return false;
 			}
 		}
-		stats.fonts.discarded -= fontInfo.length;
-		fontInfo.reverse();
-		try {
-			srcDeclaration.data.value = cssTree.parse(fontInfo.map(fontSource => fontSource.src).join(","), { context: "value", parseCustomProperty: true });
-		}
-		catch (error) {
-			// ignored
-		}
-		return true;
-	} else {
-		return false;
-	}
-}
-
-function getPropertyValue(ruleData, propertyName) {
-	let property;
-	if (ruleData.block.children) {
-		property = ruleData.block.children.filter(node => {
-			try {
-				return node.property == propertyName && !cssTree.generate(node.value).match(/\\9$/);
-			} catch (error) {
-				return node.property == propertyName;
-			}
-		}).tail;
-	}
-	if (property) {
-		try {
-			return cssTree.generate(property.data.value);
-		} catch (error) {
-			// ignored
-		}
-	}
-}
-
-function getFontKey(ruleData) {
-	return JSON.stringify([
-		normalizeFontFamily(getPropertyValue(ruleData, "font-family")),
-		getFontWeight(getPropertyValue(ruleData, "font-weight") || "400"),
-		getPropertyValue(ruleData, "font-style") || "normal",
-		getPropertyValue(ruleData, "unicode-range"),
-		getFontStretch(getPropertyValue(ruleData, "font-stretch")),
-		getPropertyValue(ruleData, "font-variant") || "normal",
-		getPropertyValue(ruleData, "font-feature-settings"),
-		getPropertyValue(ruleData, "font-variation-settings")
-	]);
-}
-
-function getFontStretch(stretch) {
-	return FONT_STRETCHES[stretch] || stretch;
-}
-
-function createFontsDetailsInfo() {
-	return {
-		fonts: new Map(),
-		medias: new Map(),
-		supports: new Map()
 	};
-}
-
-function getURL(urlFunction) {
-	urlFunction = urlFunction.replace(/url\(-sf-url-original\\\(\\"(.*?)\\"\\\)\\ /g, "");
-	const urlMatch = urlFunction.match(REGEXP_URL_SIMPLE_QUOTES_FN) ||
-		urlFunction.match(REGEXP_URL_DOUBLE_QUOTES_FN) ||
-		urlFunction.match(REGEXP_URL_NO_QUOTES_FN);
-	return urlMatch && urlMatch[1];
 }
