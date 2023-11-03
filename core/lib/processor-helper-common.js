@@ -84,151 +84,6 @@ function getProcessorHelperCommonClass(utilInstance, cssTreeInstance) {
 }
 
 class ProcessorHelperCommon {
-	setBackgroundImage(element, url, style) {
-		element.style.setProperty("background-blend-mode", "normal", "important");
-		element.style.setProperty("background-clip", "content-box", "important");
-		element.style.setProperty("background-position", style && style["background-position"] ? style["background-position"] : "center", "important");
-		element.style.setProperty("background-color", style && style["background-color"] ? style["background-color"] : "transparent", "important");
-		element.style.setProperty("background-image", url, "important");
-		element.style.setProperty("background-size", style && style["background-size"] ? style["background-size"] : "100% 100%", "important");
-		element.style.setProperty("background-origin", "content-box", "important");
-		element.style.setProperty("background-repeat", "no-repeat", "important");
-	}
-
-	async getStylesheetContent(resourceURL, options) {
-		const content = await util.getContent(resourceURL, {
-			inline: !options.compressContent,
-			maxResourceSize: options.maxResourceSize,
-			maxResourceSizeEnabled: options.maxResourceSizeEnabled,
-			validateTextContentType: true,
-			frameId: options.frameId,
-			charset: options.charset,
-			resourceReferrer: options.resourceReferrer,
-			baseURI: options.baseURI,
-			blockMixedContent: options.blockMixedContent,
-			expectedType: "stylesheet",
-			acceptHeaders: options.acceptHeaders,
-			networkTimeout: options.networkTimeout
-		});
-		if (!(matchCharsetEquals(content.data, content.charset) || matchCharsetEquals(content.data, options.charset))) {
-			options = Object.assign({}, options, { charset: getCharset(content.data) });
-			return util.getContent(resourceURL, {
-				inline: !options.compressContent,
-				maxResourceSize: options.maxResourceSize,
-				maxResourceSizeEnabled: options.maxResourceSizeEnabled,
-				validateTextContentType: true,
-				frameId: options.frameId,
-				charset: options.charset,
-				resourceReferrer: options.resourceReferrer,
-				baseURI: options.baseURI,
-				blockMixedContent: options.blockMixedContent,
-				expectedType: "stylesheet",
-				acceptHeaders: options.acceptHeaders,
-				networkTimeout: options.networkTimeout
-			});
-		} else {
-			return content;
-		}
-	}
-
-	processShortcutIcons(doc) {
-		let shortcutIcon = findShortcutIcon(Array.from(doc.querySelectorAll("link[href][rel=\"shortcut icon\"]")));
-		if (!shortcutIcon) {
-			shortcutIcon = findShortcutIcon(Array.from(doc.querySelectorAll("link[href][rel=\"icon\"]")));
-		}
-		if (!shortcutIcon) {
-			shortcutIcon = findShortcutIcon(Array.from(doc.querySelectorAll("link[href][rel*=\"icon\"]")));
-			if (shortcutIcon) {
-				shortcutIcon.rel = "shortcut icon";
-			}
-		}
-		if (shortcutIcon) {
-			doc.querySelectorAll("link[href][rel*=\"icon\"]").forEach(linkElement => {
-				if (linkElement != shortcutIcon) {
-					linkElement.remove();
-				}
-			});
-		}
-	}
-
-	removeSingleLineCssComments(stylesheet) {
-		if (stylesheet.children) {
-			const removedRules = [];
-			for (let cssRule = stylesheet.children.head; cssRule; cssRule = cssRule.next) {
-				const ruleData = cssRule.data;
-				if (ruleData.type == "Raw" && ruleData.value && ruleData.value.trim().startsWith("//")) {
-					removedRules.push(cssRule);
-				}
-			}
-			removedRules.forEach(cssRule => stylesheet.children.remove(cssRule));
-		}
-	}
-
-	replacePseudoClassDefined(stylesheet) {
-		const removedSelectors = [];
-		if (stylesheet.children) {
-			for (let cssRule = stylesheet.children.head; cssRule; cssRule = cssRule.next) {
-				const ruleData = cssRule.data;
-				if (ruleData.type == "Rule" && ruleData.prelude && ruleData.prelude.children) {
-					for (let selector = ruleData.prelude.children.head; selector; selector = selector.next) {
-						replacePseudoDefinedSelector(selector, ruleData.prelude);
-					}
-				}
-			}
-		}
-		if (removedSelectors.length) {
-			removedSelectors.forEach(({ parentSelector, selector }) => {
-				if (parentSelector.data.children.size == 0 || !selector.prev || selector.prev.data.type == "Combinator" || selector.prev.data.type == "WhiteSpace") {
-					parentSelector.data.children.replace(selector, cssTree.parse("*", { context: "selector" }).children.head);
-				} else {
-					parentSelector.data.children.remove(selector);
-				}
-			});
-		}
-
-		function replacePseudoDefinedSelector(selector, parentSelector) {
-			if (selector.data.children) {
-				for (let childSelector = selector.data.children.head; childSelector; childSelector = childSelector.next) {
-					replacePseudoDefinedSelector(childSelector, selector);
-				}
-			}
-			if (selector.data.type == "PseudoClassSelector" && selector.data.name == "defined") {
-				removedSelectors.push({ parentSelector, selector });
-			}
-		}
-	}
-
-	resolveStylesheetURLs(stylesheet, baseURI, workStylesheet) {
-		const urls = getUrlFunctions(stylesheet);
-		urls.map(urlNode => {
-			const originalResourceURL = urlNode.value;
-			let resourceURL = normalizeURL(originalResourceURL);
-			if (!testIgnoredPath(resourceURL)) {
-				workStylesheet.textContent = "tmp { content:\"" + resourceURL + "\"}";
-				if (workStylesheet.sheet && workStylesheet.sheet.cssRules) {
-					resourceURL = util.removeQuotes(workStylesheet.sheet.cssRules[0].style.getPropertyValue("content"));
-				}
-				if (!testIgnoredPath(resourceURL)) {
-					if (!resourceURL || testValidPath(resourceURL)) {
-						let resolvedURL;
-						if (!originalResourceURL.startsWith("#")) {
-							try {
-								resolvedURL = util.resolveURL(resourceURL, baseURI);
-							} catch (error) {
-								// ignored
-							}
-						}
-						if (testValidURL(resolvedURL)) {
-							urlNode.value = resolvedURL;
-						}
-					} else {
-						urlNode.value = util.EMPTY_RESOURCE;
-					}
-				}
-			}
-		});
-	}
-
 	async processPageResources(doc, baseURI, options, resources, styles, batchRequest) {
 		const processAttributeArgs = [
 			["link[href][rel*=\"icon\"]", "href", true],
@@ -385,6 +240,151 @@ class ProcessorHelperCommon {
 				resourceElement.setAttribute("srcset", "");
 			}
 		}));
+	}
+
+	setBackgroundImage(element, url, style) {
+		element.style.setProperty("background-blend-mode", "normal", "important");
+		element.style.setProperty("background-clip", "content-box", "important");
+		element.style.setProperty("background-position", style && style["background-position"] ? style["background-position"] : "center", "important");
+		element.style.setProperty("background-color", style && style["background-color"] ? style["background-color"] : "transparent", "important");
+		element.style.setProperty("background-image", url, "important");
+		element.style.setProperty("background-size", style && style["background-size"] ? style["background-size"] : "100% 100%", "important");
+		element.style.setProperty("background-origin", "content-box", "important");
+		element.style.setProperty("background-repeat", "no-repeat", "important");
+	}
+
+	async getStylesheetContent(resourceURL, options) {
+		const content = await util.getContent(resourceURL, {
+			inline: !options.compressContent,
+			maxResourceSize: options.maxResourceSize,
+			maxResourceSizeEnabled: options.maxResourceSizeEnabled,
+			validateTextContentType: true,
+			frameId: options.frameId,
+			charset: options.charset,
+			resourceReferrer: options.resourceReferrer,
+			baseURI: options.baseURI,
+			blockMixedContent: options.blockMixedContent,
+			expectedType: "stylesheet",
+			acceptHeaders: options.acceptHeaders,
+			networkTimeout: options.networkTimeout
+		});
+		if (!(matchCharsetEquals(content.data, content.charset) || matchCharsetEquals(content.data, options.charset))) {
+			options = Object.assign({}, options, { charset: getCharset(content.data) });
+			return util.getContent(resourceURL, {
+				inline: !options.compressContent,
+				maxResourceSize: options.maxResourceSize,
+				maxResourceSizeEnabled: options.maxResourceSizeEnabled,
+				validateTextContentType: true,
+				frameId: options.frameId,
+				charset: options.charset,
+				resourceReferrer: options.resourceReferrer,
+				baseURI: options.baseURI,
+				blockMixedContent: options.blockMixedContent,
+				expectedType: "stylesheet",
+				acceptHeaders: options.acceptHeaders,
+				networkTimeout: options.networkTimeout
+			});
+		} else {
+			return content;
+		}
+	}
+
+	processShortcutIcons(doc) {
+		let shortcutIcon = findShortcutIcon(Array.from(doc.querySelectorAll("link[href][rel=\"shortcut icon\"]")));
+		if (!shortcutIcon) {
+			shortcutIcon = findShortcutIcon(Array.from(doc.querySelectorAll("link[href][rel=\"icon\"]")));
+		}
+		if (!shortcutIcon) {
+			shortcutIcon = findShortcutIcon(Array.from(doc.querySelectorAll("link[href][rel*=\"icon\"]")));
+			if (shortcutIcon) {
+				shortcutIcon.rel = "shortcut icon";
+			}
+		}
+		if (shortcutIcon) {
+			doc.querySelectorAll("link[href][rel*=\"icon\"]").forEach(linkElement => {
+				if (linkElement != shortcutIcon) {
+					linkElement.remove();
+				}
+			});
+		}
+	}
+
+	removeSingleLineCssComments(stylesheet) {
+		if (stylesheet.children) {
+			const removedRules = [];
+			for (let cssRule = stylesheet.children.head; cssRule; cssRule = cssRule.next) {
+				const ruleData = cssRule.data;
+				if (ruleData.type == "Raw" && ruleData.value && ruleData.value.trim().startsWith("//")) {
+					removedRules.push(cssRule);
+				}
+			}
+			removedRules.forEach(cssRule => stylesheet.children.remove(cssRule));
+		}
+	}
+
+	replacePseudoClassDefined(stylesheet) {
+		const removedSelectors = [];
+		if (stylesheet.children) {
+			for (let cssRule = stylesheet.children.head; cssRule; cssRule = cssRule.next) {
+				const ruleData = cssRule.data;
+				if (ruleData.type == "Rule" && ruleData.prelude && ruleData.prelude.children) {
+					for (let selector = ruleData.prelude.children.head; selector; selector = selector.next) {
+						replacePseudoDefinedSelector(selector, ruleData.prelude);
+					}
+				}
+			}
+		}
+		if (removedSelectors.length) {
+			removedSelectors.forEach(({ parentSelector, selector }) => {
+				if (parentSelector.data.children.size == 0 || !selector.prev || selector.prev.data.type == "Combinator" || selector.prev.data.type == "WhiteSpace") {
+					parentSelector.data.children.replace(selector, cssTree.parse("*", { context: "selector" }).children.head);
+				} else {
+					parentSelector.data.children.remove(selector);
+				}
+			});
+		}
+
+		function replacePseudoDefinedSelector(selector, parentSelector) {
+			if (selector.data.children) {
+				for (let childSelector = selector.data.children.head; childSelector; childSelector = childSelector.next) {
+					replacePseudoDefinedSelector(childSelector, selector);
+				}
+			}
+			if (selector.data.type == "PseudoClassSelector" && selector.data.name == "defined") {
+				removedSelectors.push({ parentSelector, selector });
+			}
+		}
+	}
+
+	resolveStylesheetURLs(stylesheet, baseURI, workStylesheet) {
+		const urls = getUrlFunctions(stylesheet);
+		urls.map(urlNode => {
+			const originalResourceURL = urlNode.value;
+			let resourceURL = normalizeURL(originalResourceURL);
+			if (!testIgnoredPath(resourceURL)) {
+				workStylesheet.textContent = "tmp { content:\"" + resourceURL + "\"}";
+				if (workStylesheet.sheet && workStylesheet.sheet.cssRules) {
+					resourceURL = util.removeQuotes(workStylesheet.sheet.cssRules[0].style.getPropertyValue("content"));
+				}
+				if (!testIgnoredPath(resourceURL)) {
+					if (!resourceURL || testValidPath(resourceURL)) {
+						let resolvedURL;
+						if (!originalResourceURL.startsWith("#")) {
+							try {
+								resolvedURL = util.resolveURL(resourceURL, baseURI);
+							} catch (error) {
+								// ignored
+							}
+						}
+						if (testValidURL(resolvedURL)) {
+							urlNode.value = resolvedURL;
+						}
+					} else {
+						urlNode.value = util.EMPTY_RESOURCE;
+					}
+				}
+			}
+		});
 	}
 
 	async removeAlternativeFonts(doc, stylesheets, fonts, fontTests) {
