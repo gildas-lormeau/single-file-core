@@ -21,7 +21,7 @@
  *   Source.
  */
 
-/* global globalThis, FileReader, TextDecoder, Node */
+/* global globalThis, FileReader, Node */
 
 import {
 	configure,
@@ -85,10 +85,11 @@ async function process(pageData, options, lastModDate = new Date()) {
 		const substitutionsLF = [];
 		if (options.extractDataFromPage) {
 			if (!options.extractDataFromPageTags) {
-				const textContent = new TextDecoder().decode(data);
+				let textContent = "";
+				data.slice(startOffset).forEach(charCode => textContent += String.fromCharCode(charCode));
 				const matchEndTagComment = textContent.match(/-->/i);
 				if (matchEndTagComment) {
-					return findExtraDataTags(data, pageData, options, lastModDate);
+					return findExtraDataTags(textContent, pageData, options, lastModDate);
 				}
 			}
 			for (let index = 0; index < data.length; index++) {
@@ -218,12 +219,11 @@ async function prependHTMLData(pageData, zipDataWriter, script, options) {
 	return extraDataOffset;
 }
 
-function findExtraDataTags(data, pageData, options, lastModDate, indexExtractDataFromPageTags = 0) {
-	const textContent = new TextDecoder().decode(data);
+function findExtraDataTags(textContent, pageData, options, lastModDate, indexExtractDataFromPageTags = 0) {
 	const matchEndTag = textContent.match(EXTRA_DATA_REGEXPS[indexExtractDataFromPageTags]);
 	if (matchEndTag) {
 		if (indexExtractDataFromPageTags < EXTRA_DATA_TAGS.length - 1) {
-			return findExtraDataTags(data, pageData, options, lastModDate, indexExtractDataFromPageTags + 1);
+			return findExtraDataTags(textContent, pageData, options, lastModDate, indexExtractDataFromPageTags + 1);
 		} else {
 			options.extractDataFromPage = false;
 			return process(pageData, options, lastModDate);
