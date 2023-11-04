@@ -17018,8 +17018,10 @@ async function evalTemplate(template = "", options, util, content, doc, dontRepl
 			const fn = functions[name];
 			if (fn) {
 				argument = argument.replace(/\\\\(.)/g, "$1");
-				optionalArguments = optionalArguments.map(argument => argument.replace(/\\\\(.)/g, "$1"));
-				if (argument != undefined && argument != null && argument != "") {
+				optionalArguments = optionalArguments
+					.map(argument => argument.replace(/\\\\(.)/g, "$1"))
+					.filter(argument => argument != undefined && argument != null && argument != "");
+				if ((argument != undefined && argument != null && argument != "") || optionalArguments.length > 0) {
 					try {
 						return await getValue(() => fn(argument, ...optionalArguments), true, options.filenameReplacementCharacter, lengthData);
 					} catch (error) {
