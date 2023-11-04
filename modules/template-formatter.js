@@ -16880,6 +16880,14 @@ async function formatFilename(content, doc, options, util) {
 		filename = options.filenameMaxLengthUnit == "bytes" ? await truncateText(filename, options.filenameMaxLength - extension.length) : filename.substring(0, options.filenameMaxLength - extension.length);
 		filename = filename + "…" + extension;
 	}
+	filename = filename.split("/").forEach((part, index, parts) => {
+		if (part == "") {
+			parts[index] = "Unnamed folder";
+		}
+	});
+	if (filename.startsWith(".")) {
+		filename = "Unnamed page" + filename;
+	}
 	if (!filename) {
 		filename = "Unnamed page";
 	}
