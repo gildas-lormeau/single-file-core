@@ -16867,6 +16867,7 @@ export { formatFilename, evalTemplate };
 
 async function formatFilename(content, doc, options, util) {
 	let filename = (await evalTemplate(options.filenameTemplate, options, util, content, doc)) || "";
+	filename = filename.trim();
 	if (options.replaceEmojisInFilename) {
 		EMOJIS.forEach(emoji => (filename = replaceAll(filename, emoji, " _" + EMOJI_NAMES[emoji] + "_ ")));
 	}
