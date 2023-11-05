@@ -28,6 +28,7 @@ import { parse } from "./template-parser.js";
 // eslint-disable-next-line quotes
 const DEFAULT_REPLACED_CHARACTERS = ["~", "+", "\\\\", "?", "%", "*", ":", "|", '"', "<", ">", "\x00-\x1f", "\x7F"];
 const DEFAULT_REPLACEMENT_CHARACTER = "_";
+const REGEXP_ESCAPE = /([{}()^$&.*?/+|[\\\\]|\]|-)/g;
 
 const EMOJI_NAMES = {
 	"😀": "grinning-face",
@@ -16867,7 +16868,7 @@ export { formatFilename, evalTemplate };
 async function formatFilename(content, doc, options, util) {
 	let filename = (await evalTemplate(options.filenameTemplate, options, util, content, doc)) || "";
 	if (options.replaceEmojisInFilename) {
-		EMOJIS.forEach(emoji => (filename = filename.replaceAll(emoji, " _" + EMOJI_NAMES[emoji] + "_ ")));
+		EMOJIS.forEach(emoji => (filename = replaceAll(filename, emoji, " _" + EMOJI_NAMES[emoji] + "_ ")));
 	}
 	const replacementCharacter = options.filenameReplacementCharacter;
 	filename = getValidFilename(filename, options.filenameReplacedCharacters, replacementCharacter);
@@ -16970,7 +16971,7 @@ async function evalTemplate(template = "", options, util, content, doc, dontRepl
 		"lowercase": value => value.toLowerCase(),
 		"uppercase": value => value.toUpperCase(),
 		"capitalize": value => value.charAt(0).toUpperCase() + value.slice(1),
-		"replace": (value, searchValue, replaceValue) => searchValue && replaceValue ? value.replaceAll(searchValue, replaceValue) : value,
+		"replace": (value, searchValue, replaceValue) => searchValue && replaceValue ? replaceAll(value, searchValue, replaceValue) : value,
 		"trim": value => value.trim(),
 		"trim-left": value => value.trimLeft(),
 		"trim-right": value => value.trimRight(),
@@ -17012,10 +17013,10 @@ async function evalTemplate(template = "", options, util, content, doc, dontRepl
 			return element && element.getAttribute(attribute);
 		};
 	}
-	template = template.replaceAll("\\%", "\\\\%");
-	template = template.replaceAll("\\{", "\\\\{");
-	template = template.replaceAll("\\|", "\\\\|");
-	template = template.replaceAll("\\>", "\\\\>");
+	template = replaceAll(template, "\\%", "\\\\%");
+	template = replaceAll(template, "\\{", "\\\\{");
+	template = replaceAll(template, "\\|", "\\\\|");
+	template = replaceAll(template, "\\>", "\\\\>");
 	const result = (await parse(template, {
 		async callFunction(name, [argument, optionalArguments], lengthData) {
 			const fn = functions[name];
@@ -17047,10 +17048,10 @@ async function evalTemplate(template = "", options, util, content, doc, dontRepl
 		}
 	}));
 	let resultString = result.join("");
-	resultString = resultString.replaceAll("\\\\%", "%");
-	resultString = resultString.replaceAll("\\\\{", "{");
-	resultString = resultString.replaceAll("\\\\|", "|");
-	resultString = resultString.replaceAll("\\\\>", ">");
+	resultString = replaceAll(resultString, "\\\\%", "%");
+	resultString = replaceAll(resultString, "\\\\{", "{");
+	resultString = replaceAll(resultString, "\\\\|", "|");
+	resultString = replaceAll(resultString, "\\\\>", ">");
 	return resultString;
 
 	function addDateVariables(date, prefix = "") {
@@ -17074,6 +17075,15 @@ async function evalTemplate(template = "", options, util, content, doc, dontRepl
 		variables[prefix + "minutes-utc"] = { getter: () => String(date.getUTCMinutes()).padStart(2, "0") };
 		variables[prefix + "seconds-utc"] = { getter: () => String(date.getUTCSeconds()).padStart(2, "0") };
 		variables[prefix + "time-ms"] = { getter: () => String(date.getTime()) };
+	}
+}
+
+function replaceAll(string, search, replacement) {
+	if (typeof string.replaceAll == "function") {
+		return string.replaceAll(search, replacement);
+	} else {
+		const searchRegExp = new RegExp(search.replace(REGEXP_ESCAPE, "\\$1"), "g");
+		return string.replace(searchRegExp, replacement);
 	}
 }
 

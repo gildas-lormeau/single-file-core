@@ -70,6 +70,8 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 	const REGEXP_MATCH_INDEX = /index\.html$/;
 	const REGEXP_MATCH_FRAMES = /frames\//;
 	const CHARSET_UTF8 = ";charset=utf-8";
+	const REGEXP_ESCAPE = /([{}()^$&.*?/+|[\\\\]|\]|-)/g;
+
 	if (Array.isArray(content)) {
 		content = new Blob([new Uint8Array(content)]);
 	}
@@ -142,7 +144,7 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 							const position = textContent.indexOf(relativeFilename);
 							if (position != -1) {
 								parentResources.push(resourceFilename);
-								textContent = textContent.replaceAll(relativeFilename, content);
+								textContent = replaceAll(textContent, relativeFilename, content);
 							}
 						}
 					}
@@ -174,5 +176,14 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 			reader.onload = () => resolve(reader.result.replace(CHARSET_UTF8, ""));
 			reader.onerror = reject;
 		});
+	}
+
+	function replaceAll(string, search, replacement) {
+		if (typeof string.replaceAll == "function") {
+			return string.replaceAll(search, replacement);
+		} else {
+			const searchRegExp = new RegExp(search.replace(REGEXP_ESCAPE, "\\$1"), "g");
+			return string.replace(searchRegExp, replacement);
+		}
 	}
 }
