@@ -80,7 +80,7 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 	const zipReader = new zip.ZipReader(blobReader);
 	const entries = await zipReader.getEntries();
 	const options = { password };
-	let docContent, origDocContent, url, resources = [];
+	let docContent, origDocContent, url, resources = [], indexPages = [];
 	await Promise.all(entries.map(async entry => {
 		const { filename } = entry;
 		let dataWriter, content, textContent, mimeType;
@@ -119,10 +119,18 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 			}
 		}
 		const name = entry.filename.match(/^([0-9_]+\/)?(.*)$/)[2];
-		resources.push({ filename: entry.filename, name, url: entry.comment, content, mimeType, textContent, parentResources: [] });
+		const resourceInfo = { filename: entry.filename, name, url: entry.comment, content, mimeType, textContent, parentResources: [] };
+		if (filename.match(REGEXP_MATCH_INDEX)) {
+			indexPages.push(resourceInfo);
+		} else {
+			resources.push(resourceInfo);
+		}
 	}));
 	await zipReader.close();
-	resources = resources.sort((resourceLeft, resourceRight) => resourceRight.filename.length - resourceLeft.filename.length);
+	resources.sort(sortByFilenameLength);
+	indexPages.sort(sortByFilenameLength);
+	resources.sort((resourceLeft, resourceRight) => resourceRight.textContent ? -1 : resourceLeft.textContent ? 1 : 0);
+	resources = resources.concat(...indexPages);
 	for (const resource of resources) {
 		let { textContent, mimeType, filename } = resource;
 		if (textContent !== undefined) {
@@ -185,5 +193,9 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 			const searchRegExp = new RegExp(search.replace(REGEXP_ESCAPE, "\\$1"), "g");
 			return string.replace(searchRegExp, replacement);
 		}
+	}
+
+	function sortByFilenameLength(resourceLeft, resourceRight) {
+		return resourceRight.filename.length - resourceLeft.filename.length;
 	}
 }
