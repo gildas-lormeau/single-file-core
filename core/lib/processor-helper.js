@@ -91,7 +91,9 @@ function getProcessorHelperClass(utilInstance) {
 		}
 
 		replaceStylesheets(doc, stylesheets, options, resources) {
-			for (const [key, stylesheetInfo] of stylesheets) {
+			const entries = Array.from(stylesheets);
+			entries.reverse();
+			for (const [key, stylesheetInfo] of entries) {
 				if (key.urlNode) {
 					const name = "stylesheet_" + resources.stylesheets.size + ".css";
 					if (!isDataURL(stylesheetInfo.url) && options.saveOriginalURLs) {
@@ -100,10 +102,7 @@ function getProcessorHelperClass(utilInstance) {
 						key.urlNode.value = name;
 					}
 					resources.stylesheets.set(resources.stylesheets.size, { name, content: this.generateStylesheetContent(stylesheetInfo.stylesheet, options), url: stylesheetInfo.url });
-				}
-			}
-			for (const [key, stylesheetInfo] of stylesheets) {
-				if (key.element) {
+				} else {
 					if (key.element.tagName.toUpperCase() == "LINK") {
 						const linkElement = key.element;
 						const name = "stylesheet_" + resources.stylesheets.size + ".css";
