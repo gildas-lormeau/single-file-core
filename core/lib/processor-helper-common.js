@@ -443,10 +443,7 @@ class ProcessorHelperCommon {
 				const key = this.getFontKey(ruleData);
 				const fontInfo = fontsDetails.fonts.get(key);
 				if (fontInfo) {
-					const processed = await this.processFontFaceRule(ruleData, fontInfo, fonts, fontTests, stats);
-					if (processed) {
-						fontsDetails.fonts.delete(key);
-					}
+					await this.processFontFaceRule(ruleData, fontInfo, fonts, fontTests, stats);
 				} else {
 					removedRules.push(cssRule);
 				}

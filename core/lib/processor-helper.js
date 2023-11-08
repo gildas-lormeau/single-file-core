@@ -485,7 +485,6 @@ function getProcessorHelperClass(utilInstance) {
 				catch (error) {
 					// ignored
 				}
-				return true;
 			}
 		}
 	};
