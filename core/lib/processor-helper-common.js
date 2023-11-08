@@ -481,7 +481,11 @@ class ProcessorHelperCommon {
 				if (src) {
 					const fontSources = src.match(REGEXP_URL_FUNCTION);
 					if (fontSources) {
-						fontSources.forEach(source => fontInfo.unshift(source));
+						fontSources.forEach(source => {
+							if (!fontInfo.includes(source)) {
+								fontInfo.unshift(source);
+							}
+						});
 					}
 				}
 			}
