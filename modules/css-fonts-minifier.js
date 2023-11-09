@@ -181,8 +181,16 @@ function testUsedFont(ruleData, familyName, declaredFonts, filteredUsedFonts) {
 					fontInfo[2] = "normal";
 					return getUsedFontWeight(fontInfo, fontStyle, declaredFontsWeights);
 				});
+				test = testFontweight(fontWeight, usedFontWeights);
+				if (!test) {
+					usedFontWeights = optionalUsedFonts.map(fontInfo => {
+						fontInfo = Array.from(fontInfo);
+						fontInfo[2] = fontStyle = "normal";
+						return getUsedFontWeight(fontInfo, fontStyle, declaredFontsWeights);
+					});
+					test = testFontweight(fontWeight, usedFontWeights);
+				}
 			}
-			test = testFontweight(fontWeight, usedFontWeights);
 		} else {
 			test = true;
 		}
