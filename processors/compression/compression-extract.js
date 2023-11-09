@@ -127,10 +127,7 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 		}
 	}));
 	await zipReader.close();
-	resources.reverse();
-	resources.sort(sortByFilenameLength);
 	indexPages.sort(sortByFilenameLength);
-	resources.sort((resourceLeft, resourceRight) => resourceRight.textContent ? -1 : resourceLeft.textContent ? 1 : 0);
 	resources = resources.concat(...indexPages);
 	for (const resource of resources) {
 		let { textContent, mimeType, filename } = resource;
