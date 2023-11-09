@@ -84,6 +84,12 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 	await Promise.all(entries.map(async entry => {
 		const { filename } = entry;
 		let dataWriter, content, textContent, mimeType;
+		const resourceInfo = {};
+		if (filename.match(REGEXP_MATCH_INDEX)) {
+			indexPages.push(resourceInfo);
+		} else {
+			resources.push(resourceInfo);
+		}
 		if (!options.password && entry.encrypted) {
 			options.password = prompt("Please enter the password to view the page");
 		}
@@ -119,12 +125,15 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 			}
 		}
 		const name = entry.filename.match(/^([0-9_]+\/)?(.*)$/)[2];
-		const resourceInfo = { filename: entry.filename, name, url: entry.comment, content, mimeType, textContent, parentResources: [] };
-		if (filename.match(REGEXP_MATCH_INDEX)) {
-			indexPages.push(resourceInfo);
-		} else {
-			resources.push(resourceInfo);
-		}
+		Object.assign(resourceInfo, {
+			filename: entry.filename,
+			name,
+			url: entry.comment,
+			content,
+			mimeType,
+			textContent,
+			parentResources: []
+		});
 	}));
 	await zipReader.close();
 	indexPages.sort(sortByFilenameLength);
