@@ -112,7 +112,7 @@ function process(doc, stylesheets, styles, options) {
 
 function getFontsInfo(cssRules, fontsInfo) {
 	cssRules.forEach(ruleData => {
-		if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports") && ruleData.block && ruleData.block.children) {
+		if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports" || ruleData.name == "layer") && ruleData.block && ruleData.block.children) {
 			getFontsInfo(ruleData.block.children, fontsInfo);
 		} else if (ruleData.type == "Rule") {
 			const fontFamilyNames = getFontFamilyNames(ruleData.block);
@@ -138,7 +138,7 @@ function filterUnusedFonts(cssRules, declaredFonts, unusedFonts, filteredUsedFon
 	const removedRules = [];
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		const ruleData = cssRule.data;
-		if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports") && ruleData.block && ruleData.block.children) {
+		if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports" || ruleData.name == "layer") && ruleData.block && ruleData.block.children) {
 			filterUnusedFonts(ruleData.block.children, declaredFonts, unusedFonts, filteredUsedFonts, docContent);
 		} else if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
 			const fontFamily = helper.normalizeFontFamily(getDeclarationValue(ruleData.block.children, "font-family"));
@@ -332,7 +332,7 @@ function findAscendingFontWeight(fontWeight, fontWeights) {
 function getRulesTextContent(doc, cssRules, workStylesheet, content) {
 	cssRules.forEach(ruleData => {
 		if (ruleData.block && ruleData.block.children && ruleData.prelude && ruleData.prelude.children) {
-			if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports")) {
+			if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports" || ruleData.name == "layer")) {
 				content = getRulesTextContent(doc, ruleData.block.children, workStylesheet, content);
 			} else if (ruleData.type == "Rule") {
 				content = getDeclarationsTextContent(ruleData.block.children, workStylesheet, content);
