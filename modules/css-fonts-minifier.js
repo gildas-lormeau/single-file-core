@@ -90,6 +90,9 @@ function process(doc, stylesheets, styles, options) {
 		unusedFonts = [];
 	} else {
 		filteredUsedFonts = new Map();
+		if (options.usedFonts) {
+			fontsInfo.used = fontsInfo.used.concat(options.usedFonts.map(fontInfo => [fontInfo[0]]));
+		}
 		fontsInfo.used.forEach(fontNames => fontNames.forEach(familyName => {
 			if (fontsInfo.declared.find(fontInfo => fontInfo.fontFamily == familyName)) {
 				const optionalData = options.usedFonts && options.usedFonts.filter(fontInfo => fontInfo[0] == familyName);
