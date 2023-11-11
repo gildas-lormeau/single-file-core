@@ -174,8 +174,8 @@ function testUsedFont(ruleData, familyName, declaredFonts, filteredUsedFonts) {
 			const fontWeight = helper.getFontWeight(getDeclarationValue(ruleData.block.children, "font-weight") || "400");
 			const declaredFontsWeights = declaredFonts
 				.filter(fontInfo => fontInfo.fontFamily == familyName && fontInfo.fontStyle == fontStyle)
-				.map(fontInfo => fontInfo.fontWeight)
-				.sort((weight1, weight2) => Number.parseInt(weight1, 10) - Number.parseInt(weight2, 10));
+				.map(fontInfo => fontInfo.fontWeight.split(" "))
+				.sort((weight1, weight2) => Number.parseInt(weight1[0], 10) - Number.parseInt(weight2[0], 10));
 			let usedFontWeights = optionalUsedFonts.map(fontInfo => getUsedFontWeight(fontInfo, fontStyle, declaredFontsWeights));
 			test = testFontweight(fontWeight, usedFontWeights);
 			if (!test) {
@@ -205,8 +205,8 @@ function testUsedFont(ruleData, familyName, declaredFonts, filteredUsedFonts) {
 
 function testFontweight(fontWeight, usedFontWeights) {
 	let test;
-	for (const value of fontWeight.split(/[ ,]/)) {
-		test = test || usedFontWeights.includes(helper.getFontWeight(helper.removeQuotes(value)));
+	for (const value of fontWeight.split(",")) {
+		test = test || usedFontWeights.includes(helper.getFontWeight(helper.removeQuotes(value.trim())));
 	}
 	return test;
 }
@@ -292,12 +292,12 @@ function parseFamilyNames(fontFamilyNameTokenData, fontFamilyNames) {
 
 function getUsedFontWeight(fontInfo, fontStyle, fontWeights) {
 	let foundWeight;
-	fontWeights = fontWeights.map(weight => String(Number.parseInt(weight, 10)));
+	fontWeights = fontWeights.map(weights => weights.map(value => String(Number.parseInt(value, 10))));
 	if (fontInfo[2] == fontStyle) {
 		let fontWeight = Number(fontInfo[1]);
 		if (fontWeights.length > 1) {
 			if (fontWeight >= 400 && fontWeight <= 500) {
-				foundWeight = fontWeights.find(weight => weight >= fontWeight && weight <= 500);
+				foundWeight = fontWeights.find(weights => weights[0] >= fontWeight && weights[weights.length - 1] <= 500);
 				if (!foundWeight) {
 					foundWeight = findDescendingFontWeight(fontWeight, fontWeights);
 				}
@@ -306,13 +306,13 @@ function getUsedFontWeight(fontInfo, fontStyle, fontWeights) {
 				}
 			}
 			if (fontWeight < 400) {
-				foundWeight = fontWeights.slice().reverse().find(weight => weight <= fontWeight);
+				foundWeight = fontWeights.slice().reverse().find(weights => weights[weights.length - 1] <= fontWeight);
 				if (!foundWeight) {
 					foundWeight = findAscendingFontWeight(fontWeight, fontWeights);
 				}
 			}
 			if (fontWeight > 500) {
-				foundWeight = fontWeights.find(weight => weight >= fontWeight);
+				foundWeight = fontWeights.find(weights => weights[0] >= fontWeight);
 				if (!foundWeight) {
 					foundWeight = findDescendingFontWeight(fontWeight, fontWeights);
 				}
@@ -321,15 +321,15 @@ function getUsedFontWeight(fontInfo, fontStyle, fontWeights) {
 			foundWeight = fontWeights[0];
 		}
 	}
-	return foundWeight;
+	return foundWeight ? foundWeight.join(" ") : undefined;
 }
 
 function findDescendingFontWeight(fontWeight, fontWeights) {
-	return fontWeights.slice().reverse().find(weight => weight < fontWeight);
+	return fontWeights.slice().reverse().find(weights => weights[weights.length - 1] < fontWeight);
 }
 
 function findAscendingFontWeight(fontWeight, fontWeights) {
-	return fontWeights.find(weight => weight > fontWeight);
+	return fontWeights.find(weights => weights[0] > fontWeight);
 }
 
 function getRulesTextContent(doc, cssRules, workStylesheet, content) {
