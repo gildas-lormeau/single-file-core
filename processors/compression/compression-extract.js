@@ -164,17 +164,17 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 						}
 					}
 				}));
-				if (filename.match(REGEXP_MATCH_INDEX) || filename.match(REGEXP_MATCH_FRAMES) || noBlobURL) {
-					resource.content = await getDataURI(textContent, mimeType);
-				} else {
-					resource.content = URL.createObjectURL(new Blob([textContent], { type: mimeType }));
-				}
 				resource.textContent = textContent;
 			}
 			if (filename.match(REGEXP_MATCH_INDEX)) {
 				if (shadowRootScriptURL) {
 					resource.textContent = textContent.replace(/<script data-template-shadow-root.*<\/script>/g, "<script data-template-shadow-root src=" + shadowRootScriptURL + "></" + "script>");
 				}
+			}
+			if (filename.match(REGEXP_MATCH_INDEX) || filename.match(REGEXP_MATCH_FRAMES) || noBlobURL) {
+				resource.content = await getDataURI(textContent, mimeType);
+			} else {
+				resource.content = URL.createObjectURL(new Blob([textContent], { type: mimeType }));
 			}
 			if (filename.match(REGEXP_MATCH_ROOT_INDEX)) {
 				docContent = textContent;
