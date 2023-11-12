@@ -837,7 +837,13 @@ class Processor {
 				const originalElement = templateElement.content.firstChild;
 				if (originalElement) {
 					if (originalElement.hasAttributes()) {
-						Array.from(originalElement.attributes).forEach(attribute => placeHolderElement.setAttribute(attribute.name, attribute.value));
+						Array.from(originalElement.attributes).forEach(attribute => {
+							try {
+								placeHolderElement.setAttribute(attribute.name, attribute.value);
+							} catch (error) {
+								// ignored
+							}
+						});
 					}
 					originalElement.childNodes.forEach(childNode => placeHolderElement.appendChild(childNode.cloneNode(true)));
 				}
