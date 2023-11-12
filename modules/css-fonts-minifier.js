@@ -60,12 +60,12 @@ function process(doc, stylesheets, styles, options) {
 		if (cssRules) {
 			stats.processed += cssRules.size;
 			stats.discarded += cssRules.size;
-			getFontsInfo(cssRules, fontsInfo);
+			getFontsInfo(cssRules, fontsInfo, options);
 			docContent = getRulesTextContent(doc, cssRules, workStyleElement, docContent);
 		}
 	});
 	styles.forEach(declarations => {
-		const fontFamilyNames = getFontFamilyNames(declarations);
+		const fontFamilyNames = getFontFamilyNames(declarations, options);
 		if (fontFamilyNames.length) {
 			fontsInfo.used.push(fontFamilyNames);
 		}
@@ -110,12 +110,12 @@ function process(doc, stylesheets, styles, options) {
 	return stats;
 }
 
-function getFontsInfo(cssRules, fontsInfo) {
+function getFontsInfo(cssRules, fontsInfo, options) {
 	cssRules.forEach(ruleData => {
 		if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports" || ruleData.name == "layer") && ruleData.block && ruleData.block.children) {
-			getFontsInfo(ruleData.block.children, fontsInfo);
+			getFontsInfo(ruleData.block.children, fontsInfo, options);
 		} else if (ruleData.type == "Rule") {
-			const fontFamilyNames = getFontFamilyNames(ruleData.block);
+			const fontFamilyNames = getFontFamilyNames(ruleData.block, options);
 			if (fontFamilyNames.length) {
 				fontsInfo.used.push(fontFamilyNames);
 			}
@@ -222,7 +222,7 @@ function getDeclarationValue(declarations, propertyName) {
 	}
 }
 
-function getFontFamilyNames(declarations) {
+function getFontFamilyNames(declarations, options) {
 	let fontFamilyName = declarations.children.filter(node => node.property == "font-family").tail;
 	let fontFamilyNames = [];
 	if (fontFamilyName) {
@@ -238,7 +238,13 @@ function getFontFamilyNames(declarations) {
 	const font = declarations.children.filter(node => node.property == "font").tail;
 	if (font && font.data && font.data.value) {
 		try {
-			const parsedFont = fontPropertyParser.parse(font.data.value);
+			let value = font.data.value;
+			let fontFamilyName = cssTree.generate(value);
+			const matchedVar = fontFamilyName.match(/^var\((--.*)\)$/);
+			if (matchedVar && matchedVar[1]) {
+				value = cssTree.parse(globalThis.getComputedStyle(options.doc.body).getPropertyValue(matchedVar[1]), { context: "value" });
+			}
+			const parsedFont = fontPropertyParser.parse(value);
 			parsedFont.family.forEach(familyName => fontFamilyNames.push(helper.normalizeFontFamily(familyName)));
 		} catch (error) {
 			// ignored				
