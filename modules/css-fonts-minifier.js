@@ -300,7 +300,7 @@ function getUsedFontWeight(fontInfo, fontStyle, fontWeights) {
 		let fontWeight = Number(fontInfo[1]);
 		if (fontWeights.length > 1) {
 			if (fontWeight >= 400 && fontWeight <= 500) {
-				foundWeight = fontWeights.find(weights => weights[0] >= fontWeight && weights[weights.length - 1] <= 500);
+				foundWeight = fontWeights.find(weights => weights[0] >= fontWeight && weights[0] <= 500);
 				if (!foundWeight) {
 					foundWeight = findDescendingFontWeight(fontWeight, fontWeights);
 				}
