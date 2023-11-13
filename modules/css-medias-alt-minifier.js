@@ -71,7 +71,7 @@ function processRules(cssRules, stats, removedRules = []) {
 function matchesMediaType(mediaText, mediaType) {
 	const foundMediaTypes = helper.flatten(mediaQueryParser.parseMediaList(mediaText).map(node => getMediaTypes(node, mediaType)));
 	return foundMediaTypes.find(mediaTypeInfo => (!mediaTypeInfo.not && (mediaTypeInfo.value == mediaType || mediaTypeInfo.value == MEDIA_ALL))
-		|| (mediaTypeInfo.not && (mediaTypeInfo.value == MEDIA_ALL || mediaTypeInfo.value != mediaType)));
+		|| (mediaTypeInfo.not && (mediaTypeInfo.value == MEDIA_ALL || mediaTypeInfo.value == MEDIA_SCREEN || mediaTypeInfo.value != mediaType)));
 }
 
 function getMediaTypes(parentNode, mediaType, mediaTypes = []) {
