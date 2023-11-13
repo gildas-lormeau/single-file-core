@@ -39,7 +39,7 @@ export {
 function process(stylesheets) {
 	const stats = { processed: 0, discarded: 0 };
 	stylesheets.forEach((stylesheetInfo, key) => {
-		if (matchesMediaType(stylesheetInfo.mediaText || MEDIA_ALL, MEDIA_SCREEN) && stylesheetInfo.stylesheet.children) {
+		if (matchesMediaType(stylesheetInfo.mediaText || MEDIA_ALL) && stylesheetInfo.stylesheet.children) {
 			const removedRules = processRules(stylesheetInfo.stylesheet.children, stats);
 			removedRules.forEach(({ cssRules, cssRule }) => cssRules.remove(cssRule));
 		} else {
@@ -57,7 +57,7 @@ function processRules(cssRules, stats, removedRules = []) {
 		const ruleData = cssRule.data;
 		if (ruleData.type == "Atrule" && ruleData.name == "media" && ruleData.block && ruleData.block.children && ruleData.prelude && ruleData.prelude.children) {
 			stats.processed++;
-			if (matchesMediaType(cssTree.generate(ruleData.prelude), MEDIA_SCREEN)) {
+			if (matchesMediaType(cssTree.generate(ruleData.prelude))) {
 				processRules(ruleData.block.children, stats, removedRules);
 			} else {
 				removedRules.push({ cssRules, cssRule });
@@ -68,10 +68,10 @@ function processRules(cssRules, stats, removedRules = []) {
 	return removedRules;
 }
 
-function matchesMediaType(mediaText, mediaType) {
-	const foundMediaTypes = helper.flatten(mediaQueryParser.parseMediaList(mediaText).map(node => getMediaTypes(node, mediaType)));
-	return foundMediaTypes.find(mediaTypeInfo => (!mediaTypeInfo.not && (mediaTypeInfo.value == mediaType || mediaTypeInfo.value == MEDIA_ALL))
-		|| (mediaTypeInfo.not && (mediaTypeInfo.value == MEDIA_ALL || mediaTypeInfo.value == MEDIA_SCREEN || mediaTypeInfo.value != mediaType)));
+function matchesMediaType(mediaText) {
+	const foundMediaTypes = helper.flatten(mediaQueryParser.parseMediaList(mediaText).map(node => getMediaTypes(node, MEDIA_SCREEN)));
+	return foundMediaTypes.find(mediaTypeInfo => (!mediaTypeInfo.not && (mediaTypeInfo.value == MEDIA_SCREEN || mediaTypeInfo.value == MEDIA_ALL))
+		|| (mediaTypeInfo.not && (mediaTypeInfo.value == MEDIA_ALL || mediaTypeInfo.value == MEDIA_SCREEN)));
 }
 
 function getMediaTypes(parentNode, mediaType, mediaTypes = []) {
