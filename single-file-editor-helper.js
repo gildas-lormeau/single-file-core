@@ -22,6 +22,7 @@
  */
 
 import * as serializer from "./modules/html-serializer.js";
+import { formatFilename } from "./modules/template-formatter.js";
 import * as infobar from "./core/infobar.js";
 import { getInstance } from "./core/util.js";
 import * as zip from "./vendor/zip/zip.js";
@@ -48,6 +49,7 @@ const helper = {
 	zip,
 	extract,
 	display,
+	formatFilename,
 	INFOBAR_TAGNAME: infobar.INFOBAR_TAGNAME
 };
 

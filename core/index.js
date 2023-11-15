@@ -102,6 +102,7 @@ const RESOLVE_URLS_STAGE = 0;
 const REPLACE_DATA_STAGE = 1;
 const REPLACE_DOCS_STAGE = 2;
 const POST_PROCESS_STAGE = 3;
+const FINALIZE_STAGE = 4;
 const STAGES = [{
 	sequential: [
 		{ action: "preProcessPage" },
@@ -163,6 +164,11 @@ const STAGES = [{
 	parallel: [
 		{ option: "enableMaff", action: "insertMAFFMetaData" },
 		{ action: "setDocInfo" }
+	]
+}, {
+	sequential: [
+		{ action: "loadOptionsFromPage" },
+		{ option: "saveOptionsIntoPage", action: "saveOptionsIntoPage" },
 	]
 }];
 
@@ -247,6 +253,7 @@ class Runner {
 		this.options.win = null;
 		await this.executeStage(REPLACE_DOCS_STAGE);
 		await this.executeStage(POST_PROCESS_STAGE);
+		await this.executeStage(FINALIZE_STAGE);
 		this.processor.finalize();
 	}
 
@@ -410,6 +417,7 @@ class BatchRequest {
 // ---------
 const SHADOWROOT_ATTRIBUTE_NAME = "shadowrootmode";
 const SCRIPT_TEMPLATE_SHADOW_ROOT = "data-template-shadow-root";
+const SCRIPT_OPTIONS = "data-single-file-options";
 const UTF8_CHARSET = "utf-8";
 
 class Processor {
@@ -632,6 +640,44 @@ class Processor {
 		}
 	}
 
+	loadOptionsFromPage() {
+		const optionsElement = this.doc.body.querySelector("script[type=\"application/json\"][" + SCRIPT_OPTIONS + "]");
+		if (optionsElement) {
+			const options = JSON.parse(optionsElement.textContent);
+			Object.keys(options).forEach(option => this.options[option] = options[option]);
+			this.options.saveDate = new Date(this.options.saveDate);
+			this.options.visitDate = new Date(this.options.visitDate);
+		}
+	}
+
+	saveOptionsIntoPage() {
+		const optionsElement = this.doc.createElement("script");
+		optionsElement.type = "application/json";
+		optionsElement.setAttribute(SCRIPT_OPTIONS, "");
+		optionsElement.textContent = JSON.stringify({
+			saveUrl: this.options.url,
+			saveDate: this.options.saveDate.getTime(),
+			visitDate: this.options.visitDate.getTime(),
+			filenameTemplate: this.options.filenameTemplate,
+			filenameReplacedCharacters: this.options.filenameReplacedCharacters,
+			filenameReplacementCharacter: this.options.filenameReplacementCharacter,
+			filenameMaxLengthUnit: this.options.filenameMaxLengthUnit,
+			filenameMaxLength: this.options.filenameMaxLength,
+			replaceEmojisInFilename: this.options.replaceEmojisInFilename,
+			compressContent: this.options.compressContent,
+			selfExtractingArchive: this.options.selfExtractingArchive,
+			extractDataFromPage: this.options.extractDataFromPage,
+			referrer: this.options.referrer,
+			title: this.options.title,
+			info: this.options.info
+		});
+		if (this.doc.body.firstChild) {
+			this.doc.body.insertBefore(optionsElement, this.doc.body.firstChild);
+		} else {
+			this.doc.body.appendChild(optionsElement);
+		}
+	}
+
 	replaceStyleContents() {
 		if (this.options.stylesheets) {
 			this.doc.querySelectorAll("style").forEach((styleElement, styleIndex) => {
@@ -781,7 +827,7 @@ class Processor {
 				element.setAttribute("src", DISABLED_SCRIPT);
 			}
 		});
-		const scriptElements = this.doc.querySelectorAll("script:not([type=\"application/ld+json\"]):not([" + SCRIPT_TEMPLATE_SHADOW_ROOT + "])");
+		const scriptElements = this.doc.querySelectorAll("script:not([type=\"application/ld+json\"]):not([" + SCRIPT_TEMPLATE_SHADOW_ROOT + "]):not([" + SCRIPT_OPTIONS + "])");
 		this.stats.set("discarded", "scripts", scriptElements.length);
 		this.stats.set("processed", "scripts", scriptElements.length);
 		scriptElements.forEach(element => element.remove());
