@@ -72,9 +72,7 @@ const DOMParser = globalThis.DOMParser;
 const Blob = globalThis.Blob;
 const FileReader = globalThis.FileReader;
 const fetch = (url, options) => globalThis.fetch(url, options);
-const crypto = globalThis.crypto;
 const TextDecoder = globalThis.TextDecoder;
-const TextEncoder = globalThis.TextEncoder;
 
 export {
 	getInstance
@@ -147,21 +145,16 @@ function getInstance(utilOptions) {
 			}
 		},
 		async digest(algo, text) {
-			try {
-				const hash = await crypto.subtle.digest(algo, new TextEncoder("utf-8").encode(text));
-				return hex(hash);
-			} catch (error) {
-				return "";
-			}
+			return helper.digest(algo, text);
 		},
 		getContentSize(content) {
-			return new Blob([content]).size;
+			return helper.getContentSize(content);
 		},
 		formatFilename(content, doc, options) {
-			return modules.templateFormatter.formatFilename(content, doc, options, this);
+			return modules.templateFormatter.formatFilename(content, doc, options);
 		},
 		async evalTemplate(template, options, content, doc, dontReplaceSlash) {
-			return modules.templateFormatter.evalTemplate(template, options, this, content, doc, dontReplaceSlash);
+			return modules.templateFormatter.evalTemplate(template, options, content, doc, dontReplaceSlash);
 		},
 		minifyHTML(doc, options) {
 			return modules.htmlMinifier.process(doc, options);
@@ -482,20 +475,6 @@ function guessMIMEType(expectedType, buffer, asBinary) {
 			return patternMatch;
 		}
 	}
-}
-
-// https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/digest
-function hex(buffer) {
-	const hexCodes = [];
-	const view = new DataView(buffer);
-	for (let i = 0; i < view.byteLength; i += 4) {
-		const value = view.getUint32(i);
-		const stringValue = value.toString(16);
-		const padding = "00000000";
-		const paddedValue = (padding + stringValue).slice(-padding.length);
-		hexCodes.push(paddedValue);
-	}
-	return hexCodes.join("");
 }
 
 function getDoctypeString(doc) {
