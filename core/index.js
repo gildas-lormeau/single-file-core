@@ -1206,6 +1206,7 @@ class Processor {
 			options.insertMetaNoIndex = false;
 			options.saveFavicon = false;
 			options.includeInfobar = false;
+			options.saveFilenameTemplateData = false;
 			options.url = frameData.baseURI;
 			options.windowId = frameWindowId;
 			if (frameData.content) {
