@@ -75,7 +75,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 		extraDataOffset = await prependHTMLData(pageData, zipDataWriter, script, options);
 	}
 	const zipWriter = new ZipWriter(zipDataWriter, { bufferedWrite: true, keepOrder: false, lastModDate });
-	let startOffset = zipDataWriter.offset;
+	const startOffset = zipDataWriter.offset;
 	pageData.url = options.url;
 	pageData.archiveTime = (new Date()).toISOString();
 	await addPageResources(zipWriter, pageData, { password: options.password }, options.createRootDirectory ? String(Date.now()) + "_" + (options.tabId || 0) + "/" : "", options.url);
@@ -114,8 +114,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 		if (options.extractDataFromPage) {
 			const payload = await Promise.all([
 				arrayToBase64(insertionsCRLF),
-				arrayToBase64(substitutionsLF),
-				arrayToBase64([startOffset])
+				arrayToBase64(substitutionsLF)
 			]);
 			extraData = "<sfz-extra-data>" + payload.join(",") + "</sfz-extra-data>";
 			if (options.preventAppendedData || extraData.length > 65535 - endTags.length) {
@@ -349,13 +348,12 @@ async function getContent() {
 				const charCode = textContent.charCodeAt(index);
 				zipData.push(charCode > 255 ? characterMap.get(charCode) : charCode);
 			}
-			const [insertionsCRLFData, substitutionsLFData, startOffsetData] = zipDataElement.textContent.split(",");
+			const [insertionsCRLFData, substitutionsLFData] = zipDataElement.textContent.split(",");
 			const insertionsCRLF = await base64ToUint32Array(insertionsCRLFData);
 			const substitutionsLF = await base64ToUint32Array(substitutionsLFData);
-			const [startOffset] = await base64ToUint32Array(startOffsetData);
 			insertionsCRLF.forEach(index => zipData.splice(index, 1, 13, 10));
 			substitutionsLF.forEach(index => zipData[index] = 13);
-			return new Blob([new Uint8Array(startOffset), new Uint8Array(zipData)], { type: "application/octet-stream" });
+			return new Blob([new Uint8Array(zipData)], { type: "application/octet-stream" });
 		}
 		throw new Error("Extra zip data data not found");
 	}
