@@ -1036,15 +1036,25 @@ class Processor {
 		this.stats.set("discarded", "hidden elements", removedElements.length);
 		this.stats.set("processed", "hidden elements", removedElements.length);
 		if (hiddenElements.length) {
-			const styleElement = this.doc.createElement("style");
-			styleElement.textContent = ".sf-hidden{display:none!important;}";
-			this.doc.head.appendChild(styleElement);
+			const className = "sf-hidden";
+			const stylesheetContent = "." + className + "{display:none!important}";
+			let foundStylesheet = false;
+			this.doc.querySelectorAll("style").forEach(styleElement => {
+				if (styleElement.textContent == stylesheetContent) {
+					foundStylesheet = true;
+				}
+			});
+			if (!foundStylesheet) {
+				const styleElement = this.doc.createElement("style");
+				styleElement.textContent = stylesheetContent;
+				this.doc.head.appendChild(styleElement);
+			}
 			hiddenElements.forEach(element => {
 				if (element.style.getPropertyValue("display") != "none") {
 					if (element.style.getPropertyPriority("display") == "important") {
 						element.style.setProperty("display", "none", "important");
-					} else {
-						element.classList.add("sf-hidden");
+					} else if (!element.classList.contains(className)) {
+						element.classList.add(className);
 					}
 				}
 			});
