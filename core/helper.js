@@ -244,7 +244,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 			}
 			getResourcesInfo(win, doc, element, options, data, elementHidden, computedStyle);
 			const shadowRoot = !((element instanceof win.SVGElement) || (element instanceof globalThis.SVGElement)) && getShadowRoot(element);
-			if (shadowRoot && !element.classList.contains(SINGLE_FILE_UI_ELEMENT_CLASS)) {
+			if (shadowRoot && !element.classList.contains(SINGLE_FILE_UI_ELEMENT_CLASS) && element.tagName.toLowerCase() != INFOBAR_TAGNAME) {
 				const shadowRootInfo = {};
 				element.setAttribute(SHADOW_ROOT_ATTRIBUTE_NAME, data.shadowRoots.length);
 				data.markedElements.push(element);
