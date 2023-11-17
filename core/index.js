@@ -651,6 +651,10 @@ class Processor {
 	}
 
 	saveFilenameTemplateData() {
+		const existingScript = this.doc.querySelector("script[" + SCRIPT_OPTIONS + "][type=\"application/json\"]");
+		if (existingScript) {
+			existingScript.remove();
+		}
 		const optionsElement = this.doc.createElement("script");
 		optionsElement.type = "application/json";
 		optionsElement.setAttribute(SCRIPT_OPTIONS, "");
