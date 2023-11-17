@@ -77,9 +77,9 @@ function getProcessorHelperClass(utilInstance) {
 				if (element.tagName.toUpperCase() == "LINK") {
 					await this.resolveLinkStylesheetURLs(stylesheetInfo, element, element.href, baseURI, options, workStyleElement, resources, stylesheets);
 				} else {
-					stylesheets.set({ element }, stylesheetInfo);
 					stylesheetInfo.stylesheet = cssTree.parse(element.textContent, { context: "stylesheet", parseCustomProperty: true });
 					await this.resolveImportURLs(stylesheetInfo, baseURI, options, workStyleElement, resources, stylesheets);
+					stylesheets.set({ element }, stylesheetInfo);
 				}
 			} else {
 				if (element.tagName.toUpperCase() == "LINK") {
@@ -92,7 +92,6 @@ function getProcessorHelperClass(utilInstance) {
 
 		replaceStylesheets(doc, stylesheets, options, resources) {
 			const entries = Array.from(stylesheets);
-			entries.reverse();
 			for (const [key, stylesheetInfo] of entries) {
 				if (key.urlNode) {
 					const name = "stylesheet_" + resources.stylesheets.size + ".css";
@@ -149,7 +148,6 @@ function getProcessorHelperClass(utilInstance) {
 									scoped,
 									mediaText
 								};
-								stylesheets.set({ urlNode }, stylesheetInfo);
 								const content = await this.getStylesheetContent(resourceURL, options);
 								stylesheetInfo.url = resourceURL = content.resourceURL;
 								const existingStylesheet = Array.from(stylesheets).find(([, stylesheetInfo]) => stylesheetInfo.resourceURL == resourceURL);
@@ -159,6 +157,7 @@ function getProcessorHelperClass(utilInstance) {
 									content.data = getUpdatedResourceContent(resourceURL, content, options);
 									stylesheetInfo.stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
 									await this.resolveImportURLs(stylesheetInfo, resourceURL, options, workStylesheet, resources, stylesheets);
+									stylesheets.set({ urlNode }, stylesheetInfo);
 								}
 							}
 						}
@@ -178,7 +177,6 @@ function getProcessorHelperClass(utilInstance) {
 						mediaText: stylesheetInfo.mediaText
 					});
 				} else {
-					stylesheets.set({ element }, stylesheetInfo);
 					const content = await util.getContent(resourceURL, {
 						maxResourceSize: options.maxResourceSize,
 						maxResourceSizeEnabled: options.maxResourceSizeEnabled,
@@ -207,6 +205,7 @@ function getProcessorHelperClass(utilInstance) {
 						content.data = getUpdatedResourceContent(content.resourceURL, content, options);
 						stylesheetInfo.stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
 						await this.resolveImportURLs(stylesheetInfo, resourceURL, options, workStylesheet, resources, stylesheets);
+						stylesheets.set({ element }, stylesheetInfo);
 					}
 				}
 			}
