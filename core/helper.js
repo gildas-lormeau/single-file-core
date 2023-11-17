@@ -61,6 +61,7 @@ const INVALID_ELEMENT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "invalid-e
 const ASYNC_SCRIPT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "async-script";
 const FLOW_ELEMENTS_SELECTOR = "*:not(base):not(link):not(meta):not(noscript):not(script):not(style):not(template):not(title)";
 const KEPT_TAG_NAMES = ["NOSCRIPT", "DISABLED-NOSCRIPT", "META", "LINK", "STYLE", "TITLE", "TEMPLATE", "SOURCE", "OBJECT", "SCRIPT", "HEAD", "BODY"];
+const IGNORED_TAG_NAMES = ["SCRIPT", "NOSCRIPT", "META", "LINK", "TEMPLATE"];
 const REGEXP_SIMPLE_QUOTES_STRING = /^'(.*?)'$/;
 const REGEXP_DOUBLE_QUOTES_STRING = /^"(.*?)"$/;
 const FONT_WEIGHTS = {
@@ -219,7 +220,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 						elementKept = ((ascendantHidden || element.closest("html > head")) && KEPT_TAG_NAMES.includes(element.tagName.toUpperCase())) || element.closest("details");
 						if (!elementKept) {
 							elementHidden = ascendantHidden || testHiddenElement(element, computedStyle);
-							if (elementHidden) {
+							if (elementHidden && !IGNORED_TAG_NAMES.includes(element.tagName.toUpperCase())) {
 								element.setAttribute(HIDDEN_CONTENT_ATTRIBUTE_NAME, "");
 								data.markedElements.push(element);
 							}
