@@ -651,34 +651,33 @@ class Processor {
 	}
 
 	saveFilenameTemplateData() {
-		const existingScript = this.doc.querySelector("script[" + SCRIPT_OPTIONS + "][type=\"application/json\"]");
-		if (existingScript) {
-			existingScript.remove();
-		}
-		const optionsElement = this.doc.createElement("script");
-		optionsElement.type = "application/json";
-		optionsElement.setAttribute(SCRIPT_OPTIONS, "");
-		optionsElement.textContent = JSON.stringify({
-			saveUrl: this.options.url,
-			saveDate: this.options.saveDate.getTime(),
-			visitDate: this.options.visitDate.getTime(),
-			filenameTemplate: this.options.filenameTemplate,
-			filenameReplacedCharacters: this.options.filenameReplacedCharacters,
-			filenameReplacementCharacter: this.options.filenameReplacementCharacter,
-			filenameMaxLengthUnit: this.options.filenameMaxLengthUnit,
-			filenameMaxLength: this.options.filenameMaxLength,
-			replaceEmojisInFilename: this.options.replaceEmojisInFilename,
-			compressContent: this.options.compressContent,
-			selfExtractingArchive: this.options.selfExtractingArchive,
-			extractDataFromPage: this.options.extractDataFromPage,
-			referrer: this.options.referrer,
-			title: this.options.title,
-			info: this.options.info
-		});
-		if (this.doc.body.firstChild) {
-			this.doc.body.insertBefore(optionsElement, this.doc.body.firstChild);
-		} else {
-			this.doc.body.appendChild(optionsElement);
+		const optionsElement = this.doc.querySelector("script[" + SCRIPT_OPTIONS + "][type=\"application/json\"]");
+		if (!optionsElement) {
+			const optionsElement = this.doc.createElement("script");
+			optionsElement.type = "application/json";
+			optionsElement.setAttribute(SCRIPT_OPTIONS, "");
+			optionsElement.textContent = JSON.stringify({
+				saveUrl: this.options.url,
+				saveDate: this.options.saveDate.getTime(),
+				visitDate: this.options.visitDate.getTime(),
+				filenameTemplate: this.options.filenameTemplate,
+				filenameReplacedCharacters: this.options.filenameReplacedCharacters,
+				filenameReplacementCharacter: this.options.filenameReplacementCharacter,
+				filenameMaxLengthUnit: this.options.filenameMaxLengthUnit,
+				filenameMaxLength: this.options.filenameMaxLength,
+				replaceEmojisInFilename: this.options.replaceEmojisInFilename,
+				compressContent: this.options.compressContent,
+				selfExtractingArchive: this.options.selfExtractingArchive,
+				extractDataFromPage: this.options.extractDataFromPage,
+				referrer: this.options.referrer,
+				title: this.options.title,
+				info: this.options.info
+			});
+			if (this.doc.body.firstChild) {
+				this.doc.body.insertBefore(optionsElement, this.doc.body.firstChild);
+			} else {
+				this.doc.body.appendChild(optionsElement);
+			}
 		}
 	}
 
