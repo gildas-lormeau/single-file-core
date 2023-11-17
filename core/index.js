@@ -503,7 +503,7 @@ class Processor {
 				const info = this.doc.documentElement.firstChild.textContent.split("\n");
 				try {
 					const [, , url, saveDate] = info;
-					infobarURL = url.split("url: ")[1];
+					infobarURL = url.split("url: ")[1].trim();
 					infobarSaveDate = saveDate.split("saved date: ")[1];
 					firstComment.remove();
 				} catch (error) {
