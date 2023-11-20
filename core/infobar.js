@@ -154,7 +154,8 @@ function appendInfobar(doc, options, useShadowRoot) {
 			infoData = options.saveDate;
 		}
 		infoData = infoData || "No info";
-		const infobarElement = createElement(doc, INFOBAR_TAGNAME, doc.body);
+		const parentElement = doc.body.tagName == "BODY" ? doc.body : doc.documentElement;
+		const infobarElement = createElement(doc, INFOBAR_TAGNAME, parentElement);
 		let infobarContainer;
 		if (useShadowRoot) {
 			infobarContainer = infobarElement.attachShadow({ mode: "open" });
@@ -210,7 +211,6 @@ function appendInfobar(doc, options, useShadowRoot) {
 			shadowRootContent.appendChild(scriptElement);
 			infobarContainer.innerHTML = shadowRootContent.outerHTML;
 		}
-		doc.body.appendChild(infobarElement);
 	}
 }
 
