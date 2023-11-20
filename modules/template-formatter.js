@@ -16900,8 +16900,9 @@ async function evalTemplate(template = "", options, content, doc, dontReplaceSla
 	const dontReplaceSlashIfUndefined = dontReplaceSlash === undefined ? true : dontReplaceSlash;
 	const urlSuffix = PUBLIC_SUFFIX_LIST.find(urlTopLevelDomainName => url.hostname.endsWith("." + urlTopLevelDomainName) && urlTopLevelDomainName);
 	const urlDomainName = urlSuffix ? url.hostname.substring(0, url.hostname.length - urlSuffix.length - 1) : url.hostname;
-	let urlSubDomains = urlDomainName.substring(0, urlDomainName.lastIndexOf("."));
-	const urlDomain = urlDomainName.substring(urlSubDomains.length + 1);
+	const indexLastDotCharacter = urlDomainName.lastIndexOf(".");
+	let urlSubDomains = urlDomainName.substring(0, indexLastDotCharacter == -1 ? 0 : indexLastDotCharacter);
+	const urlDomain = urlDomainName.substring(urlSubDomains.length ? urlSubDomains.length + 1 : 0);
 	const urlRoot = urlDomain + "." + urlSuffix;
 	if (urlSubDomains.startsWith("www.")) {
 		urlSubDomains = urlSubDomains.substring(4);
