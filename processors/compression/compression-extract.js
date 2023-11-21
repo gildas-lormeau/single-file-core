@@ -62,7 +62,8 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 		"ttf": "font/ttf",
 		"woff": "font/woff",
 		"woff2": "font/woff2",
-		"eot": "application/vnd.ms-fontobject"
+		"eot": "application/vnd.ms-fontobject",
+		"pdf": "application/pdf"
 	};
 	const REGEXP_MATCH_STYLESHEET = /stylesheet_[0-9]+\.css/;
 	const REGEXP_MATCH_SCRIPT = /scripts\/[0-9]+\.js/;
