@@ -280,8 +280,9 @@ function getProcessorHelperClass(utilInstance) {
 									// ignored
 								}
 								if (testValidURL(resourceURL)) {
+									const declaredContentType = ["OBJECT", "EMBED"].includes(resourceElement.tagName.toUpperCase()) ? resourceElement.getAttribute("type") : "";
 									let { content, indexResource, extension, contentType } = await batchRequest.addURL(resourceURL,
-										{ asBinary: true, expectedType });
+										{ asBinary: true, expectedType, contentType: declaredContentType });
 									if (originURL) {
 										if (this.testEmptyResource(content)) {
 											try {
@@ -294,6 +295,7 @@ function getProcessorHelperClass(utilInstance) {
 												content = (await util.getContent(resourceURL, {
 													asBinary: true,
 													expectedType,
+													contentType: declaredContentType,
 													maxResourceSize: options.maxResourceSize,
 													maxResourceSizeEnabled: options.maxResourceSizeEnabled,
 													frameId: options.windowId,

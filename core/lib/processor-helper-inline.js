@@ -305,9 +305,11 @@ function getProcessorHelperClass(utilInstance) {
 									// ignored
 								}
 								if (testValidURL(resourceURL)) {
+									const declaredContentType = ["OBJECT", "EMBED"].includes(resourceElement.tagName.toUpperCase()) ? resourceElement.getAttribute("type") : "";
+									const groupDuplicates = options.groupDuplicateImages && resourceElement.tagName.toUpperCase() == "IMG" && attributeName == "src";
 									let { content, indexResource, duplicate } = await batchRequest.addURL(
 										resourceURL,
-										{ asBinary: true, expectedType, groupDuplicates: options.groupDuplicateImages && resourceElement.tagName.toUpperCase() == "IMG" && attributeName == "src" });
+										{ asBinary: true, expectedType, contentType: declaredContentType, groupDuplicates });
 									if (originURL) {
 										if (this.testEmptyResource(content)) {
 											try {
@@ -321,6 +323,7 @@ function getProcessorHelperClass(utilInstance) {
 													asBinary: true,
 													inline: true,
 													expectedType,
+													contentType: declaredContentType,
 													maxResourceSize: options.maxResourceSize,
 													maxResourceSizeEnabled: options.maxResourceSizeEnabled,
 													frameId: options.windowId,

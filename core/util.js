@@ -286,7 +286,10 @@ function getInstance(utilOptions) {
 			// ignored
 		}
 		if (!contentType || (contentType == CONTENT_TYPE_OCTET_STREAM && options.asBinary)) {
-			contentType = guessMIMEType(options.expectedType, buffer, options.asBinary);
+			contentType = guessMIMEType(options.expectedType, buffer);
+			if (!contentType) {
+				contentType = options.contentType ? options.contentType : options.asBinary ? CONTENT_TYPE_OCTET_STREAM : "";
+			}
 		}
 		if (!charset && options.charset) {
 			charset = options.charset;
@@ -366,7 +369,7 @@ async function getFetchResponse(resourceURL, options, data, charset, contentType
 	return { data, resourceURL, charset, contentType };
 }
 
-function guessMIMEType(expectedType, buffer, asBinary) {
+function guessMIMEType(expectedType, buffer) {
 	if (expectedType == "image") {
 		if (compareBytes([255, 255, 255, 255], [0, 0, 1, 0])) {
 			return "image/x-icon";
@@ -463,7 +466,6 @@ function guessMIMEType(expectedType, buffer, asBinary) {
 			return "audio/3gpp";
 		}
 	}
-	return asBinary ? CONTENT_TYPE_OCTET_STREAM : "";
 
 	function compareBytes(mask, pattern) {
 		let patternMatch = true, index = 0;

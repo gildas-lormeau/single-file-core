@@ -336,9 +336,9 @@ class BatchRequest {
 		this.duplicates = new Map();
 	}
 
-	addURL(resourceURL, { asBinary, expectedType, groupDuplicates, baseURI, blockMixedContent } = {}) {
+	addURL(resourceURL, { asBinary, expectedType, groupDuplicates, baseURI, blockMixedContent, contentType } = {}) {
 		return new Promise((resolve, reject) => {
-			const requestKey = JSON.stringify([resourceURL, asBinary, expectedType, baseURI, blockMixedContent]);
+			const requestKey = JSON.stringify([resourceURL, asBinary, expectedType, baseURI, blockMixedContent, contentType]);
 			let resourceRequests = this.requests.get(requestKey);
 			if (!resourceRequests) {
 				resourceRequests = [];
@@ -365,7 +365,7 @@ class BatchRequest {
 		const resourceURLs = [...this.requests.keys()];
 		let indexResource = 0;
 		return Promise.all(resourceURLs.map(async requestKey => {
-			const [resourceURL, asBinary, expectedType, baseURI, blockMixedContent] = JSON.parse(requestKey);
+			const [resourceURL, asBinary, expectedType, baseURI, blockMixedContent, contentType] = JSON.parse(requestKey);
 			const resourceRequests = this.requests.get(requestKey);
 			try {
 				const currentIndexResource = indexResource;
@@ -374,6 +374,7 @@ class BatchRequest {
 					asBinary,
 					inline: !options.compressContent,
 					expectedType,
+					contentType,
 					maxResourceSize: options.maxResourceSize,
 					maxResourceSizeEnabled: options.maxResourceSizeEnabled,
 					frameId: options.windowId,
