@@ -154,7 +154,7 @@ function getProcessorHelperClass(utilInstance) {
 								if (existingStylesheet) {
 									stylesheets.set({ urlNode }, { url: resourceURL, stylesheet: existingStylesheet[1].stylesheet, scoped });
 								} else {
-									content.data = getUpdatedResourceContent(resourceURL, content, options);
+									content.data = getUpdatedResourceContent(resourceURL, options) || content.data;
 									stylesheetInfo.stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
 									await this.resolveImportURLs(stylesheetInfo, resourceURL, options, workStylesheet, resources, stylesheets);
 									stylesheets.set({ urlNode }, stylesheetInfo);
@@ -202,7 +202,7 @@ function getProcessorHelperClass(utilInstance) {
 							mediaText: stylesheetInfo.mediaText
 						});
 					} else {
-						content.data = getUpdatedResourceContent(content.resourceURL, content, options);
+						content.data = getUpdatedResourceContent(content.resourceURL, options) || content.data;
 						stylesheetInfo.stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
 						await this.resolveImportURLs(stylesheetInfo, resourceURL, options, workStylesheet, resources, stylesheets);
 						stylesheets.set({ element }, stylesheetInfo);
@@ -378,8 +378,8 @@ function getProcessorHelperClass(utilInstance) {
 			};
 		}
 
-		async processScript(element, resourceURL, options, charset) {
-			const content = await util.getContent(resourceURL, {
+		async processScript(element, resourceURL, options, charset, batchRequest, resources) {
+			let { content, indexResource, extension, contentType } = await batchRequest.addURL(resourceURL, {
 				asBinary: true,
 				charset: charset != UTF8_CHARSET && charset,
 				maxResourceSize: options.maxResourceSize,
@@ -392,8 +392,10 @@ function getProcessorHelperClass(utilInstance) {
 				acceptHeaders: options.acceptHeaders,
 				networkTimeout: options.networkTimeout
 			});
-			content.data = getUpdatedResourceContent(resourceURL, content, options);
-			element.setAttribute("src", content.data);
+			content = getUpdatedResourceContent(resourceURL, options) || content;
+			const name = "scripts/" + indexResource + extension;
+			element.setAttribute("src", name);
+			resources.scripts.set(indexResource, { name, content, extension, contentType, url: resourceURL });
 		}
 
 		setMetaCSP(metaElement) {

@@ -21,6 +21,8 @@
  *   Source.
  */
 
+/* global globalThis */
+
 import {
 	normalizeFontFamily,
 	getFontWeight
@@ -59,6 +61,8 @@ const FONT_STRETCHES = {
 	"extra-expanded": "150%",
 	"ultra-expanded": "200%"
 };
+const Blob = globalThis.Blob;
+const FileReader = globalThis.FileReader;
 
 let util, cssTree;
 
@@ -74,7 +78,8 @@ export {
 	replaceOriginalURLs,
 	testIgnoredPath,
 	testValidPath,
-	testValidURL
+	testValidURL,
+	toDataURI
 };
 
 function getProcessorHelperCommonClass(utilInstance, cssTreeInstance) {
@@ -575,12 +580,10 @@ function processFontDetails(fontsDetails, fontResources) {
 	}
 }
 
-function getUpdatedResourceContent(resourceURL, content, options) {
+function getUpdatedResourceContent(resourceURL, options) {
 	if (options.rootDocument && options.updatedResources[resourceURL]) {
 		options.updatedResources[resourceURL].retrieved = true;
 		return options.updatedResources[resourceURL].content;
-	} else {
-		return content.data || "";
 	}
 }
 
@@ -652,4 +655,13 @@ function getURL(urlFunction) {
 
 function getFontStretch(stretch) {
 	return FONT_STRETCHES[stretch] || stretch;
+}
+
+function toDataURI(content, contentType, charset) {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result);
+		reader.onerror = () => reject(new Error(reader.error));
+		reader.readAsDataURL(new Blob([content], { type: (contentType || "") + (charset ? ";charset=" + charset : "") }));
+	});
 }

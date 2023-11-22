@@ -59,7 +59,8 @@ import {
 	replaceOriginalURLs,
 	testIgnoredPath,
 	testValidPath,
-	testValidURL
+	testValidURL,
+	toDataURI
 } from "./processor-helper-common.js";
 
 export {
@@ -152,7 +153,7 @@ function getProcessorHelperClass(utilInstance) {
 							options.inline = true;
 							const content = await this.getStylesheetContent(resourceURL, options);
 							resourceURL = content.resourceURL;
-							content.data = getUpdatedResourceContent(resourceURL, content, options);
+							content.data = getUpdatedResourceContent(resourceURL, options) || content.data;
 							if (content.data && content.data.match(/^<!doctype /i)) {
 								content.data = "";
 							}
@@ -200,13 +201,11 @@ function getProcessorHelperClass(utilInstance) {
 					return this.resolveLinkStylesheetURLs(resourceURL, baseURI, options, workStylesheet);
 				}
 				resourceURL = content.resourceURL;
-				content.data = getUpdatedResourceContent(content.resourceURL, content, options);
+				content.data = getUpdatedResourceContent(content.resourceURL, options) || content.data;
 				if (content.data && content.data.match(/^<!doctype /i)) {
 					content.data = "";
 				}
-
 				content.data = content.data.replace(/:defined/gi, "*");
-
 				let stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
 				const importFound = await this.resolveImportURLs(stylesheet, resourceURL, options, workStylesheet);
 				if (importFound) {
@@ -452,23 +451,28 @@ function getProcessorHelperClass(utilInstance) {
 			return {};
 		}
 
-		async processScript(element, resourceURL, options, charset) {
-			const content = await util.getContent(resourceURL, {
-				asBinary: true,
-				inline: true,
-				charset: charset != UTF8_CHARSET && charset,
-				maxResourceSize: options.maxResourceSize,
-				maxResourceSizeEnabled: options.maxResourceSizeEnabled,
-				frameId: options.windowId,
-				resourceReferrer: options.resourceReferrer,
-				baseURI: options.baseURI,
-				blockMixedContent: options.blockMixedContent,
-				expectedType: "script",
-				acceptHeaders: options.acceptHeaders,
-				networkTimeout: options.networkTimeout
-			});
-			content.data = getUpdatedResourceContent(resourceURL, content, options);
-			element.setAttribute("src", content.data);
+		async processScript(element, resourceURL, options, charset, batchRequest) {
+			let content = getUpdatedResourceContent(resourceURL, options);
+			if (content) {
+				content = await toDataURI(content, "text/javascript", charset);
+			} else {
+				const result = await batchRequest.addURL(resourceURL, {
+					asBinary: true,
+					inline: true,
+					charset: charset != UTF8_CHARSET && charset,
+					maxResourceSize: options.maxResourceSize,
+					maxResourceSizeEnabled: options.maxResourceSizeEnabled,
+					frameId: options.windowId,
+					resourceReferrer: options.resourceReferrer,
+					baseURI: options.baseURI,
+					blockMixedContent: options.blockMixedContent,
+					expectedType: "script",
+					acceptHeaders: options.acceptHeaders,
+					networkTimeout: options.networkTimeout
+				});
+				content = result.content;
+			}
+			element.setAttribute("src", content);
 		}
 
 		setMetaCSP(metaElement) {

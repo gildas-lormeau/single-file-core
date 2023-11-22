@@ -1344,7 +1344,7 @@ class Processor {
 				}
 				if (testValidURL(resourceURL)) {
 					element.removeAttribute("src");
-					await this.processorHelper.processScript(element, resourceURL, this.options, this.charset);
+					await this.processorHelper.processScript(element, resourceURL, this.options, this.charset, this.batchRequest, this.resources);
 					if (element.getAttribute("async") == "async" || element.getAttribute(util.ASYNC_SCRIPT_ATTRIBUTE_NAME) == "") {
 						element.setAttribute("async", "");
 					}
