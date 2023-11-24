@@ -17020,7 +17020,7 @@ async function evalTemplate(template = "", options, content, doc, dontReplaceSla
 	template = replaceAll(template, "\\{", "\\\\{");
 	template = replaceAll(template, "\\|", "\\\\|");
 	template = replaceAll(template, "\\>", "\\\\>");
-	const result = (await parse(template, {
+	let result = (await parse(template, {
 		async callFunction(name, [argument, optionalArguments], lengthData) {
 			const fn = functions[name];
 			if (fn) {
@@ -17050,12 +17050,11 @@ async function evalTemplate(template = "", options, content, doc, dontReplaceSla
 			}
 		}
 	}));
-	let resultString = result.join("");
-	resultString = replaceAll(resultString, "\\\\%", "%");
-	resultString = replaceAll(resultString, "\\\\{", "{");
-	resultString = replaceAll(resultString, "\\\\|", "|");
-	resultString = replaceAll(resultString, "\\\\>", ">");
-	return resultString;
+	result = replaceAll(result, "\\\\%", "%");
+	result = replaceAll(result, "\\\\{", "{");
+	result = replaceAll(result, "\\\\|", "|");
+	result = replaceAll(result, "\\\\>", ">");
+	return result;
 
 	function addDateVariables(date, prefix = "") {
 		variables[prefix + "datetime-iso"] = { getter: () => date.toISOString() };
