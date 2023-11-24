@@ -1,10 +1,11 @@
 start = expression
-expression = statement*
+expression = expression:statement* { return expression.join("") }
 statement = functionCall / variable / text
-arg = "|"? value:statement { return value; }
-args = arg arg*
-functionCall = "%" name:identifier "<" args:args ">" length:resultLength? { return options.callFunction(name, args, length); }
-variable = "{" name:identifier "}" length:resultLength? { return options.getVariableValue(name, length); }
+arg = "|" value:expression  { return value; }
+optionalArgs = arg+
+args = value:expression optionalArgs?
+functionCall = "%" name:identifier "<" args:args ">" length:resultLength? { return name+"("+args+")" }
+variable = "{" name:identifier "}" length:resultLength? { return name }
 resultLength = "[" length:number unit:lengthUnit "]" { return { length, unit }; }
 lengthUnit = "ch"?
 identifier = [a-z0-9-]+ { return text(); }
