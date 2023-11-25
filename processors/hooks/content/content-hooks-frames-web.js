@@ -21,7 +21,7 @@
  *   Source.
  */
 
-/* global window, globalThis */
+/* global globalThis, window */
 
 (globalThis => {
 
