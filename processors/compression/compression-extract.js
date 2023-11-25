@@ -21,7 +21,11 @@
  *   Source.
  */
 
-/* global zip, Blob, FileReader, URL */
+/* global globalThis, zip */
+
+const Blob = globalThis.Blob;
+const FileReader = globalThis.FileReader;
+const URL = globalThis.URL;
 
 export {
 	extract

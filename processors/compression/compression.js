@@ -21,7 +21,10 @@
  *   Source.
  */
 
-/* global globalThis, FileReader, Node */
+/* global globalThis */
+
+const FileReader = globalThis.FileReader;
+const Node = globalThis.Node;
 
 import {
 	configure,
