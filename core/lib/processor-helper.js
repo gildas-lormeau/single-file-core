@@ -81,7 +81,6 @@ function getProcessorHelperClass(utilInstance) {
 					stylesheetInfo.stylesheet = cssTree.parse(element.textContent, { context: "stylesheet", parseCustomProperty: true });
 					await this.resolveImportURLs(stylesheetInfo, baseURI, options, workStyleElement, resources, stylesheets);
 				}
-
 			} else {
 				if (element.tagName.toUpperCase() == "LINK") {
 					element.href = util.EMPTY_RESOURCE;
