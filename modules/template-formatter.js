@@ -21,10 +21,15 @@
  *   Source.
  */
 
-/* global Blob, FileReader, URL, URLSearchParams */
+/* global globalThis */
 
 import { parse } from "./template-parser.js";
 import { getContentSize, digest } from "./../core/helper.js";
+
+const Blob = globalThis.Blob; 
+const FileReader = globalThis.FileReader;
+const URL = globalThis.URL;
+const URLSearchParams = globalThis.URLSearchParams;
 
 // eslint-disable-next-line quotes
 const DEFAULT_REPLACED_CHARACTERS = ["~", "+", "\\\\", "?", "%", "*", ":", "|", '"', "<", ">", "\x00-\x1f", "\x7F"];
