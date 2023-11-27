@@ -21,9 +21,7 @@
  *   Source.
  */
 
-/* global globalThis */
-
-const DOMParser = globalThis.DOMParser;
+/* global DOMParser */
 
 export {
 	display
