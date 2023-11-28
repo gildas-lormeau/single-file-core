@@ -121,7 +121,6 @@ function getProcessorHelperClass(utilInstance) {
 			this.resolveStylesheetURLs(stylesheet, baseURI, workStylesheet);
 			const imports = getImportFunctions(stylesheet);
 			await Promise.all(imports.map(async node => {
-				debugger;
 				const urlNode = cssTree.find(node, node => node.type == "Url") || cssTree.find(node, node => node.type == "String");
 				if (urlNode) {
 					let resourceURL = normalizeURL(urlNode.value);
