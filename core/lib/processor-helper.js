@@ -91,7 +91,7 @@ function getProcessorHelperClass(utilInstance) {
 		}
 
 		replaceStylesheets(doc, stylesheets, options, resources) {
-			const entries = Array.from(stylesheets);
+			const entries = Array.from(stylesheets).reverse();
 			for (const [key, stylesheetInfo] of entries) {
 				if (key.urlNode) {
 					const name = "stylesheet_" + resources.stylesheets.size + ".css";
@@ -121,6 +121,7 @@ function getProcessorHelperClass(utilInstance) {
 			this.resolveStylesheetURLs(stylesheet, baseURI, workStylesheet);
 			const imports = getImportFunctions(stylesheet);
 			await Promise.all(imports.map(async node => {
+				debugger;
 				const urlNode = cssTree.find(node, node => node.type == "Url") || cssTree.find(node, node => node.type == "String");
 				if (urlNode) {
 					let resourceURL = normalizeURL(urlNode.value);
