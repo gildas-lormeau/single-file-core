@@ -100,18 +100,22 @@ function getProcessorHelperClass(utilInstance) {
 					} else {
 						key.urlNode.value = name;
 					}
-					resources.stylesheets.set(resources.stylesheets.size, { name, content: this.generateStylesheetContent(stylesheetInfo.stylesheet, options), url: stylesheetInfo.url });
+					resources.stylesheets.set(resources.stylesheets.size, { name, stylesheet: stylesheetInfo.stylesheet });
 				} else {
 					if (key.element.tagName.toUpperCase() == "LINK") {
 						const linkElement = key.element;
 						const name = "stylesheet_" + resources.stylesheets.size + ".css";
 						linkElement.setAttribute("href", name);
-						resources.stylesheets.set(resources.stylesheets.size, { name, content: this.generateStylesheetContent(stylesheetInfo.stylesheet, options), url: stylesheetInfo.url });
+						resources.stylesheets.set(resources.stylesheets.size, { name, stylesheet: stylesheetInfo.stylesheet });
 					} else {
 						const styleElement = key.element;
 						styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
 					}
 				}
+			}
+			for (const [, stylesheetResource] of resources.stylesheets) {
+				stylesheetResource.content = this.generateStylesheetContent(stylesheetResource.stylesheet, options);
+				stylesheetResource.stylesheet = null;
 			}
 		}
 
