@@ -178,7 +178,7 @@ function getFilteredSelector(selector, selectorText) {
 	let namespaceFound;
 	selector = { data: cssTree.parse(cssTree.generate(selector.data), { context: "selector" }) };
 	filterNamespace(selector);
-	if (namespaceFound)	{
+	if (namespaceFound) {
 		selectorText = cssTree.generate(selector.data).trim();
 	}
 	filterPseudoClasses(selector);
