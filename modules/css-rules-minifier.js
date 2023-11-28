@@ -71,10 +71,8 @@ function processRules(cssRules, sheetIndex, mediaInfo, indexes = { mediaRuleInde
 	const removedCssRules = [];
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		const ruleData = cssRule.data;
-		if (ruleData.type == "Atrule" && ruleData.name == "import") {
-			if (ruleData.importedChildren) {
-				processRules(ruleData.importedChildren, sheetIndex, mediaInfo, indexes);
-			}
+		if (ruleData.type == "Atrule" && ruleData.name == "import" && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head.data.importedChildren) {
+			processRules(ruleData.prelude.children.head.data.importedChildren, sheetIndex, mediaInfo, indexes);
 		} else if (ruleData.block && ruleData.block.children && ruleData.prelude && ruleData.prelude.children) {
 			if (ruleData.type == "Atrule" && ruleData.name == "media") {
 				const mediaText = cssTree.generate(ruleData.prelude);
