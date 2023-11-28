@@ -110,11 +110,8 @@ function getMatchedElementsRules(doc, cssRules, stylesheets, mediaInfo, sheetInd
 		log("  -- STARTED getMatchedElementsRules", " index =", sheetIndex, "rules.length =", cssRules.length);
 	}
 	cssRules.forEach(ruleData => {
-		if (ruleData.type == "Atrule" && ruleData.name == "import") {
-			const stylesheetEntry = Array.from(stylesheets.entries()).find(([key]) => key.urlNode == ruleData.prelude.children.head.data);
-			const stylesheetInfo = stylesheetEntry[1];
-			ruleData.importedChildren = stylesheetInfo.stylesheet.children;
-			getMatchedElementsRules(doc, ruleData.importedChildren, stylesheets, mediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
+		if (ruleData.type == "Atrule" && ruleData.name == "import" && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head.data.importedChildren) {
+			getMatchedElementsRules(doc, ruleData.prelude.children.head.data.importedChildren, stylesheets, mediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
 		} else if (ruleData.block && ruleData.block.children && ruleData.prelude && ruleData.prelude.children) {
 			if (ruleData.type == "Atrule" && ruleData.name == "media") {
 				const mediaText = cssTree.generate(ruleData.prelude);

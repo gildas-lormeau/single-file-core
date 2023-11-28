@@ -142,10 +142,13 @@ function getProcessorHelperClass(utilInstance) {
 								mediaText = cssTree.generate(mediaQueryListNode);
 							}
 							const existingStylesheet = Array.from(stylesheets).find(([, stylesheetInfo]) => stylesheetInfo.resourceURL == resourceURL);
+							let stylesheet;
 							if (existingStylesheet) {
+								stylesheet = existingStylesheet[1].stylesheet;
 								stylesheets.set({ urlNode }, {
 									url: resourceURL,
-									stylesheet: existingStylesheet[1].stylesheet, scoped
+									stylesheet,
+									scoped
 								});
 							} else {
 								const stylesheetInfo = {
@@ -156,9 +159,11 @@ function getProcessorHelperClass(utilInstance) {
 								stylesheetInfo.url = resourceURL = content.resourceURL;
 								content.data = getUpdatedResourceContent(resourceURL, options) || content.data;
 								stylesheetInfo.stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
+								stylesheet = stylesheetInfo.stylesheet;
 								await this.resolveImportURLs(stylesheetInfo, resourceURL, options, workStylesheet, resources, stylesheets);
 								stylesheets.set({ urlNode }, stylesheetInfo);
 							}
+							urlNode.importedChildren = stylesheet.children;
 						}
 					}
 				}
