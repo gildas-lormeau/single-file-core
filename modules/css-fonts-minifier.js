@@ -100,10 +100,11 @@ function process(doc, stylesheets, styles, options) {
 		}));
 		unusedFonts = fontsInfo.declared.filter(fontInfo => !filteredUsedFonts.has(fontInfo.fontFamily));
 	}
+	const docChars = Array.from(new Set(docContent)).map(char => char.charCodeAt(0)).sort((value1, value2) => value1 - value2);
 	stylesheets.forEach(stylesheetInfo => {
 		const cssRules = stylesheetInfo.stylesheet.children;
 		if (cssRules) {
-			filterUnusedFonts(cssRules, fontsInfo.declared, unusedFonts, filteredUsedFonts, docContent);
+			filterUnusedFonts(cssRules, fontsInfo.declared, unusedFonts, filteredUsedFonts, docChars);
 			stats.rules.discarded -= cssRules.size;
 		}
 	});
@@ -134,17 +135,19 @@ function getFontsInfo(cssRules, fontsInfo, options) {
 	});
 }
 
-function filterUnusedFonts(cssRules, declaredFonts, unusedFonts, filteredUsedFonts, docContent) {
+function filterUnusedFonts(cssRules, declaredFonts, unusedFonts, filteredUsedFonts, docChars) {
 	const removedRules = [];
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		const ruleData = cssRule.data;
-		if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports" || ruleData.name == "layer") && ruleData.block && ruleData.block.children) {
-			filterUnusedFonts(ruleData.block.children, declaredFonts, unusedFonts, filteredUsedFonts, docContent);
+		if (ruleData.type == "Atrule" && ruleData.name == "import" && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head.data.importedChildren) {
+			filterUnusedFonts(ruleData.prelude.children.head.data.importedChildren, declaredFonts, unusedFonts, filteredUsedFonts, docChars);
+		} else if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports" || ruleData.name == "layer") && ruleData.block && ruleData.block.children) {
+			filterUnusedFonts(ruleData.block.children, declaredFonts, unusedFonts, filteredUsedFonts, docChars);
 		} else if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
 			const fontFamily = helper.normalizeFontFamily(getDeclarationValue(ruleData.block.children, "font-family"));
 			if (fontFamily) {
 				const unicodeRange = getDeclarationValue(ruleData.block.children, "unicode-range");
-				if (unusedFonts.find(fontInfo => fontInfo.fontFamily == fontFamily) || !testUnicodeRange(docContent, unicodeRange) || !testUsedFont(ruleData, fontFamily, declaredFonts, filteredUsedFonts)) {
+				if (unusedFonts.find(fontInfo => fontInfo.fontFamily == fontFamily) || !testUnicodeRange(docChars, unicodeRange) || !testUsedFont(ruleData, fontFamily, declaredFonts, filteredUsedFonts)) {
 					removedRules.push(cssRule);
 				}
 			}
@@ -373,45 +376,34 @@ function getDeclarationUnescapedValue(declarations, property, workStylesheet) {
 	return "";
 }
 
-function testUnicodeRange(docContent, unicodeRange) {
+function testUnicodeRange(docCharCodes, unicodeRange) {
 	if (unicodeRange) {
 		const unicodeRanges = unicodeRange.split(REGEXP_COMMA);
-		let invalid;
 		const result = unicodeRanges.filter(rangeValue => {
 			const range = rangeValue.split(REGEXP_DASH);
-			let regExpString;
 			if (range.length == 2) {
 				range[0] = transformRange(range[0]);
-				regExpString = "[" + range[0] + "-" + transformRange("U+" + range[1]) + "]";
-			}
-			if (range.length == 1) {
+				range[1] = transformRange(range[1]);
+			} else if (range.length == 1) {
 				if (range[0].includes("?")) {
-					const firstRange = transformRange(range[0]);
+					const firstRange = range[0];
 					const secondRange = firstRange;
-					regExpString = "[" + firstRange.replace(REGEXP_QUESTION_MARK, "0") + "-" + secondRange.replace(REGEXP_QUESTION_MARK, "F") + "]";
+					range[0] = transformRange(firstRange.replace(REGEXP_QUESTION_MARK, "0"));
+					range[1] = transformRange(secondRange.replace(REGEXP_QUESTION_MARK, "F"));
 				} else if (range[0]) {
-					regExpString = "[" + transformRange(range[0]) + "]";
+					range[0] = transformRange(range[0]);
 				}
 			}
-			if (regExpString) {
-				try {
-					return (new RegExp(regExpString, "u")).test(docContent);
-				} catch (error) {
-					invalid = true;
-					return false;
-				}
+			if (!range[0] || docCharCodes.find(charCode => charCode >= range[0] && charCode <= range[1])) {
+				return true;
 			}
-			return true;
 		});
-		return !invalid && (!unicodeRanges.length || result.length);
+		return (!unicodeRanges.length || result.length);
 	}
 	return true;
 }
 
 function transformRange(range) {
 	range = range.replace(REGEXP_STARTS_U_PLUS, "");
-	while (range.length < 6) {
-		range = "0" + range;
-	}
-	return "\\u{" + range + "}";
+	return parseInt(range, 16);
 }
