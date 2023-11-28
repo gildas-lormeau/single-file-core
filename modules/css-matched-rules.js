@@ -40,16 +40,16 @@ class MatchedRules {
 		doc.body.appendChild(workStyleSheet);
 		const workStyleElement = doc.createElement("span");
 		doc.body.appendChild(workStyleElement);
-		stylesheets.forEach(stylesheetInfo => {
-			if (!stylesheetInfo.scoped) {
+		stylesheets.forEach((stylesheetInfo, key) => {
+			if (!stylesheetInfo.scoped && !key.urlNode) {
 				const cssRules = stylesheetInfo.stylesheet.children;
 				if (cssRules) {
 					if (stylesheetInfo.mediaText && stylesheetInfo.mediaText != MEDIA_ALL) {
 						const mediaInfo = createMediaInfo(stylesheetInfo.mediaText);
 						this.mediaAllInfo.medias.set("style-" + sheetIndex + "-" + stylesheetInfo.mediaText, mediaInfo);
-						getMatchedElementsRules(doc, cssRules, mediaInfo, sheetIndex, styles, matchedElementsCache, workStyleSheet);
+						getMatchedElementsRules(doc, cssRules, stylesheets, mediaInfo, sheetIndex, styles, matchedElementsCache, workStyleSheet);
 					} else {
-						getMatchedElementsRules(doc, cssRules, this.mediaAllInfo, sheetIndex, styles, matchedElementsCache, workStyleSheet);
+						getMatchedElementsRules(doc, cssRules, stylesheets, this.mediaAllInfo, sheetIndex, styles, matchedElementsCache, workStyleSheet);
 					}
 				}
 			}
@@ -88,33 +88,44 @@ function getMediaAllInfo(doc, stylesheets, styles) {
 }
 
 function createMediaInfo(media) {
-	const mediaInfo = { media: media, elements: new Map(), medias: new Map(), rules: new Map(), pseudoRules: new Map() };
+	const mediaInfo = {
+		media: media,
+		elements: new Map(),
+		medias: new Map(),
+		rules: new Map(),
+		pseudoRules: new Map()
+	};
 	if (media == MEDIA_ALL) {
 		mediaInfo.matchedStyles = new Map();
 	}
 	return mediaInfo;
 }
 
-function getMatchedElementsRules(doc, cssRules, mediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet) {
-	let mediaIndex = 0;
-	let ruleIndex = 0;
+function getMatchedElementsRules(doc, cssRules, stylesheets, mediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes = {
+	mediaIndex: 0, ruleIndex: 0
+}) {
 	let startTime;
 	if (DEBUG && cssRules.length > 1) {
 		startTime = Date.now();
 		log("  -- STARTED getMatchedElementsRules", " index =", sheetIndex, "rules.length =", cssRules.length);
 	}
 	cssRules.forEach(ruleData => {
-		if (ruleData.block && ruleData.block.children && ruleData.prelude && ruleData.prelude.children) {
+		if (ruleData.type == "Atrule" && ruleData.name == "import") {
+			const stylesheetEntry = Array.from(stylesheets.entries()).find(([key]) => key.urlNode == ruleData.prelude.children.head.data);
+			const stylesheetInfo = stylesheetEntry[1];
+			ruleData.importedChildren = stylesheetInfo.stylesheet.children;
+			getMatchedElementsRules(doc, ruleData.importedChildren, stylesheets, mediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
+		} else if (ruleData.block && ruleData.block.children && ruleData.prelude && ruleData.prelude.children) {
 			if (ruleData.type == "Atrule" && ruleData.name == "media") {
 				const mediaText = cssTree.generate(ruleData.prelude);
 				const ruleMediaInfo = createMediaInfo(mediaText);
-				mediaInfo.medias.set("rule-" + sheetIndex + "-" + mediaIndex + "-" + mediaText, ruleMediaInfo);
-				mediaIndex++;
-				getMatchedElementsRules(doc, ruleData.block.children, ruleMediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet);
+				mediaInfo.medias.set("rule-" + sheetIndex + "-" + indexes.mediaIndex + "-" + mediaText, ruleMediaInfo);
+				getMatchedElementsRules(doc, ruleData.block.children, stylesheets, ruleMediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet);
+				indexes.mediaIndex++;
 			} else if (ruleData.type == "Rule") {
 				const selectors = ruleData.prelude.children.toArray();
 				const selectorsText = ruleData.prelude.children.toArray().map(selector => cssTree.generate(selector));
-				const ruleInfo = { ruleData, mediaInfo, ruleIndex, sheetIndex, matchedSelectors: new Set(), declarations: new Set(), selectors, selectorsText };
+				const ruleInfo = { ruleData, mediaInfo, ruleIndex: indexes.ruleIndex, sheetIndex, matchedSelectors: new Set(), declarations: new Set(), selectors, selectorsText };
 				if (!invalidSelector(selectorsText.join(","), workStylesheet) || selectorsText.find(selectorText => selectorText.includes("|"))) {
 					for (let selector = ruleData.prelude.children.head, selectorIndex = 0; selector; selector = selector.next, selectorIndex++) {
 						const selectorText = selectorsText[selectorIndex];
@@ -122,7 +133,7 @@ function getMatchedElementsRules(doc, cssRules, mediaInfo, sheetIndex, styles, m
 						getMatchedElementsSelector(doc, selectorInfo, styles, matchedElementsCache);
 					}
 				}
-				ruleIndex++;
+				indexes.ruleIndex++;
 			}
 		}
 	});

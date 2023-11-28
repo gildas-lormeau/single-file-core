@@ -32,8 +32,8 @@ export {
 function process(stylesheets, styles, mediaAllInfo) {
 	const stats = { processed: 0, discarded: 0 };
 	let sheetIndex = 0;
-	stylesheets.forEach(stylesheetInfo => {
-		if (!stylesheetInfo.scoped) {
+	stylesheets.forEach((stylesheetInfo, key) => {
+		if (!stylesheetInfo.scoped && !key.urlNode) {
 			const cssRules = stylesheetInfo.stylesheet.children;
 			if (cssRules) {
 				stats.processed += cssRules.size;
@@ -62,8 +62,8 @@ function process(stylesheets, styles, mediaAllInfo) {
 	return stats;
 }
 
-function processRules(cssRules, sheetIndex, mediaInfo) {
-	let mediaRuleIndex = 0, startTime;
+function processRules(cssRules, sheetIndex, mediaInfo, indexes = { mediaRuleIndex: 0 }) {
+	let startTime;
 	if (DEBUG && cssRules.size > 1) {
 		startTime = Date.now();
 		log("  -- STARTED processRules", "rules.length =", cssRules.size);
@@ -71,14 +71,15 @@ function processRules(cssRules, sheetIndex, mediaInfo) {
 	const removedCssRules = [];
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		const ruleData = cssRule.data;
-		if (ruleData.block && ruleData.block.children && ruleData.prelude && ruleData.prelude.children) {
+		if (ruleData.type == "Atrule" && ruleData.name == "import") {
+			if (ruleData.importedChildren) {
+				processRules(ruleData.importedChildren, sheetIndex, mediaInfo, indexes);
+			}
+		} else if (ruleData.block && ruleData.block.children && ruleData.prelude && ruleData.prelude.children) {
 			if (ruleData.type == "Atrule" && ruleData.name == "media") {
 				const mediaText = cssTree.generate(ruleData.prelude);
-				processRules(ruleData.block.children, sheetIndex, mediaInfo.medias.get("rule-" + sheetIndex + "-" + mediaRuleIndex + "-" + mediaText));
-				if (!ruleData.prelude.children.size || !ruleData.block.children.size) {
-					removedCssRules.push(cssRule);
-				}
-				mediaRuleIndex++;
+				processRules(ruleData.block.children, sheetIndex, mediaInfo.medias.get("rule-" + sheetIndex + "-" + indexes.mediaRuleIndex + "-" + mediaText));
+				indexes.mediaRuleIndex++;
 			} else if (ruleData.type == "Rule") {
 				const ruleInfo = mediaInfo.rules.get(ruleData);
 				const pseudoSelectors = mediaInfo.pseudoRules.get(ruleData);
