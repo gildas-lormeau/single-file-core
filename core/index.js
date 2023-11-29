@@ -860,7 +860,7 @@ class Processor {
 		replacedAttributeValue.forEach(element => {
 			const relValue = element
 				.getAttribute("rel")
-				.replace(/(preconnect|prerender|dns-prefetch|preload|prefetch|manifest)/g, "")
+				.replace(/(preconnect|prerender|dns-prefetch|preload|prefetch|manifest|modulepreload)/g, "")
 				.trim();
 			if (relValue.length) {
 				element.setAttribute("rel", relValue);
