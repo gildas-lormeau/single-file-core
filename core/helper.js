@@ -498,16 +498,18 @@ function getStylesheetsData(doc) {
 		const contents = [];
 		doc.querySelectorAll("style").forEach((styleElement, styleIndex) => {
 			try {
-				const tempStyleElement = doc.createElement("style");
-				tempStyleElement.textContent = styleElement.textContent;
-				doc.body.appendChild(tempStyleElement);
-				const stylesheet = tempStyleElement.sheet;
-				tempStyleElement.remove();
-				const textContentStylesheet = Array.from(stylesheet.cssRules).map(cssRule => cssRule.cssText).join("\n");
-				const sheetStylesheet = Array.from(styleElement.sheet.cssRules).map(cssRule => cssRule.cssText).join("\n");
-				if (!stylesheet || textContentStylesheet != sheetStylesheet) {
-					styleElement.setAttribute(STYLESHEET_ATTRIBUTE_NAME, styleIndex);
-					contents[styleIndex] = Array.from(styleElement.sheet.cssRules).map(cssRule => cssRule.cssText).join("\n");
+				if (!styleElement.sheet.disabled) {
+					const tempStyleElement = doc.createElement("style");
+					tempStyleElement.textContent = styleElement.textContent;
+					doc.body.appendChild(tempStyleElement);
+					const stylesheet = tempStyleElement.sheet;
+					tempStyleElement.remove();
+					const textContentStylesheet = Array.from(stylesheet.cssRules).map(cssRule => cssRule.cssText).join("\n");
+					const sheetStylesheet = Array.from(styleElement.sheet.cssRules).map(cssRule => cssRule.cssText).join("\n");
+					if (!stylesheet || textContentStylesheet != sheetStylesheet) {
+						styleElement.setAttribute(STYLESHEET_ATTRIBUTE_NAME, styleIndex);
+						contents[styleIndex] = Array.from(styleElement.sheet.cssRules).map(cssRule => cssRule.cssText).join("\n");
+					}
 				}
 			} catch (error) {
 				// ignored
