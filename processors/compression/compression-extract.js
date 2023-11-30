@@ -81,20 +81,20 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 	const zipReader = new zip.ZipReader(blobReader);
 	const entries = await zipReader.getEntries();
 	const options = { password };
-	let docContent, origDocContent, url, resources = [], indexPages = [];
+	let docContent, origDocContent, url, resources = [], indexPages = [], textResources = [];
 	await Promise.all(entries.map(async entry => {
 		const { filename } = entry;
 		let dataWriter, content, textContent, mimeType;
 		const resourceInfo = {};
-		if (filename.match(REGEXP_MATCH_INDEX)) {
-			indexPages.push(resourceInfo);
-		} else {
-			resources.push(resourceInfo);
-		}
 		if (!options.password && entry.encrypted) {
 			options.password = prompt("Please enter the password to view the page");
 		}
 		if (filename.match(REGEXP_MATCH_INDEX) || filename.match(REGEXP_MATCH_STYLESHEET) || filename.match(REGEXP_MATCH_SCRIPT)) {
+			if (filename.match(REGEXP_MATCH_INDEX)) {
+				indexPages.push(resourceInfo);
+			} else {
+				textResources.push(resourceInfo);
+			}
 			dataWriter = new zip.TextWriter();
 			textContent = await entry.getData(dataWriter, options);
 			if (filename.match(REGEXP_MATCH_INDEX)) {
@@ -112,6 +112,7 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 				}
 			}
 		} else {
+			resources.push(resourceInfo);
 			const extension = filename.match(/\.([^.]+)/);
 			if (extension && extension[1] && KNOWN_MIMETYPES[extension[1]]) {
 				mimeType = KNOWN_MIMETYPES[extension[1]];
@@ -137,8 +138,9 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 		});
 	}));
 	await zipReader.close();
-	indexPages.sort(sortByFilenameLength);
-	resources = resources.reverse().concat(...indexPages);
+	indexPages.sort(sortByFilenameLengthDec);
+	textResources.sort(sortByFilenameLengthInc);
+	resources = resources.concat(...textResources).concat(...indexPages);
 	for (const resource of resources) {
 		let { textContent, mimeType, filename } = resource;
 		if (textContent !== undefined) {
@@ -203,7 +205,21 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 		}
 	}
 
-	function sortByFilenameLength(resourceLeft, resourceRight) {
-		return resourceRight.filename.length - resourceLeft.filename.length;
+	function sortByFilenameLengthDec(resourceLeft, resourceRight) {
+		const lengthDifference = resourceRight.filename.length - resourceLeft.filename.length;
+		if (lengthDifference) {
+			return lengthDifference;
+		} else {
+			return resourceRight.filename.localeCompare(resourceLeft.filename);
+		}
+	}
+
+	function sortByFilenameLengthInc(resourceLeft, resourceRight) {
+		const lengthDifference = resourceLeft.filename.length - resourceRight.filename.length;
+		if (lengthDifference) {
+			return lengthDifference;
+		} else {
+			return resourceLeft.filename.localeCompare(resourceRight.filename);
+		}
 	}
 }
