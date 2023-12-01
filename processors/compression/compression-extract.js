@@ -154,7 +154,7 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 			}
 			if (!filename.match(REGEXP_MATCH_SCRIPT)) {
 				const resourceFilename = filename;
-				await Promise.all(resources.map(async innerResource => {
+				resources.forEach(innerResource => {
 					const { filename, parentResources, content } = innerResource;
 					if (filename.startsWith(prefixPath) && filename != resourceFilename) {
 						const relativeFilename = filename.substring(prefixPath.length);
@@ -166,7 +166,7 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 							}
 						}
 					}
-				}));
+				});
 				resource.textContent = textContent;
 			}
 			if (filename.match(REGEXP_MATCH_INDEX)) {
