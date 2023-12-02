@@ -569,6 +569,7 @@ class Processor {
 		const styleElement = this.doc.createElement("style");
 		styleElement.textContent = "img[src=\"data:,\"],source[src=\"data:,\"]{display:none!important}";
 		this.doc.head.appendChild(styleElement);
+		this.doc.head.querySelectorAll("noscript").forEach(element => element.parentElement.appendChild(element));
 		let size;
 		if (this.options.displayStats) {
 			size = util.getContentSize(this.doc.documentElement.outerHTML);
