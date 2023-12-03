@@ -28,12 +28,9 @@ export {
 };
 
 async function display(document, docContent, { disableFramePointerEvents } = {}) {
-	const DISABLED_NOSCRIPT_ATTRIBUTE_NAME = "data-single-file-disabled-noscript";
+	docContent = docContent.replace(/<noscript/gi, "<template disabled-noscript");
+	docContent = docContent.replaceAll(/<\/noscript/gi, "</template");
 	const doc = (new DOMParser()).parseFromString(docContent, "text/html");
-	doc.querySelectorAll("noscript:not([" + DISABLED_NOSCRIPT_ATTRIBUTE_NAME + "])").forEach(element => {
-		element.setAttribute(DISABLED_NOSCRIPT_ATTRIBUTE_NAME, element.innerHTML);
-		element.textContent = "";
-	});
 	if (doc.doctype) {
 		if (document.doctype) {
 			document.replaceChild(doc.doctype, document.doctype);
@@ -51,9 +48,12 @@ async function display(document, docContent, { disableFramePointerEvents } = {})
 		});
 	}
 	document.replaceChild(document.importNode(doc.documentElement, true), document.documentElement);
-	document.querySelectorAll("[" + DISABLED_NOSCRIPT_ATTRIBUTE_NAME + "]").forEach(element => {
-		element.textContent = element.getAttribute(DISABLED_NOSCRIPT_ATTRIBUTE_NAME);
-		element.removeAttribute(DISABLED_NOSCRIPT_ATTRIBUTE_NAME);
+	document.querySelectorAll("template[disabled-noscript]").forEach(element => {
+		const noscriptElement = document.createElement("noscript");
+		element.removeAttribute("disabled-noscript");
+		Array.from(element.attributes).forEach(attribute => noscriptElement.setAttribute(attribute.name, attribute.value));
+		noscriptElement.textContent = element.innerHTML;
+		element.parentElement.replaceChild(noscriptElement, element);
 	});
 	document.documentElement.setAttribute("data-sfz", "");
 	document.querySelectorAll("link[rel*=icon]").forEach(element => element.parentElement.replaceChild(element, element));
