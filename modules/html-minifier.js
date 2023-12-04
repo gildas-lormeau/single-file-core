@@ -127,8 +127,7 @@ const modules = [
 	removeComments,
 	removeEmptyAttributes,
 	removeRedundantAttributes,
-	compressJSONLD,
-	node => mergeElements(node, "style", (node, previousSibling) => node.parentElement && getTagName(node.parentElement) == "HEAD" && node.media == previousSibling.media && node.title == previousSibling.title)
+	compressJSONLD
 ];
 
 export {
@@ -164,22 +163,6 @@ function mergeTextNodes(node) {
 		if (node.previousSibling && node.previousSibling.nodeType == Node_TEXT_NODE) {
 			node.textContent = node.previousSibling.textContent + node.textContent;
 			node.previousSibling.remove();
-		}
-	}
-}
-
-function mergeElements(node, tagName, acceptMerge) {
-	if (node.nodeType == Node_ELEMENT_NODE && getTagName(node) == tagName.toUpperCase()) {
-		let previousSibling = node.previousSibling;
-		const previousSiblings = [];
-		while (previousSibling && previousSibling.nodeType == Node_TEXT_NODE && !previousSibling.textContent.trim()) {
-			previousSiblings.push(previousSibling);
-			previousSibling = previousSibling.previousSibling;
-		}
-		if (previousSibling && previousSibling.nodeType == Node_ELEMENT_NODE && previousSibling.tagName == node.tagName && acceptMerge(node, previousSibling)) {
-			node.textContent = previousSibling.textContent + node.textContent;
-			previousSiblings.forEach(node => node.remove());
-			previousSibling.remove();
 		}
 	}
 }
