@@ -382,11 +382,11 @@
 		const shadowRoot = event.target.shadowRoot;
 		event.stopPropagation();
 		if (shadowRoot) {
-			shadowRoot.addEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, getAdoptedStylesheetsListener, {});
+			shadowRoot.addEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, getAdoptedStylesheetsListener, { capture: true });
 			shadowRoot.addEventListener(UNREGISTER_GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, () => shadowRoot.removeEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, getAdoptedStylesheetsListener), { once: true });
 			const adoptedStyleSheets = Array.from(shadowRoot.adoptedStyleSheets).map(stylesheet => Array.from(stylesheet.cssRules).map(cssRule => cssRule.cssText).join("\n"));
 			if (adoptedStyleSheets.length) {
-				event.target.dispatchEvent(new CustomEvent(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, { detail: { adoptedStyleSheets } }));
+				shadowRoot.dispatchEvent(new CustomEvent(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, { detail: { adoptedStyleSheets } }));
 			}
 		}
 	}

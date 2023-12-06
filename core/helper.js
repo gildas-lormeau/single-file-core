@@ -256,9 +256,12 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 							shadowRootInfo.adoptedStyleSheets = getStylesheetsContent(shadowRoot.adoptedStyleSheets);
 						} else if (shadowRoot.adoptedStyleSheets.length === undefined) {
 							const listener = event => shadowRootInfo.adoptedStyleSheets = event.detail.adoptedStyleSheets;
-							element.addEventListener(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, listener);
-							element.dispatchEvent(new CustomEvent(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, { bubbles: true }));
-							element.removeEventListener(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, listener);
+							shadowRoot.addEventListener(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, listener);
+							shadowRoot.dispatchEvent(new CustomEvent(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, { bubbles: true }));
+							if (!shadowRootInfo.adoptedStyleSheets) {
+								element.dispatchEvent(new CustomEvent(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, { bubbles: true }));
+							}
+							shadowRoot.removeEventListener(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, listener);
 						}
 					}
 				} catch (error) {
@@ -269,7 +272,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 				shadowRootInfo.mode = shadowRoot.mode;
 				try {
 					if (shadowRoot.adoptedStyleSheets && shadowRoot.adoptedStyleSheets.length === undefined) {
-						element.dispatchEvent(new CustomEvent(UNREGISTER_GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, { bubbles: true }));
+						shadowRoot.dispatchEvent(new CustomEvent(UNREGISTER_GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, { bubbles: true }));
 					}
 				} catch (error) {
 					// ignored
