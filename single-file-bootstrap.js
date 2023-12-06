@@ -28,6 +28,7 @@ import {
 	COMMENT_HEADER_LEGACY,
 	ON_BEFORE_CAPTURE_EVENT_NAME,
 	ON_AFTER_CAPTURE_EVENT_NAME,
+	WAIT_FOR_USERSCRIPT_PROPERTY_NAME,
 	initUserScriptHandler,
 	preProcessDoc,
 	postProcessDoc,
@@ -40,6 +41,7 @@ const helper = {
 	COMMENT_HEADER_LEGACY,
 	ON_BEFORE_CAPTURE_EVENT_NAME,
 	ON_AFTER_CAPTURE_EVENT_NAME,
+	WAIT_FOR_USERSCRIPT_PROPERTY_NAME,
 	preProcessDoc,
 	postProcessDoc,
 	serialize(doc, compressHTML) {
