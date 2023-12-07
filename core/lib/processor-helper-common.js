@@ -187,6 +187,8 @@ class ProcessorHelperCommon {
 					promises.push(processorHelper.processStyle(ruleData, options, resources, batchRequest));
 				} else if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports")) {
 					promises.push(processorHelper.processStylesheet(ruleData.block.children, baseURI, options, resources, batchRequest));
+				} else if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "layer")) {
+					promises.push(processorHelper.processStylesheet(ruleData.block.children, baseURI, options, resources, batchRequest));
 				} else if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
 					promises.push(processFontFaceRule(ruleData));
 				}
@@ -396,7 +398,8 @@ class ProcessorHelperCommon {
 		const fontsDetails = {
 			fonts: new Map(),
 			medias: new Map(),
-			supports: new Map()
+			supports: new Map(),
+			layers: new Map()
 		};
 		const stats = { rules: { processed: 0, discarded: 0 }, fonts: { processed: 0, discarded: 0 } };
 		let sheetIndex = 0;
@@ -433,7 +436,7 @@ class ProcessorHelperCommon {
 
 	async processFontFaceRules(cssRules, sheetIndex, fontsDetails, fonts, fontTests, stats) {
 		const removedRules = [];
-		let mediaIndex = 0, supportsIndex = 0;
+		let mediaIndex = 0, supportsIndex = 0, layerIndex = 0;
 		for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 			const ruleData = cssRule.data;
 			if (ruleData.type == "Atrule" && ruleData.name == "media" && ruleData.block && ruleData.block.children && ruleData.prelude) {
@@ -444,6 +447,10 @@ class ProcessorHelperCommon {
 				const supportsText = cssTree.generate(ruleData.prelude);
 				await this.processFontFaceRules(ruleData.block.children, sheetIndex, fontsDetails.supports.get("supports-" + sheetIndex + "-" + supportsIndex + "-" + supportsText), fonts, fontTests, stats);
 				supportsIndex++;
+			} else if (ruleData.type == "Atrule" && ruleData.name == "layer" && ruleData.block && ruleData.block.children && ruleData.prelude) {
+				const layerText = cssTree.generate(ruleData.prelude);
+				await this.processFontFaceRules(ruleData.block.children, sheetIndex, fontsDetails.layers.get("layer-" + sheetIndex + "-" + layerIndex + "-" + layerText), fonts, fontTests, stats);
+				layerIndex++;
 			} else if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
 				const key = this.getFontKey(ruleData);
 				const fontInfo = fontsDetails.fonts.get(key);
@@ -458,7 +465,7 @@ class ProcessorHelperCommon {
 	}
 
 	getFontsDetails(doc, cssRules, sheetIndex, mediaFontsDetails) {
-		let mediaIndex = 0, supportsIndex = 0;
+		let mediaIndex = 0, supportsIndex = 0, layerIndex = 0;
 		cssRules.forEach(ruleData => {
 			if (ruleData.type == "Atrule" && ruleData.name == "media" && ruleData.block && ruleData.block.children && ruleData.prelude) {
 				const mediaText = cssTree.generate(ruleData.prelude);
@@ -471,6 +478,12 @@ class ProcessorHelperCommon {
 				const fontsDetails = this.createFontsDetailsInfo();
 				mediaFontsDetails.supports.set("supports-" + sheetIndex + "-" + supportsIndex + "-" + supportsText, fontsDetails);
 				supportsIndex++;
+				this.getFontsDetails(doc, ruleData.block.children, sheetIndex, fontsDetails);
+			} else if (ruleData.type == "Atrule" && ruleData.name == "layer" && ruleData.block && ruleData.block.children && ruleData.prelude) {
+				const layerText = cssTree.generate(ruleData.prelude);
+				const fontsDetails = this.createFontsDetailsInfo();
+				mediaFontsDetails.layers.set("layer-" + sheetIndex + "-" + layerIndex + "-" + layerText, fontsDetails);
+				layerIndex++;
 				this.getFontsDetails(doc, ruleData.block.children, sheetIndex, fontsDetails);
 			} else if (ruleData.type == "Atrule" && ruleData.name == "font-face" && ruleData.block && ruleData.block.children) {
 				const fontKey = this.getFontKey(ruleData);
@@ -499,7 +512,8 @@ class ProcessorHelperCommon {
 		return {
 			fonts: new Map(),
 			medias: new Map(),
-			supports: new Map()
+			supports: new Map(),
+			layers: new Map()
 		};
 	}
 
@@ -574,9 +588,11 @@ function processFontDetails(fontsDetails, fontResources) {
 	if (fontResources) {
 		fontsDetails.medias.forEach(mediaFontsDetails => processFontDetails(mediaFontsDetails, fontResources));
 		fontsDetails.supports.forEach(supportsFontsDetails => processFontDetails(supportsFontsDetails, fontResources));
+		fontsDetails.layers.forEach(layerFontsDetails => processFontDetails(layerFontsDetails, fontResources));
 	} else {
 		fontsDetails.medias.forEach(mediaFontsDetails => processFontDetails(mediaFontsDetails));
 		fontsDetails.supports.forEach(supportsFontsDetails => processFontDetails(supportsFontsDetails));
+		fontsDetails.layers.forEach(layerFontsDetails => processFontDetails(layerFontsDetails));
 	}
 }
 
