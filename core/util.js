@@ -196,6 +196,18 @@ function getInstance(utilOptions) {
 		appendInfobar(doc, options) {
 			return helper.appendInfobar(doc, options);
 		},
+		findLast(array, callback) {
+			if (array.findLast && typeof array.findLast == "function") {
+				return array.findLast(callback);
+			} else {
+				let index = array.length;
+				while (index--) {
+					if (callback(array[index], index, array)) {
+						return array[index];
+					}
+				}
+			}
+		},
 		ON_BEFORE_CAPTURE_EVENT_NAME: helper.ON_BEFORE_CAPTURE_EVENT_NAME,
 		ON_AFTER_CAPTURE_EVENT_NAME: helper.ON_AFTER_CAPTURE_EVENT_NAME,
 		WIN_ID_ATTRIBUTE_NAME: helper.WIN_ID_ATTRIBUTE_NAME,
