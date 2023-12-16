@@ -473,13 +473,20 @@ class Processor {
 		this.doc = util.parseDocContent(pageContent, this.baseURI);
 		if (this.options.saveRawPage) {
 			let charset;
-			this.doc.querySelectorAll("meta[charset], meta[http-equiv=\"content-type\"]").forEach(element => {
-				const charsetDeclaration = element.content.split(";")[1];
-				if (charsetDeclaration && !charset) {
-					charset = charsetDeclaration.split("=")[1].trim().toLowerCase();
+			this.doc.querySelectorAll("meta[charset]").forEach(element => {
+				if (!charset) {
+					charset = element.getAttribute("charset").trim().toLowerCase();
 				}
 			});
-			if (charset && content.charset && charset.toLowerCase() != content.charset.toLowerCase()) {
+			if (!charset) {
+				this.doc.querySelectorAll("meta[http-equiv=\"content-type\"]").forEach(element => {
+					const charsetDeclaration = element.content.split(";")[1];
+					if (charsetDeclaration && !charset) {
+						charset = charsetDeclaration.split("=")[1].trim().toLowerCase();
+					}
+				});
+			}
+			if (charset && content.charset && charset != content.charset.toLowerCase()) {
 				return this.loadPage(pageContent, charset);
 			}
 		}
