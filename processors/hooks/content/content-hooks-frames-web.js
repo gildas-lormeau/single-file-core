@@ -191,7 +191,7 @@
 							const time = 0;
 							return { target, intersectionRatio, boundingClientRect, intersectionRect: boundingClientRect, isIntersecting, rootBounds, time };
 						});
-						observer.callback(params, intersectionObserver);
+						observer.callback.call(intersectionObserver, params, intersectionObserver);
 					}
 				});
 			}
