@@ -864,7 +864,7 @@ class Processor {
 		this.stats.set("discarded", "objects", objectElements.length);
 		this.stats.set("processed", "objects", objectElements.length);
 		objectElements.forEach(element => element.remove());
-		const replacedAttributeValue = this.doc.querySelectorAll("link[rel~=preconnect], link[rel~=prerender], link[rel~=dns-prefetch], link[rel~=preload], link[rel~=manifest], link[rel~=prefetch]");
+		const replacedAttributeValue = this.doc.querySelectorAll("link[rel~=preconnect], link[rel~=prerender], link[rel~=dns-prefetch], link[rel~=preload], link[rel~=manifest], link[rel~=prefetch], link[rel~=modulepreload]");
 		replacedAttributeValue.forEach(element => {
 			const relValue = element
 				.getAttribute("rel")
