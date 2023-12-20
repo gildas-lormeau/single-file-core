@@ -16991,6 +16991,10 @@ async function evalTemplate(template = "", options, content, doc, dontReplaceSla
 		"length": value => value.length,
 		"url-search-name": (index = 0) => params[index] && params[index][0],
 		"url-search-value": (index = 0) => params[index] && params[index][1],
+		"url-search-named-value": name => {
+			const param = params.find(param => param[0] == name);
+			return (param && param[1]);
+		},
 		"url-search": name => {
 			const param = params.find(param => param[0] == name);
 			return (param && param[1]);
