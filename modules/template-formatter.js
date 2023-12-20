@@ -26,7 +26,7 @@
 import { parse } from "./template-parser.js";
 import { getContentSize, digest } from "./../core/helper.js";
 
-const Blob = globalThis.Blob; 
+const Blob = globalThis.Blob;
 const FileReader = globalThis.FileReader;
 const URL = globalThis.URL;
 const URLSearchParams = globalThis.URLSearchParams;
@@ -17030,6 +17030,9 @@ async function evalTemplate(template = "", options, content, doc, dontReplaceSla
 			const fn = functions[name];
 			if (fn) {
 				argument = argument.replace(/\\\\(.)/g, "$1");
+				if (!optionalArguments) {
+					optionalArguments = [];
+				}
 				optionalArguments = optionalArguments
 					.map(argument => argument.replace(/\\\\(.)/g, "$1"))
 					.filter(argument => argument != undefined && argument != null && argument != "");
