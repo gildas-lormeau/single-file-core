@@ -31,15 +31,6 @@ async function display(document, docContent, { disableFramePointerEvents } = {})
 	docContent = docContent.replace(/<noscript/gi, "<template disabled-noscript");
 	docContent = docContent.replaceAll(/<\/noscript/gi, "</template");
 	const doc = (new DOMParser()).parseFromString(docContent, "text/html");
-	if (doc.doctype) {
-		if (document.doctype) {
-			document.replaceChild(doc.doctype, document.doctype);
-		} else {
-			document.insertBefore(doc.doctype, document.documentElement);
-		}
-	} else if (document.doctype) {
-		document.doctype.remove();
-	}
 	if (disableFramePointerEvents) {
 		doc.querySelectorAll("iframe").forEach(element => {
 			const pointerEvents = "pointer-events";
@@ -47,7 +38,10 @@ async function display(document, docContent, { disableFramePointerEvents } = {})
 			element.style.setProperty(pointerEvents, "none", "important");
 		});
 	}
-	document.replaceChild(document.importNode(doc.documentElement, true), document.documentElement);
+	document.open();
+	document.write(getDoctypeString(doc));
+	document.write(doc.documentElement.outerHTML);
+	document.close();
 	document.querySelectorAll("template[disabled-noscript]").forEach(element => {
 		const noscriptElement = document.createElement("noscript");
 		element.removeAttribute("disabled-noscript");
@@ -57,7 +51,6 @@ async function display(document, docContent, { disableFramePointerEvents } = {})
 	});
 	document.documentElement.setAttribute("data-sfz", "");
 	document.querySelectorAll("link[rel*=icon]").forEach(element => element.parentElement.replaceChild(element, element));
-	document.open = document.write = document.close = () => { };
 	for (let element of Array.from(document.querySelectorAll("script"))) {
 		await new Promise(resolve => {
 			const scriptElement = document.createElement("script");
@@ -74,5 +67,23 @@ async function display(document, docContent, { disableFramePointerEvents } = {})
 				resolve();
 			}
 		});
+	}
+
+	function getDoctypeString(doc) {
+		const docType = doc.doctype;
+		let docTypeString = "";
+		if (docType) {
+			docTypeString = "<!DOCTYPE " + docType.nodeName;
+			if (docType.publicId) {
+				docTypeString += " PUBLIC \"" + docType.publicId + "\"";
+				if (docType.systemId)
+					docTypeString += " \"" + docType.systemId + "\"";
+			} else if (docType.systemId)
+				docTypeString += " SYSTEM \"" + docType.systemId + "\"";
+			if (docType.internalSubset)
+				docTypeString += " [" + docType.internalSubset + "]";
+			docTypeString += "> ";
+		}
+		return docTypeString;
 	}
 }
