@@ -131,7 +131,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 				arrayToBase64(substitutionsLF)
 			]);
 			extraData = "<sfz-extra-data>" + payload.join(",") + "</sfz-extra-data>";
-			if (options.preventAppendedData || extraData.length > 65535 - endTags.length) {
+			if (options.preventAppendedData || extraData.length > 65535 - endTags.length - (options.snapshot ? 12 : 0)) {
 				if (!options.extraDataSize) {
 					options.extraDataSize = Math.floor(extraData.length * 1.001);
 					return process(pageData, options, lastModDate);
@@ -151,7 +151,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 	await zipDataWriter.writable.close();
 	const pageContent = await zipDataWriter.getData();
 	if (options.extractDataFromPage && options.extraDataSize !== undefined) {
-		if (options.extraDataSize + (options.snapshot ? 12 : 0) >= extraData.length) {
+		if (options.extraDataSize >= extraData.length) {
 			pageContent.set(Array.from(extraData).map(character => character.charCodeAt(0)), startOffset - extraDataOffset);
 		} else {
 			options.extraData = extraData;
