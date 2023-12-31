@@ -53,6 +53,13 @@ const EXTRA_DATA_REGEXPS = [
 	[/<\/xmp>/i],
 	[/<\/plaintext>/i]
 ];
+const CRC32_TABLE = new Uint32Array(256).map((_, indexTable) => {
+	let crc = indexTable;
+	for (let indexBits = 0; indexBits < 8; indexBits++) {
+		crc = crc & 1 ? 0xEDB88320 ^ (crc >>> 1) : crc >>> 1;
+	}
+	return crc;
+});
 
 const browser = globalThis.browser;
 
@@ -71,7 +78,13 @@ async function process(pageData, options, lastModDate = new Date()) {
 	const zipDataWriter = new Uint8ArrayWriter();
 	zipDataWriter.init();
 	zipDataWriter.writable.size = 0;
-	let extraDataOffset, extraData;
+	let extraDataOffset, extraData, snapshotDataOffset;
+	if (options.snapshot) {
+		await writeData(zipDataWriter.writable, options.snapshot.slice(0, options.snapshot.length - 12));
+		await writeData(zipDataWriter.writable, new Uint8Array(4));
+		snapshotDataOffset = zipDataWriter.offset;
+		await writeData(zipDataWriter.writable, new Uint8Array([0x74, 0x54, 0x58, 0x74, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0]));
+	}
 	if (options.selfExtractingArchive) {
 		extraDataOffset = await prependHTMLData(pageData, zipDataWriter, script, options);
 	}
@@ -146,7 +159,40 @@ async function process(pageData, options, lastModDate = new Date()) {
 			return process(pageData, options, lastModDate);
 		}
 	}
-	return new Blob([pageContent], { type: "application/octet-stream" });
+	if (options.snapshot) {
+		pageContent.set(getLength(zipDataWriter.offset - snapshotDataOffset - 4), snapshotDataOffset - 4);
+		return new Blob([
+			pageContent,
+			getCRC32(pageContent, snapshotDataOffset),
+			options.snapshot.slice(options.snapshot.length - 12)
+		], { type: "application/octet-stream" });
+	} else {
+		return new Blob([pageContent], { type: "application/octet-stream" });
+	}
+}
+
+function getCRC32(data, indexData = 0) {
+	const crcArray = new Uint8Array(4);
+	let crc = -1;
+	for (; indexData < data.length; indexData++) {
+		crc = (crc >>> 8) ^ CRC32_TABLE[(crc ^ data[indexData]) & 0xff];
+	}
+	crc ^= -1;
+	setUint32(crcArray, crc);
+	return crcArray;
+}
+
+function getLength(length) {
+	const lengthArray = new Uint8Array(4);
+	setUint32(lengthArray, length);
+	return lengthArray;
+}
+
+function setUint32(data, value) {
+	data[0] = value >> 24;
+	data[1] = value >> 16;
+	data[2] = value >> 8;
+	data[3] = value;
 }
 
 async function prependHTMLData(pageData, zipDataWriter, script, options) {
