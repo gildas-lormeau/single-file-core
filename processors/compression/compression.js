@@ -151,7 +151,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 	await zipDataWriter.writable.close();
 	const pageContent = await zipDataWriter.getData();
 	if (options.extractDataFromPage && options.extraDataSize !== undefined) {
-		if (options.extraDataSize >= extraData.length) {
+		if (options.extraDataSize + (options.snapshot ? 12 : 0) >= extraData.length) {
 			pageContent.set(Array.from(extraData).map(character => character.charCodeAt(0)), startOffset - extraDataOffset);
 		} else {
 			options.extraData = extraData;
