@@ -60,6 +60,7 @@ const CRC32_TABLE = new Uint32Array(256).map((_, indexTable) => {
 	}
 	return crc;
 });
+const IEND_LENGTH = 12;
 
 const browser = globalThis.browser;
 
@@ -80,7 +81,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 	zipDataWriter.writable.size = 0;
 	let extraDataOffset, extraData, snapshotDataOffset;
 	if (options.snapshot) {
-		await writeData(zipDataWriter.writable, options.snapshot.slice(0, options.snapshot.length - 12));
+		await writeData(zipDataWriter.writable, options.snapshot.slice(0, options.snapshot.length - IEND_LENGTH));
 		await writeData(zipDataWriter.writable, new Uint8Array(4));
 		snapshotDataOffset = zipDataWriter.offset;
 		await writeData(zipDataWriter.writable, new Uint8Array([0x74, 0x54, 0x58, 0x74, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0]));
@@ -131,7 +132,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 				arrayToBase64(substitutionsLF)
 			]);
 			extraData = "<sfz-extra-data>" + payload.join(",") + "</sfz-extra-data>";
-			if (options.preventAppendedData || extraData.length > 65535 - endTags.length - (options.snapshot ? 12 : 0)) {
+			if (options.preventAppendedData || extraData.length > 65535 - endTags.length - (options.snapshot ? IEND_LENGTH : 0)) {
 				if (!options.extraDataSize) {
 					options.extraDataSize = Math.floor(extraData.length * 1.001);
 					return process(pageData, options, lastModDate);
@@ -164,7 +165,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 		return new Blob([
 			pageContent,
 			getCRC32(pageContent, snapshotDataOffset),
-			options.snapshot.slice(options.snapshot.length - 12)
+			options.snapshot.slice(options.snapshot.length - IEND_LENGTH)
 		], { type: "application/octet-stream" });
 	} else {
 		return new Blob([pageContent], { type: "application/octet-stream" });
