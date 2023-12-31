@@ -71,6 +71,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 	const zipDataWriter = new Uint8ArrayWriter();
 	zipDataWriter.init();
 	zipDataWriter.writable.size = 0;
+	let extraDataOffset, extraData;
 	if (options.selfExtractingArchive) {
 		extraDataOffset = await prependHTMLData(pageData, zipDataWriter, script, options);
 	}
