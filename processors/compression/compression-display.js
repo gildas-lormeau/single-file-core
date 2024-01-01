@@ -51,23 +51,6 @@ async function display(document, docContent, { disableFramePointerEvents } = {})
 	});
 	document.documentElement.setAttribute("data-sfz", "");
 	document.querySelectorAll("link[rel*=icon]").forEach(element => element.parentElement.replaceChild(element, element));
-	for (let element of Array.from(document.querySelectorAll("script"))) {
-		await new Promise(resolve => {
-			const scriptElement = document.createElement("script");
-			Array.from(element.attributes).forEach(attribute => scriptElement.setAttribute(attribute.name, attribute.value));
-			const async = element.getAttribute("async") == "" || element.getAttribute("async") == "async";
-			if (element.textContent) {
-				scriptElement.textContent = element.textContent;
-			} else if (!async) {
-				scriptElement.addEventListener("load", resolve);
-				scriptElement.addEventListener("error", () => resolve());
-			}
-			element.parentElement.replaceChild(scriptElement, element);
-			if (element.textContent || async) {
-				resolve();
-			}
-		});
-	}
 
 	function getDoctypeString(doc) {
 		const docType = doc.doctype;
