@@ -271,7 +271,7 @@ async function prependHTMLData(pageData, zipDataWriter, script, options) {
 
 function getHTMLStartData(pageData, options) {
 	let pageContent = "";
-	if (options.includeBOM && !options.extractDataFromPage) {
+	if (options.includeBOM && !options.extractDataFromPage && !options.snapshot) {
 		pageContent += "\ufeff";
 	}
 	const charset = options.extractDataFromPage ? "windows-1252" : "utf-8";
