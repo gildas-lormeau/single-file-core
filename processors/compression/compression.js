@@ -47,7 +47,7 @@ const EXTRA_DATA_TAGS = [
 	["<xmp>", "</xmp>"],
 	["<plaintext>", "</plaintext>"]
 ];
-const SNAPSHOT_DATA_TAGS = [
+const EMBEDDED_IMAGE_DATA_TAGS = [
 	["<!--", "-->"],
 	...EXTRA_DATA_TAGS,
 ];
@@ -57,7 +57,7 @@ const EXTRA_DATA_REGEXPS = [
 	[/<\/xmp>/i],
 	[/<\/plaintext>/i]
 ];
-const SNAPSHOT_DATA_REGEXPS = [
+const EMBEDDED_IMAGE_DATA_REGEXPS = [
 	/-->/i,
 	...EXTRA_DATA_REGEXPS,
 ];
@@ -89,20 +89,20 @@ async function process(pageData, options, lastModDate = new Date()) {
 	const zipDataWriter = new Uint8ArrayWriter();
 	zipDataWriter.init();
 	zipDataWriter.writable.size = 0;
-	let extraDataOffset, extraData, snapshotDataOffset;
-	if (options.snapshot) {
-		const snaphotData = options.snapshot.slice(8 + PNG_IHDR_LENGTH, options.snapshot.length - PNG_IEND_LENGTH);
+	let extraDataOffset, extraData, embeddedImageDataOffset;
+	if (options.embeddedImage) {
+		const snaphotData = options.embeddedImage.slice(8 + PNG_IHDR_LENGTH, options.embeddedImage.length - PNG_IEND_LENGTH);
 		const snaphotDataText = snaphotData.reduce((text, charCode) => text + String.fromCharCode(charCode), "");
-		const tagIndex = SNAPSHOT_DATA_REGEXPS.findIndex(test => !snaphotDataText.match(test));
-		await writeData(zipDataWriter.writable, options.snapshot.slice(0, PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH));
-		const [startTag, endTag] = tagIndex == -1 ? ["", ""] : SNAPSHOT_DATA_TAGS[tagIndex];
+		const tagIndex = EMBEDDED_IMAGE_DATA_REGEXPS.findIndex(test => !snaphotDataText.match(test));
+		await writeData(zipDataWriter.writable, options.embeddedImage.slice(0, PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH));
+		const [startTag, endTag] = tagIndex == -1 ? ["", ""] : EMBEDDED_IMAGE_DATA_TAGS[tagIndex];
 		const html = getHTMLStartData(pageData, options) + startTag;
 		const hmtlData = new Uint8Array([...getLength(html.length + 4), ...new Uint8Array([0x74, 0x54, 0x58, 0x74, 0x50, 0x4e, 0x47, 0]), ...new TextEncoder().encode(html)]);
 		await writeData(zipDataWriter.writable, hmtlData);
 		await writeData(zipDataWriter.writable, getCRC32(hmtlData, 4));
 		await writeData(zipDataWriter.writable, snaphotData);
 		await writeData(zipDataWriter.writable, new Uint8Array(4));
-		snapshotDataOffset = zipDataWriter.offset;
+		embeddedImageDataOffset = zipDataWriter.offset;
 		await writeData(zipDataWriter.writable, new Uint8Array([0x74, 0x54, 0x58, 0x74, 0x5a, 0x49, 0x50, 0]));
 		await writeData(zipDataWriter.writable, new TextEncoder().encode(endTag));
 	}
@@ -152,7 +152,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 				arrayToBase64(substitutionsLF)
 			]);
 			extraData = "<sfz-extra-data>" + payload.join(",") + "</sfz-extra-data>";
-			if (options.preventAppendedData || extraData.length > 65535 - endTags.length - (options.snapshot ? PNG_IEND_LENGTH : 0)) {
+			if (options.preventAppendedData || extraData.length > 65535 - endTags.length - (options.embeddedImage ? PNG_IEND_LENGTH : 0)) {
 				if (!options.extraDataSize) {
 					options.extraDataSize = Math.floor(extraData.length * 1.001);
 					return process(pageData, options, lastModDate);
@@ -180,12 +180,12 @@ async function process(pageData, options, lastModDate = new Date()) {
 			return process(pageData, options, lastModDate);
 		}
 	}
-	if (options.snapshot) {
-		pageContent.set(getLength(zipDataWriter.offset - snapshotDataOffset - 4), snapshotDataOffset - 4);
+	if (options.embeddedImage) {
+		pageContent.set(getLength(zipDataWriter.offset - embeddedImageDataOffset - 4), embeddedImageDataOffset - 4);
 		return new Blob([
 			pageContent,
-			getCRC32(pageContent, snapshotDataOffset),
-			options.snapshot.slice(options.snapshot.length - PNG_IEND_LENGTH)
+			getCRC32(pageContent, embeddedImageDataOffset),
+			options.embeddedImage.slice(options.embeddedImage.length - PNG_IEND_LENGTH)
 		], { type: "application/octet-stream" });
 	} else {
 		return new Blob([pageContent], { type: "application/octet-stream" });
@@ -218,7 +218,7 @@ function setUint32(data, value) {
 
 async function prependHTMLData(pageData, zipDataWriter, script, options) {
 	let pageContent = "";
-	if (!options.snapshot) {
+	if (!options.embeddedImage) {
 		pageContent += getHTMLStartData(pageData, options);
 	}
 	pageContent += "<div id=sfz-wait-message>Please wait...</div>";
@@ -271,12 +271,12 @@ async function prependHTMLData(pageData, zipDataWriter, script, options) {
 
 function getHTMLStartData(pageData, options) {
 	let pageContent = "";
-	if (options.includeBOM && !options.extractDataFromPage && !options.snapshot) {
+	if (options.includeBOM && !options.extractDataFromPage && !options.embeddedImage) {
 		pageContent += "\ufeff";
 	}
 	const charset = options.extractDataFromPage ? "windows-1252" : "utf-8";
 	const title = options.extractDataFromPage ? "" : getPageTitle(pageData);
-	pageContent += (options.snapshot ? "" : pageData.doctype) + "<html data-sfz><meta charset=" + charset + "><title>" + title + "</title>";
+	pageContent += (options.embeddedImage ? "" : pageData.doctype) + "<html data-sfz><meta charset=" + charset + "><title>" + title + "</title>";
 	if (options.insertCanonicalLink) {
 		pageContent += "<link rel=canonical href=\"" + options.url + "\">";
 	}
