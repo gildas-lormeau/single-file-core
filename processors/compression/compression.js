@@ -97,7 +97,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 		await writeData(zipDataWriter.writable, options.snapshot.slice(0, PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH));
 		const [startTag, endTag] = tagIndex == -1 ? ["", ""] : SNAPSHOT_DATA_TAGS[tagIndex];
 		const html = getHTMLStartData(pageData, options) + startTag;
-		const hmtlData = new Uint8Array([...getLength(html.length), ...new Uint8Array([0x74, 0x54, 0x58, 0x74]), ...new TextEncoder().encode(html)]);
+		const hmtlData = new Uint8Array([...getLength(html.length + 4), ...new Uint8Array([0x74, 0x54, 0x58, 0x74, 0x50, 0x4e, 0x47, 0]), ...new TextEncoder().encode(html)]);
 		await writeData(zipDataWriter.writable, hmtlData);
 		await writeData(zipDataWriter.writable, getCRC32(hmtlData, 4));
 		await writeData(zipDataWriter.writable, snaphotData);
