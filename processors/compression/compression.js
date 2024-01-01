@@ -47,11 +47,19 @@ const EXTRA_DATA_TAGS = [
 	["<xmp>", "</xmp>"],
 	["<plaintext>", "</plaintext>"]
 ];
+const SNAPSHOT_DATA_TAGS = [
+	["<!--", "-->"],
+	...EXTRA_DATA_TAGS,
+];
 const EXTRA_DATA_REGEXPS = [
 	[/<\/noscript>/i],
 	[/<\/script>/i],
 	[/<\/xmp>/i],
 	[/<\/plaintext>/i]
+];
+const SNAPSHOT_DATA_REGEXPS = [
+	/-->/i,
+	...EXTRA_DATA_REGEXPS,
 ];
 const CRC32_TABLE = new Uint32Array(256).map((_, indexTable) => {
 	let crc = indexTable;
@@ -60,7 +68,9 @@ const CRC32_TABLE = new Uint32Array(256).map((_, indexTable) => {
 	}
 	return crc;
 });
-const IEND_LENGTH = 12;
+const PNG_IEND_LENGTH = 12;
+const PNG_SIGNATURE_LENGTH = 8;
+const PNG_IHDR_LENGTH = 25;
 
 const browser = globalThis.browser;
 
@@ -81,10 +91,20 @@ async function process(pageData, options, lastModDate = new Date()) {
 	zipDataWriter.writable.size = 0;
 	let extraDataOffset, extraData, snapshotDataOffset;
 	if (options.snapshot) {
-		await writeData(zipDataWriter.writable, options.snapshot.slice(0, options.snapshot.length - IEND_LENGTH));
+		const snaphotData = options.snapshot.slice(8 + PNG_IHDR_LENGTH, options.snapshot.length - PNG_IEND_LENGTH);
+		const snaphotDataText = snaphotData.reduce((text, charCode) => text + String.fromCharCode(charCode), "");
+		const tagIndex = SNAPSHOT_DATA_REGEXPS.findIndex(test => !snaphotDataText.match(test));
+		await writeData(zipDataWriter.writable, options.snapshot.slice(0, PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH));
+		const [startTag, endTag] = tagIndex == -1 ? ["", ""] : SNAPSHOT_DATA_TAGS[tagIndex];
+		const html = getHTMLStartData(pageData, options) + startTag;
+		const hmtlData = new Uint8Array([...getLength(html.length), ...new Uint8Array([0x74, 0x54, 0x58, 0x74]), ...new TextEncoder().encode(html)]);
+		await writeData(zipDataWriter.writable, hmtlData);
+		await writeData(zipDataWriter.writable, getCRC32(hmtlData, 4));
+		await writeData(zipDataWriter.writable, snaphotData);
 		await writeData(zipDataWriter.writable, new Uint8Array(4));
 		snapshotDataOffset = zipDataWriter.offset;
-		await writeData(zipDataWriter.writable, new Uint8Array([0x74, 0x54, 0x58, 0x74, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0]));
+		await writeData(zipDataWriter.writable, new Uint8Array([0x74, 0x54, 0x58, 0x74, 0x5a, 0x49, 0x50, 0]));
+		await writeData(zipDataWriter.writable, new TextEncoder().encode(endTag));
 	}
 	if (options.selfExtractingArchive) {
 		extraDataOffset = await prependHTMLData(pageData, zipDataWriter, script, options);
@@ -132,7 +152,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 				arrayToBase64(substitutionsLF)
 			]);
 			extraData = "<sfz-extra-data>" + payload.join(",") + "</sfz-extra-data>";
-			if (options.preventAppendedData || extraData.length > 65535 - endTags.length - (options.snapshot ? IEND_LENGTH : 0)) {
+			if (options.preventAppendedData || extraData.length > 65535 - endTags.length - (options.snapshot ? PNG_IEND_LENGTH : 0)) {
 				if (!options.extraDataSize) {
 					options.extraDataSize = Math.floor(extraData.length * 1.001);
 					return process(pageData, options, lastModDate);
@@ -165,7 +185,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 		return new Blob([
 			pageContent,
 			getCRC32(pageContent, snapshotDataOffset),
-			options.snapshot.slice(options.snapshot.length - IEND_LENGTH)
+			options.snapshot.slice(options.snapshot.length - PNG_IEND_LENGTH)
 		], { type: "application/octet-stream" });
 	} else {
 		return new Blob([pageContent], { type: "application/octet-stream" });
@@ -198,24 +218,9 @@ function setUint32(data, value) {
 
 async function prependHTMLData(pageData, zipDataWriter, script, options) {
 	let pageContent = "";
-	if (options.includeBOM && !options.extractDataFromPage) {
-		pageContent += "\ufeff";
+	if (!options.snapshot) {
+		pageContent += getHTMLStartData(pageData, options);
 	}
-	const charset = options.extractDataFromPage ? "windows-1252" : "utf-8";
-	const pageDataTitle = pageData.title.replace(/</g, "&lt;").replace(/>/g, "&gt;") || "";
-	const title = options.extractDataFromPage ? "" : pageDataTitle;
-	pageContent += pageData.doctype + "<html data-sfz><meta charset=" + charset + "><title>" + title + "</title>";
-	if (options.insertCanonicalLink) {
-		pageContent += "<link rel=canonical href=\"" + options.url + "\">";
-	}
-	if (options.insertMetaNoIndex) {
-		pageContent += "<meta name=robots content=noindex>";
-	}
-	if (pageData.viewport) {
-		pageContent += "<meta name=viewport content=" + JSON.stringify(pageData.viewport) + ">";
-	}
-	pageContent += "<style>@keyframes display-wait-message{0%{opacity:0}100%{opacity:1}}</style>";
-	pageContent += "<body hidden>";
 	pageContent += "<div id=sfz-wait-message>Please wait...</div>";
 	pageContent += "<div id=sfz-error-message><strong>Error</strong>: Cannot open the page from the filesystem.";
 	pageContent += "<ul style='line-height:20px;'>";
@@ -227,7 +232,7 @@ async function prependHTMLData(pageData, zipDataWriter, script, options) {
 		doc.body.querySelectorAll("style, script, noscript").forEach(element => element.remove());
 		let textBody = "";
 		if (options.extractDataFromPage) {
-			textBody += pageDataTitle + "\n\n";
+			textBody += getPageTitle(pageData) + "\n\n";
 		}
 		textBody += doc.body.innerText;
 		doc.body.querySelectorAll("single-file-note").forEach(node => {
@@ -262,6 +267,32 @@ async function prependHTMLData(pageData, zipDataWriter, script, options) {
 	const extraDataOffset = startTag.length + extraData.length;
 	await writeData(zipDataWriter.writable, (new TextEncoder()).encode(pageContent));
 	return extraDataOffset;
+}
+
+function getHTMLStartData(pageData, options) {
+	let pageContent = "";
+	if (options.includeBOM && !options.extractDataFromPage) {
+		pageContent += "\ufeff";
+	}
+	const charset = options.extractDataFromPage ? "windows-1252" : "utf-8";
+	const title = options.extractDataFromPage ? "" : getPageTitle(pageData);
+	pageContent += (options.snapshot ? "" : pageData.doctype) + "<html data-sfz><meta charset=" + charset + "><title>" + title + "</title>";
+	if (options.insertCanonicalLink) {
+		pageContent += "<link rel=canonical href=\"" + options.url + "\">";
+	}
+	if (options.insertMetaNoIndex) {
+		pageContent += "<meta name=robots content=noindex>";
+	}
+	if (pageData.viewport) {
+		pageContent += "<meta name=viewport content=" + JSON.stringify(pageData.viewport) + ">";
+	}
+	pageContent += "<style>@keyframes display-wait-message{0%{opacity:0}100%{opacity:1}}</style>";
+	pageContent += "<body hidden>";
+	return pageContent;
+}
+
+function getPageTitle(pageData) {
+	return pageData.title.replace(/</g, "&lt;").replace(/>/g, "&gt;") || "";
 }
 
 function findExtraDataTags(textContent, pageData, options, lastModDate, indexExtractDataFromPageTags = 0) {
