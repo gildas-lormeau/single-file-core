@@ -91,7 +91,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 	zipDataWriter.writable.size = 0;
 	let extraDataOffset, extraData, embeddedImageDataOffset;
 	if (options.embeddedImage) {
-		const snaphotData = options.embeddedImage.slice(8 + PNG_IHDR_LENGTH, options.embeddedImage.length - PNG_IEND_LENGTH);
+		const snaphotData = options.embeddedImage.slice(PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH, options.embeddedImage.length - PNG_IEND_LENGTH);
 		const snaphotDataText = snaphotData.reduce((text, charCode) => text + String.fromCharCode(charCode), "");
 		const tagIndex = EMBEDDED_IMAGE_DATA_REGEXPS.findIndex(test => !snaphotDataText.match(test));
 		await writeData(zipDataWriter.writable, options.embeddedImage.slice(0, PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH));
