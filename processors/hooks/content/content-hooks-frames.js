@@ -42,12 +42,11 @@ const DELETE_FONT_EVENT = "single-file-delete-font";
 const CLEAR_FONTS_EVENT = "single-file-clear-fonts";
 const FONT_FACE_PROPERTY_NAME = "_singleFile_fontFaces";
 
-const addEventListener = (type, listener, options) => globalThis.addEventListener(type, listener, options);
-const dispatchEvent = event => { try { globalThis.dispatchEvent(event); } catch (error) {  /* ignored */ } };
 const CustomEvent = globalThis.CustomEvent;
 const document = globalThis.document;
 const Document = globalThis.Document;
 const JSON = globalThis.JSON;
+const MutationObserver = globalThis.MutationObserver;
 
 let fontFaces;
 if (window[FONT_FACE_PROPERTY_NAME]) {
@@ -56,20 +55,25 @@ if (window[FONT_FACE_PROPERTY_NAME]) {
 	fontFaces = window[FONT_FACE_PROPERTY_NAME] = new Map();
 }
 
-if (document instanceof Document) {
-	addEventListener(NEW_FONT_FACE_EVENT, event => {
-		const detail = event.detail;
-		const key = Object.assign({}, detail);
-		delete key.src;
-		fontFaces.set(JSON.stringify(key), detail);
-	});
-	addEventListener(DELETE_FONT_EVENT, event => {
-		const detail = event.detail;
-		const key = Object.assign({}, detail);
-		delete key.src;
-		fontFaces.delete(JSON.stringify(key));
-	});
-	addEventListener(CLEAR_FONTS_EVENT, () => fontFaces = new Map());
+init();
+new MutationObserver(init).observe(document, { childList: true });
+
+function init() {
+	if (document instanceof Document) {
+		document.addEventListener(NEW_FONT_FACE_EVENT, event => {
+			const detail = event.detail;
+			const key = Object.assign({}, detail);
+			delete key.src;
+			fontFaces.set(JSON.stringify(key), detail);
+		});
+		document.addEventListener(DELETE_FONT_EVENT, event => {
+			const detail = event.detail;
+			const key = Object.assign({}, detail);
+			delete key.src;
+			fontFaces.delete(JSON.stringify(key));
+		});
+		document.addEventListener(CLEAR_FONTS_EVENT, () => fontFaces = new Map());
+	}
 }
 
 export {
@@ -87,42 +91,42 @@ function getFontsData() {
 
 function loadDeferredImagesStart(options) {
 	if (options.loadDeferredImagesBlockCookies) {
-		dispatchEvent(new CustomEvent(BLOCK_COOKIES_START_EVENT));
+		document.dispatchEvent(new CustomEvent(BLOCK_COOKIES_START_EVENT));
 	}
 	if (options.loadDeferredImagesBlockStorage) {
-		dispatchEvent(new CustomEvent(BLOCK_STORAGE_START_EVENT));
+		document.dispatchEvent(new CustomEvent(BLOCK_STORAGE_START_EVENT));
 	}
 	if (options.loadDeferredImagesDispatchScrollEvent) {
-		dispatchEvent(new CustomEvent(DISPATCH_SCROLL_START_EVENT));
+		document.dispatchEvent(new CustomEvent(DISPATCH_SCROLL_START_EVENT));
 	}
 	if (options.loadDeferredImagesKeepZoomLevel) {
-		dispatchEvent(new CustomEvent(LOAD_DEFERRED_IMAGES_KEEP_ZOOM_LEVEL_START_EVENT));
+		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_IMAGES_KEEP_ZOOM_LEVEL_START_EVENT));
 	} else {
-		dispatchEvent(new CustomEvent(LOAD_DEFERRED_IMAGES_START_EVENT));
+		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_IMAGES_START_EVENT));
 	}
 }
 
 function loadDeferredImagesEnd(options) {
 	if (options.loadDeferredImagesBlockCookies) {
-		dispatchEvent(new CustomEvent(BLOCK_COOKIES_END_EVENT));
+		document.dispatchEvent(new CustomEvent(BLOCK_COOKIES_END_EVENT));
 	}
 	if (options.loadDeferredImagesBlockStorage) {
-		dispatchEvent(new CustomEvent(BLOCK_STORAGE_END_EVENT));
+		document.dispatchEvent(new CustomEvent(BLOCK_STORAGE_END_EVENT));
 	}
 	if (options.loadDeferredImagesDispatchScrollEvent) {
-		dispatchEvent(new CustomEvent(DISPATCH_SCROLL_END_EVENT));
+		document.dispatchEvent(new CustomEvent(DISPATCH_SCROLL_END_EVENT));
 	}
 	if (options.loadDeferredImagesKeepZoomLevel) {
-		dispatchEvent(new CustomEvent(LOAD_DEFERRED_IMAGES_KEEP_ZOOM_LEVEL_END_EVENT));
+		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_IMAGES_KEEP_ZOOM_LEVEL_END_EVENT));
 	} else {
-		dispatchEvent(new CustomEvent(LOAD_DEFERRED_IMAGES_END_EVENT));
+		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_IMAGES_END_EVENT));
 	}
 }
 
 function loadDeferredImagesResetZoomLevel(options) {
 	if (options.loadDeferredImagesKeepZoomLevel) {
-		dispatchEvent(new CustomEvent(LOAD_DEFERRED_IMAGES_RESET_ZOOM_LEVEL_EVENT));
+		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_IMAGES_RESET_ZOOM_LEVEL_EVENT));
 	} else {
-		dispatchEvent(new CustomEvent(LOAD_DEFERRED_IMAGES_RESET_EVENT));
+		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_IMAGES_RESET_EVENT));
 	}
 }

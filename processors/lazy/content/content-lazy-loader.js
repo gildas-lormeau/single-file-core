@@ -39,8 +39,6 @@ const ATTRIBUTES_MUTATION_TYPE = "attributes";
 const browser = globalThis.browser;
 const document = globalThis.document;
 const MutationObserver = globalThis.MutationObserver;
-const addEventListener = (type, listener, options) => globalThis.addEventListener(type, listener, options);
-const removeEventListener = (type, listener, options) => globalThis.removeEventListener(type, listener, options);
 const timeouts = new Map();
 
 let idleTimeoutCalls;
@@ -115,8 +113,8 @@ function triggerLazyLoading(options) {
 		await setIdleTimeout(options.loadDeferredImagesMaxIdleTime * 2);
 		await deferForceLazyLoadEnd(observer, options, cleanupAndResolve);
 		observer.observe(document, { subtree: true, childList: true, attributes: true });
-		addEventListener(hooksFrames.LOAD_IMAGE_EVENT, onImageLoadEvent);
-		addEventListener(hooksFrames.IMAGE_LOADED_EVENT, onImageLoadedEvent);
+		document.addEventListener(hooksFrames.LOAD_IMAGE_EVENT, onImageLoadEvent);
+		document.addEventListener(hooksFrames.IMAGE_LOADED_EVENT, onImageLoadedEvent);
 		hooksFrames.loadDeferredImagesStart(options);
 
 		async function setIdleTimeout(delay) {
@@ -159,8 +157,8 @@ function triggerLazyLoading(options) {
 
 		function cleanupAndResolve(value) {
 			observer.disconnect();
-			removeEventListener(hooksFrames.LOAD_IMAGE_EVENT, onImageLoadEvent);
-			removeEventListener(hooksFrames.IMAGE_LOADED_EVENT, onImageLoadedEvent);
+			document.removeEventListener(hooksFrames.LOAD_IMAGE_EVENT, onImageLoadEvent);
+			document.removeEventListener(hooksFrames.IMAGE_LOADED_EVENT, onImageLoadedEvent);
 			resolve(value);
 		}
 	});

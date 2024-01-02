@@ -59,8 +59,6 @@
 		featureSettings: "font-feature-settings"
 	};
 
-	const addEventListener = (type, listener, options) => globalThis.addEventListener(type, listener, options);
-	const dispatchEvent = event => { try { globalThis.dispatchEvent(event); } catch (error) {  /* ignored */ } };
 	const fetch = (url, options) => globalThis.fetch(url, options);
 	const CustomEvent = globalThis.CustomEvent;
 	const document = globalThis.document;
@@ -71,13 +69,83 @@
 	const FileReader = globalThis.FileReader;
 	const Blob = globalThis.Blob;
 	const JSON = globalThis.JSON;
+	const MutationObserver = globalThis.MutationObserver;
 
 	const observers = new Map();
 	const observedElements = new Map();
 
 	let dispatchScrollEvent;
-	addEventListener(LOAD_DEFERRED_IMAGES_START_EVENT, () => loadDeferredImagesStart());
-	addEventListener(LOAD_DEFERRED_IMAGES_KEEP_ZOOM_LEVEL_START_EVENT, () => loadDeferredImagesStart(true));
+
+	init();
+	new MutationObserver(init).observe(document, { childList: true });
+
+	function init() {
+		document.addEventListener(LOAD_DEFERRED_IMAGES_START_EVENT, () => loadDeferredImagesStart());
+		document.addEventListener(LOAD_DEFERRED_IMAGES_KEEP_ZOOM_LEVEL_START_EVENT, () => loadDeferredImagesStart(true));
+		document.addEventListener(LOAD_DEFERRED_IMAGES_END_EVENT, () => loadDeferredImagesEnd());
+		document.addEventListener(LOAD_DEFERRED_IMAGES_KEEP_ZOOM_LEVEL_END_EVENT, () => loadDeferredImagesEnd(true));
+		document.addEventListener(LOAD_DEFERRED_IMAGES_RESET_EVENT, resetScreenSize);
+		document.addEventListener(LOAD_DEFERRED_IMAGES_RESET_ZOOM_LEVEL_EVENT, () => {
+			const transform = document.documentElement.style.getPropertyValue("-sf-transform");
+			const transformPriority = document.documentElement.style.getPropertyPriority("-sf-transform");
+			const transformOrigin = document.documentElement.style.getPropertyValue("-sf-transform-origin");
+			const transformOriginPriority = document.documentElement.style.getPropertyPriority("-sf-transform-origin");
+			const minHeight = document.documentElement.style.getPropertyValue("-sf-min-height");
+			const minHeightPriority = document.documentElement.style.getPropertyPriority("-sf-min-height");
+			document.documentElement.style.setProperty("transform", transform, transformPriority);
+			document.documentElement.style.setProperty("transform-origin", transformOrigin, transformOriginPriority);
+			document.documentElement.style.setProperty("min-height", minHeight, minHeightPriority);
+			document.documentElement.style.removeProperty("-sf-transform");
+			document.documentElement.style.removeProperty("-sf-transform-origin");
+			document.documentElement.style.removeProperty("-sf-min-height");
+			resetScreenSize();
+		});
+		document.addEventListener(DISPATCH_SCROLL_START_EVENT, () => { dispatchScrollEvent = true; });
+		document.addEventListener(DISPATCH_SCROLL_END_EVENT, () => { dispatchScrollEvent = false; });
+		document.addEventListener(BLOCK_COOKIES_START_EVENT, () => {
+			try {
+				document.__defineGetter__("cookie", () => { throw new Error("document.cookie temporary blocked by SingleFile"); });
+			} catch (error) {
+				// ignored
+			}
+		});
+		document.addEventListener(BLOCK_COOKIES_END_EVENT, () => { delete document.cookie; });
+		document.addEventListener(BLOCK_STORAGE_START_EVENT, () => {
+			if (!globalThis._singleFile_localStorage) {
+				globalThis._singleFile_localStorage = globalThis.localStorage;
+				globalThis.__defineGetter__("localStorage", () => { throw new Error("localStorage temporary blocked by SingleFile"); });
+			}
+			if (!globalThis._singleFile_indexedDB) {
+				globalThis._singleFile_indexedDB = globalThis.indexedDB;
+				globalThis.__defineGetter__("indexedDB", () => { throw new Error("indexedDB temporary blocked by SingleFile"); });
+			}
+		});
+		document.addEventListener(BLOCK_STORAGE_END_EVENT, () => {
+			if (globalThis._singleFile_localStorage) {
+				delete globalThis.localStorage;
+				globalThis.localStorage = globalThis._singleFile_localStorage;
+				delete globalThis._singleFile_localStorage;
+			}
+			if (!globalThis._singleFile_indexedDB) {
+				delete globalThis.indexedDB;
+				globalThis.indexedDB = globalThis._singleFile_indexedDB;
+				delete globalThis._singleFile_indexedDB;
+			}
+		});
+		document.addEventListener(FETCH_REQUEST_EVENT, async event => {
+			document.dispatchEvent(new CustomEvent(FETCH_ACK_EVENT));
+			const { url, options } = JSON.parse(event.detail);
+			let detail;
+			try {
+				const response = await fetch(url, options);
+				detail = { url, response: await response.arrayBuffer(), headers: [...response.headers], status: response.status };
+			} catch (error) {
+				detail = { url, error: error && error.toString() };
+			}
+			document.dispatchEvent(new CustomEvent(FETCH_RESPONSE_EVENT, { detail }));
+		});
+		document.addEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, getAdoptedStylesheetsListener);
+	}
 
 	function loadDeferredImagesStart(keepZoomLevel) {
 		const scrollingElement = document.scrollingElement || document.documentElement;
@@ -121,11 +189,11 @@
 					const result = new Image(...arguments);
 					result.__defineSetter__("src", value => {
 						image.src = value;
-						dispatchEvent(new CustomEvent(LOAD_IMAGE_EVENT, { detail: image.src }));
+						document.dispatchEvent(new CustomEvent(LOAD_IMAGE_EVENT, { detail: image.src }));
 					});
 					result.__defineGetter__("src", () => image.src);
 					result.__defineSetter__("srcset", value => {
-						dispatchEvent(new CustomEvent(LOAD_IMAGE_EVENT));
+						document.dispatchEvent(new CustomEvent(LOAD_IMAGE_EVENT));
 						image.srcset = value;
 					});
 					result.__defineGetter__("srcset", () => image.srcset);
@@ -137,7 +205,7 @@
 						result.__defineGetter__("decode", () => () => image.decode());
 					}
 					image.onload = image.onloadend = image.onerror = event => {
-						dispatchEvent(new CustomEvent(IMAGE_LOADED_EVENT, { detail: image.src }));
+						document.dispatchEvent(new CustomEvent(IMAGE_LOADED_EVENT, { detail: image.src }));
 						result.dispatchEvent(new Event(event.type, event));
 					};
 					return result;
@@ -198,25 +266,6 @@
 		}
 	}
 
-	addEventListener(LOAD_DEFERRED_IMAGES_END_EVENT, () => loadDeferredImagesEnd());
-	addEventListener(LOAD_DEFERRED_IMAGES_KEEP_ZOOM_LEVEL_END_EVENT, () => loadDeferredImagesEnd(true));
-	addEventListener(LOAD_DEFERRED_IMAGES_RESET_EVENT, resetScreenSize);
-	addEventListener(LOAD_DEFERRED_IMAGES_RESET_ZOOM_LEVEL_EVENT, () => {
-		const transform = document.documentElement.style.getPropertyValue("-sf-transform");
-		const transformPriority = document.documentElement.style.getPropertyPriority("-sf-transform");
-		const transformOrigin = document.documentElement.style.getPropertyValue("-sf-transform-origin");
-		const transformOriginPriority = document.documentElement.style.getPropertyPriority("-sf-transform-origin");
-		const minHeight = document.documentElement.style.getPropertyValue("-sf-min-height");
-		const minHeightPriority = document.documentElement.style.getPropertyPriority("-sf-min-height");
-		document.documentElement.style.setProperty("transform", transform, transformPriority);
-		document.documentElement.style.setProperty("transform-origin", transformOrigin, transformOriginPriority);
-		document.documentElement.style.setProperty("min-height", minHeight, minHeightPriority);
-		document.documentElement.style.removeProperty("-sf-transform");
-		document.documentElement.style.removeProperty("-sf-transform-origin");
-		document.documentElement.style.removeProperty("-sf-min-height");
-		resetScreenSize();
-	});
-
 	function loadDeferredImagesEnd(keepZoomLevel) {
 		document.querySelectorAll("[" + LAZY_LOAD_ATTRIBUTE + "]").forEach(element => {
 			element.loading = "lazy";
@@ -256,82 +305,25 @@
 		delete screen.width;
 	}
 
-	addEventListener(DISPATCH_SCROLL_START_EVENT, () => {
-		dispatchScrollEvent = true;
-	});
 
-	addEventListener(DISPATCH_SCROLL_END_EVENT, () => {
-		dispatchScrollEvent = false;
-	});
-
-	addEventListener(BLOCK_COOKIES_START_EVENT, () => {
-		try {
-			document.__defineGetter__("cookie", () => { throw new Error("document.cookie temporary blocked by SingleFile"); });
-		} catch (error) {
-			// ignored
-		}
-	});
-
-	addEventListener(BLOCK_COOKIES_END_EVENT, () => {
-		delete document.cookie;
-	});
-
-	addEventListener(BLOCK_STORAGE_START_EVENT, () => {
-		if (!globalThis._singleFile_localStorage) {
-			globalThis._singleFile_localStorage = globalThis.localStorage;
-			globalThis.__defineGetter__("localStorage", () => { throw new Error("localStorage temporary blocked by SingleFile"); });
-		}
-		if (!globalThis._singleFile_indexedDB) {
-			globalThis._singleFile_indexedDB = globalThis.indexedDB;
-			globalThis.__defineGetter__("indexedDB", () => { throw new Error("indexedDB temporary blocked by SingleFile"); });
-		}
-	});
-
-	addEventListener(BLOCK_STORAGE_END_EVENT, () => {
-		if (globalThis._singleFile_localStorage) {
-			delete globalThis.localStorage;
-			globalThis.localStorage = globalThis._singleFile_localStorage;
-			delete globalThis._singleFile_localStorage;
-		}
-		if (!globalThis._singleFile_indexedDB) {
-			delete globalThis.indexedDB;
-			globalThis.indexedDB = globalThis._singleFile_indexedDB;
-			delete globalThis._singleFile_indexedDB;
-		}
-	});
-
-	addEventListener(FETCH_REQUEST_EVENT, async event => {
-		dispatchEvent(new CustomEvent(FETCH_ACK_EVENT));
-		const { url, options } = JSON.parse(event.detail);
-		let detail;
-		try {
-			const response = await fetch(url, options);
-			detail = { url, response: await response.arrayBuffer(), headers: [...response.headers], status: response.status };
-		} catch (error) {
-			detail = { url, error: error && error.toString() };
-		}
-		dispatchEvent(new CustomEvent(FETCH_RESPONSE_EVENT, { detail }));
-	});
-
-	addEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, getAdoptedStylesheetsListener);
 
 	if (globalThis.FontFace) {
 		const FontFace = globalThis.FontFace;
 		globalThis.FontFace = function () {
-			getDetailObject(...arguments).then(detail => dispatchEvent(new CustomEvent(NEW_FONT_FACE_EVENT, { detail })));
+			getDetailObject(...arguments).then(detail => document.dispatchEvent(new CustomEvent(NEW_FONT_FACE_EVENT, { detail })));
 			return new FontFace(...arguments);
 		};
 		globalThis.FontFace.prototype = FontFace.prototype;
 		globalThis.FontFace.toString = function () { return "function FontFace() { [native code] }"; };
 		const deleteFont = document.fonts.delete;
 		document.fonts.delete = function (fontFace) {
-			getDetailObject(fontFace.family).then(detail => dispatchEvent(new CustomEvent(DELETE_FONT_EVENT, { detail })));
+			getDetailObject(fontFace.family).then(detail => document.dispatchEvent(new CustomEvent(DELETE_FONT_EVENT, { detail })));
 			return deleteFont.call(document.fonts, fontFace);
 		};
 		document.fonts.delete.toString = function () { return "function delete() { [native code] }"; };
 		const clearFonts = document.fonts.clear;
 		document.fonts.clear = function () {
-			dispatchEvent(new CustomEvent(CLEAR_FONTS_EVENT));
+			document.dispatchEvent(new CustomEvent(CLEAR_FONTS_EVENT));
 			return clearFonts.call(document.fonts);
 		};
 		document.fonts.clear.toString = function () { return "function clear() { [native code] }"; };
@@ -418,9 +410,9 @@
 
 	function dispatchResizeEvent() {
 		try {
-			dispatchEvent(new UIEvent("resize"));
+			globalThis.dispatchEvent(new UIEvent("resize"));
 			if (dispatchScrollEvent) {
-				dispatchEvent(new UIEvent("scroll"));
+				globalThis.dispatchEvent(new UIEvent("scroll"));
 			}
 		} catch (error) {
 			// ignored

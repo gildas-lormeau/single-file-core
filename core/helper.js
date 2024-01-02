@@ -82,6 +82,7 @@ const crypto = globalThis.crypto;
 const TextEncoder = globalThis.TextEncoder;
 const Blob = globalThis.Blob;
 const CustomEvent = globalThis.CustomEvent;
+const MutationObserver = globalThis.MutationObserver;
 
 export {
 	initUserScriptHandler,
@@ -135,6 +136,7 @@ function initUserScriptHandler() {
 			await promiseResponse;
 		}
 	});
+	new MutationObserver(initUserScriptHandler).observe(globalThis.document, { childList: true });
 }
 
 function initDoc(doc) {
