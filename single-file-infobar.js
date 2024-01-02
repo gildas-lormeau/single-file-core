@@ -28,19 +28,28 @@ import { appendInfobar, refreshInfobarInfo, extractInfobarData } from "./core/in
 (globalThis => {
 
 	const browser = globalThis.browser;
+	const MutationObserver = globalThis.MutationObserver;
+	let documentMutationsObserver;
+	init();
 
-	if (globalThis.window == globalThis.top) {
-		if (document.readyState == "loading") {
-			document.addEventListener("DOMContentLoaded", displayIcon, false);
-		} else {
-			displayIcon();
+	function init() {
+		if (globalThis.window == globalThis.top) {
+			if (document.readyState == "loading") {
+				document.addEventListener("DOMContentLoaded", displayIcon, false);
+			} else {
+				displayIcon();
+			}
+			document.addEventListener("single-file-display-infobar", displayIcon, false);
+			documentMutationsObserver = new MutationObserver(() => {
+				init();
+				documentMutationsObserver.disconnect();
+			}).observe(document, { childList: true });
 		}
-		document.addEventListener("single-file-display-infobar", displayIcon, false);
-	}
-	if (globalThis.singlefile) {
-		globalThis.singlefile.infobar = {
-			displayIcon
-		};
+		if (globalThis.singlefile) {
+			globalThis.singlefile.infobar = {
+				displayIcon
+			};
+		}
 	}
 
 	async function displayIcon() {
