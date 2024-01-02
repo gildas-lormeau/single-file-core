@@ -145,7 +145,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 				pageContent += "-->";
 			}
 		}
-		const endTags = options.preventAppendedData ? "" : "</body></html>";
+		const endTags = options.preventAppendedData ? "" : "</body>" + (options.embeddedImage ? "" : "</html>");
 		if (options.extractDataFromPage) {
 			const payload = await Promise.all([
 				arrayToBase64(insertionsCRLF),
