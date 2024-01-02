@@ -412,15 +412,16 @@ async function getContent() {
 		if (zipDataElement) {
 			let dataNode = zipDataElement.nextSibling;
 			if (dataNode) {
-				if (dataNode.nodeType == Node.TEXT_NODE) {
+				if (dataNode.nodeType == Node.TEXT_NODE && dataNode.nextSibling) {
 					dataNode = dataNode.nextSibling;
+				} else {
+					dataNode = zipDataElement.previousSibling;
 				}
 			} else {
 				dataNode = zipDataElement.previousSibling;
 			}
 			const zipData = [];
 			let { textContent } = dataNode;
-			displayMessage("sfz-wait-message", 2);
 			for (let index = 0; index < textContent.length; index++) {
 				const charCode = textContent.charCodeAt(index);
 				zipData.push(charCode > 255 ? characterMap.get(charCode) : charCode);
