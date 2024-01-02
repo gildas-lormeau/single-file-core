@@ -29,7 +29,6 @@ import { appendInfobar, refreshInfobarInfo, extractInfobarData } from "./core/in
 
 	const browser = globalThis.browser;
 	const MutationObserver = globalThis.MutationObserver;
-	let documentMutationsObserver;
 	init();
 
 	function init() {
@@ -40,10 +39,7 @@ import { appendInfobar, refreshInfobarInfo, extractInfobarData } from "./core/in
 				displayIcon();
 			}
 			document.addEventListener("single-file-display-infobar", displayIcon, false);
-			documentMutationsObserver = new MutationObserver(() => {
-				init();
-				documentMutationsObserver.disconnect();
-			}).observe(document, { childList: true });
+			new MutationObserver(() => init).observe(document, { childList: true });
 		}
 		if (globalThis.singlefile) {
 			globalThis.singlefile.infobar = {
