@@ -127,7 +127,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 					return findExtraDataTags(textContent, pageData, options, lastModDate);
 				}
 			}
-			for (let index = 0; index < data.length; index++) {
+			for (let index = startOffset; index < data.length; index++) {
 				if (data[index] == 13) {
 					if (data[index + 1] == 10) {
 						insertionsCRLF.push(index - startOffset);
