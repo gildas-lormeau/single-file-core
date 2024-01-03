@@ -89,14 +89,15 @@ async function process(pageData, options, lastModDate = new Date()) {
 	const zipDataWriter = new Uint8ArrayWriter();
 	zipDataWriter.init();
 	zipDataWriter.writable.size = 0;
-	let extraDataOffset, extraData, embeddedImageDataOffset;
+	let extraDataOffset, extraData, embeddedImageDataOffset, endTag;
 	if (options.embeddedImage) {
 		const embeddedImageData = options.embeddedImage.slice(PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH, options.embeddedImage.length - PNG_IEND_LENGTH);
-		const embeddedImageText = embeddedImageData.reduce((text, charCode) => text + String.fromCharCode(charCode), "");
-		const tagIndex = EMBEDDED_IMAGE_DATA_REGEXPS.findIndex(test => !embeddedImageText.match(test));
 		await writeData(zipDataWriter.writable, options.embeddedImage.slice(0, PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH));
-		const [startTag, endTag] = tagIndex == -1 ? ["", ""] : EMBEDDED_IMAGE_DATA_TAGS[tagIndex];
 		if (options.selfExtractingArchive) {
+			const embeddedImageText = embeddedImageData.reduce((text, charCode) => text + String.fromCharCode(charCode), "");
+			const tagIndex = EMBEDDED_IMAGE_DATA_REGEXPS.findIndex(test => !embeddedImageText.match(test));
+			let startTag;
+			[startTag, endTag] = tagIndex == -1 ? ["", ""] : EMBEDDED_IMAGE_DATA_TAGS[tagIndex];
 			const html = getHTMLStartData(pageData, options) + startTag;
 			const hmtlData = new Uint8Array([...getLength(html.length + 4), ...new Uint8Array([0x74, 0x54, 0x58, 0x74, 0x50, 0x4e, 0x47, 0]), ...new TextEncoder().encode(html)]);
 			await writeData(zipDataWriter.writable, hmtlData);
