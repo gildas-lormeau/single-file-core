@@ -286,7 +286,7 @@ function getHTMLStartData(pageData, options) {
 	if (pageData.viewport) {
 		pageContent += "<meta name=viewport content=" + JSON.stringify(pageData.viewport) + ">";
 	}
-	pageContent += "<style>@keyframes display-wait-message{0%{opacity:0}100%{opacity:1}}</style>";
+	pageContent += "<style>@keyframes display-wait-message{0%{opacity:0}100%{opacity:1}};body{color:transparent};div{color:initial}</style>";
 	pageContent += "<body hidden>";
 	return pageContent;
 }
@@ -377,6 +377,7 @@ async function getContent() {
 		[8212, 151], [732, 152], [8482, 153], [353, 154], [8250, 155], [339, 156], [382, 158], [376, 159]
 	]);
 	const xhr = new XMLHttpRequest();
+	document.body.querySelectorAll("meta, style").forEach(element => document.head.appendChild(element));
 	xhr.responseType = "blob";
 	xhr.open("GET", "");
 	return new Promise((resolve, reject) => {
@@ -422,6 +423,7 @@ async function getContent() {
 			}
 			const zipData = [];
 			let { textContent } = dataNode;
+			displayMessage("sfz-wait-message", 2);
 			for (let index = 0; index < textContent.length; index++) {
 				const charCode = textContent.charCodeAt(index);
 				zipData.push(charCode > 255 ? characterMap.get(charCode) : charCode);
