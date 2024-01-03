@@ -96,15 +96,19 @@ async function process(pageData, options, lastModDate = new Date()) {
 		const tagIndex = EMBEDDED_IMAGE_DATA_REGEXPS.findIndex(test => !embeddedImageText.match(test));
 		await writeData(zipDataWriter.writable, options.embeddedImage.slice(0, PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH));
 		const [startTag, endTag] = tagIndex == -1 ? ["", ""] : EMBEDDED_IMAGE_DATA_TAGS[tagIndex];
-		const html = getHTMLStartData(pageData, options) + startTag;
-		const hmtlData = new Uint8Array([...getLength(html.length + 4), ...new Uint8Array([0x74, 0x54, 0x58, 0x74, 0x50, 0x4e, 0x47, 0]), ...new TextEncoder().encode(html)]);
-		await writeData(zipDataWriter.writable, hmtlData);
-		await writeData(zipDataWriter.writable, getCRC32(hmtlData, 4));
+		if (options.selfExtractingArchive) {
+			const html = getHTMLStartData(pageData, options) + startTag;
+			const hmtlData = new Uint8Array([...getLength(html.length + 4), ...new Uint8Array([0x74, 0x54, 0x58, 0x74, 0x50, 0x4e, 0x47, 0]), ...new TextEncoder().encode(html)]);
+			await writeData(zipDataWriter.writable, hmtlData);
+			await writeData(zipDataWriter.writable, getCRC32(hmtlData, 4));
+		}
 		await writeData(zipDataWriter.writable, embeddedImageData);
 		await writeData(zipDataWriter.writable, new Uint8Array(4));
 		embeddedImageDataOffset = zipDataWriter.offset;
 		await writeData(zipDataWriter.writable, new Uint8Array([0x74, 0x54, 0x58, 0x74, 0x5a, 0x49, 0x50, 0]));
-		await writeData(zipDataWriter.writable, new TextEncoder().encode(endTag));
+		if (options.selfExtractingArchive) {
+			await writeData(zipDataWriter.writable, new TextEncoder().encode(endTag));
+		}
 	}
 	if (options.selfExtractingArchive) {
 		extraDataOffset = await prependHTMLData(pageData, zipDataWriter, script, options);
