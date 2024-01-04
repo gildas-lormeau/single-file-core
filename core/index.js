@@ -1230,6 +1230,7 @@ class Processor {
 			options.includeInfobar = false;
 			options.saveFilenameTemplateData = false;
 			options.selected = false;
+			options.embeddedImage = null;
 			options.url = frameData.baseURI;
 			options.windowId = frameWindowId;
 			if (frameData.content) {
