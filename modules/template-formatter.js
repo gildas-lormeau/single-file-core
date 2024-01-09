@@ -16947,7 +16947,8 @@ async function evalTemplate(template = "", options, content, doc, dontReplaceSla
 		"bookmark-pathname": { getter: () => bookmarkFolder, dontReplaceSlash: dontReplaceSlashIfUndefined },
 		"bookmark-pathname-flat": { getter: () => bookmarkFolder, dontReplaceSlash: false },
 		"profile-name": { getter: () => options.profileName },
-		"filename-extension": { getter: () => getFilenameExtension(options) }
+		"filename-extension": { getter: () => getFilenameExtension(options) },
+		"save-action": { getter: () => options.selected ? "selection" : "page" }
 	};
 	if (content) {
 		variables["digest-sha-256"] = { getter: async () => digest("SHA-256", content) };
