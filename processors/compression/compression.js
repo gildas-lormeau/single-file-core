@@ -190,7 +190,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 		return new Blob([
 			pageContent,
 			getCRC32(pageContent, embeddedImageDataOffset),
-			options.embeddedImage.slice(options.embeddedImage.length - PNG_IEND_LENGTH)
+			new Uint8Array(options.embeddedImage.slice(options.embeddedImage.length - PNG_IEND_LENGTH))
 		], { type: "application/octet-stream" });
 	} else {
 		return new Blob([pageContent], { type: "application/octet-stream" });
