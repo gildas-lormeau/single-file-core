@@ -91,6 +91,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 	zipDataWriter.writable.size = 0;
 	let extraDataOffset, extraData, embeddedImageDataOffset, endTag;
 	if (options.embeddedImage) {
+		options.embeddedImage = Array.from(options.embeddedImage);
 		const embeddedImageData = options.embeddedImage.slice(PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH, options.embeddedImage.length - PNG_IEND_LENGTH);
 		await writeData(zipDataWriter.writable, options.embeddedImage.slice(0, PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH));
 		if (options.selfExtractingArchive) {
