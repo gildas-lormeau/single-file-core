@@ -251,13 +251,16 @@ async function prependHTMLData(pageData, zipDataWriter, script, options) {
 		textBody = textBody.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n +/g, "\n").replace(/\n\n\n+/g, "\n\n").trim();
 		pageContent += "\n<main hidden>\n" + textBody + "\n</main>\n";
 	}
+	const displayOptions = {
+		insertEmbeddedImage: Boolean(options.embeddedImage),
+	};
 	script = "<script>" +
 		script +
 		"document.currentScript.remove();" +
 		"globalThis.addEventListener('load', () => {" +
 		"globalThis.bootstrap=(()=>{let bootstrapStarted;return async content=>{if (bootstrapStarted) return bootstrapStarted; bootstrapStarted = (" +
 		extract.toString().replace(/\n|\t/g, "") + ")(content,{prompt}).then(({docContent}) => " +
-		display.toString().replace(/\n|\t/g, "") + "(document,docContent));return bootstrapStarted;}})();(" +
+		display.toString().replace(/\n|\t/g, "") + "(document,docContent," + JSON.stringify(displayOptions) + "));return bootstrapStarted;}})();(" +
 		getContent.toString().replace(/\n|\t/g, "") + ")().then(globalThis.bootstrap).then(() => document.dispatchEvent(new CustomEvent(\"single-file-display-infobar\"))).catch(()=>{});" +
 		"});" +
 		"</script>";
