@@ -27,21 +27,10 @@ export {
 	display
 };
 
-async function display(document, docContent, { disableFramePointerEvents, insertEmbeddedImage }) {
+async function display(document, docContent, { disableFramePointerEvents }) {
 	docContent = docContent.replace(/<noscript/gi, "<template disabled-noscript");
 	docContent = docContent.replaceAll(/<\/noscript/gi, "</template");
 	const doc = (new DOMParser()).parseFromString(docContent, "text/html");
-	if (!insertEmbeddedImage) {
-		if (doc.doctype) {
-			if (document.doctype) {
-				document.replaceChild(doc.doctype, document.doctype);
-			} else {
-				document.insertBefore(doc.doctype, document.documentElement);
-			}
-		} else if (document.doctype) {
-			document.doctype.remove();
-		}
-	}
 	if (disableFramePointerEvents) {
 		doc.querySelectorAll("iframe").forEach(element => {
 			const pointerEvents = "pointer-events";
@@ -49,14 +38,10 @@ async function display(document, docContent, { disableFramePointerEvents, insert
 			element.style.setProperty(pointerEvents, "none", "important");
 		});
 	}
-	if (insertEmbeddedImage) {
-		document.open();
-		document.write(getDoctypeString(doc));
-		document.write(doc.documentElement.outerHTML);
-		document.close();
-	} else {
-		document.replaceChild(document.importNode(doc.documentElement, true), document.documentElement);
-	}
+	document.open();
+	document.write(getDoctypeString(doc));
+	document.write(doc.documentElement.outerHTML);
+	document.close();
 	document.querySelectorAll("template[disabled-noscript]").forEach(element => {
 		const noscriptElement = document.createElement("noscript");
 		element.removeAttribute("disabled-noscript");
