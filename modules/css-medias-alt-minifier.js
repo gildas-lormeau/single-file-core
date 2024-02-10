@@ -69,21 +69,23 @@ function processRules(cssRules, stats, removedRules = []) {
 }
 
 function matchesMediaType(mediaText) {
-	const foundMediaTypes = helper.flatten(mediaQueryParser.parseMediaList(mediaText).map(node => getMediaTypes(node, MEDIA_SCREEN)));
-	return foundMediaTypes.find(mediaTypeInfo => (!mediaTypeInfo.not && (mediaTypeInfo.value == MEDIA_SCREEN || mediaTypeInfo.value == MEDIA_ALL))
-		|| (mediaTypeInfo.not && (mediaTypeInfo.value == MEDIA_ALL || mediaTypeInfo.value == MEDIA_SCREEN)));
+	const foundMediaTypes = helper.flatten(mediaQueryParser.parseMediaList(mediaText).map(node => getMediaTypes(node)));
+	return foundMediaTypes.find(mediaTypeInfo =>
+		(!mediaTypeInfo.not && (mediaTypeInfo.value == MEDIA_SCREEN || mediaTypeInfo.value == MEDIA_ALL)) ||
+		(mediaTypeInfo.not && (mediaTypeInfo.value != MEDIA_SCREEN && mediaTypeInfo.value != MEDIA_ALL)));
 }
 
-function getMediaTypes(parentNode, mediaType, mediaTypes = []) {
+function getMediaTypes(parentNode, mediaTypes = []) {
 	parentNode.nodes.map((node, indexNode) => {
 		if (node.type == "media-query") {
-			return getMediaTypes(node, mediaType, mediaTypes);
+			return getMediaTypes(node);
 		} else {
 			if (node.type == "media-type") {
-				const nodeMediaType = { not: Boolean(indexNode && parentNode.nodes[0].type == "keyword" && parentNode.nodes[0].value == "not"), value: node.value };
-				if (!mediaTypes.find(mediaType => nodeMediaType.not == mediaType.not && nodeMediaType.value == mediaType.value)) {
-					mediaTypes.push(nodeMediaType);
-				}
+				const nodeMediaType = {
+					not: Boolean(indexNode && parentNode.nodes[0].type == "keyword" && parentNode.nodes[0].value == "not"),
+					value: node.value
+				};
+				mediaTypes.push(nodeMediaType);
 			}
 		}
 	});
