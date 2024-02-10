@@ -206,7 +206,10 @@ function testUsedFont(ruleData, familyName, declaredFonts, filteredUsedFonts) {
 function testFontweight(fontWeight, usedFontWeights) {
 	let test;
 	for (const value of fontWeight.split(",")) {
-		test = test || usedFontWeights.includes(helper.getFontWeight(helper.removeQuotes(value.trim())));
+		const values = value.split(" ");
+		const usedFontWeightMin = Number.parseInt(helper.getFontWeight(values[0]), 10);
+		const usedFontWeightMax = Number.parseInt(values[1] ? helper.getFontWeight(values[1]) : "900", 10);
+		test = test || usedFontWeights.find(usedFontWeight => usedFontWeight >= usedFontWeightMin && usedFontWeight <= usedFontWeightMax);
 	}
 	return test;
 }
