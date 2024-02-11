@@ -176,21 +176,27 @@ function testUsedFont(ruleData, familyName, declaredFonts, filteredUsedFonts) {
 				.filter(fontInfo => fontInfo.fontFamily == familyName && fontInfo.fontStyle == fontStyle)
 				.map(fontInfo => fontInfo.fontWeight.split(" "))
 				.sort((weight1, weight2) => Number.parseInt(weight1[0], 10) - Number.parseInt(weight2[0], 10));
-			let usedFontWeights = optionalUsedFonts.map(fontInfo => getUsedFontWeight(fontInfo, fontStyle, declaredFontsWeights));
+			let usedFontWeights = optionalUsedFonts
+				.map(fontInfo => getUsedFontWeight(fontInfo, fontStyle, declaredFontsWeights))
+				.filter(fontWeight => fontWeight);
 			test = testFontweight(fontWeight, usedFontWeights);
 			if (!test) {
-				usedFontWeights = optionalUsedFonts.map(fontInfo => {
-					fontInfo = Array.from(fontInfo);
-					fontInfo[2] = "normal";
-					return getUsedFontWeight(fontInfo, fontStyle, declaredFontsWeights);
-				});
+				usedFontWeights = optionalUsedFonts
+					.map(fontInfo => {
+						fontInfo = Array.from(fontInfo);
+						fontInfo[2] = "normal";
+						return getUsedFontWeight(fontInfo, fontStyle, declaredFontsWeights);
+					})
+					.filter(fontWeight => fontWeight);
 				test = testFontweight(fontWeight, usedFontWeights);
 				if (!test) {
-					usedFontWeights = optionalUsedFonts.map(fontInfo => {
-						fontInfo = Array.from(fontInfo);
-						fontInfo[2] = fontStyle = "normal";
-						return getUsedFontWeight(fontInfo, fontStyle, declaredFontsWeights);
-					});
+					usedFontWeights = optionalUsedFonts
+						.map(fontInfo => {
+							fontInfo = Array.from(fontInfo);
+							fontInfo[2] = fontStyle = "normal";
+							return getUsedFontWeight(fontInfo, fontStyle, declaredFontsWeights);
+						})
+						.filter(fontWeight => fontWeight);
 					test = testFontweight(fontWeight, usedFontWeights);
 				}
 			}
@@ -205,13 +211,29 @@ function testUsedFont(ruleData, familyName, declaredFonts, filteredUsedFonts) {
 
 function testFontweight(fontWeight, usedFontWeights) {
 	let test;
-	for (const value of fontWeight.split(",")) {
-		const values = value.split(" ");
-		const usedFontWeightMin = Number.parseInt(helper.getFontWeight(values[0]), 10);
-		const usedFontWeightMax = Number.parseInt(values[1] ? helper.getFontWeight(values[1]) : "900", 10);
-		test = test || usedFontWeights.find(usedFontWeight => usedFontWeight >= usedFontWeightMin && usedFontWeight <= usedFontWeightMax);
+	for (const fontWeightValue of fontWeight.split(",")) {
+		let { min: fontWeightMin, max: fontWeightMax } = parseFontWeight(fontWeightValue);
+		if (!fontWeightMax) {
+			fontWeightMax = 900;
+		}
+		test = test || usedFontWeights.find(usedFontWeight => {
+			let { min: usedFontWeightMin, max: usedFontWeightMax } = parseFontWeight(usedFontWeight);
+			if (!usedFontWeightMax) {
+				usedFontWeightMax = usedFontWeightMin;
+			}
+			return usedFontWeightMin >= fontWeightMin && usedFontWeightMax <= fontWeightMax;
+		});
 	}
 	return test;
+}
+
+function parseFontWeight(fontWeight) {
+	const fontWeightValues = fontWeight.split(" ");
+	const min = Number.parseInt(helper.getFontWeight(fontWeightValues[0]), 10);
+	const max = fontWeightValues[1] && Number.parseInt(helper.getFontWeight(fontWeightValues[1]), 10);
+	return {
+		min, max
+	};
 }
 
 function getDeclarationValue(declarations, propertyName) {
