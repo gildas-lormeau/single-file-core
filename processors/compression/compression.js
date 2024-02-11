@@ -295,6 +295,7 @@ function getHTMLStartData(pageData, options) {
 	if (pageData.viewport) {
 		pageContent += "<meta name=viewport content=" + JSON.stringify(pageData.viewport) + ">";
 	}
+	pageContent += "<meta http-equiv=content-security-policy content=\"default-src 'none'; connect-src 'self'; font-src 'self' data: blob:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' data: blob:; frame-src 'self' data: blob:; media-src 'self' data: blob:; script-src 'self' 'unsafe-inline' data: blob:; object-src 'self' data: blob:\">";
 	pageContent += "<style>@keyframes display-wait-message{0%{opacity:0}100%{opacity:1}};body{color:transparent};div{color:initial}</style>";
 	pageContent += "<body hidden>";
 	return pageContent;
