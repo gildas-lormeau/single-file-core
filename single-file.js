@@ -115,6 +115,7 @@ async function getPageData(options = {}, initOptions, doc = globalThis.document,
 			preventAppendedData: options.preventAppendedData,
 			insertCanonicalLink: options.insertCanonicalLink,
 			insertMetaNoIndex: options.insertMetaNoIndex,
+			insertMetaCSP: options.insertMetaCSP,
 			password: options.password,
 			zipScript: options.zipScript
 		});
