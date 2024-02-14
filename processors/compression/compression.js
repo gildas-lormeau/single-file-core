@@ -52,13 +52,13 @@ const EMBEDDED_IMAGE_DATA_TAGS = [
 	...EXTRA_DATA_TAGS,
 ];
 const EXTRA_DATA_REGEXPS = [
-	[/<\/noscript>/i],
-	[/<\/script>/i],
-	[/<\/xmp>/i],
-	[/<\/plaintext>/i]
+	[/<noscript/i, /<\/noscript>/i],
+	[/<script/i, /<\/script>/i],
+	[/<xmp/i, /<\/xmp>/i],
+	[/<plaintext/i, /<\/plaintext>/i]
 ];
 const EMBEDDED_IMAGE_DATA_REGEXPS = [
-	/-->/i,
+	[/<!--/i, /-->/i],
 	...EXTRA_DATA_REGEXPS,
 ];
 const CRC32_TABLE = new Uint32Array(256).map((_, indexTable) => {
@@ -96,7 +96,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 		await writeData(zipDataWriter.writable, options.embeddedImage.slice(0, PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH));
 		if (options.selfExtractingArchive) {
 			const embeddedImageText = embeddedImageData.reduce((text, charCode) => text + String.fromCharCode(charCode), "");
-			const tagIndex = EMBEDDED_IMAGE_DATA_REGEXPS.findIndex(test => !embeddedImageText.match(test));
+			const tagIndex = EMBEDDED_IMAGE_DATA_REGEXPS.findIndex(tests => !embeddedImageText.match(tests[1]));
 			let startTag;
 			[startTag, endTag] = tagIndex == -1 ? ["", ""] : EMBEDDED_IMAGE_DATA_TAGS[tagIndex];
 			const html = getHTMLStartData(pageData, options) + startTag;
@@ -128,8 +128,8 @@ async function process(pageData, options, lastModDate = new Date()) {
 			if (!options.extractDataFromPageTags) {
 				let textContent = "";
 				data.slice(startOffset).forEach(charCode => textContent += String.fromCharCode(charCode));
-				const matchEndTagComment = textContent.match(/-->/i);
-				if (matchEndTagComment) {
+				const matchCommentTags = textContent.match(/<!--/i) || textContent.match(/-->/i);
+				if (matchCommentTags) {
 					return findExtraDataTags(textContent, pageData, options, lastModDate);
 				}
 			}
@@ -308,8 +308,9 @@ function getPageTitle(pageData) {
 }
 
 function findExtraDataTags(textContent, pageData, options, lastModDate, indexExtractDataFromPageTags = 0) {
-	const matchEndTag = textContent.match(EXTRA_DATA_REGEXPS[indexExtractDataFromPageTags]);
-	if (matchEndTag) {
+	const regExpsTag = EXTRA_DATA_REGEXPS[indexExtractDataFromPageTags];
+	const matchTag = textContent.match(regExpsTag[0]) || textContent.match(regExpsTag[1]);
+	if (matchTag) {
 		if (indexExtractDataFromPageTags < EXTRA_DATA_TAGS.length - 1) {
 			return findExtraDataTags(textContent, pageData, options, lastModDate, indexExtractDataFromPageTags + 1);
 		} else {
