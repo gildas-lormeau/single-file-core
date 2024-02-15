@@ -349,7 +349,7 @@ function getUsedFontWeight(fontInfo, fontStyle, fontWeights) {
 				}
 			}
 			if (!foundWeight) {
-				foundWeight = fontWeights.find(weights => weights[0] <= fontWeight && weights[1] >= fontWeight);
+				foundWeight = fontWeights.find(weights => weights[0] <= fontWeight && weights[weights.length - 1] >= fontWeight);
 			}
 		} else {
 			foundWeight = fontWeights[0];
