@@ -181,13 +181,14 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 						if (!relativeFilename.match(REGEXP_MATCH_MANIFEST)) {
 							const position = textContent.indexOf(relativeFilename);
 							if (position != -1) {
-								content = noBlobURL ? await getDataURI(innerResource.textContent, innerResource.mimeType) : URL.createObjectURL(new Blob([innerResource.textContent], { type: innerResource.mimeType }));
-								textContent = replaceAll(textContent, relativeFilename, content);
+								innerResource.content = await getContent(innerResource);
+								textContent = replaceAll(textContent, relativeFilename, innerResource.content);
 							}
 						}
 					}
 				}
 				resource.textContent = textContent;
+				resource.content = await getContent(resource);
 			}
 			if (filename.match(REGEXP_MATCH_INDEX)) {
 				if (shadowRootScriptURL) {
@@ -201,6 +202,10 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 		}
 	}
 	return { docContent, origDocContent, resources, url };
+
+	async function getContent(resource) {
+		return resource.filename.match(REGEXP_MATCH_FRAMES) || noBlobURL ? await getDataURI(resource.textContent, resource.mimeType) : URL.createObjectURL(new Blob([resource.textContent], { type: resource.mimeType }));
+	}
 
 	async function getDataURI(textContent, mimeType) {
 		const reader = new FileReader();
