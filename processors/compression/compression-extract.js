@@ -70,6 +70,7 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 	const REGEXP_MATCH_ROOT_INDEX = /^([0-9_]+\/)?index\.html$/;
 	const REGEXP_MATCH_INDEX = /index\.html$/;
 	const REGEXP_MATCH_FRAMES = /frames\//;
+	const REGEXP_MATCH_MANIFEST = /manifest\.json$/;
 	const CHARSET_UTF8 = ";charset=utf-8";
 	const REGEXP_ESCAPE = /([{}()^$&.*?/+|[\\\\]|\]|-)/g;
 
@@ -105,11 +106,6 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 				} else if (filename.match(REGEXP_MATCH_SCRIPT)) {
 					mimeType = "text/javascript" + CHARSET_UTF8;
 				}
-				if (textContent !== undefined) {
-					content = noBlobURL ? await getDataURI(textContent, mimeType) : URL.createObjectURL(new Blob([textContent], { type: mimeType }));
-				} else {
-					content = "data:text/plain,";
-				}
 			}
 		} else {
 			resources.push(resourceInfo);
@@ -127,7 +123,13 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 			}
 		}
 		const name = entry.filename.match(/^([0-9_]+\/)?(.*)$/)[2];
+		let prefixPath = "";
+		const prefixPathMatch = filename.match(/(.*\/)[^/]+$/);
+		if (prefixPathMatch && prefixPathMatch[1]) {
+			prefixPath = prefixPathMatch[1];
+		}
 		Object.assign(resourceInfo, {
+			prefixPath,
 			filename: entry.filename,
 			name,
 			url: entry.comment,
@@ -142,42 +144,55 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 	textResources.sort(sortByFilenameLengthInc);
 	resources = resources.sort(sortByFilenameLengthDec).concat(...textResources).concat(...indexPages);
 	for (const resource of resources) {
-		let { textContent, mimeType, filename } = resource;
+		const { filename, prefixPath } = resource;
+		let { textContent } = resource;
 		if (textContent !== undefined) {
-			let prefixPath = "";
-			const prefixPathMatch = filename.match(/(.*\/)[^/]+$/);
-			if (prefixPathMatch && prefixPathMatch[1]) {
-				prefixPath = prefixPathMatch[1];
-			}
 			if (filename.match(REGEXP_MATCH_ROOT_INDEX)) {
 				origDocContent = textContent;
 			}
 			if (!filename.match(REGEXP_MATCH_SCRIPT)) {
-				const resourceFilename = filename;
 				resources.forEach(innerResource => {
 					const { filename, parentResources, content } = innerResource;
-					if (filename.startsWith(prefixPath) && filename != resourceFilename) {
+					if (filename.startsWith(prefixPath) && filename != resource.filename) {
 						const relativeFilename = filename.substring(prefixPath.length);
-						if (!relativeFilename.match(/manifest\.json$/)) {
-							const position = textContent.indexOf(relativeFilename);
-							if (position != -1) {
-								parentResources.push(resourceFilename);
-								textContent = replaceAll(textContent, relativeFilename, content);
+						if (!relativeFilename.match(REGEXP_MATCH_MANIFEST)) {
+							if (textContent.includes(relativeFilename)) {
+								parentResources.push(resource.filename);
+								if (innerResource.textContent === undefined) {
+									textContent = replaceAll(textContent, relativeFilename, content);
+								}
 							}
 						}
 					}
 				});
 				resource.textContent = textContent;
 			}
+		}
+	}
+	for (const resource of resources) {
+		let { textContent, prefixPath, filename } = resource;
+		if (textContent !== undefined) {
+			if (!filename.match(REGEXP_MATCH_SCRIPT)) {
+				const resourceFilename = filename;
+				for (const innerResource of resources) {
+					const { filename } = innerResource;
+					if (filename.startsWith(prefixPath) && filename != resourceFilename) {
+						const relativeFilename = filename.substring(prefixPath.length);
+						if (!relativeFilename.match(REGEXP_MATCH_MANIFEST)) {
+							const position = textContent.indexOf(relativeFilename);
+							if (position != -1) {
+								content = noBlobURL ? await getDataURI(innerResource.textContent, innerResource.mimeType) : URL.createObjectURL(new Blob([innerResource.textContent], { type: innerResource.mimeType }));
+								textContent = replaceAll(textContent, relativeFilename, content);
+							}
+						}
+					}
+				}
+				resource.textContent = textContent;
+			}
 			if (filename.match(REGEXP_MATCH_INDEX)) {
 				if (shadowRootScriptURL) {
 					resource.textContent = textContent.replace(/<script data-template-shadow-root.*<\/script>/g, "<script data-template-shadow-root src=" + shadowRootScriptURL + "></" + "script>");
 				}
-			}
-			if (filename.match(REGEXP_MATCH_INDEX) || filename.match(REGEXP_MATCH_FRAMES) || noBlobURL) {
-				resource.content = await getDataURI(textContent, mimeType);
-			} else {
-				resource.content = URL.createObjectURL(new Blob([textContent], { type: mimeType }));
 			}
 			if (filename.match(REGEXP_MATCH_ROOT_INDEX)) {
 				docContent = textContent;
