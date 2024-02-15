@@ -172,11 +172,6 @@ function testUsedFont(ruleData, familyName, declaredFonts, filteredUsedFonts) {
 		let fontStyle = getDeclarationValue(ruleData.block.children, "font-style") || "normal";
 		if (VALID_FONT_STYLES.find(rule => fontStyle.trim().match(rule))) {
 			const fontWeight = helper.getFontWeight(getDeclarationValue(ruleData.block.children, "font-weight") || "400");
-
-			if (familyName.includes("antiqua")) {
-				debugger;
-			}
-
 			const declaredFontsWeights = declaredFonts
 				.filter(fontInfo => fontInfo.fontFamily == familyName && fontInfo.fontStyle == fontStyle)
 				.map(fontInfo => fontInfo.fontWeight.split(" "))
