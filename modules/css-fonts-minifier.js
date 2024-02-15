@@ -172,6 +172,11 @@ function testUsedFont(ruleData, familyName, declaredFonts, filteredUsedFonts) {
 		let fontStyle = getDeclarationValue(ruleData.block.children, "font-style") || "normal";
 		if (VALID_FONT_STYLES.find(rule => fontStyle.trim().match(rule))) {
 			const fontWeight = helper.getFontWeight(getDeclarationValue(ruleData.block.children, "font-weight") || "400");
+
+			if (familyName.includes("antiqua")) {
+				debugger;
+			}
+
 			const declaredFontsWeights = declaredFonts
 				.filter(fontInfo => fontInfo.fontFamily == familyName && fontInfo.fontStyle == fontStyle)
 				.map(fontInfo => fontInfo.fontWeight.split(" "))
@@ -347,6 +352,9 @@ function getUsedFontWeight(fontInfo, fontStyle, fontWeights) {
 				if (!foundWeight) {
 					foundWeight = findDescendingFontWeight(fontWeight, fontWeights);
 				}
+			}
+			if (!foundWeight) {
+				foundWeight = fontWeights.find(weights => weights[0] <= fontWeight && weights[1] >= fontWeight);
 			}
 		} else {
 			foundWeight = fontWeights[0];
