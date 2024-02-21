@@ -588,12 +588,14 @@ class Processor {
 			this.stats.add("discarded", "HTML bytes", size - contentSize);
 		}
 		const filename = await util.formatFilename(content, this.doc, this.options);
+		const mimeType = util.getMimeType(this.options);
 		const matchTitle = this.baseURI.match(/([^/]*)\/?(\.html?.*)$/) || this.baseURI.match(/\/\/([^/]*)\/?$/);
 		const additionalData = this.processorHelper.getAdditionalPageData(this.doc, content, this.resources);
 		const pageData = Object.assign({
 			stats: this.stats.data,
 			title: this.options.title || (this.baseURI && matchTitle ? matchTitle[1] : url.hostname ? url.hostname : ""),
 			filename,
+			mimeType,
 			content
 		}, additionalData);
 		if (this.options.addProof) {
