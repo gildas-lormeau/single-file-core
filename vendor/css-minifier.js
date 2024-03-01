@@ -370,7 +370,9 @@ function collectComments(content, comments) {
 const REGEXP_PRESERVE_STRING1 = /"([^\\"])*"/g;
 const REGEXP_PRESERVE_STRING1_BIS = /"(\\.)*"/g;
 const REGEXP_PRESERVE_STRING1_TER = /"(\\)*"/g;
-const REGEXP_PRESERVE_STRING2 = /'([^\\']|\\.|\\)*'/g;
+const REGEXP_PRESERVE_STRING2 = /'([^\\'])*'/g;
+const REGEXP_PRESERVE_STRING2_BIS = /'(\\.)*'/g;
+const REGEXP_PRESERVE_STRING2_TER = /'(\\)*'/g;
 const REGEXP_MINIFY_ALPHA = /progid:DXImageTransform.Microsoft.Alpha\(Opacity=/gi;
 const REGEXP_PRESERVE_TOKEN1 = /\r\n/g;
 const REGEXP_PRESERVE_TOKEN2 = /[\r\n]/g;
@@ -445,11 +447,12 @@ function processString(content = "", options = defaultOptions) {
 	content = extractDataUrls(content, preservedTokens);
 	content = collectComments(content, comments);
 
-	// preserve strings so their content doesn't get accidentally minified
 	preserveString(REGEXP_PRESERVE_STRING1);
 	preserveString(REGEXP_PRESERVE_STRING1_BIS);
 	preserveString(REGEXP_PRESERVE_STRING1_TER);
 	preserveString(REGEXP_PRESERVE_STRING2);
+	preserveString(REGEXP_PRESERVE_STRING2_BIS);
+	preserveString(REGEXP_PRESERVE_STRING2_TER);
 
 	function preserveString(pattern) {
 		content = content.replace(pattern, token => {
