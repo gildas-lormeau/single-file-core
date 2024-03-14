@@ -86,7 +86,12 @@ function getInstance(utilOptions) {
 	return {
 		getDoctypeString,
 		getFilenameExtension(resourceURL, replacedCharacters, replacementCharacter) {
-			const matchExtension = new URL(resourceURL).pathname.match(/(\.[^\\/.]*)$/);
+			let matchExtension;
+			try { 
+				matchExtension = new URL(resourceURL).pathname.match(/(\.[^\\/.]*)$/);
+			} catch (error) {
+				// ignored
+			}
 			return ((matchExtension && matchExtension[1] && this.getValidFilename(matchExtension[1], replacedCharacters, replacementCharacter)) || "").toLowerCase();
 		},
 		getContentTypeExtension(contentType) {
