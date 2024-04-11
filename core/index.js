@@ -502,6 +502,7 @@ class Processor {
 	}
 
 	async getPageData() {
+		let commentText;
 		util.postProcessDoc(this.doc);
 		const url = util.parseURL(this.baseURI);
 		if (this.options.insertSingleFileComment) {
@@ -519,12 +520,11 @@ class Processor {
 				}
 			}
 			const infobarContent = (this.options.infobarContent || "").replace(/\\n/g, "\n").replace(/\\t/g, "\t");
-			const commentNode = this.doc.createComment(
-				"\n " + (this.options.useLegacyCommentHeader ? util.COMMENT_HEADER_LEGACY : util.COMMENT_HEADER) +
+			commentText = "\n " + (this.options.useLegacyCommentHeader ? util.COMMENT_HEADER_LEGACY : util.COMMENT_HEADER) +
 				" \n url: " + infobarURL +
 				(this.options.removeSavedDate ? " " : " \n saved date: " + infobarSaveDate) +
-				(infobarContent ? " \n info: " + infobarContent : "") + "\n"
-			);
+				(infobarContent ? " \n info: " + infobarContent : "") + "\n";
+			const commentNode = this.doc.createComment(commentText);
 			this.doc.documentElement.insertBefore(commentNode, this.doc.documentElement.firstChild);
 		}
 		const legacyInfobarElement = this.doc.querySelector("singlefile-infobar");
@@ -596,7 +596,8 @@ class Processor {
 			title: this.options.title || (this.baseURI && matchTitle ? matchTitle[1] : url.hostname ? url.hostname : ""),
 			filename,
 			mimeType,
-			content
+			content,
+			comment: commentText,
 		}, additionalData);
 		if (this.options.addProof) {
 			pageData.hash = await util.digest("SHA-256", content);

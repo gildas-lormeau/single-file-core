@@ -285,7 +285,10 @@ function getHTMLStartData(pageData, options) {
 	}
 	const charset = options.extractDataFromPage ? "windows-1252" : "utf-8";
 	const title = options.extractDataFromPage ? "" : getPageTitle(pageData);
-	pageContent += (options.embeddedImage ? "" : pageData.doctype) + "<html data-sfz><meta charset=" + charset + "><title>" + title + "</title>";
+	pageContent += options.embeddedImage ? "" : pageData.doctype;
+	pageContent += "<html data-sfz>";
+	pageContent += pageData.comment && !options.embeddedImage ? "<!--" + pageData.comment + "-->" : "";
+	pageContent += "<meta charset=" + charset + "><title>" + title + "</title>";
 	if (options.insertCanonicalLink) {
 		pageContent += "<link rel=canonical href=\"" + options.url + "\">";
 	}
