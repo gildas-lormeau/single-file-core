@@ -27,7 +27,7 @@ export {
 	display
 };
 
-async function display(document, docContent, { disableFramePointerEvents }) {
+async function display(document, docContent, { disableFramePointerEvents } = {}) {
 	docContent = docContent.replace(/<noscript/gi, "<template disabled-noscript");
 	docContent = docContent.replaceAll(/<\/noscript/gi, "</template");
 	const doc = (new DOMParser()).parseFromString(docContent, "text/html");
