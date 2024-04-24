@@ -117,7 +117,8 @@ async function getPageData(options = {}, initOptions, doc = globalThis.document,
 			insertMetaNoIndex: options.insertMetaNoIndex,
 			insertMetaCSP: options.insertMetaCSP,
 			password: options.password,
-			zipScript: options.zipScript
+			zipScript: options.zipScript,
+			embeddedImage: options.embeddedImage
 		});
 		delete pageData.resources;
 		const reader = new globalThis.FileReader();
