@@ -209,13 +209,13 @@ class Runner {
 	}
 
 	async loadPage() {
-		this.onprogress(new ProgressEvent(PAGE_LOADING, { pageURL: this.options.url, frame: !this.root }));
+		await this.onprogress(new ProgressEvent(PAGE_LOADING, { pageURL: this.options.url, frame: !this.root, options: this.options, }));
 		await this.processor.loadPage(this.options.content);
-		this.onprogress(new ProgressEvent(PAGE_LOADED, { pageURL: this.options.url, frame: !this.root }));
+		await this.onprogress(new ProgressEvent(PAGE_LOADED, { pageURL: this.options.url, frame: !this.root, options: this.options }));
 	}
 
 	async initialize() {
-		this.onprogress(new ProgressEvent(RESOURCES_INITIALIZING, { pageURL: this.options.url }));
+		await this.onprogress(new ProgressEvent(RESOURCES_INITIALIZING, { pageURL: this.options.url, options: this.options }));
 		await this.executeStage(RESOLVE_URLS_STAGE);
 		this.pendingPromises = this.executeStage(REPLACE_DATA_STAGE);
 		if (this.root && this.options.doc) {
@@ -242,11 +242,12 @@ class Runner {
 	async run() {
 		if (this.root) {
 			this.processor.initialize(this.batchRequest);
-			this.onprogress(new ProgressEvent(RESOURCES_INITIALIZED, { pageURL: this.options.url, max: this.processor.maxResources }));
+			await this.onprogress(new ProgressEvent(RESOURCES_INITIALIZED, { pageURL: this.options.url, max: this.processor.maxResources, options: this.options }));
 		}
-		await this.batchRequest.run(detail => {
+		await this.batchRequest.run(async detail => {
 			detail.pageURL = this.options.url;
-			this.onprogress(new ProgressEvent(RESOURCE_LOADED, detail));
+			detail.options = this.options;
+			await this.onprogress(new ProgressEvent(RESOURCE_LOADED, detail));
 		}, this.options);
 		await this.pendingPromises;
 		this.options.doc = null;
@@ -265,9 +266,9 @@ class Runner {
 		return this.processor.stylesheets;
 	}
 
-	getPageData() {
+	async getPageData() {
 		if (this.root) {
-			this.onprogress(new ProgressEvent(PAGE_ENDED, { pageURL: this.options.url }));
+			await this.onprogress(new ProgressEvent(PAGE_ENDED, { pageURL: this.options.url, options: this.options  }));
 		}
 		return this.processor.getPageData();
 	}
@@ -277,22 +278,22 @@ class Runner {
 			log("**** STARTED STAGE", step, "****");
 		}
 		const frame = !this.root;
-		this.onprogress(new ProgressEvent(STAGE_STARTED, { pageURL: this.options.url, step, frame }));
-		STAGES[step].sequential.forEach(task => {
+		await this.onprogress(new ProgressEvent(STAGE_STARTED, { pageURL: this.options.url, step, frame, options: this.options }));
+		for (const task of STAGES[step].sequential) {
 			let startTime;
 			if (DEBUG) {
 				startTime = Date.now();
 				log("  -- STARTED task =", task.action);
 			}
-			this.onprogress(new ProgressEvent(STAGE_TASK_STARTED, { pageURL: this.options.url, step, task: task.action, frame }));
+			await this.onprogress(new ProgressEvent(STAGE_TASK_STARTED, { pageURL: this.options.url, step, task: task.action, frame, options: this.options }));
 			if (!this.cancelled) {
 				this.executeTask(task);
 			}
-			this.onprogress(new ProgressEvent(STAGE_TASK_ENDED, { pageURL: this.options.url, step, task: task.action, frame }));
+			await this.onprogress(new ProgressEvent(STAGE_TASK_ENDED, { pageURL: this.options.url, step, task: task.action, frame, options: this.options }));
 			if (DEBUG) {
 				log("  -- ENDED   task =", task.action, "delay =", Date.now() - startTime);
 			}
-		});
+		}
 		let parallelTasksPromise;
 		if (STAGES[step].parallel) {
 			parallelTasksPromise = await Promise.all(STAGES[step].parallel.map(async task => {
@@ -301,11 +302,11 @@ class Runner {
 					startTime = Date.now();
 					log("  // STARTED task =", task.action);
 				}
-				this.onprogress(new ProgressEvent(STAGE_TASK_STARTED, { pageURL: this.options.url, step, task: task.action, frame }));
+				await this.onprogress(new ProgressEvent(STAGE_TASK_STARTED, { pageURL: this.options.url, step, task: task.action, frame, options: this.options }));
 				if (!this.cancelled) {
 					await this.executeTask(task);
 				}
-				this.onprogress(new ProgressEvent(STAGE_TASK_ENDED, { pageURL: this.options.url, step, task: task.action, frame }));
+				await this.onprogress(new ProgressEvent(STAGE_TASK_ENDED, { pageURL: this.options.url, step, task: task.action, frame, options: this.options }));
 				if (DEBUG) {
 					log("  // ENDED task =", task.action, "delay =", Date.now() - startTime);
 				}
@@ -313,7 +314,7 @@ class Runner {
 		} else {
 			parallelTasksPromise = Promise.resolve();
 		}
-		this.onprogress(new ProgressEvent(STAGE_ENDED, { pageURL: this.options.url, step, frame }));
+		await this.onprogress(new ProgressEvent(STAGE_ENDED, { pageURL: this.options.url, step, frame, options: this.options }));
 		if (DEBUG) {
 			log("**** ENDED   STAGE", step, "****");
 		}
@@ -384,7 +385,7 @@ class BatchRequest {
 					acceptHeaders: options.acceptHeaders,
 					networkTimeout: options.networkTimeout
 				});
-				onloadListener({ url: resourceURL });
+				await onloadListener({ url: resourceURL });
 				if (!this.cancelled) {
 					const extension = util.getContentTypeExtension(content.contentType) || util.getFilenameExtension(resourceURL, options.filenameReplacedCharacters, options.filenameReplacementCharacter);
 					resourceRequests.forEach(callbacks => {
@@ -395,7 +396,7 @@ class BatchRequest {
 				}
 			} catch (error) {
 				indexResource = indexResource + 1;
-				onloadListener({ url: resourceURL });
+				await onloadListener({ url: resourceURL });
 				resourceRequests.forEach(resourceRequest => resourceRequest.reject(error));
 			}
 			this.requests.delete(requestKey);
