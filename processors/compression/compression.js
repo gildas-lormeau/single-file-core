@@ -253,6 +253,7 @@ async function prependHTMLData(pageData, zipDataWriter, script, options) {
 	}
 	const displayOptions = {
 		insertEmbeddedImage: Boolean(options.embeddedImage),
+		insertEmbeddedScreenshotImage: Boolean(options.embeddedScreenshotImage)
 	};
 	script = "<script>" +
 		script +
