@@ -177,7 +177,7 @@ class Runner {
 		const rootDocDefined = root && options.doc;
 		this.root = root;
 		this.options = options;
-		this.options.url = this.options.url || (rootDocDefined && this.options.doc.location.href);
+		this.options.url = this.options.url || (rootDocDefined && this.options.doc.documentURI);
 		const matchResourceReferrer = this.options.url.match(/^.*\//);
 		this.options.resourceReferrer = this.options.passReferrerOnError && matchResourceReferrer && matchResourceReferrer[0];
 		this.options.baseURI = rootDocDefined && this.options.doc.baseURI;

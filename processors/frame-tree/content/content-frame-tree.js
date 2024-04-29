@@ -403,7 +403,7 @@ function getFrameData(document, globalThis, windowId, options, scrolling) {
 		windowId,
 		content,
 		baseURI,
-		url: document.location.href,
+		url: document.documentURI,
 		title: document.title,
 		canvases: docData.canvases,
 		fonts: docData.fonts,
