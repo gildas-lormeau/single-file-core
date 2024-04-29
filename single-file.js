@@ -90,12 +90,14 @@ async function getPageData(options = {}, initOptions, doc = globalThis.document,
 	options.insertCanonicalLink = true;
 
 	const externalOnProgress = options.onprogress;
-	options.onprogress = event => {
+	options.onprogress = async event => {
 		if (event.type === event.RESOURCES_INITIALIZED && doc && win && options.loadDeferredImages) {
 			processors.lazy.resetZoomLevel(options);
 		}
 
-		if (externalOnProgress) externalOnProgress(event);
+		if (externalOnProgress) {
+			await externalOnProgress(event);
+		}
 	};
 
 	const processor = new SingleFile(options);
