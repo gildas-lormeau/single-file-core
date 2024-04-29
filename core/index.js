@@ -86,12 +86,10 @@ const RESOURCE_LOADED = "resource-loaded";
 const PAGE_ENDED = "page-ended";
 const STAGE_STARTED = "stage-started";
 const STAGE_ENDED = "stage-ended";
-const STAGE_TASK_STARTED = "stage-task-started";
-const STAGE_TASK_ENDED = "stage-task-ended";
 
 class ProgressEvent {
 	constructor(type, detail) {
-		return { type, detail, PAGE_LOADING, PAGE_LOADED, RESOURCES_INITIALIZING, RESOURCES_INITIALIZED, RESOURCE_LOADED, PAGE_ENDED, STAGE_STARTED, STAGE_ENDED, STAGE_TASK_STARTED, STAGE_TASK_ENDED };
+		return { type, detail, PAGE_LOADING, PAGE_LOADED, RESOURCES_INITIALIZING, RESOURCES_INITIALIZED, RESOURCE_LOADED, PAGE_ENDED, STAGE_STARTED, STAGE_ENDED };
 	}
 }
 
@@ -268,7 +266,7 @@ class Runner {
 
 	async getPageData() {
 		if (this.root) {
-			await this.onprogress(new ProgressEvent(PAGE_ENDED, { pageURL: this.options.url, options: this.options  }));
+			await this.onprogress(new ProgressEvent(PAGE_ENDED, { pageURL: this.options.url, options: this.options }));
 		}
 		return this.processor.getPageData();
 	}
@@ -285,11 +283,9 @@ class Runner {
 				startTime = Date.now();
 				log("  -- STARTED task =", task.action);
 			}
-			await this.onprogress(new ProgressEvent(STAGE_TASK_STARTED, { pageURL: this.options.url, step, task: task.action, frame, options: this.options }));
 			if (!this.cancelled) {
 				this.executeTask(task);
 			}
-			await this.onprogress(new ProgressEvent(STAGE_TASK_ENDED, { pageURL: this.options.url, step, task: task.action, frame, options: this.options }));
 			if (DEBUG) {
 				log("  -- ENDED   task =", task.action, "delay =", Date.now() - startTime);
 			}
@@ -302,11 +298,9 @@ class Runner {
 					startTime = Date.now();
 					log("  // STARTED task =", task.action);
 				}
-				await this.onprogress(new ProgressEvent(STAGE_TASK_STARTED, { pageURL: this.options.url, step, task: task.action, frame, options: this.options }));
 				if (!this.cancelled) {
 					await this.executeTask(task);
 				}
-				await this.onprogress(new ProgressEvent(STAGE_TASK_ENDED, { pageURL: this.options.url, step, task: task.action, frame, options: this.options }));
 				if (DEBUG) {
 					log("  // ENDED task =", task.action, "delay =", Date.now() - startTime);
 				}
