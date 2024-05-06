@@ -30,6 +30,7 @@ const Blob = globalThis.Blob;
 const FileReader = globalThis.FileReader;
 const URL = globalThis.URL;
 const URLSearchParams = globalThis.URLSearchParams;
+const navigator = globalThis.navigator;
 
 // eslint-disable-next-line quotes
 const DEFAULT_REPLACED_CHARACTERS = ["~", "+", "\\\\", "?", "%", "*", ":", "|", '"', "<", ">", "\x00-\x1f", "\x7F"];
@@ -16915,6 +16916,7 @@ async function evalTemplate(template = "", options, content, doc, dontReplaceSla
 		urlSubDomains = "";
 	}
 	const variables = {
+		"navigator-language": { getter: () => navigator.language },
 		"page-title": { getter: () => options.title },
 		"page-heading": { getter: () => options.info.heading },
 		"page-language": { getter: () => options.info.lang },
