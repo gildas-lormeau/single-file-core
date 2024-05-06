@@ -17014,8 +17014,14 @@ async function evalTemplate(template = "", options, content, doc, dontReplaceSla
 		"encode-uri": value => { try { return encodeURI(value); } catch (error) { return value; } },
 		"decode-uri": value => { try { return decodeURI(value); } catch (error) { return value; } },
 		"encode-uri-component": value => { try { return encodeURIComponent(value); } catch (error) { return value; } },
-		"decode-uri-component": value => { try { return decodeURIComponent(value); } catch (error) { return value; } }
+		"decode-uri-component": value => { try { return decodeURIComponent(value); } catch (error) { return value; } },
+		"date-locale": locales => new Date().toLocaleDateString(locales),
+		"time-locale": locales => new Date().toLocaleTimeString(locales),
+		"datetime-locale": locales => new Date().toLocaleString(locales)
 	};
+	functions["date-locale"].dontReplaceSlash = false;
+	functions["time-locale"].dontReplaceSlash = false;
+	functions["datetime-locale"].dontReplaceSlash = false;
 	if (doc) {
 		functions["page-element-text"] = (selector) => {
 			const element = doc.querySelector(selector);
@@ -17043,7 +17049,8 @@ async function evalTemplate(template = "", options, content, doc, dontReplaceSla
 					.filter(argument => argument != undefined && argument != null && argument != "");
 				if ((argument != undefined && argument != null && argument != "") || optionalArguments.length > 0) {
 					try {
-						return await getValue(() => fn(argument, ...optionalArguments), true, options.filenameReplacementCharacter, lengthData);
+						const dontReplaceSlash = fn.dontReplaceSlash === undefined ? true : fn.dontReplaceSlash;
+						return await getValue(() => fn(argument, ...optionalArguments), dontReplaceSlash, options.filenameReplacementCharacter, lengthData);
 					} catch (error) {
 						return "";
 					}
