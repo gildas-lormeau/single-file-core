@@ -300,7 +300,8 @@ function getHTMLStartData(pageData, options) {
 		pageContent += "<meta name=viewport content=" + JSON.stringify(pageData.viewport) + ">";
 	}
 	if (options.insertMetaCSP) {
-		pageContent += "<meta http-equiv=content-security-policy content=\"default-src 'none'; connect-src 'self' data: blob:; font-src 'self' data: blob:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' data: blob:; frame-src 'self' data: blob:; media-src 'self' data: blob:; script-src 'self' 'unsafe-inline' data: blob:; object-src 'self' data: blob:\">";
+		const cspContent = "default-src 'none';connect-src 'self' data: blob:;font-src 'self' data: blob:;img-src 'self' data: blob:;style-src 'self' 'unsafe-inline' data: blob:;frame-src 'self' data: blob:;media-src 'self' data: blob:;script-src 'self' 'unsafe-inline' data: blob:;object-src 'self' data: blob:";
+		pageContent += `<meta http-equiv=content-security-policy content=${JSON.stringify(cspContent)}>`;
 	}
 	pageContent += "<style>@keyframes display-wait-message{0%{opacity:0}100%{opacity:1}};body{color:transparent};div{color:initial}</style>";
 	pageContent += "<body hidden>";
