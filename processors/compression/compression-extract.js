@@ -70,6 +70,7 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 	const REGEXP_MATCH_ROOT_INDEX = /^([0-9_]+\/)?index\.html$/;
 	const REGEXP_MATCH_INDEX = /index\.html$/;
 	const REGEXP_MATCH_FRAMES = /frames\//;
+	const REGEXP_MATCH_TOP_LEVEL_FRAME = /^frames\/\d+\/index.html/;
 	const REGEXP_MATCH_MANIFEST = /manifest\.json$/;
 	const CHARSET_UTF8 = ";charset=utf-8";
 	const REGEXP_ESCAPE = /([{}()^$&.*?/+|[\\\\]|\]|-)/g;
@@ -204,7 +205,7 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 	return { docContent, origDocContent, resources, url };
 
 	async function getContent(resource) {
-		return resource.filename.match(REGEXP_MATCH_FRAMES) || noBlobURL ? await getDataURI(resource.textContent, resource.mimeType) : URL.createObjectURL(new Blob([resource.textContent], { type: resource.mimeType }));
+		return resource.filename.match(REGEXP_MATCH_FRAMES) && !resource.filename.match(REGEXP_MATCH_TOP_LEVEL_FRAME) || noBlobURL ? await getDataURI(resource.textContent, resource.mimeType) : URL.createObjectURL(new Blob([resource.textContent], { type: resource.mimeType }));
 	}
 
 	async function getDataURI(textContent, mimeType) {
