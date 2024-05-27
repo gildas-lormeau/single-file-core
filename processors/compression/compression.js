@@ -100,7 +100,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 			let startTag;
 			[startTag, endTag] = tagIndex == -1 ? ["", ""] : EMBEDDED_IMAGE_DATA_TAGS[tagIndex];
 			const html = getHTMLStartData(pageData, options) + startTag;
-			const hmtlData = new Uint8Array([...getLength(html.length + 4), ...new Uint8Array([0x74, 0x54, 0x58, 0x74, 0x50, 0x4e, 0x47, 0]), ...new TextEncoder().encode(html)]);
+			const hmtlData = new Uint8Array([...getLength(html.length + 4), ...[0x74, 0x54, 0x58, 0x74, 0x50, 0x4e, 0x47, 0], ...new TextEncoder().encode(html)]);
 			await writeData(zipDataWriter.writable, hmtlData);
 			await writeData(zipDataWriter.writable, getCRC32(hmtlData, 4));
 		}
