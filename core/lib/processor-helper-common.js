@@ -220,7 +220,7 @@ class ProcessorHelperCommon {
 			if (options.saveOriginalURLs && !isDataURL(originSrcset)) {
 				resourceElement.setAttribute("data-sf-original-srcset", originSrcset);
 			}
-			if (!options.blockImages) {
+			if (!options.blockImages && !options.blockAlternativeImages) {
 				const srcsetValues = await Promise.all(srcset.map(async srcsetValue => {
 					let resourceURL = normalizeURL(srcsetValue.url);
 					if (!testIgnoredPath(resourceURL)) {
