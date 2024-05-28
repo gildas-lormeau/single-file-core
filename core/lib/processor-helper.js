@@ -196,7 +196,7 @@ function getProcessorHelperClass(utilInstance) {
 					});
 					if (!(matchCharsetEquals(content.data, content.charset) || matchCharsetEquals(content.data, options.charset))) {
 						options = Object.assign({}, options, { charset: getCharset(content.data) });
-						this.resolveLinkStylesheetURLs(stylesheetInfo, element, resourceURL, baseURI, options, workStylesheet, resources, stylesheets);
+						await this.resolveLinkStylesheetURLs(stylesheetInfo, element, resourceURL, baseURI, options, workStylesheet, resources, stylesheets);
 					}
 					resourceURL = content.resourceURL;
 					content.data = getUpdatedResourceContent(content.resourceURL, options) || content.data;
