@@ -940,7 +940,9 @@ class Processor {
 	setInputValues() {
 		this.doc.querySelectorAll("input:not([type=radio]):not([type=checkbox])").forEach(input => {
 			const value = input.getAttribute(util.INPUT_VALUE_ATTRIBUTE_NAME);
-			input.setAttribute("value", value || "");
+			if (value != null) {
+				input.setAttribute("value", value);
+			}
 		});
 		this.doc.querySelectorAll("input[type=radio], input[type=checkbox]").forEach(input => {
 			const value = input.getAttribute(util.INPUT_VALUE_ATTRIBUTE_NAME);
@@ -950,7 +952,9 @@ class Processor {
 		});
 		this.doc.querySelectorAll("textarea").forEach(textarea => {
 			const value = textarea.getAttribute(util.INPUT_VALUE_ATTRIBUTE_NAME);
-			textarea.textContent = value || "";
+			if (value != null) {
+				textarea.textContent = value;
+			}
 		});
 		this.doc.querySelectorAll("select").forEach(select => {
 			select.querySelectorAll("option").forEach(option => {
