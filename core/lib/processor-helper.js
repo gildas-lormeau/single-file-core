@@ -197,11 +197,12 @@ function getProcessorHelperClass(utilInstance) {
 					if (!(matchCharsetEquals(content.data, content.charset) || matchCharsetEquals(content.data, options.charset))) {
 						options = Object.assign({}, options, { charset: getCharset(content.data) });
 						await this.resolveLinkStylesheetURLs(stylesheetInfo, element, resourceURL, baseURI, options, workStylesheet, resources, stylesheets);
+					} else {
+						resourceURL = content.resourceURL;
+						content.data = getUpdatedResourceContent(content.resourceURL, options) || content.data;
+						stylesheetInfo.stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
+						await this.resolveImportURLs(stylesheetInfo, resourceURL, options, workStylesheet, resources, stylesheets);
 					}
-					resourceURL = content.resourceURL;
-					content.data = getUpdatedResourceContent(content.resourceURL, options) || content.data;
-					stylesheetInfo.stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
-					await this.resolveImportURLs(stylesheetInfo, resourceURL, options, workStylesheet, resources, stylesheets);
 				}
 			}
 		}
