@@ -66,6 +66,7 @@ const MessageChannel = globalThis.MessageChannel;
 const document = globalThis.document;
 const JSON = globalThis.JSON;
 const MutationObserver = globalThis.MutationObserver;
+const DOMParser = globalThis.DOMParser;
 
 let sessions = globalThis.sessions;
 if (!sessions) {
@@ -303,16 +304,22 @@ function processFramesSync(doc, frameElements, options, parentWindowId, sessionI
 	const frames = [];
 	frameElements.forEach((frameElement, frameIndex) => {
 		const windowId = parentWindowId + WINDOW_ID_SEPARATOR + frameIndex;
-		let frameDoc;
+		let frameDoc, frameWindow;
 		try {
 			frameDoc = frameElement.contentDocument;
+			frameWindow = frameElement.contentWindow;
+			frameWindow.stop();
 		} catch (error) {
 			// ignored
 		}
+		const srcdoc = frameElement.getAttribute("srcdoc");
+		if (!frameDoc && srcdoc) {
+			const doc = new DOMParser().parseFromString(srcdoc, "text/html");
+			frameDoc = doc;
+			frameWindow = globalThis;
+		}
 		if (frameDoc) {
 			try {
-				const frameWindow = frameElement.contentWindow;
-				frameWindow.stop();
 				clearFrameTimeout("requestTimeouts", sessionId, windowId);
 				processFrames(frameDoc, options, windowId, sessionId);
 				frames.push(getFrameData(frameDoc, frameWindow, windowId, options, frameElement.scrolling));
