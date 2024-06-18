@@ -40,8 +40,9 @@
 	const LAZY_LOAD_ATTRIBUTE = "single-file-lazy-load";
 	const LOAD_IMAGE_EVENT = "single-file-load-image";
 	const IMAGE_LOADED_EVENT = "single-file-image-loaded";
+	const FETCH_SUPPORTED_REQUEST_EVENT = "single-file-request-fetch-supported";
+	const FETCH_SUPPORTED_RESPONSE_EVENT = "single-file-response-fetch-supported";
 	const FETCH_REQUEST_EVENT = "single-file-request-fetch";
-	const FETCH_ACK_EVENT = "single-file-ack-fetch";
 	const FETCH_RESPONSE_EVENT = "single-file-response-fetch";
 	const GET_ADOPTED_STYLESHEETS_REQUEST_EVENT = "single-file-request-get-adopted-stylesheets";
 	const UNREGISTER_GET_ADOPTED_STYLESHEETS_REQUEST_EVENT = "single-file-unregister-request-get-adopted-stylesheets";
@@ -132,8 +133,9 @@
 				delete globalThis._singleFile_indexedDB;
 			}
 		});
+		document.addEventListener(FETCH_SUPPORTED_REQUEST_EVENT, () =>
+			document.dispatchEvent(new CustomEvent(FETCH_SUPPORTED_RESPONSE_EVENT)));
 		document.addEventListener(FETCH_REQUEST_EVENT, async event => {
-			document.dispatchEvent(new CustomEvent(FETCH_ACK_EVENT));
 			const { url, options } = JSON.parse(event.detail);
 			let detail;
 			try {
