@@ -71,7 +71,11 @@ const URL = globalThis.URL;
 const DOMParser = globalThis.DOMParser;
 const Blob = globalThis.Blob;
 const FileReader = globalThis.FileReader;
-const fetch = (url, options) => globalThis.fetch(url, options);
+const fetch = (url, options) => {
+	options.cache = "force-cache";
+	options.referrerPolicy = "strict-origin-when-cross-origin";
+	return globalThis.fetch(url, options);
+};
 const TextDecoder = globalThis.TextDecoder;
 const URLSearchParams = globalThis.URLSearchParams;
 
@@ -87,7 +91,7 @@ function getInstance(utilOptions) {
 		getDoctypeString,
 		getFilenameExtension(resourceURL, replacedCharacters, replacementCharacter) {
 			let matchExtension;
-			try { 
+			try {
 				matchExtension = new URL(resourceURL).pathname.match(/(\.[^\\/.]*)$/);
 			} catch (error) {
 				// ignored
