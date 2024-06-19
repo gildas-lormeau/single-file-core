@@ -418,15 +418,19 @@ function getProcessorHelperClass(utilInstance) {
 									new Promise(resolve => timeout = globalThis.setTimeout(() => { source.valid = true; resolve(); }, FONT_MAX_LOAD_DELAY))
 								]);
 							} catch (error) {
-								const fontFace = new FontFace("test-font", "url(" + resource.url + ")");
-								try {
-									let timeout;
-									await Promise.race([
-										fontFace.load().then(() => fontFace.loaded).then(() => { source.valid = true; globalThis.clearTimeout(timeout); }),
-										new Promise(resolve => timeout = globalThis.setTimeout(() => { source.valid = true; resolve(); }, FONT_MAX_LOAD_DELAY))
-									]);
-								} catch (error) {
-									// ignored
+								if (error.name == "NetworkError") {
+									source.valid = true;
+								} else {
+									const fontFace = new FontFace("test-font", "url(" + resource.url + ")");
+									try {
+										let timeout;
+										await Promise.race([
+											fontFace.load().then(() => fontFace.loaded).then(() => { source.valid = true; globalThis.clearTimeout(timeout); }),
+											new Promise(resolve => timeout = globalThis.setTimeout(() => { source.valid = true; resolve(); }, FONT_MAX_LOAD_DELAY))
+										]);
+									} catch (error) {
+										// ignored
+									}
 								}
 							}
 						} else {

@@ -507,24 +507,28 @@ function getProcessorHelperClass(utilInstance) {
 									new Promise(resolve => timeout = globalThis.setTimeout(() => { source.valid = true; resolve(); }, FONT_MAX_LOAD_DELAY))
 								]);
 							} catch (error) {
-								const urlNodes = cssTree.findAll(srcDeclaration.data, node => node.type == "Url");
-								const declarationFontURLs = Array.from(fontDeclarations).find(([node]) => urlNodes.includes(node) && node.value == source.fontUrl);
-								if (declarationFontURLs && declarationFontURLs[1].length) {
-									const fontURL = declarationFontURLs[1][0];
-									if (fontURL) {
-										const fontFace = new FontFace("test-font", "url(" + fontURL + ")");
-										try {
-											let timeout;
-											await Promise.race([
-												fontFace.load().then(() => fontFace.loaded).then(() => { source.valid = true; globalThis.clearTimeout(timeout); }),
-												new Promise(resolve => timeout = globalThis.setTimeout(() => { source.valid = true; resolve(); }, FONT_MAX_LOAD_DELAY))
-											]);
-										} catch (error) {
-											// ignored
-										}
-									}
-								} else {
+								if (error.name == "NetworkError") {
 									source.valid = true;
+								} else {
+									const urlNodes = cssTree.findAll(srcDeclaration.data, node => node.type == "Url");
+									const declarationFontURLs = Array.from(fontDeclarations).find(([node]) => urlNodes.includes(node) && node.value == source.fontUrl);
+									if (declarationFontURLs && declarationFontURLs[1].length) {
+										const fontURL = declarationFontURLs[1][0];
+										if (fontURL) {
+											const fontFace = new FontFace("test-font", "url(" + fontURL + ")");
+											try {
+												let timeout;
+												await Promise.race([
+													fontFace.load().then(() => fontFace.loaded).then(() => { source.valid = true; globalThis.clearTimeout(timeout); }),
+													new Promise(resolve => timeout = globalThis.setTimeout(() => { source.valid = true; resolve(); }, FONT_MAX_LOAD_DELAY))
+												]);
+											} catch (error) {
+												// ignored
+											}
+										}
+									} else {
+										source.valid = true;
+									}
 								}
 							}
 						} else {
