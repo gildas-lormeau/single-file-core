@@ -185,9 +185,7 @@ class ProcessorHelperCommon {
 			} else if (ruleData.block && ruleData.block.children) {
 				if (ruleData.type == "Rule") {
 					promises.push(processorHelper.processStyle(ruleData, options, resources, batchRequest));
-				} else if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports")) {
-					promises.push(processorHelper.processStylesheet(ruleData.block.children, baseURI, options, resources, batchRequest));
-				} else if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "layer")) {
+				} else if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports" || ruleData.name == "layer" || ruleData.name == "container")) {
 					promises.push(processorHelper.processStylesheet(ruleData.block.children, baseURI, options, resources, batchRequest));
 				} else if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
 					promises.push(processFontFaceRule(ruleData));

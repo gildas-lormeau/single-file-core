@@ -113,7 +113,7 @@ function process(doc, stylesheets, styles, options) {
 
 function getFontsInfo(cssRules, fontsInfo, options) {
 	cssRules.forEach(ruleData => {
-		if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports" || ruleData.name == "layer") && ruleData.block && ruleData.block.children) {
+		if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports" || ruleData.name == "layer" || ruleData.name == "container") && ruleData.block && ruleData.block.children) {
 			getFontsInfo(ruleData.block.children, fontsInfo, options);
 		} else if (ruleData.type == "Rule") {
 			const fontFamilyNames = getFontFamilyNames(ruleData.block, options);
@@ -141,7 +141,7 @@ function filterUnusedFonts(cssRules, declaredFonts, unusedFonts, filteredUsedFon
 		const ruleData = cssRule.data;
 		if (ruleData.type == "Atrule" && ruleData.name == "import" && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head.data.importedChildren) {
 			filterUnusedFonts(ruleData.prelude.children.head.data.importedChildren, declaredFonts, unusedFonts, filteredUsedFonts, docChars);
-		} else if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports" || ruleData.name == "layer") && ruleData.block && ruleData.block.children) {
+		} else if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports" || ruleData.name == "layer" || ruleData.name == "container") && ruleData.block && ruleData.block.children) {
 			filterUnusedFonts(ruleData.block.children, declaredFonts, unusedFonts, filteredUsedFonts, docChars);
 		} else if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
 			const fontFamily = helper.normalizeFontFamily(getDeclarationValue(ruleData.block.children, "font-family"));
@@ -369,7 +369,7 @@ function findAscendingFontWeight(fontWeight, fontWeights) {
 function getRulesTextContent(doc, cssRules, workStylesheet, content) {
 	cssRules.forEach(ruleData => {
 		if (ruleData.block && ruleData.block.children && ruleData.prelude && ruleData.prelude.children) {
-			if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports" || ruleData.name == "layer")) {
+			if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports" || ruleData.name == "layer" || ruleData.name == "container")) {
 				content = getRulesTextContent(doc, ruleData.block.children, workStylesheet, content);
 			} else if (ruleData.type == "Rule") {
 				content = getDeclarationsTextContent(ruleData.block.children, workStylesheet, content);
