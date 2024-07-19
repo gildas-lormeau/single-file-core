@@ -40,7 +40,9 @@ const IMAGE_LOADED_EVENT = "single-file-image-loaded";
 const NEW_FONT_FACE_EVENT = "single-file-new-font-face";
 const DELETE_FONT_EVENT = "single-file-delete-font";
 const CLEAR_FONTS_EVENT = "single-file-clear-fonts";
+const NEW_WORKLET_EVENT = "single-file-new-worklet";
 const FONT_FACE_PROPERTY_NAME = "_singleFile_fontFaces";
+const WORKLET_PROPERTY_NAME = "_singleFile_worklets";
 
 const CustomEvent = globalThis.CustomEvent;
 const document = globalThis.document;
@@ -48,11 +50,16 @@ const Document = globalThis.Document;
 const JSON = globalThis.JSON;
 const MutationObserver = globalThis.MutationObserver;
 
-let fontFaces;
+let fontFaces, worklets;
 if (window[FONT_FACE_PROPERTY_NAME]) {
 	fontFaces = window[FONT_FACE_PROPERTY_NAME];
 } else {
 	fontFaces = window[FONT_FACE_PROPERTY_NAME] = new Map();
+}
+if (window[WORKLET_PROPERTY_NAME]) {
+	worklets = window[WORKLET_PROPERTY_NAME];
+} else {
+	worklets = window[WORKLET_PROPERTY_NAME] = new Map();
 }
 
 init();
@@ -73,11 +80,16 @@ function init() {
 			fontFaces.delete(JSON.stringify(key));
 		});
 		document.addEventListener(CLEAR_FONTS_EVENT, () => fontFaces = new Map());
+		document.addEventListener(NEW_WORKLET_EVENT, event => {
+			const detail = event.detail;
+			worklets.set(detail.moduleURL, detail);
+		});
 	}
 }
 
 export {
 	getFontsData,
+	getWorkletsData,
 	loadDeferredImagesStart,
 	loadDeferredImagesEnd,
 	loadDeferredImagesResetZoomLevel,
@@ -87,6 +99,10 @@ export {
 
 function getFontsData() {
 	return Array.from(fontFaces.values());
+}
+
+function getWorkletsData() {
+	return Array.from(worklets.values());
 }
 
 function loadDeferredImagesStart(options) {

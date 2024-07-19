@@ -195,7 +195,8 @@ function preProcessDoc(doc, win, options) {
 	}
 	return {
 		canvases: elementsInfo.canvases,
-		fonts: getFontsData(doc),
+		fonts: getFontsData(),
+		worklets: getWorkletsData(),
 		stylesheets: getStylesheetsData(doc),
 		images: elementsInfo.images,
 		posters: elementsInfo.posters,
@@ -575,6 +576,10 @@ function getWidth(styleName, computedStyle) {
 
 function getFontsData() {
 	return hooksFrames.getFontsData();
+}
+
+function getWorkletsData() {
+	return hooksFrames.getWorkletsData();
 }
 
 function serialize(doc) {

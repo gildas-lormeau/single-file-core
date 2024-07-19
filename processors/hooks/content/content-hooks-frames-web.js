@@ -50,6 +50,7 @@
 	const NEW_FONT_FACE_EVENT = "single-file-new-font-face";
 	const DELETE_FONT_EVENT = "single-file-delete-font";
 	const CLEAR_FONTS_EVENT = "single-file-clear-fonts";
+	const NEW_WORKLET_EVENT = "single-file-new-worklet";
 	const FONT_STYLE_PROPERTIES = {
 		family: "font-family",
 		style: "font-style",
@@ -71,6 +72,7 @@
 	const Blob = globalThis.Blob;
 	const JSON = globalThis.JSON;
 	const MutationObserver = globalThis.MutationObserver;
+	const URL = globalThis.URL;
 
 	const observers = new Map();
 	const observedElements = new Map();
@@ -307,7 +309,15 @@
 		delete screen.width;
 	}
 
-
+	if (globalThis.CSS && globalThis.CSS.paintWorklet && globalThis.CSS.paintWorklet.addModule) {
+		const addModule = globalThis.CSS.paintWorklet.addModule;
+		globalThis.CSS.paintWorklet.addModule = function (moduleURL, options) {
+			const result = addModule.apply(globalThis.CSS.paintWorklet, arguments);
+			moduleURL = new URL(moduleURL, document.baseURI).href;
+			document.dispatchEvent(new CustomEvent(NEW_WORKLET_EVENT, { detail: { moduleURL, options } }));
+			return result;
+		};
+	}
 
 	if (globalThis.FontFace) {
 		const FontFace = globalThis.FontFace;

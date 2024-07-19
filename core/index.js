@@ -141,7 +141,8 @@ const STAGES = [{
 		{ action: "processStylesheets" },
 		{ action: "processStyleAttributes" },
 		{ action: "processPageResources" },
-		{ action: "processScripts" }
+		{ action: "processScripts" },
+		{ action: "processWorklets" }
 	]
 }, {
 	sequential: [
@@ -188,6 +189,7 @@ class Runner {
 			const docData = util.preProcessDoc(this.options.doc, this.options.win, this.options);
 			this.options.canvases = docData.canvases;
 			this.options.fonts = docData.fonts;
+			this.options.worklets = docData.worklets;
 			this.options.stylesheets = docData.stylesheets;
 			this.options.images = docData.images;
 			this.options.posters = docData.posters;
@@ -428,6 +430,7 @@ class Processor {
 		this.resources = {
 			cssVariables: new Map(),
 			fonts: new Map(),
+			worklets: new Map(),
 			stylesheets: new Map(),
 			scripts: new Map(),
 			images: new Map(),
@@ -1239,6 +1242,7 @@ class Processor {
 				options.content = frameData.content;
 				options.canvases = frameData.canvases;
 				options.fonts = frameData.fonts;
+				options.worklets = frameData.worklets;
 				options.stylesheets = frameData.stylesheets;
 				options.images = frameData.images;
 				options.posters = frameData.posters;
@@ -1366,6 +1370,18 @@ class Processor {
 			}
 			this.stats.add("processed", "scripts", 1);
 		}));
+	}
+
+	async processWorklets() {
+		if (this.options.worklets.length) {
+			const scriptElement = this.doc.createElement("script");
+			scriptElement.textContent = "if (CSS && CSS.paintWorklet && CSS.paintWorklet.addModule) {\n";
+			await Promise.all(this.options.worklets.map(async ({ moduleURL, options }) => {
+				await this.processorHelper.processWorklet(scriptElement, moduleURL, options, this.options, this.charset, this.batchRequest, this.resources);
+			}));
+			scriptElement.textContent += "}";
+			this.doc.head.appendChild(scriptElement);
+		}
 	}
 
 	removeAlternativeImages() {

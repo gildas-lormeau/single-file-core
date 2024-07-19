@@ -237,6 +237,7 @@ function initResponse(message) {
 				frameData.url = messageFrameData.url;
 				frameData.canvases = messageFrameData.canvases;
 				frameData.fonts = messageFrameData.fonts;
+				frameData.worklets = messageFrameData.worklets;
 				frameData.stylesheets = messageFrameData.stylesheets;
 				frameData.images = messageFrameData.images;
 				frameData.posters = messageFrameData.posters;
@@ -414,6 +415,7 @@ function getFrameData(document, globalThis, windowId, options, scrolling) {
 		title: document.title,
 		canvases: docData.canvases,
 		fonts: docData.fonts,
+		worklets: docData.worklets,
 		stylesheets: docData.stylesheets,
 		images: docData.images,
 		posters: docData.posters,

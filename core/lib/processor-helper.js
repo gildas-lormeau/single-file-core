@@ -394,6 +394,25 @@ function getProcessorHelperClass(utilInstance) {
 			resources.scripts.set(indexResource, { name, content, extension, contentType, url: resourceURL });
 		}
 
+		async processWorklet(scriptElement, resourceURL, workletOptions, options, charset, batchRequest, resources) {
+			let { content, indexResource, extension, contentType } = await batchRequest.addURL(resourceURL, {
+				asBinary: true,
+				charset: charset != UTF8_CHARSET && charset,
+				maxResourceSize: options.maxResourceSize,
+				maxResourceSizeEnabled: options.maxResourceSizeEnabled,
+				frameId: options.windowId,
+				resourceReferrer: options.resourceReferrer,
+				baseURI: options.baseURI,
+				blockMixedContent: options.blockMixedContent,
+				expectedType: "script",
+				acceptHeaders: options.acceptHeaders,
+				networkTimeout: options.networkTimeout
+			});
+			const name = "scripts/" + indexResource + extension;
+			scriptElement.textContent += `CSS.paintWorklet.addModule("${name}", ${JSON.stringify(workletOptions)});\n`;
+			resources.worklets.set(indexResource, { name, workletOptions, content, extension, contentType, url: resourceURL });
+		}
+
 		setMetaCSP(metaElement) {
 			metaElement.content = "default-src 'none'; connect-src 'self' data: blob:; font-src 'self' data: blob:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' data: blob:; frame-src 'self' data: blob:; media-src 'self' data: blob:; script-src 'self' 'unsafe-inline' data: blob:; object-src 'self' data: blob:;";
 		}
