@@ -410,9 +410,9 @@ function getProcessorHelperClass(utilInstance) {
 			});
 			const name = "scripts/" + indexResource + extension;
 			if (workletOptions) {
-				scriptElement.textContent += `  CSS.paintWorklet.addModule("${content}", ${JSON.stringify(workletOptions)});\n`;
+				scriptElement.textContent += `  CSS.paintWorklet.addModule("${name}", ${JSON.stringify(workletOptions)});\n`;
 			} else {
-				scriptElement.textContent += `  CSS.paintWorklet.addModule("${content}");\n`;
+				scriptElement.textContent += `  CSS.paintWorklet.addModule("${name}");\n`;
 			}
 			resources.worklets.set(indexResource, { name, workletOptions, content, extension, contentType, url: resourceURL });
 		}
