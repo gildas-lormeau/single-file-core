@@ -308,6 +308,11 @@ function processDeclarations(declarationsInfo, declarations, selectorInfo, proce
 					processedProperties.add(declarationData.property);
 				}
 			}
+		} else if (declarationData.type == "Rule") {
+			const declarationInfo = declarationsInfo.get(declarationData);
+			if (!declarationInfo) {
+				declarationsInfo.set(declarationData, { selectorInfo });
+			}
 		}
 	}
 }
