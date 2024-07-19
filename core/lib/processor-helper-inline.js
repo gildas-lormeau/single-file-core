@@ -489,7 +489,11 @@ function getProcessorHelperClass(utilInstance) {
 				acceptHeaders: options.acceptHeaders,
 				networkTimeout: options.networkTimeout
 			});
-			scriptElement.textContent += `CSS.paintWorklet.addModule("${content}", ${JSON.stringify(workletOptions)});\n`;
+			if (workletOptions) {
+				scriptElement.textContent += `  CSS.paintWorklet.addModule("${content}", ${JSON.stringify(workletOptions)});\n`;
+			} else {
+				scriptElement.textContent += `  CSS.paintWorklet.addModule("${content}");\n`;
+			}
 		}
 
 		setMetaCSP(metaElement) {

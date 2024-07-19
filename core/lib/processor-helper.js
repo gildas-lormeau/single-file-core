@@ -409,7 +409,11 @@ function getProcessorHelperClass(utilInstance) {
 				networkTimeout: options.networkTimeout
 			});
 			const name = "scripts/" + indexResource + extension;
-			scriptElement.textContent += `CSS.paintWorklet.addModule("${name}", ${JSON.stringify(workletOptions)});\n`;
+			if (workletOptions) {
+				scriptElement.textContent += `  CSS.paintWorklet.addModule("${content}", ${JSON.stringify(workletOptions)});\n`;
+			} else {
+				scriptElement.textContent += `  CSS.paintWorklet.addModule("${content}");\n`;
+			}
 			resources.worklets.set(indexResource, { name, workletOptions, content, extension, contentType, url: resourceURL });
 		}
 
