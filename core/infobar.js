@@ -67,6 +67,11 @@ const INFOBAR_STYLES = `
   border-color: #eee;
   border-radius: 16px;
   z-index: 2147483647;
+  animation-name: flash;
+  animation-duration: .5s;
+  animation-timing-function: cubic-bezier(0.39, 0.58, 0.57, 1);
+  animation-delay: 1s;
+  animation-iteration-count: 2;
 }
 
 .infobar:valid, .infobar:not(:focus-within) .infobar-content {
@@ -78,8 +83,8 @@ const INFOBAR_STYLES = `
   border-color: #878787;
   border-radius: 8px;
   opacity: 1;
-  transition-property: opacity, background-color, border-color, border-radius,
-    color;
+  transition-property: opacity, background-color, border-color, border-radius, color;
+  animation-play-state: paused;
 }
 
 .infobar-content {
@@ -113,6 +118,17 @@ const INFOBAR_STYLES = `
   position: absolute;
   min-inline-size: 24px;
   min-block-size: 24px;
+}
+
+@keyframes flash {
+  0%, 100% {
+	background-color: #737373;
+  	opacity: .7;
+  }
+  50% {
+	background-color: #171717;
+    opacity: 1;
+  }
 }
 
 .infobar:focus-within .infobar-icon {
