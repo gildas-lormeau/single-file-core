@@ -84,10 +84,13 @@ const INFOBAR_STYLES = `
   border-radius: 8px;
   opacity: 1;
   transition-property: opacity, background-color, border-color, border-radius, color;
-  animation-play-state: paused;
 }
 
 .infobar-content {
+  border: 2px solid;
+  border-color: #f9f9f9;
+  border-radius: 6px;
+  background-color: #f9f9f9;
   align-items: center;
 }
 
@@ -123,11 +126,9 @@ const INFOBAR_STYLES = `
 @keyframes flash {
   0%, 100% {
 	background-color: #737373;
-  	opacity: .7;
   }
   50% {
 	background-color: #171717;
-    opacity: 1;
   }
 }
 
