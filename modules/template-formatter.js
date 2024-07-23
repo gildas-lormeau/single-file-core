@@ -17021,7 +17021,7 @@ async function evalTemplate(template = "", options, content, doc, dontReplaceSla
 		"date-locale": locales => new Date().toLocaleDateString(locales),
 		"time-locale": locales => new Date().toLocaleTimeString(locales),
 		"datetime-locale": locales => new Date().toLocaleString(locales),
-		"datetime-custom": (locale, year, month, day, weekday, hour, minute, second, hour12, timeZone, fractionalSecondDigits, timeZoneName, era, localeMatcher) => {
+		"datetime-custom": (locale, year, month, day, weekday, hour, minute, second, hour12, timeZone, fractionalSecondDigits, timeZoneName, dayPeriod, era, localeMatcher) => {
 			const date = new Date();
 			const options = {};
 			setOption(options, "year", year);
@@ -17032,9 +17032,11 @@ async function evalTemplate(template = "", options, content, doc, dontReplaceSla
 			setOption(options, "minute", minute);
 			setOption(options, "second", second);
 			setOption(options, "hour12", hour12);
+			options.hour12 = hour12 == "true";
 			setOption(options, "timeZone", timeZone);
 			setOption(options, "fractionalSecondDigits", fractionalSecondDigits);
 			setOption(options, "timeZoneName", timeZoneName);
+			setOption(options, "dayPeriod", dayPeriod);
 			setOption(options, "era", era);
 			setOption(options, "localeMatcher", localeMatcher);
 			return new Intl.DateTimeFormat(locale, options).format(date);
