@@ -94,7 +94,7 @@ function serializeTextNode(textNode) {
 		parentTagName = getTagName(parentNode);
 	}
 	if (!parentTagName || TEXT_NODE_TAGS.includes(parentTagName)) {
-		if (parentTagName == "SCRIPT" || parentTagName == "STYLE") {
+		if ((parentTagName == "SCRIPT" && (!parentNode.type || parentNode.type == "text/javascript")) || parentTagName == "STYLE") {
 			return textNode.textContent.replace(/<\//gi, "<\\/").replace(/\/>/gi, "\\/>");
 		}
 		return textNode.textContent;
@@ -180,5 +180,5 @@ function startsWithSpaceChar(textContent) {
 }
 
 function getTagName(element) {
-	return  element.tagName && element.tagName.toUpperCase();
+	return element.tagName && element.tagName.toUpperCase();
 }
