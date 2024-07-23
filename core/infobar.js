@@ -103,7 +103,7 @@ const INFOBAR_STYLES = `
   white-space: pre-wrap;
   margin-inline: 4px;
   margin-block: 4px;
-  padding-left: 28px;
+  padding-inline: 24px;
 }
 
 .infobar .infobar-icon,
