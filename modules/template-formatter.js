@@ -29,6 +29,7 @@ import { getContentSize, digest } from "./../core/helper.js";
 const Blob = globalThis.Blob;
 const FileReader = globalThis.FileReader;
 const URL = globalThis.URL;
+const Intl = globalThis.Intl;
 const URLSearchParams = globalThis.URLSearchParams;
 const navigator = globalThis.navigator;
 
@@ -17019,11 +17020,38 @@ async function evalTemplate(template = "", options, content, doc, dontReplaceSla
 		"decode-uri-component": value => { try { return decodeURIComponent(value); } catch (error) { return value; } },
 		"date-locale": locales => new Date().toLocaleDateString(locales),
 		"time-locale": locales => new Date().toLocaleTimeString(locales),
-		"datetime-locale": locales => new Date().toLocaleString(locales)
+		"datetime-locale": locales => new Date().toLocaleString(locales),
+		"datetime-custom": (locale, year, month, day, weekday, hour, minute, second, hour12, timeZone, fractionalSecondDigits, timeZoneName, era, localeMatcher) => {
+			const date = new Date();
+			const options = {};
+			setOption(options, "year", year);
+			setOption(options, "month", month);
+			setOption(options, "day", day);
+			setOption(options, "weekday", weekday);
+			setOption(options, "hour", hour);
+			setOption(options, "minute", minute);
+			setOption(options, "second", second);
+			setOption(options, "hour12", hour12);
+			setOption(options, "timeZone", timeZone);
+			setOption(options, "fractionalSecondDigits", fractionalSecondDigits);
+			setOption(options, "timeZoneName", timeZoneName);
+			setOption(options, "era", era);
+			setOption(options, "localeMatcher", localeMatcher);
+			return new Intl.DateTimeFormat(locale, options).format(date);
+
+			function setOption(options, name, value) {
+				if (value == " ") {
+					options[name] = undefined;
+				} else if (value) {
+					options[name] = value;
+				}
+			}
+		}
 	};
 	functions["date-locale"].dontReplaceSlash = false;
 	functions["time-locale"].dontReplaceSlash = false;
 	functions["datetime-locale"].dontReplaceSlash = false;
+	functions["datetime-custom"].dontReplaceSlash = false;
 	if (doc) {
 		functions["page-element-text"] = (selector) => {
 			const element = doc.querySelector(selector);
