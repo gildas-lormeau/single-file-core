@@ -131,7 +131,7 @@ const INFOBAR_STYLES = `
 	background-color: #737373;
   }
   50% {
-	background-color: #171717;
+	background-color: #dd6a00;
   }
 }
 
