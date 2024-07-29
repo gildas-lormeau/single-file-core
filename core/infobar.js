@@ -75,11 +75,11 @@ const INFOBAR_STYLES = `
   animation-iteration-count: 2;
 }
 
-.infobar:valid, .infobar:not(:focus-within) .infobar-content {
+.infobar:valid, .infobar:not(:focus-within):not(.infobar-focus) .infobar-content {
   display: none;
 }
 
-.infobar:focus-within {
+.infobar:focus-within, .infobar.infobar-focus {
   background-color: #f9f9f9;
   border-color: #878787;
   border-radius: 8px;
@@ -135,7 +135,7 @@ const INFOBAR_STYLES = `
   }
 }
 
-.infobar:focus-within .infobar-icon {
+.infobar:focus-within .infobar-icon, .infobar.infobar-focus .infobar-icon {
   z-index: -1;
   background-image: none;
   margin: 4px;
@@ -197,6 +197,9 @@ function appendInfobar(doc, options, useShadowRoot) {
 		shadowRootContent.appendChild(styleElement);
 		const infobarContent = doc.createElement("form");
 		infobarContent.classList.add("infobar");
+		if (options.openInfobar) {
+			infobarContent.classList.add("infobar-focus");
+		}
 		shadowRootContent.appendChild(infobarContent);
 		const iconElement = doc.createElement("span");
 		iconElement.tabIndex = -1;
@@ -277,9 +280,10 @@ function refreshInfobarInfo(doc, { saveUrl, infobarContent, saveDate }) {
 	}
 }
 
-function displayIcon(doc, useShadowRoot) {
+function displayIcon(doc, useShadowRoot, options = {}) {
 	const infoData = extractInfobarData(doc);
 	if (infoData.saveUrl) {
+		infoData.openInfobar = options.openInfobar;
 		appendInfobar(doc, infoData, useShadowRoot);
 		refreshInfobarInfo(doc, infoData);
 	}

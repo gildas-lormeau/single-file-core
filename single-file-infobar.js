@@ -60,6 +60,7 @@ import { appendInfobar, refreshInfobarInfo, extractInfobarData } from "./core/in
 				}
 			}
 			if (options.displayInfobar) {
+				infoData.openInfobar = options.openInfobar;
 				appendInfobar(document, infoData, true);
 				refreshInfobarInfo(document, infoData);
 			}

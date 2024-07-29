@@ -43,8 +43,8 @@ const helper = {
 	extractInfobarData(doc) {
 		return infobar.extractInfobarData(doc);
 	},
-	displayIcon(doc, useShadowRoot) {
-		return infobar.displayIcon(doc, useShadowRoot);
+	displayIcon(doc, useShadowRoot, options = {}) {
+		return infobar.displayIcon(doc, useShadowRoot, options);
 	},
 	zip,
 	extract,
