@@ -72,7 +72,7 @@ function matchesMediaType(mediaText) {
 	const foundMediaTypes = helper.flatten(mediaQueryParser.parseMediaList(mediaText).map(node => getMediaTypes(node)));
 	return foundMediaTypes.find(mediaTypeInfo =>
 		(!mediaTypeInfo.not && (mediaTypeInfo.value == MEDIA_SCREEN || mediaTypeInfo.value == MEDIA_ALL)) ||
-		(mediaTypeInfo.not && (mediaTypeInfo.value != MEDIA_SCREEN && mediaTypeInfo.value != MEDIA_ALL)));
+		(mediaTypeInfo.not && (mediaTypeInfo.value != MEDIA_SCREEN)));
 }
 
 function getMediaTypes(parentNode, mediaTypes = []) {
