@@ -138,6 +138,7 @@ const INFOBAR_STYLES = `
 .infobar:focus-within .infobar-icon {
   z-index: -1;
   background-image: none;
+  margin: 4px;
 }
 
 .infobar .infobar-close-icon {
