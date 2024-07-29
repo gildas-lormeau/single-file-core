@@ -16899,7 +16899,9 @@ async function formatFilename(content, doc, options) {
 	return filename.trim();
 }
 
-async function evalTemplate(template = "", options, content, doc, dontReplaceSlash) {
+async function evalTemplate(template = "", options, content, doc, context = {}) {
+	const { dontReplaceSlash } = context;
+	context.currentDate = new Date();
 	const url = new URL(options.saveUrl);
 	const urlHref = decode(url.href);
 	const params = Array.from(new URLSearchParams(url.search));
@@ -17018,11 +17020,11 @@ async function evalTemplate(template = "", options, content, doc, dontReplaceSla
 		"decode-uri": value => { try { return decodeURI(value); } catch (error) { return value; } },
 		"encode-uri-component": value => { try { return encodeURIComponent(value); } catch (error) { return value; } },
 		"decode-uri-component": value => { try { return decodeURIComponent(value); } catch (error) { return value; } },
-		"date-locale": locales => new Date().toLocaleDateString(locales),
-		"time-locale": locales => new Date().toLocaleTimeString(locales),
-		"datetime-locale": locales => new Date().toLocaleString(locales),
+		"date-locale": locales => context.currentDate.toLocaleDateString(locales),
+		"time-locale": locales => context.currentDate.toLocaleTimeString(locales),
+		"datetime-locale": locales => context.currentDate.toLocaleString(locales),
 		"datetime-custom": (locale, year, month, day, weekday, hour, minute, second, hour12, timeZone, fractionalSecondDigits, timeZoneName, dayPeriod, era, localeMatcher) => {
-			const date = new Date();
+			const date = context.currentDate;
 			const options = {};
 			setOption(options, "year", year);
 			setOption(options, "month", month);

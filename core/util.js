@@ -166,8 +166,8 @@ function getInstance(utilOptions) {
 		getMimeType(options) {
 			return !options.compressContent || options.selfExtractingArchive ? "text/html" : "application/zip";
 		},
-		async evalTemplate(template, options, content, doc, dontReplaceSlash) {
-			return modules.templateFormatter.evalTemplate(template, options, content, doc, dontReplaceSlash);
+		async evalTemplate(template, options, content, doc, context) {
+			return modules.templateFormatter.evalTemplate(template, options, content, doc, context);
 		},
 		minifyHTML(doc, options) {
 			return modules.htmlMinifier.process(doc, options);

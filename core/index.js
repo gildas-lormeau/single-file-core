@@ -1535,7 +1535,7 @@ class Processor {
 			publisher: publisherElement && publisherElement.content ? publisherElement.content.trim() : "",
 			heading: headingElement && headingElement.textContent ? headingElement.textContent.trim() : ""
 		};
-		this.options.infobarContent = await util.evalTemplate(this.options.infobarTemplate, this.options, null, this.doc, true);
+		this.options.infobarContent = await util.evalTemplate(this.options.infobarTemplate, this.options, null, this.doc, { dontReplaceSlash: true });
 	}
 }
 
