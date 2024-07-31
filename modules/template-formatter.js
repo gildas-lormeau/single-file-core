@@ -17052,10 +17052,10 @@ async function evalTemplate(template = "", options, content, doc, context = {}) 
 			}
 		}
 	};
-	functions["date-locale"].dontReplaceSlash = false;
-	functions["time-locale"].dontReplaceSlash = false;
-	functions["datetime-locale"].dontReplaceSlash = false;
-	functions["datetime-custom"].dontReplaceSlash = false;
+	functions["date-locale"].dontReplaceSlash = true;
+	functions["time-locale"].dontReplaceSlash = true;
+	functions["datetime-locale"].dontReplaceSlash = true;
+	functions["datetime-custom"].dontReplaceSlash = true;
 	if (doc) {
 		functions["page-element-text"] = (selector) => {
 			const element = doc.querySelector(selector);
