@@ -275,6 +275,9 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 				getElementsInfo(win, doc, shadowRoot, options, data, elementHidden);
 				shadowRootInfo.content = shadowRoot.innerHTML;
 				shadowRootInfo.mode = shadowRoot.mode;
+				shadowRootInfo.delegateFocus = shadowRoot.delegatesFocus;
+				shadowRootInfo.clonable = shadowRoot.clonable;
+				shadowRootInfo.serializable = shadowRoot.serializable;
 				try {
 					if (shadowRoot.adoptedStyleSheets && shadowRoot.adoptedStyleSheets.length === undefined) {
 						shadowRoot.dispatchEvent(new CustomEvent(UNREGISTER_GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, { bubbles: true }));

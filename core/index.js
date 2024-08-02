@@ -414,6 +414,9 @@ class BatchRequest {
 // Processor
 // ---------
 const SHADOWROOT_ATTRIBUTE_NAME = "shadowrootmode";
+const SHADOWROOT_DELEGATES_FOCUS = "shadowrootdelegatesfocus";
+const SHADOWROOT_CLONABLE = "shadowrootclonable";
+const SHADOWROOT_SERIALIZABLE = "shadowrootserializable";
 const SCRIPT_TEMPLATE_SHADOW_ROOT = "data-template-shadow-root";
 const SCRIPT_OPTIONS = "data-single-file-options";
 const UTF8_CHARSET = "utf-8";
@@ -542,7 +545,7 @@ class Processor {
 			}
 			const scriptElement = this.doc.createElement("script");
 			scriptElement.setAttribute(SCRIPT_TEMPLATE_SHADOW_ROOT, "");
-			scriptElement.textContent = `(()=>{document.currentScript.remove();processNode(document);function processNode(node){node.querySelectorAll("template[${SHADOWROOT_ATTRIBUTE_NAME}]").forEach(element=>{let shadowRoot = element.parentElement.shadowRoot;if (!shadowRoot) {try {shadowRoot=element.parentElement.attachShadow({mode:element.getAttribute("${SHADOWROOT_ATTRIBUTE_NAME}")});shadowRoot.innerHTML=element.innerHTML;element.remove()} catch (error) {} if (shadowRoot) {processNode(shadowRoot)}}})}})()`;
+			scriptElement.textContent = `(()=>{document.currentScript.remove();processNode(document);function processNode(node){node.querySelectorAll("template[${SHADOWROOT_ATTRIBUTE_NAME}]").forEach(element=>{let shadowRoot = element.parentElement.shadowRoot;if (!shadowRoot) {try {shadowRoot=element.parentElement.attachShadow({mode:element.getAttribute("${SHADOWROOT_ATTRIBUTE_NAME}"),delegatesFocus:element.getAttribute("${SHADOWROOT_DELEGATES_FOCUS}")!=null,clonable:element.getAttribute("${SHADOWROOT_CLONABLE}")!=null,serializable:element.getAttribute("${SHADOWROOT_SERIALIZABLE})!=null});shadowRoot.innerHTML=element.innerHTML;element.remove()} catch (error) {} if (shadowRoot) {processNode(shadowRoot)}}})}})()`;
 			this.doc.body.appendChild(scriptElement);
 		}
 		if (this.options.insertCanonicalLink && this.options.saveUrl.match(HTTP_URI_PREFIX)) {
@@ -1279,6 +1282,15 @@ class Processor {
 					if (shadowRootData) {
 						const templateElement = doc.createElement("template");
 						templateElement.setAttribute(SHADOWROOT_ATTRIBUTE_NAME, shadowRootData.mode);
+						if (shadowRootData.delegatesFocus) {
+							templateElement.setAttribute(SHADOWROOT_DELEGATES_FOCUS, shadowRootData.delegatesFocus);
+						}
+						if (shadowRootData.clonable) {
+							templateElement.setAttribute(SHADOWROOT_CLONABLE, shadowRootData.clonable);
+						}
+						if (shadowRootData.serializable) {
+							templateElement.setAttribute(SHADOWROOT_SERIALIZABLE, shadowRootData.serializable);
+						}
 						if (shadowRootData.adoptedStyleSheets && shadowRootData.adoptedStyleSheets.length) {
 							shadowRootData.adoptedStyleSheets.forEach(stylesheetContent => {
 								const styleElement = doc.createElement("style");
