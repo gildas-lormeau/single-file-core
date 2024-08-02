@@ -53,6 +53,7 @@ const VIDEO_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "video";
 const CANVAS_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "canvas";
 const STYLE_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "movable-style";
 const INPUT_VALUE_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "input-value";
+const INPUT_CHECKED_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "input-checked";
 const LAZY_SRC_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "lazy-loaded-src";
 const STYLESHEET_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "stylesheet";
 const DISABLED_NOSCRIPT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "disabled-noscript";
@@ -110,6 +111,7 @@ export {
 	VIDEO_ATTRIBUTE_NAME,
 	CANVAS_ATTRIBUTE_NAME,
 	INPUT_VALUE_ATTRIBUTE_NAME,
+	INPUT_CHECKED_ATTRIBUTE_NAME,
 	SHADOW_ROOT_ATTRIBUTE_NAME,
 	STYLE_ATTRIBUTE_NAME,
 	LAZY_SRC_ATTRIBUTE_NAME,
@@ -384,7 +386,7 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 			data.markedElements.push(element);
 		}
 		if (element.type == "radio" || element.type == "checkbox") {
-			element.setAttribute(INPUT_VALUE_ATTRIBUTE_NAME, element.checked);
+			element.setAttribute(INPUT_CHECKED_ATTRIBUTE_NAME, element.checked);
 			data.markedElements.push(element);
 		}
 	}
@@ -475,7 +477,7 @@ function postProcessDoc(doc, markedElements, invalidElements) {
 		doc.head.querySelectorAll("*:not(base):not(link):not(meta):not(noscript):not(script):not(style):not(template):not(title)").forEach(element => element.removeAttribute("hidden"));
 	}
 	if (!markedElements) {
-		const singleFileAttributes = [REMOVED_CONTENT_ATTRIBUTE_NAME, HIDDEN_FRAME_ATTRIBUTE_NAME, HIDDEN_CONTENT_ATTRIBUTE_NAME, PRESERVED_SPACE_ELEMENT_ATTRIBUTE_NAME, IMAGE_ATTRIBUTE_NAME, POSTER_ATTRIBUTE_NAME, VIDEO_ATTRIBUTE_NAME, CANVAS_ATTRIBUTE_NAME, INPUT_VALUE_ATTRIBUTE_NAME, SHADOW_ROOT_ATTRIBUTE_NAME, STYLESHEET_ATTRIBUTE_NAME, ASYNC_SCRIPT_ATTRIBUTE_NAME];
+		const singleFileAttributes = [REMOVED_CONTENT_ATTRIBUTE_NAME, HIDDEN_FRAME_ATTRIBUTE_NAME, HIDDEN_CONTENT_ATTRIBUTE_NAME, PRESERVED_SPACE_ELEMENT_ATTRIBUTE_NAME, IMAGE_ATTRIBUTE_NAME, POSTER_ATTRIBUTE_NAME, VIDEO_ATTRIBUTE_NAME, CANVAS_ATTRIBUTE_NAME, INPUT_VALUE_ATTRIBUTE_NAME, INPUT_CHECKED_ATTRIBUTE_NAME, SHADOW_ROOT_ATTRIBUTE_NAME, STYLESHEET_ATTRIBUTE_NAME, ASYNC_SCRIPT_ATTRIBUTE_NAME];
 		markedElements = doc.querySelectorAll(singleFileAttributes.map(name => "[" + name + "]").join(","));
 	}
 	markedElements.forEach(element => {
@@ -489,6 +491,7 @@ function postProcessDoc(doc, markedElements, invalidElements) {
 		element.removeAttribute(VIDEO_ATTRIBUTE_NAME);
 		element.removeAttribute(CANVAS_ATTRIBUTE_NAME);
 		element.removeAttribute(INPUT_VALUE_ATTRIBUTE_NAME);
+		element.removeAttribute(INPUT_CHECKED_ATTRIBUTE_NAME);
 		element.removeAttribute(SHADOW_ROOT_ATTRIBUTE_NAME);
 		element.removeAttribute(STYLESHEET_ATTRIBUTE_NAME);
 		element.removeAttribute(ASYNC_SCRIPT_ATTRIBUTE_NAME);

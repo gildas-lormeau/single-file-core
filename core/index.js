@@ -941,32 +941,34 @@ class Processor {
 	}
 
 	setInputValues() {
-		this.doc.querySelectorAll("input:not([type=radio]):not([type=checkbox])").forEach(input => {
-			const value = input.getAttribute(util.INPUT_VALUE_ATTRIBUTE_NAME);
-			if (value != null) {
-				input.setAttribute("value", value);
-			}
-		});
-		this.doc.querySelectorAll("input[type=radio], input[type=checkbox]").forEach(input => {
-			const value = input.getAttribute(util.INPUT_VALUE_ATTRIBUTE_NAME);
-			if (value == "true") {
-				input.setAttribute("checked", "");
-			}
-		});
-		this.doc.querySelectorAll("textarea").forEach(textarea => {
-			const value = textarea.getAttribute(util.INPUT_VALUE_ATTRIBUTE_NAME);
-			if (value != null) {
-				textarea.textContent = value;
-			}
-		});
-		this.doc.querySelectorAll("select").forEach(select => {
-			select.querySelectorAll("option").forEach(option => {
-				const selected = option.getAttribute(util.INPUT_VALUE_ATTRIBUTE_NAME) != null;
-				if (selected) {
-					option.setAttribute("selected", "");
+		if (!this.options.saveRawPage) {
+			this.doc.querySelectorAll("input, textarea").forEach(input => {
+				const value = input.getAttribute(util.INPUT_VALUE_ATTRIBUTE_NAME);
+				if (value != null) {
+					input.setAttribute("value", value);
+				} else {
+					input.removeAttribute("value");
 				}
 			});
-		});
+			this.doc.querySelectorAll("input[type=radio], input[type=checkbox]").forEach(input => {
+				const value = input.getAttribute(util.INPUT_CHECKED_ATTRIBUTE_NAME);
+				if (value == "true") {
+					input.setAttribute("checked", "");
+				} else {
+					input.removeAttribute("checked");
+				}
+			});
+			this.doc.querySelectorAll("select").forEach(select => {
+				select.querySelectorAll("option").forEach(option => {
+					const selected = option.getAttribute(util.INPUT_VALUE_ATTRIBUTE_NAME) != null;
+					if (selected) {
+						option.setAttribute("selected", "");
+					} else {
+						option.removeAttribute("selected");
+					}
+				});
+			});
+		}
 	}
 
 	moveStylesInHead() {
