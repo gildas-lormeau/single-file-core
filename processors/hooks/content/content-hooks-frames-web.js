@@ -141,6 +141,7 @@
 			const { url, options } = JSON.parse(event.detail);
 			let detail;
 			try {
+				options.referrerPolicy = "strict-origin-when-cross-origin";
 				const response = await fetch(url, options);
 				detail = { url, response: await response.arrayBuffer(), headers: [...response.headers], status: response.status };
 			} catch (error) {
