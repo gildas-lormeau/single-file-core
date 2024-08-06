@@ -84,6 +84,7 @@ const TextEncoder = globalThis.TextEncoder;
 const Blob = globalThis.Blob;
 const CustomEvent = globalThis.CustomEvent;
 const MutationObserver = globalThis.MutationObserver;
+const URL = globalThis.URL;
 
 export {
 	initUserScriptHandler,
@@ -205,7 +206,7 @@ function preProcessDoc(doc, win, options) {
 		videos: elementsInfo.videos,
 		usedFonts: Array.from(elementsInfo.usedFonts.values()),
 		shadowRoots: elementsInfo.shadowRoots,
-		referrer: doc.referrer,
+		referrer: doc.referrer ? new URL("/", new URL(doc.referrer).origin).href : "",
 		markedElements: elementsInfo.markedElements,
 		invalidElements,
 		scrollPosition: { x: win.scrollX, y: win.scrollY },
