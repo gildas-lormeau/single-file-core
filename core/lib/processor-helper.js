@@ -61,7 +61,7 @@ function getProcessorHelperClass(utilInstance) {
 	const ProcessorHelperCommon = getProcessorHelperCommonClass(util, cssTree);
 
 	return class ProcessorHelper extends ProcessorHelperCommon {
-		async processLinkElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement, resources) {
+		async resolveStylesheets(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement, resources) {
 			if (element.tagName.toUpperCase() == "LINK") {
 				element.removeAttribute("integrity");
 				if (element.charset) {
@@ -69,10 +69,10 @@ function getProcessorHelperClass(utilInstance) {
 				}
 				stylesheetInfo.url = element.href;
 			}
-			await this.processStylesheetElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement, resources);
+			await this.resolveStylesheetElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement, resources);
 		}
 
-		async processStylesheetElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement, resources) {
+		async resolveStylesheetElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement, resources) {
 			if (!options.blockStylesheets) {
 				stylesheets.set({ element }, stylesheetInfo);
 				if (element.tagName.toUpperCase() == "LINK") {

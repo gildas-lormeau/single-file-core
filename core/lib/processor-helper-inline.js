@@ -73,14 +73,14 @@ function getProcessorHelperClass(utilInstance) {
 	const ProcessorHelperCommon = getProcessorHelperCommonClass(util, cssTree);
 
 	return class ProcessorHelper extends ProcessorHelperCommon {
-		async processLinkElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement) {
+		async resolveStylesheets(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement) {
 			if (element.tagName.toUpperCase() == "LINK" && element.charset) {
 				options.charset = element.charset;
 			}
-			await this.processStylesheetElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement);
+			await this.resolveStylesheetElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement);
 		}
 
-		async processStylesheetElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement) {
+		async resolveStylesheetElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement) {
 			let stylesheet;
 			stylesheets.set(element, stylesheetInfo);
 			if (!options.blockStylesheets) {

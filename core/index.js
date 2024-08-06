@@ -1187,7 +1187,7 @@ class Processor {
 				mediaText,
 				scoped
 			};
-			await this.processorHelper.processLinkElement(element, stylesheetInfo, this.stylesheets, this.baseURI, options, this.workStyleElement, this.resources);
+			await this.processorHelper.resolveStylesheets(element, stylesheetInfo, this.stylesheets, this.baseURI, options, this.workStyleElement, this.resources);
 		}));
 		if (this.options.rootDocument) {
 			const newResources = Object.keys(this.options.updatedResources)
@@ -1200,7 +1200,7 @@ class Processor {
 					const element = this.doc.createElement("style");
 					this.doc.body.appendChild(element);
 					element.textContent = resource.content;
-					await this.processorHelper.processStylesheetElement(element, stylesheetInfo, this.stylesheets, this.baseURI, this.options, this.workStyleElement, this.resources);
+					await this.processorHelper.resolveStylesheetElement(element, stylesheetInfo, this.stylesheets, this.baseURI, this.options, this.workStyleElement, this.resources);
 				}
 			}));
 		}
