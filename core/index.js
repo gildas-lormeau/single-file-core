@@ -201,8 +201,8 @@ class Runner {
 			this.markedElements = docData.markedElements;
 			this.invalidElements = docData.invalidElements;
 		}
-		if (this.options.saveRawPage) {
-			this.options.removeFrames = true;
+		if (this.options.saveRawPage && !this.options.removeFrames) {
+			this.options.frames = [];
 		}
 		this.options.content = this.options.content || (rootDocDefined ? util.serialize(this.options.doc) : null);
 		this.onprogress = options.onprogress || (() => { });
@@ -449,7 +449,7 @@ class Processor {
 			this.maffMetaDataPromise = this.batchRequest.addURL(util.resolveURL("index.rdf", this.options.baseURI || this.options.url), { expectedType: "document" });
 		}
 		this.maxResources = this.batchRequest.getMaxResources();
-		if (!this.options.saveRawPage && !this.options.removeFrames && this.options.frames) {
+		if (!this.options.removeFrames && this.options.frames) {
 			this.options.frames.forEach(frameData => this.maxResources += frameData.maxResources || 0);
 		}
 		this.stats.set("processed", "resources", this.maxResources);
@@ -1208,29 +1208,54 @@ class Processor {
 
 	async resolveFrameURLs() {
 		const processorHelper = this.processorHelper;
-		if (!this.options.saveRawPage) {
-			const frameElements = Array.from(this.doc.querySelectorAll("iframe, frame, object[type=\"text/html\"][data]"));
-			await Promise.all(frameElements.map(async frameElement => {
-				if (frameElement.tagName.toUpperCase() == "OBJECT") {
-					frameElement.setAttribute("data", "data:text/html,");
-				} else {
-					const src = frameElement.getAttribute("src");
-					if (this.options.saveOriginalURLs && src && !isDataURL(src)) {
-						frameElement.setAttribute("data-sf-original-src", src);
-					}
-					frameElement.removeAttribute("src");
-					frameElement.removeAttribute("srcdoc");
+		const frameElements = Array.from(this.doc.querySelectorAll("iframe, frame, object[type=\"text/html\"][data]"));
+		await Promise.all(frameElements.map(async frameElement => {
+			const src = frameElement.getAttribute("src");
+			let url;
+			if (frameElement.tagName.toUpperCase() == "OBJECT") {
+				frameElement.setAttribute("data", "data:text/html,");
+			} else {
+				frameElement.removeAttribute("src");
+				frameElement.removeAttribute("srcdoc");
+			}
+			Array.from(frameElement.childNodes).forEach(node => node.remove());
+			if (src && !testIgnoredPath(src)) {
+				url = util.resolveURL(src, this.baseURI);
+				if (this.options.saveOriginalURLs && src && !isDataURL(src)) {
+					frameElement.setAttribute("data-sf-original-src", url);
 				}
-				Array.from(frameElement.childNodes).forEach(node => node.remove());
+
+			}
+			if (this.options.saveRawPage && url && testValidURL(url)) {
+				const frameData = {
+					adoptedStyleSheets: [],
+					baseURI: url,
+					canvases: [],
+					fonts: [],
+					images: [],
+					posters: [],
+					scrollPosition: { x: 0, y: 0 },
+					shadowRoots: [],
+					stylesheets: [],
+					url,
+					usedFonts: [],
+					videos: [],
+					worklets: []
+				};
+				this.options.frames.push(frameData);
+				frameData.windowId = (this.options.windowId || "0") + "." + this.options.frames.length;
+				frameElement.setAttribute(util.WIN_ID_ATTRIBUTE_NAME, frameData.windowId);
+				await initializeProcessor(frameData, frameElement, null, this.batchRequest, Object.create(this.options));
+			} else {
 				const frameWindowId = frameElement.getAttribute(util.WIN_ID_ATTRIBUTE_NAME);
 				if (this.options.frames && frameWindowId) {
 					const frameData = this.options.frames.find(frame => frame.windowId == frameWindowId);
-					if (frameData) {
+					if (frameData && frameData.content) {
 						await initializeProcessor(frameData, frameElement, frameWindowId, this.batchRequest, Object.create(this.options));
 					}
 				}
-			}));
-		}
+			}
+		}));
 
 		async function initializeProcessor(frameData, frameElement, frameWindowId, batchRequest, options) {
 			options.insertSingleFileComment = false;
@@ -1243,26 +1268,24 @@ class Processor {
 			options.embeddedImage = null;
 			options.url = frameData.baseURI;
 			options.windowId = frameWindowId;
-			if (frameData.content) {
-				options.content = frameData.content;
-				options.canvases = frameData.canvases;
-				options.fonts = frameData.fonts;
-				options.worklets = frameData.worklets;
-				options.stylesheets = frameData.stylesheets;
-				options.images = frameData.images;
-				options.posters = frameData.posters;
-				options.videos = frameData.videos;
-				options.usedFonts = frameData.usedFonts;
-				options.shadowRoots = frameData.shadowRoots;
-				options.scrollPosition = frameData.scrollPosition;
-				options.scrolling = frameData.scrolling;
-				options.adoptedStyleSheets = frameData.adoptedStyleSheets;
-				frameData.runner = new Runner(options, processorHelper);
-				frameData.frameElement = frameElement;
-				await frameData.runner.loadPage();
-				await frameData.runner.initialize();
-				frameData.maxResources = batchRequest.getMaxResources();
-			}
+			options.content = frameData.content;
+			options.canvases = frameData.canvases;
+			options.fonts = frameData.fonts;
+			options.worklets = frameData.worklets;
+			options.stylesheets = frameData.stylesheets;
+			options.images = frameData.images;
+			options.posters = frameData.posters;
+			options.videos = frameData.videos;
+			options.usedFonts = frameData.usedFonts;
+			options.shadowRoots = frameData.shadowRoots;
+			options.scrollPosition = frameData.scrollPosition;
+			options.scrolling = frameData.scrolling;
+			options.adoptedStyleSheets = frameData.adoptedStyleSheets;
+			frameData.runner = new Runner(options, processorHelper);
+			frameData.frameElement = frameElement;
+			await frameData.runner.loadPage();
+			await frameData.runner.initialize();
+			frameData.maxResources = batchRequest.getMaxResources();
 		}
 	}
 
@@ -1420,7 +1443,7 @@ class Processor {
 							await frameData.runner.run();
 							const pageData = await frameData.runner.getPageData();
 							frameElement.removeAttribute(util.WIN_ID_ATTRIBUTE_NAME);
-							this.processorHelper.processFrame(frameElement, pageData, this.resources, frameWindowId, frameData);
+							this.processorHelper.processFrame(frameElement, pageData, this.options, this.resources, frameWindowId, frameData);
 							this.stats.addAll(pageData);
 						} else {
 							frameElement.removeAttribute(util.WIN_ID_ATTRIBUTE_NAME);
