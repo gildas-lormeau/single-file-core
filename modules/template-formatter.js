@@ -16953,7 +16953,9 @@ async function evalTemplate(template = "", options, content, doc, context = {}) 
 		"bookmark-pathname-flat": { getter: () => bookmarkFolder, dontReplaceSlash: false },
 		"profile-name": { getter: () => options.profileName },
 		"filename-extension": { getter: () => getFilenameExtension(options) },
-		"save-action": { getter: () => options.selected ? "selection" : "page" }
+		"save-action": { getter: () => options.selected ? "selection" : "page" },
+		"options-json": { getter: () => JSON.stringify(getFilteredOptions(options)) },
+		"options-text": { getter: () => optionsToText(getFilteredOptions(options)) }
 	};
 	if (content) {
 		variables["digest-sha-256"] = { getter: async () => digest("SHA-256", content) };
@@ -17049,6 +17051,14 @@ async function evalTemplate(template = "", options, content, doc, context = {}) 
 				} else if (value) {
 					options[name] = value;
 				}
+			}
+		},
+		"option-value": key => {
+			const filteredValue = getFilteredOptions(options)[key];
+			if (filteredValue === undefined || filteredValue === null) {
+				return "";
+			} else {
+				return JSON.stringify(filteredValue);
 			}
 		}
 	};
@@ -17251,4 +17261,52 @@ function getFilenameExtension(options) {
 	} else {
 		return "html";
 	}
+}
+
+function getFilteredOptions(options) {
+	const filteredOptions = Object.assign({}, options);
+	delete filteredOptions.content;
+	delete filteredOptions.usedFonts;
+	delete filteredOptions.extensionScriptFiles;
+	delete filteredOptions.taskId;
+	delete filteredOptions.updatedResources;
+	delete filteredOptions.visitDate;
+	delete filteredOptions.keepFilename;
+	delete filteredOptions.insertCanonicalLink;
+	delete filteredOptions.frames;
+	delete filteredOptions.win;
+	delete filteredOptions.doc;
+	delete filteredOptions.url;
+	delete filteredOptions.resourceReferrer;
+	delete filteredOptions.baseURI;
+	delete filteredOptions.rootDocument;
+	delete filteredOptions.fontTests;
+	delete filteredOptions.canvases;
+	delete filteredOptions.fonts;
+	delete filteredOptions.worklets;
+	delete filteredOptions.stylesheets;
+	delete filteredOptions.images;
+	delete filteredOptions.posters;
+	delete filteredOptions.videos;
+	delete filteredOptions.shadowRoots;
+	delete filteredOptions.referrer;
+	delete filteredOptions.adoptedStyleSheets;
+	delete filteredOptions.tabId;
+	delete filteredOptions.tabIndex;
+	delete filteredOptions.saveDate;
+	delete filteredOptions.saveUrl;
+	delete filteredOptions.title;
+	delete filteredOptions.info;
+	return filteredOptions;
+}
+
+function optionsToText(options) {
+	const csv = [];
+	for (const key in options) {
+		const value = options[key];
+		if (typeof value != "function" && value !== undefined && value !== null && value !== "") {
+			csv.push(key + ": " + JSON.stringify(value));
+		}
+	}
+	return csv.join("\n");
 }
