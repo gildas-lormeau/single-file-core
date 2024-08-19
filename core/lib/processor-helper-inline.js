@@ -116,8 +116,7 @@ function getProcessorHelperClass(utilInstance) {
 					if (styleSheetRefIndex === undefined) {
 						styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
 					} else {
-						const styleElementRef = options.inlineStylesheets.get(styleSheetRefIndex);
-						styleElement.textContent = styleElementRef.textContent;
+						styleElement.textContent = options.inlineStylesheets.get(styleSheetRefIndex);
 					}
 					if (stylesheetInfo.mediaText) {
 						styleElement.media = stylesheetInfo.mediaText;

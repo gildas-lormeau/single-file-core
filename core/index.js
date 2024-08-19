@@ -1183,7 +1183,7 @@ class Processor {
 			if (element.textContent) {
 				const indexContent = scriptContents.indexOf(element.textContent);
 				if (indexContent == -1) {
-					this.options.inlineStylesheets.set(scriptContents.length, element);
+					this.options.inlineStylesheets.set(scriptContents.length, element.textContent);
 					scriptContents.push(element.textContent);
 				} else {
 					this.options.inlineStylesheetsRefs.set(element, indexContent);
