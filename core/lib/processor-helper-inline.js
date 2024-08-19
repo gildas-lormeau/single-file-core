@@ -83,25 +83,27 @@ function getProcessorHelperClass(utilInstance) {
 		async resolveStylesheetElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement) {
 			let stylesheet;
 			stylesheets.set(element, stylesheetInfo);
-			if (!options.blockStylesheets) {
-				if (element.tagName.toUpperCase() == "LINK") {
-					stylesheet = await this.resolveLinkStylesheetURLs(element.href, baseURI, options, workStyleElement);
-				} else {
-					stylesheet = cssTree.parse(element.textContent, { context: "stylesheet", parseCustomProperty: true });
-					const importFound = await this.resolveImportURLs(stylesheet, baseURI, options, workStyleElement);
-					if (importFound) {
-						stylesheet = cssTree.parse(cssTree.generate(stylesheet), { context: "stylesheet", parseCustomProperty: true });
+			if (!options.inlineStylesheetsRefs.has(element)) {
+				if (!options.blockStylesheets) {
+					if (element.tagName.toUpperCase() == "LINK") {
+						stylesheet = await this.resolveLinkStylesheetURLs(element.href, baseURI, options, workStyleElement);
+					} else {
+						stylesheet = cssTree.parse(element.textContent, { context: "stylesheet", parseCustomProperty: true });
+						const importFound = await this.resolveImportURLs(stylesheet, baseURI, options, workStyleElement);
+						if (importFound) {
+							stylesheet = cssTree.parse(cssTree.generate(stylesheet), { context: "stylesheet", parseCustomProperty: true });
+						}
 					}
 				}
-			}
-			if (stylesheet && stylesheet.children) {
-				if (options.compressCSS) {
-					this.removeSingleLineCssComments(stylesheet);
+				if (stylesheet && stylesheet.children) {
+					if (options.compressCSS) {
+						this.removeSingleLineCssComments(stylesheet);
+					}
+					this.replacePseudoClassDefined(stylesheet);
+					stylesheetInfo.stylesheet = stylesheet;
+				} else {
+					stylesheets.delete(element);
 				}
-				this.replacePseudoClassDefined(stylesheet);
-				stylesheetInfo.stylesheet = stylesheet;
-			} else {
-				stylesheets.delete(element);
 			}
 		}
 
@@ -110,7 +112,13 @@ function getProcessorHelperClass(utilInstance) {
 				const stylesheetInfo = stylesheets.get(styleElement);
 				if (stylesheetInfo) {
 					stylesheets.delete(styleElement);
-					styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
+					const styleSheetRefIndex = options.inlineStylesheetsRefs.get(styleElement);
+					if (styleSheetRefIndex === undefined) {
+						styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
+					} else {
+						const styleElementRef = options.inlineStylesheets.get(styleSheetRefIndex);
+						styleElement.textContent = styleElementRef.textContent;
+					}
 					if (stylesheetInfo.mediaText) {
 						styleElement.media = stylesheetInfo.mediaText;
 					}

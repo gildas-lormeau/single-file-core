@@ -56,12 +56,14 @@ function process(doc, stylesheets, styles, options) {
 	let docContent = "";
 	doc.body.appendChild(workStyleElement);
 	stylesheets.forEach(stylesheetInfo => {
-		const cssRules = stylesheetInfo.stylesheet.children;
-		if (cssRules) {
-			stats.processed += cssRules.size;
-			stats.discarded += cssRules.size;
-			getFontsInfo(cssRules, fontsInfo, options);
-			docContent = getRulesTextContent(doc, cssRules, workStyleElement, docContent);
+		if (stylesheetInfo.stylesheet) {
+			const cssRules = stylesheetInfo.stylesheet.children;
+			if (cssRules) {
+				stats.processed += cssRules.size;
+				stats.discarded += cssRules.size;
+				getFontsInfo(cssRules, fontsInfo, options);
+				docContent = getRulesTextContent(doc, cssRules, workStyleElement, docContent);
+			}
 		}
 	});
 	styles.forEach(declarations => {
@@ -102,10 +104,12 @@ function process(doc, stylesheets, styles, options) {
 	}
 	const docChars = Array.from(new Set(docContent)).map(char => char.charCodeAt(0)).sort((value1, value2) => value1 - value2);
 	stylesheets.forEach(stylesheetInfo => {
-		const cssRules = stylesheetInfo.stylesheet.children;
-		if (cssRules) {
-			filterUnusedFonts(cssRules, fontsInfo.declared, unusedFonts, filteredUsedFonts, docChars);
-			stats.rules.discarded -= cssRules.size;
+		if (stylesheetInfo.stylesheet) {
+			const cssRules = stylesheetInfo.stylesheet.children;
+			if (cssRules) {
+				filterUnusedFonts(cssRules, fontsInfo.declared, unusedFonts, filteredUsedFonts, docChars);
+				stats.rules.discarded -= cssRules.size;
+			}
 		}
 	});
 	return stats;

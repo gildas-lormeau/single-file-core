@@ -76,19 +76,21 @@ function getProcessorHelperClass(utilInstance) {
 		}
 
 		async resolveStylesheetElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement, resources) {
-			if (!options.blockStylesheets) {
-				stylesheets.set({ element }, stylesheetInfo);
-				if (element.tagName.toUpperCase() == "LINK") {
-					await this.resolveLinkStylesheetURLs(stylesheetInfo, element, element.href, baseURI, options, workStyleElement, resources, stylesheets);
+			if (!options.inlineStylesheetsRefs.has(element)) {
+				if (!options.blockStylesheets) {
+					stylesheets.set({ element }, stylesheetInfo);
+					if (element.tagName.toUpperCase() == "LINK") {
+						await this.resolveLinkStylesheetURLs(stylesheetInfo, element, element.href, baseURI, options, workStyleElement, resources, stylesheets);
+					} else {
+						stylesheetInfo.stylesheet = cssTree.parse(element.textContent, { context: "stylesheet", parseCustomProperty: true });
+						await this.resolveImportURLs(stylesheetInfo, baseURI, options, workStyleElement, resources, stylesheets);
+					}
 				} else {
-					stylesheetInfo.stylesheet = cssTree.parse(element.textContent, { context: "stylesheet", parseCustomProperty: true });
-					await this.resolveImportURLs(stylesheetInfo, baseURI, options, workStyleElement, resources, stylesheets);
-				}
-			} else {
-				if (element.tagName.toUpperCase() == "LINK") {
-					element.href = util.EMPTY_RESOURCE;
-				} else {
-					element.textContent = "";
+					if (element.tagName.toUpperCase() == "LINK") {
+						element.href = util.EMPTY_RESOURCE;
+					} else {
+						element.textContent = "";
+					}
 				}
 			}
 		}
@@ -112,7 +114,13 @@ function getProcessorHelperClass(utilInstance) {
 						resources.stylesheets.set(resources.stylesheets.size, { name, stylesheet: stylesheetInfo.stylesheet });
 					} else {
 						const styleElement = key.element;
-						styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
+						const styleSheetRefIndex = options.inlineStylesheetsRefs.get(styleElement);
+						if (styleSheetRefIndex === undefined) {
+							styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
+						} else {
+							const styleElementRef = options.inlineStylesheets.get(styleSheetRefIndex);
+							styleElement.textContent = styleElementRef.textContent;
+						}
 					}
 				}
 			}

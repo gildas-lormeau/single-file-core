@@ -41,7 +41,7 @@ class MatchedRules {
 		const workStyleElement = doc.createElement("span");
 		doc.body.appendChild(workStyleElement);
 		stylesheets.forEach((stylesheetInfo, key) => {
-			if (!stylesheetInfo.scoped && !key.urlNode) {
+			if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
 				const cssRules = stylesheetInfo.stylesheet.children;
 				if (cssRules) {
 					if (stylesheetInfo.mediaText && stylesheetInfo.mediaText != MEDIA_ALL) {

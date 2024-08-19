@@ -1176,6 +1176,20 @@ class Processor {
 	}
 
 	async resolveStylesheetsURLs() {
+		const scriptContents = [];
+		this.options.inlineStylesheets = new Map();
+		this.options.inlineStylesheetsRefs = new Map();
+		this.doc.querySelectorAll("style").forEach(element => {
+			if (element.textContent) {
+				const indexContent = scriptContents.indexOf(element.textContent);
+				if (indexContent == -1) {
+					this.options.inlineStylesheets.set(scriptContents.length, element);
+					scriptContents.push(element.textContent);
+				} else {
+					this.options.inlineStylesheetsRefs.set(element, indexContent);
+				}
+			}
+		});
 		await Promise.all(Array.from(this.doc.querySelectorAll("style, link[rel*=stylesheet]")).map(async element => {
 			const options = Object.assign({}, this.options, { charset: this.charset });
 			let mediaText;
@@ -1364,9 +1378,11 @@ class Processor {
 	}
 
 	async processStylesheets() {
-		await Promise.all([...this.stylesheets].map(([, stylesheetInfo]) =>
-			this.processorHelper.processStylesheet(stylesheetInfo.stylesheet.children, this.baseURI, this.options, this.resources, this.batchRequest)
-		));
+		await Promise.all([...this.stylesheets].map(async ([, stylesheetInfo]) => {
+			if (stylesheetInfo.stylesheet) {
+				await this.processorHelper.processStylesheet(stylesheetInfo.stylesheet.children, this.baseURI, this.options, this.resources, this.batchRequest);
+			}
+		}));
 	}
 
 	async processStyleAttributes() {
@@ -1457,6 +1473,8 @@ class Processor {
 
 	replaceStylesheets() {
 		this.processorHelper.replaceStylesheets(this.doc, this.stylesheets, this.options, this.resources);
+		delete this.options.inlineStylesheetsRefs;
+		delete this.options.inlineStylesheets;
 	}
 
 	replaceStyleAttributes() {

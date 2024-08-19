@@ -33,7 +33,7 @@ function process(stylesheets, styles, mediaAllInfo) {
 	const stats = { processed: 0, discarded: 0 };
 	let sheetIndex = 0;
 	stylesheets.forEach((stylesheetInfo, key) => {
-		if (!stylesheetInfo.scoped && !key.urlNode) {
+		if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
 			const cssRules = stylesheetInfo.stylesheet.children;
 			if (cssRules) {
 				stats.processed += cssRules.size;

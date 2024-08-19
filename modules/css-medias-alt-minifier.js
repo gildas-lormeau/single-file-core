@@ -39,13 +39,15 @@ export {
 function process(stylesheets) {
 	const stats = { processed: 0, discarded: 0 };
 	stylesheets.forEach((stylesheetInfo, key) => {
-		if (matchesMediaType(stylesheetInfo.mediaText || MEDIA_ALL) && stylesheetInfo.stylesheet.children) {
-			const removedRules = processRules(stylesheetInfo.stylesheet.children, stats);
-			removedRules.forEach(({ cssRules, cssRule }) => cssRules.remove(cssRule));
-		} else {
-			stylesheets.delete(key);
-			if (key.element) {
-				key.element.remove();
+		if (stylesheetInfo.stylesheet) {
+			if (matchesMediaType(stylesheetInfo.mediaText || MEDIA_ALL) && stylesheetInfo.stylesheet.children) {
+				const removedRules = processRules(stylesheetInfo.stylesheet.children, stats);
+				removedRules.forEach(({ cssRules, cssRule }) => cssRules.remove(cssRule));
+			} else {
+				stylesheets.delete(key);
+				if (key.element) {
+					key.element.remove();
+				}
 			}
 		}
 	});

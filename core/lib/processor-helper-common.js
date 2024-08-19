@@ -402,31 +402,35 @@ class ProcessorHelperCommon {
 		const stats = { rules: { processed: 0, discarded: 0 }, fonts: { processed: 0, discarded: 0 } };
 		let sheetIndex = 0;
 		stylesheets.forEach(stylesheetInfo => {
-			const cssRules = stylesheetInfo.stylesheet.children;
-			if (cssRules) {
-				stats.rules.processed += cssRules.size;
-				stats.rules.discarded += cssRules.size;
-				if (stylesheetInfo.mediaText && stylesheetInfo.mediaText != MEDIA_ALL) {
-					const mediaFontsDetails = this.createFontsDetailsInfo();
-					fontsDetails.medias.set("media-" + sheetIndex + "-" + stylesheetInfo.mediaText, mediaFontsDetails);
-					this.getFontsDetails(doc, cssRules, sheetIndex, mediaFontsDetails);
-				} else {
-					this.getFontsDetails(doc, cssRules, sheetIndex, fontsDetails);
+			if (stylesheetInfo.stylesheet) {
+				const cssRules = stylesheetInfo.stylesheet.children;
+				if (cssRules) {
+					stats.rules.processed += cssRules.size;
+					stats.rules.discarded += cssRules.size;
+					if (stylesheetInfo.mediaText && stylesheetInfo.mediaText != MEDIA_ALL) {
+						const mediaFontsDetails = this.createFontsDetailsInfo();
+						fontsDetails.medias.set("media-" + sheetIndex + "-" + stylesheetInfo.mediaText, mediaFontsDetails);
+						this.getFontsDetails(doc, cssRules, sheetIndex, mediaFontsDetails);
+					} else {
+						this.getFontsDetails(doc, cssRules, sheetIndex, fontsDetails);
+					}
 				}
 			}
 			sheetIndex++;
 		});
 		processFontDetails(fontsDetails);
 		await Promise.all([...stylesheets].map(async ([, stylesheetInfo], sheetIndex) => {
-			const cssRules = stylesheetInfo.stylesheet.children;
-			const media = stylesheetInfo.mediaText;
-			if (cssRules) {
-				if (media && media != MEDIA_ALL) {
-					await this.processFontFaceRules(cssRules, sheetIndex, fontsDetails.medias.get("media-" + sheetIndex + "-" + media), fonts, fontTests, stats);
-				} else {
-					await this.processFontFaceRules(cssRules, sheetIndex, fontsDetails, fonts, fontTests, stats);
+			if (stylesheetInfo.stylesheet) {
+				const cssRules = stylesheetInfo.stylesheet.children;
+				const media = stylesheetInfo.mediaText;
+				if (cssRules) {
+					if (media && media != MEDIA_ALL) {
+						await this.processFontFaceRules(cssRules, sheetIndex, fontsDetails.medias.get("media-" + sheetIndex + "-" + media), fonts, fontTests, stats);
+					} else {
+						await this.processFontFaceRules(cssRules, sheetIndex, fontsDetails, fonts, fontTests, stats);
+					}
+					stats.rules.discarded -= cssRules.size;
 				}
-				stats.rules.discarded -= cssRules.size;
 			}
 		}));
 		return stats;
