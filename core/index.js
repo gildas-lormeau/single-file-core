@@ -1085,12 +1085,34 @@ class Processor {
 	}
 
 	resolveHrefs() {
-		this.doc.querySelectorAll("a[href], area[href], link[href]").forEach(element => {
-			const href = element.getAttribute("href").trim();
-			if (element.tagName.toUpperCase() == "LINK" && element.rel.includes("stylesheet")) {
-				if (this.options.saveOriginalURLs && !isDataURL(href)) {
-					element.setAttribute("data-sf-original-href", href);
+		if (this.options.resolveLinks === undefined || this.options.resolveLinks) {
+			this.doc.querySelectorAll("a[href], area[href]").forEach(element => {
+				const href = element.getAttribute("href").trim();
+				if (!testIgnoredPath(href)) {
+					let resolvedURL;
+					try {
+						resolvedURL = util.resolveURL(href, this.options.baseURI || this.options.url);
+					} catch (error) {
+						// ignored
+					}
+					if (resolvedURL) {
+						const url = normalizeURL(this.options.url);
+						if (resolvedURL.startsWith(url + "#") && !resolvedURL.startsWith(url + "#!") && !this.options.resolveFragmentIdentifierURLs) {
+							resolvedURL = resolvedURL.substring(url.length);
+						}
+						try {
+							element.setAttribute("href", resolvedURL);
+						} catch (error) {
+							// ignored
+						}
+					}
 				}
+			});
+		}
+		this.doc.querySelectorAll("link[href]").forEach(element => {
+			const href = element.getAttribute("href").trim();
+			if (element.rel.includes("stylesheet") && this.options.saveOriginalURLs && !isDataURL(href)) {
+				element.setAttribute("data-sf-original-href", href);
 			}
 			if (!testIgnoredPath(href)) {
 				let resolvedURL;
@@ -1101,9 +1123,7 @@ class Processor {
 				}
 				if (resolvedURL) {
 					const url = normalizeURL(this.options.url);
-					if (resolvedURL.startsWith(url + "#") && !resolvedURL.startsWith(url + "#!") && !this.options.resolveFragmentIdentifierURLs) {
-						resolvedURL = resolvedURL.substring(url.length);
-					}
+					resolvedURL = resolvedURL.substring(url.length);
 					try {
 						element.setAttribute("href", resolvedURL);
 					} catch (error) {
