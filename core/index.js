@@ -1122,8 +1122,6 @@ class Processor {
 					// ignored
 				}
 				if (resolvedURL) {
-					const url = normalizeURL(this.options.url);
-					resolvedURL = resolvedURL.substring(url.length);
 					try {
 						element.setAttribute("href", resolvedURL);
 					} catch (error) {
