@@ -126,7 +126,7 @@ function getProcessorHelperClass(utilInstance) {
 								doc.head.appendChild(cloneElement);
 							}
 							styleElement.textContent = "/* */";
-							styleElement.setAttribute("onload", "this.textContent = document.querySelector('style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + styleSheetRefIndex + "\"]').textContent; this.removeAttribute('onload');");
+							styleElement.setAttribute("onload", "this.textContent=document.querySelector('style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + styleSheetRefIndex + "\"]').textContent;this.removeAttribute(\"onload\")");
 						} else {
 							styleElement.textContent = options.inlineStylesheets.get(styleSheetRefIndex);
 						}
@@ -140,7 +140,7 @@ function getProcessorHelperClass(utilInstance) {
 			});
 			if (options.groupDuplicateStylesheets) {
 				const scriptElement = doc.createElement("script");
-				scriptElement.textContent = "document.currentScript.remove();addEventListener(\"load\",()=>document.querySelectorAll(\"style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "]\").forEach(e=>e.remove()));";
+				scriptElement.textContent = "document.currentScript.remove();addEventListener(\"load\",()=>document.querySelectorAll(\"style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "]\").forEach(e=>e.remove()))";
 				doc.body.appendChild(scriptElement);
 			}
 			doc.querySelectorAll("link[rel*=stylesheet]").forEach(linkElement => {
