@@ -118,11 +118,11 @@ function getProcessorHelperClass(utilInstance) {
 						styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
 					} else if (options.groupDuplicateStylesheets) {
 						if (!doc.querySelector("style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + styleSheetRefIndex + "\"]")) {
-							const cloneElement = styleElement.cloneNode(true);
-							cloneElement.textContent = options.inlineStylesheets.get(styleSheetRefIndex);
-							cloneElement.setAttribute("media", "not all");
-							cloneElement.setAttribute(DUPLICATE_STYLESHEET_ATTRIBUTE_NAME, styleSheetRefIndex);
-							doc.head.appendChild(cloneElement);
+							const styleElement = doc.createElement("style");
+							styleElement.textContent = options.inlineStylesheets.get(styleSheetRefIndex);
+							styleElement.setAttribute("media", "not all");
+							styleElement.setAttribute(DUPLICATE_STYLESHEET_ATTRIBUTE_NAME, styleSheetRefIndex);
+							doc.head.appendChild(styleElement);
 						}
 						styleElement.textContent = "/* */";
 						styleElement.setAttribute("onload", "this.textContent=document.querySelector('style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + styleSheetRefIndex + "\"]').textContent;this.removeAttribute(\"onload\")");
