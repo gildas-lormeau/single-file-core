@@ -116,20 +116,18 @@ function getProcessorHelperClass(utilInstance) {
 					const styleSheetRefIndex = options.inlineStylesheetsRefs.get(styleElement);
 					if (styleSheetRefIndex === undefined) {
 						styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
-					} else {
-						if (options.groupDuplicateStylesheets) {
-							if (!doc.querySelector("style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + styleSheetRefIndex + "\"]")) {
-								const cloneElement = styleElement.cloneNode(true);
-								cloneElement.textContent = options.inlineStylesheets.get(styleSheetRefIndex);
-								cloneElement.setAttribute("media", "not all");
-								cloneElement.setAttribute(DUPLICATE_STYLESHEET_ATTRIBUTE_NAME, styleSheetRefIndex);
-								doc.head.appendChild(cloneElement);
-							}
-							styleElement.textContent = "/* */";
-							styleElement.setAttribute("onload", "this.textContent=document.querySelector('style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + styleSheetRefIndex + "\"]').textContent;this.removeAttribute(\"onload\")");
-						} else {
-							styleElement.textContent = options.inlineStylesheets.get(styleSheetRefIndex);
+					} else if (options.groupDuplicateStylesheets) {
+						if (!doc.querySelector("style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + styleSheetRefIndex + "\"]")) {
+							const cloneElement = styleElement.cloneNode(true);
+							cloneElement.textContent = options.inlineStylesheets.get(styleSheetRefIndex);
+							cloneElement.setAttribute("media", "not all");
+							cloneElement.setAttribute(DUPLICATE_STYLESHEET_ATTRIBUTE_NAME, styleSheetRefIndex);
+							doc.head.appendChild(cloneElement);
 						}
+						styleElement.textContent = "/* */";
+						styleElement.setAttribute("onload", "this.textContent=document.querySelector('style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + styleSheetRefIndex + "\"]').textContent;this.removeAttribute(\"onload\")");
+					} else {
+						styleElement.textContent = options.inlineStylesheets.get(styleSheetRefIndex);
 					}
 					if (stylesheetInfo.mediaText) {
 						styleElement.media = stylesheetInfo.mediaText;
