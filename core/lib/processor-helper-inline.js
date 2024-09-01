@@ -125,7 +125,7 @@ function getProcessorHelperClass(utilInstance) {
 							doc.head.appendChild(cloneElement);
 						}
 						styleElement.textContent = "/* */";
-						styleElement.setAttribute("onload", "this.textContent=document.querySelector('style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + styleSheetRefIndex + "\"]').textContent;this.removeAttribute(\"onload\")");
+						styleElement.setAttribute("onload", "this.textContent=document.querySelector(\"style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + styleSheetRefIndex + "\"]\").textContent;this.removeAttribute(\"onload\")");
 					} else {
 						styleElement.textContent = options.inlineStylesheets.get(styleSheetRefIndex);
 					}
