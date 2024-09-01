@@ -44,6 +44,7 @@ const SINGLE_FILE_VARIABLE_MAX_SIZE = 512 * 1024;
 const EMPTY_URL_SOURCE = /^url\(["']?data:[^,]*,?["']?\)/;
 const LOCAL_SOURCE = "local(";
 const FONT_MAX_LOAD_DELAY = 5000;
+const DUPLICATE_STYLESHEET_ATTRIBUTE_NAME = "data-sf-duplicate-stylesheet-ref";
 
 let util;
 
@@ -116,7 +117,19 @@ function getProcessorHelperClass(utilInstance) {
 					if (styleSheetRefIndex === undefined) {
 						styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
 					} else {
-						styleElement.textContent = options.inlineStylesheets.get(styleSheetRefIndex);
+						if (options.groupDuplicateStylesheets) {
+							if (!doc.querySelector("style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + styleSheetRefIndex + "\"]")) {
+								const cloneElement = styleElement.cloneNode(true);
+								cloneElement.textContent = options.inlineStylesheets.get(styleSheetRefIndex);
+								cloneElement.setAttribute("media", "not all");
+								cloneElement.setAttribute(DUPLICATE_STYLESHEET_ATTRIBUTE_NAME, styleSheetRefIndex);
+								doc.head.appendChild(cloneElement);
+							}
+							styleElement.textContent = "/* */";
+							styleElement.setAttribute("onload", "this.textContent = document.querySelector('style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + styleSheetRefIndex + "\"]').textContent; this.removeAttribute('onload');");
+						} else {
+							styleElement.textContent = options.inlineStylesheets.get(styleSheetRefIndex);
+						}
 					}
 					if (stylesheetInfo.mediaText) {
 						styleElement.media = stylesheetInfo.mediaText;
@@ -125,6 +138,11 @@ function getProcessorHelperClass(utilInstance) {
 					styleElement.remove();
 				}
 			});
+			if (options.groupDuplicateStylesheets) {
+				const scriptElement = doc.createElement("script");
+				scriptElement.textContent = "document.currentScript.remove(); addEventListener(\"load\", () => { document.querySelectorAll(\"style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "]\").forEach(styleElement => styleElement.remove()); });";
+				doc.body.appendChild(scriptElement);
+			}
 			doc.querySelectorAll("link[rel*=stylesheet]").forEach(linkElement => {
 				const stylesheetInfo = stylesheets.get(linkElement);
 				if (stylesheetInfo) {
