@@ -109,7 +109,6 @@ function getProcessorHelperClass(utilInstance) {
 		}
 
 		replaceStylesheets(doc, stylesheets, options) {
-			options.groupDuplicateStylesheets = true;
 			doc.querySelectorAll("style").forEach(styleElement => {
 				const stylesheetInfo = stylesheets.get(styleElement);
 				if (stylesheetInfo) {
