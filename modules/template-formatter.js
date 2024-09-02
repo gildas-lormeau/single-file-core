@@ -16902,7 +16902,7 @@ async function formatFilename(content, doc, options) {
 async function evalTemplate(template = "", options, content, doc, context = {}) {
 	const { dontReplaceSlash } = context;
 	context.currentDate = new Date();
-	const url = new URL(options.saveUrl);
+	const url = new URL(options.saveUrl || options.url);
 	const urlHref = decode(url.href);
 	const params = Array.from(new URLSearchParams(url.search));
 	const bookmarkFolder = (options.bookmarkFolders && options.bookmarkFolders.join("/")) || "";
