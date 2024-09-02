@@ -179,11 +179,11 @@ function initRequestSync(message) {
 	processFrames(document, message.options, windowId, sessionId);
 	if (!TOP_WINDOW) {
 		if (message.options.userScriptEnabled && waitForUserScript) {
-			waitForUserScript(helper.ON_BEFORE_CAPTURE_EVENT_NAME);
+			waitForUserScript(helper.ON_BEFORE_CAPTURE_EVENT_NAME, message.options);
 		}
 		sendInitResponse({ frames: [getFrameData(document, globalThis, windowId, message.options, message.scrolling)], sessionId, requestedFrameId: document.documentElement.dataset.requestedFrameId && windowId });
 		if (message.options.userScriptEnabled && waitForUserScript) {
-			waitForUserScript(helper.ON_AFTER_CAPTURE_EVENT_NAME);
+			waitForUserScript(helper.ON_AFTER_CAPTURE_EVENT_NAME, message.options);
 		}
 		delete document.documentElement.dataset.requestedFrameId;
 	}
@@ -199,11 +199,11 @@ async function initRequestAsync(message) {
 	processFrames(document, message.options, windowId, sessionId);
 	if (!TOP_WINDOW) {
 		if (message.options.userScriptEnabled && waitForUserScript) {
-			await waitForUserScript(helper.ON_BEFORE_CAPTURE_EVENT_NAME);
+			await waitForUserScript(helper.ON_BEFORE_CAPTURE_EVENT_NAME, message.options);
 		}
 		sendInitResponse({ frames: [getFrameData(document, globalThis, windowId, message.options, message.scrolling)], sessionId, requestedFrameId: document.documentElement.dataset.requestedFrameId && windowId });
 		if (message.options.userScriptEnabled && waitForUserScript) {
-			await waitForUserScript(helper.ON_AFTER_CAPTURE_EVENT_NAME);
+			await waitForUserScript(helper.ON_AFTER_CAPTURE_EVENT_NAME, message.options);
 		}
 		delete document.documentElement.dataset.requestedFrameId;
 	}

@@ -131,12 +131,31 @@ export {
 };
 
 function initUserScriptHandler() {
-	addEventListener(ON_INIT_USERSCRIPT_EVENT, () => globalThis[WAIT_FOR_USERSCRIPT_PROPERTY_NAME] = async eventPrefixName => {
-		const event = new CustomEvent(eventPrefixName + "-request", { cancelable: true });
-		const promiseResponse = new Promise(resolve => addEventListener(eventPrefixName + "-response", resolve));
+	addEventListener(ON_INIT_USERSCRIPT_EVENT, () => globalThis[WAIT_FOR_USERSCRIPT_PROPERTY_NAME] = async (eventPrefixName, options) => {
+		const userScriptOptions = Object.assign({}, options);
+		delete userScriptOptions.win;
+		delete userScriptOptions.doc;
+		delete userScriptOptions.onprogress;
+		delete userScriptOptions.frames;
+		delete userScriptOptions.taskId;
+		delete userScriptOptions._migratedTemplateFormat;
+		delete userScriptOptions.woleetKey;
+		const event = new CustomEvent(eventPrefixName + "-request", { cancelable: true, detail: { options: userScriptOptions } });
+		let resolvePromiseResponse;
+		const promiseResponse = new Promise(resolve => {
+			resolvePromiseResponse = resolve;
+			addEventListener(eventPrefixName + "-response", event => {
+				if (event.detail && event.detail.options) {
+					Object.assign(options, event.detail.options);
+				}
+				resolve();
+			});
+		});
 		dispatchEvent(event);
 		if (event.defaultPrevented) {
 			await promiseResponse;
+		} else {
+			resolvePromiseResponse();
 		}
 	});
 	new MutationObserver(initUserScriptHandler).observe(globalThis.document, { childList: true });

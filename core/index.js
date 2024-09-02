@@ -54,13 +54,13 @@ class SingleFileClass {
 	async run() {
 		const waitForUserScript = globalThis[util.WAIT_FOR_USERSCRIPT_PROPERTY_NAME];
 		if (this.options.userScriptEnabled && waitForUserScript) {
-			await waitForUserScript(util.ON_BEFORE_CAPTURE_EVENT_NAME);
+			await waitForUserScript(util.ON_BEFORE_CAPTURE_EVENT_NAME, this.options);
 		}
 		this.runner = new Runner(this.options, this.processorHelper, true);
 		await this.runner.loadPage();
 		await this.runner.initialize();
 		if (this.options.userScriptEnabled && waitForUserScript) {
-			await waitForUserScript(util.ON_AFTER_CAPTURE_EVENT_NAME);
+			await waitForUserScript(util.ON_AFTER_CAPTURE_EVENT_NAME, this.options);
 		}
 		await this.runner.run();
 	}
@@ -1277,13 +1277,13 @@ class Processor {
 				this.options.frames.push(frameData);
 				frameData.windowId = (this.options.windowId || "0") + "." + this.options.frames.length;
 				frameElement.setAttribute(util.WIN_ID_ATTRIBUTE_NAME, frameData.windowId);
-				await initializeProcessor(frameData, frameElement, null, this.batchRequest, Object.create(this.options));
+				await initializeProcessor(frameData, frameElement, null, this.batchRequest, Object.assign({}, this.options));
 			} else {
 				const frameWindowId = frameElement.getAttribute(util.WIN_ID_ATTRIBUTE_NAME);
 				if (this.options.frames && frameWindowId) {
 					const frameData = this.options.frames.find(frame => frame.windowId == frameWindowId);
 					if (frameData && frameData.content) {
-						await initializeProcessor(frameData, frameElement, frameWindowId, this.batchRequest, Object.create(this.options));
+						await initializeProcessor(frameData, frameElement, frameWindowId, this.batchRequest, Object.assign({}, this.options));
 					}
 				}
 			}
