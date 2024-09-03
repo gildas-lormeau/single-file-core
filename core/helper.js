@@ -233,7 +233,7 @@ function preProcessDoc(doc, win, options) {
 	};
 }
 
-function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map(), canvases: [], images: [], posters: [], videos: [], shadowRoots: [], markedElements: [] }, ascendantHidden) {
+function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map(), canvases: [], images: [], posters: [], videos: [], shadowRoots: [], markedElements: [] }, adoptedStyleSheetsCache = new Map(), ascendantHidden) {
 	if (element.childNodes) {
 		const elements = Array.from(element.childNodes).filter(node => (node instanceof win.HTMLElement) || (node instanceof win.SVGElement) || (node instanceof globalThis.HTMLElement) || (node instanceof globalThis.SVGElement));
 		elements.forEach(element => {
@@ -278,7 +278,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 				try {
 					if (shadowRoot.adoptedStyleSheets) {
 						if (shadowRoot.adoptedStyleSheets.length) {
-							shadowRootInfo.adoptedStyleSheets = getStylesheetsContent(shadowRoot.adoptedStyleSheets);
+							shadowRootInfo.adoptedStyleSheets = getStylesheetsContent(shadowRoot.adoptedStyleSheets, adoptedStyleSheetsCache);
 						} else if (shadowRoot.adoptedStyleSheets.length === undefined) {
 							const listener = event => shadowRootInfo.adoptedStyleSheets = event.detail.adoptedStyleSheets;
 							shadowRoot.addEventListener(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, listener);
@@ -292,7 +292,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 				} catch (error) {
 					// ignored
 				}
-				getElementsInfo(win, doc, shadowRoot, options, data, elementHidden);
+				getElementsInfo(win, doc, shadowRoot, options, data, adoptedStyleSheetsCache, elementHidden);
 				shadowRootInfo.content = shadowRoot.innerHTML;
 				shadowRootInfo.mode = shadowRoot.mode;
 				shadowRootInfo.delegateFocus = shadowRoot.delegatesFocus;
@@ -306,7 +306,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 					// ignored
 				}
 			}
-			getElementsInfo(win, doc, element, options, data, elementHidden);
+			getElementsInfo(win, doc, element, options, data, adoptedStyleSheetsCache, elementHidden);
 			if (!options.autoSaveExternalSave && options.removeHiddenElements && ascendantHidden) {
 				if (elementKept || element.getAttribute(KEPT_CONTENT_ATTRIBUTE_NAME) == "") {
 					if (element.parentElement) {
@@ -323,8 +323,27 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 	return data;
 }
 
-function getStylesheetsContent(styleSheets) {
-	return styleSheets ? Array.from(styleSheets).map(stylesheet => Array.from(stylesheet.cssRules).map(cssRule => cssRule.cssText).join("\n")) : [];
+function getStylesheetsContent(styleSheets, adoptedStyleSheetsCache = new Map()) {
+	if (styleSheets) {
+		const result = [];
+		for (const styleSheet of styleSheets) {
+			if (adoptedStyleSheetsCache.has(styleSheet)) {
+				result.push(adoptedStyleSheetsCache.get(styleSheet));
+			} else {
+				let cssText = "";
+				if (styleSheet && styleSheet.cssRules) {
+					for (const cssRule of styleSheet.cssRules) {
+						cssText += cssRule.cssText + "\n";
+					}
+				}
+				adoptedStyleSheetsCache.set(styleSheet, cssText);
+				result.push(cssText);
+			}
+		}
+		return result;
+	} else {
+		return [];
+	}
 }
 
 function getResourcesInfo(win, doc, element, options, data, elementHidden, computedStyle) {
