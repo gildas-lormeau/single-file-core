@@ -113,21 +113,21 @@ function getProcessorHelperClass(utilInstance) {
 				const stylesheetInfo = stylesheets.get(styleElement);
 				if (stylesheetInfo) {
 					stylesheets.delete(styleElement);
-					const styleSheetRefIndex = options.inlineStylesheetsRefs.get(styleElement);
-					if (styleSheetRefIndex === undefined) {
+					const stylesheetRefIndex = options.inlineStylesheetsRefs.get(styleElement);
+					if (stylesheetRefIndex === undefined) {
 						styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
 					} else if (options.groupDuplicateStylesheets) {
-						if (!doc.querySelector("style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + styleSheetRefIndex + "\"]")) {
+						if (!doc.querySelector("style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + stylesheetRefIndex + "\"]")) {
 							const styleElement = doc.createElement("style");
-							styleElement.textContent = options.inlineStylesheets.get(styleSheetRefIndex);
+							styleElement.textContent = options.inlineStylesheets.get(stylesheetRefIndex);
 							styleElement.setAttribute("media", "not all");
-							styleElement.setAttribute(DUPLICATE_STYLESHEET_ATTRIBUTE_NAME, styleSheetRefIndex);
+							styleElement.setAttribute(DUPLICATE_STYLESHEET_ATTRIBUTE_NAME, stylesheetRefIndex);
 							doc.head.appendChild(styleElement);
 						}
 						styleElement.textContent = "/* */";
-						styleElement.setAttribute("onload", "this.textContent=document.querySelector('style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + styleSheetRefIndex + "\"]').textContent;this.removeAttribute(\"onload\")");
+						styleElement.setAttribute("onload", "this.textContent=document.querySelector('style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + stylesheetRefIndex + "\"]').textContent;this.removeAttribute(\"onload\")");
 					} else {
-						styleElement.textContent = options.inlineStylesheets.get(styleSheetRefIndex);
+						styleElement.textContent = options.inlineStylesheets.get(stylesheetRefIndex);
 					}
 					if (stylesheetInfo.mediaText) {
 						styleElement.media = stylesheetInfo.mediaText;
