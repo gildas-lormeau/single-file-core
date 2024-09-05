@@ -114,11 +114,11 @@ function getProcessorHelperClass(utilInstance) {
 						resources.stylesheets.set(resources.stylesheets.size, { name, stylesheet: stylesheetInfo.stylesheet });
 					} else {
 						const styleElement = key.element;
-						const styleSheetRefIndex = options.inlineStylesheetsRefs.get(styleElement);
-						if (styleSheetRefIndex === undefined) {
+						const stylesheetRefIndex = options.inlineStylesheetsRefs.get(styleElement);
+						if (stylesheetRefIndex === undefined) {
 							styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
 						} else {
-							styleElement.textContent = options.inlineStylesheets.get(styleSheetRefIndex);
+							styleElement.textContent = options.inlineStylesheets.get(stylesheetRefIndex);
 						}
 					}
 				}
