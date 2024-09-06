@@ -116,31 +116,29 @@ function getProcessorHelperClass(utilInstance) {
 					} else {
 						key.urlNode.value = name;
 					}
-					resources.stylesheets.set(resources.stylesheets.size, { name, stylesheet: stylesheetInfo.stylesheet });
+					resources.stylesheets.set(resources.stylesheets.size, { name, stylesheet: stylesheetInfo.stylesheet, url: stylesheetInfo.url });
+				} else if (key.element.tagName.toUpperCase() == "LINK") {
+					const linkElement = key.element;
+					const name = "stylesheet_" + resources.stylesheets.size + ".css";
+					linkElement.setAttribute("href", name);
+					resources.stylesheets.set(resources.stylesheets.size, { name, stylesheet: stylesheetInfo.stylesheet, url: stylesheetInfo.url });
 				} else {
-					if (key.element.tagName.toUpperCase() == "LINK") {
-						const linkElement = key.element;
-						const name = "stylesheet_" + resources.stylesheets.size + ".css";
-						linkElement.setAttribute("href", name);
-						resources.stylesheets.set(resources.stylesheets.size, { name, stylesheet: stylesheetInfo.stylesheet });
+					const styleElement = key.element;
+					const stylesheetRefIndex = options.inlineStylesheetsRefs.get(styleElement);
+					if (stylesheetRefIndex === undefined) {
+						styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
 					} else {
-						const styleElement = key.element;
-						const stylesheetRefIndex = options.inlineStylesheetsRefs.get(styleElement);
-						if (stylesheetRefIndex === undefined) {
-							styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
-						} else {
-							const linkElement = linkElements.get(stylesheetRefIndex).cloneNode(true);
-							styleElement.replaceWith(linkElement);
-							key.element = linkElement;
-						}
+						const linkElement = linkElements.get(stylesheetRefIndex).cloneNode(true);
+						styleElement.replaceWith(linkElement);
+						key.element = linkElement;
 					}
 				}
 			}
 			for (const [, stylesheetResource] of resources.stylesheets) {
 				if (stylesheetResource.stylesheet) {
 					stylesheetResource.content = this.generateStylesheetContent(stylesheetResource.stylesheet, options);
+					stylesheetResource.stylesheet = null;
 				}
-				stylesheetResource.stylesheet = null;
 			}
 		}
 
