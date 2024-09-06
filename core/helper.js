@@ -326,7 +326,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 function getStylesheetsContent(styleSheets, adoptedStyleSheetsCache = new Map()) {
 	if (styleSheets) {
 		const result = [];
-		for (const styleSheet of styleSheets) {
+		for (const styleSheet of Array.from(styleSheets)) {
 			if (adoptedStyleSheetsCache.has(styleSheet)) {
 				result.push(adoptedStyleSheetsCache.get(styleSheet));
 			} else {
