@@ -76,27 +76,38 @@ function getProcessorHelperClass(utilInstance) {
 		}
 
 		async resolveStylesheetElement(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement, resources) {
-			if (!options.inlineStylesheetsRefs.has(element)) {
-				if (!options.blockStylesheets) {
-					stylesheets.set({ element }, stylesheetInfo);
+			if (!options.blockStylesheets) {
+				stylesheets.set({ element }, stylesheetInfo);
+				if (!options.inlineStylesheetsRefs.has(element)) {
 					if (element.tagName.toUpperCase() == "LINK") {
 						await this.resolveLinkStylesheetURLs(stylesheetInfo, element, element.href, baseURI, options, workStyleElement, resources, stylesheets);
 					} else {
 						stylesheetInfo.stylesheet = cssTree.parse(element.textContent, { context: "stylesheet", parseCustomProperty: true });
 						await this.resolveImportURLs(stylesheetInfo, baseURI, options, workStyleElement, resources, stylesheets);
 					}
+				}
+			} else {
+				if (element.tagName.toUpperCase() == "LINK") {
+					element.href = util.EMPTY_RESOURCE;
 				} else {
-					if (element.tagName.toUpperCase() == "LINK") {
-						element.href = util.EMPTY_RESOURCE;
-					} else {
-						element.textContent = "";
-					}
+					element.textContent = "";
 				}
 			}
 		}
 
 		replaceStylesheets(doc, stylesheets, options, resources) {
 			const entries = Array.from(stylesheets).reverse();
+			const linkElements = new Map();
+			Array.from(new Set(options.inlineStylesheetsRefs.values())).forEach(stylesheetRefIndex => {
+				const linkElement = doc.createElement("link");
+				linkElement.setAttribute("rel", "stylesheet");
+				linkElement.setAttribute("type", "text/css");
+				const name = "stylesheet_" + resources.stylesheets.size + ".css";
+				linkElement.setAttribute("href", name);
+				const content = options.inlineStylesheets.get(stylesheetRefIndex);
+				resources.stylesheets.set(resources.stylesheets.size, { name, content });
+				linkElements.set(stylesheetRefIndex, linkElement);
+			});
 			for (const [key, stylesheetInfo] of entries) {
 				if (key.urlNode) {
 					const name = "stylesheet_" + resources.stylesheets.size + ".css";
@@ -118,13 +129,17 @@ function getProcessorHelperClass(utilInstance) {
 						if (stylesheetRefIndex === undefined) {
 							styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
 						} else {
-							styleElement.textContent = options.inlineStylesheets.get(stylesheetRefIndex);
+							const linkElement = linkElements.get(stylesheetRefIndex).cloneNode(true);
+							styleElement.replaceWith(linkElement);
+							key.element = linkElement;
 						}
 					}
 				}
 			}
 			for (const [, stylesheetResource] of resources.stylesheets) {
-				stylesheetResource.content = this.generateStylesheetContent(stylesheetResource.stylesheet, options);
+				if (stylesheetResource.stylesheet) {
+					stylesheetResource.content = this.generateStylesheetContent(stylesheetResource.stylesheet, options);
+				}
 				stylesheetResource.stylesheet = null;
 			}
 		}
