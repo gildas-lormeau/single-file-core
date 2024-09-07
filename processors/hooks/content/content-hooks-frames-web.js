@@ -51,6 +51,7 @@
 	const DELETE_FONT_EVENT = "single-file-delete-font";
 	const CLEAR_FONTS_EVENT = "single-file-clear-fonts";
 	const NEW_WORKLET_EVENT = "single-file-new-worklet";
+	const BOOTSTRAP_EVENT = "single-file-bootstrap";
 	const FONT_STYLE_PROPERTIES = {
 		family: "font-family",
 		style: "font-style",
@@ -149,6 +150,11 @@
 			document.dispatchEvent(new CustomEvent(FETCH_RESPONSE_EVENT, { detail }));
 		});
 		document.addEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, getAdoptedStylesheetsListener);
+		document.addEventListener(BOOTSTRAP_EVENT, event => {
+			if (globalThis.bootstrap && event.detail.data) {
+				globalThis.bootstrap(event.detail.data);
+			}
+		});
 	}
 
 	function loadDeferredImagesStart(keepZoomLevel) {
