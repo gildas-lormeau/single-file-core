@@ -129,6 +129,9 @@ function getProcessorHelperClass(utilInstance) {
 						styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
 					} else {
 						const linkElement = linkElements.get(stylesheetRefIndex).cloneNode(true);
+						if (stylesheetInfo.mediaText) {
+							linkElement.media = stylesheetInfo.mediaText;
+						}
 						styleElement.replaceWith(linkElement);
 						key.element = linkElement;
 					}
