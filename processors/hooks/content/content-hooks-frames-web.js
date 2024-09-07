@@ -151,8 +151,12 @@
 		});
 		document.addEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, getAdoptedStylesheetsListener);
 		document.addEventListener(BOOTSTRAP_EVENT, event => {
-			if (globalThis.bootstrap && event.detail.data) {
-				globalThis.bootstrap(event.detail.data);
+			try {
+				if (globalThis.bootstrap && event.detail.data) {
+					globalThis.bootstrap(event.detail.data);
+				}
+			} catch (error) {
+				// ignored
 			}
 		});
 	}
