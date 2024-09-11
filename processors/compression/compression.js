@@ -43,7 +43,11 @@ const NO_COMPRESSION_EXTENSIONS = [".jpg", ".jpeg", ".png", ".avi", ".apng", ".p
 const SCRIPT_PATH = "/lib/single-file-zip.min.js";
 const EXTRA_DATA_TAGS = [
 	["<noscript>", "</noscript>"],
+	["<noframes>", "</noframes>"],
+	["<noembed>", "</noembed>"],
 	["<script type=sfz-data>", "</script>"],
+	["<style type=sfz-data>", "</style>"],
+	["<iframe>", "</iframe>"],
 	["<xmp>", "</xmp>"],
 	["<plaintext>", "</plaintext>"]
 ];
@@ -53,7 +57,11 @@ const EMBEDDED_IMAGE_DATA_TAGS = [
 ];
 const EXTRA_DATA_REGEXPS = [
 	[/<noscript/i, /<\/noscript>/i],
+	[/<noframes/i, /<\/noframes>/i],
+	[/<noembed/i, /<\/noembed>/i],
 	[/<script/i, /<\/script>/i],
+	[/<style/i, /<\/style>/i],
+	[/<iframe/i, /<\/iframe>/i],
 	[/<xmp/i, /<\/xmp>/i],
 	[/<plaintext/i, /<\/plaintext>/i]
 ];
