@@ -1298,6 +1298,7 @@ class Processor {
 			options.saveFilenameTemplateData = false;
 			options.selected = false;
 			options.embeddedImage = null;
+			options.embeddedPdf = null;
 			options.url = frameData.baseURI;
 			options.windowId = frameWindowId;
 			options.content = frameData.content;

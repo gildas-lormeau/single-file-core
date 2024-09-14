@@ -51,7 +51,7 @@ const EXTRA_DATA_TAGS = [
 	["<xmp>", "</xmp>"],
 	["<plaintext>", "</plaintext>"]
 ];
-const EMBEDDED_IMAGE_DATA_TAGS = [
+const EMBEDDED_DATA_TAGS = [
 	["<!--", "-->"],
 	...EXTRA_DATA_TAGS,
 ];
@@ -65,7 +65,7 @@ const EXTRA_DATA_REGEXPS = [
 	[/<xmp/i, /<\/xmp>/i],
 	[/<plaintext/i, /<\/plaintext>/i]
 ];
-const EMBEDDED_IMAGE_DATA_REGEXPS = [
+const EMBEDDED_DATA_REGEXPS = [
 	[/<!--/i, /-->/i],
 	...EXTRA_DATA_REGEXPS,
 ];
@@ -104,11 +104,11 @@ async function process(pageData, options, lastModDate = new Date()) {
 		await writeData(zipDataWriter.writable, options.embeddedImage.slice(0, PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH));
 		if (options.selfExtractingArchive) {
 			const embeddedImageText = embeddedImageData.reduce((text, charCode) => text + String.fromCharCode(charCode), "");
-			const tagIndex = EMBEDDED_IMAGE_DATA_REGEXPS.findIndex(tests => !embeddedImageText.match(tests[1]));
+			const tagIndex = EMBEDDED_DATA_REGEXPS.findIndex(tests => !embeddedImageText.match(tests[1]));
 			let startTag;
-			[startTag, endTag] = tagIndex == -1 ? ["", ""] : EMBEDDED_IMAGE_DATA_TAGS[tagIndex];
-			const html = getHTMLStartData(pageData, options) + startTag;
-			const hmtlData = new Uint8Array([...getLength(html.length + 4), ...[0x74, 0x45, 0x58, 0x74, 0x50, 0x4e, 0x47, 0], ...new TextEncoder().encode(html)]);
+			[startTag, endTag] = tagIndex == -1 ? ["", ""] : EMBEDDED_DATA_TAGS[tagIndex];
+			const htmlArray = getStartHTMLArray(pageData, options, startTag);
+			const hmtlData = new Uint8Array([...getLength(htmlArray.length + 4), ...[0x74, 0x45, 0x58, 0x74, 0x50, 0x4e, 0x47, 0], ...htmlArray]);
 			await writeData(zipDataWriter.writable, hmtlData);
 			await writeData(zipDataWriter.writable, getCRC32(hmtlData, 4));
 		}
@@ -233,7 +233,7 @@ function setUint32(data, value) {
 async function prependHTMLData(pageData, zipDataWriter, script, options) {
 	let pageContent = "";
 	if (!options.embeddedImage) {
-		pageContent += getHTMLStartData(pageData, options);
+		await writeData(zipDataWriter.writable, getStartHTMLArray(pageData, options));
 	}
 	pageContent += "<div id=sfz-wait-message>Please wait...</div>";
 	if (!options.extractDataFromPage) {
@@ -289,17 +289,38 @@ async function prependHTMLData(pageData, zipDataWriter, script, options) {
 	return extraDataOffset;
 }
 
-function getHTMLStartData(pageData, options) {
-	let pageContent = "";
+function getStartHTMLArray(pageData, options, startTag = "") {
+	let html = "";
 	if (options.includeBOM && !options.extractDataFromPage && !options.embeddedImage) {
-		pageContent += "\ufeff";
+		html += "\ufeff";
 	}
+	html += options.embeddedImage ? "" : pageData.doctype;
+	html += "<html data-sfz>";
+	html += pageData.comment && !options.embeddedImage ? "<!--" + pageData.comment + "-->" : "";
 	const charset = options.extractDataFromPage ? "windows-1252" : "utf-8";
+	html += "<meta charset=" + charset + ">";
+	const htmlHeadData = getHTMLHeadData(pageData, options);
+	let htmlArray;
+	if (options.embeddedPdf) {
+		const embeddedPdfText = options.embeddedPdf.reduce((text, charCode) => text + String.fromCharCode(charCode), "");
+		const pdfTagIndex = EMBEDDED_DATA_REGEXPS.findIndex(tests => !embeddedPdfText.match(tests[1]));
+		const [pdfStartTag, pdfEndTag] = pdfTagIndex == -1 ? ["", ""] : EMBEDDED_DATA_TAGS[pdfTagIndex];
+		const htmlArray1 = new TextEncoder().encode(html + pdfStartTag);
+		const htmlArray2 = new TextEncoder().encode(pdfEndTag + htmlHeadData + startTag);
+		htmlArray = new Uint8Array(htmlArray1.length + htmlArray2.length + options.embeddedPdf.length);
+		htmlArray.set(htmlArray1);
+		htmlArray.set(options.embeddedPdf, htmlArray1.length);
+		htmlArray.set(htmlArray2, htmlArray1.length + options.embeddedPdf.length);
+	} else {
+		htmlArray = new TextEncoder().encode(html + htmlHeadData + startTag);
+	}
+	return htmlArray;
+}
+
+function getHTMLHeadData(pageData, options) {
+	let pageContent = "";
 	const title = options.extractDataFromPage ? "" : getPageTitle(pageData);
-	pageContent += options.embeddedImage ? "" : pageData.doctype;
-	pageContent += "<html data-sfz>";
-	pageContent += pageData.comment && !options.embeddedImage ? "<!--" + pageData.comment + "-->" : "";
-	pageContent += "<meta charset=" + charset + "><title>" + title + "</title>";
+	pageContent += "<title>" + title + "</title>";
 	if (options.insertCanonicalLink) {
 		pageContent += "<link rel=canonical href=\"" + options.url + "\">";
 	}
