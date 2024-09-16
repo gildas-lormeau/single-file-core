@@ -111,6 +111,10 @@ async function process(pageData, options, lastModDate = new Date()) {
 			const hmtlData = new Uint8Array([...getLength(htmlArray.length + 4), ...[0x74, 0x45, 0x58, 0x74, 0x50, 0x4e, 0x47, 0], ...htmlArray]);
 			await writeData(zipDataWriter.writable, hmtlData);
 			await writeData(zipDataWriter.writable, getCRC32(hmtlData, 4));
+		} else if (options.embeddedPdf) {
+			const data = new Uint8Array([...getLength(options.embeddedPdf.length + 4), ...[0x74, 0x45, 0x58, 0x74, 0x50, 0x44, 0x46, 0], ...new Uint8Array(options.embeddedPdf)]);
+			await writeData(zipDataWriter.writable, data);
+			await writeData(zipDataWriter.writable, getCRC32(data, 4));
 		}
 		await writeData(zipDataWriter.writable, embeddedImageData);
 		await writeData(zipDataWriter.writable, new Uint8Array(4));
@@ -122,6 +126,8 @@ async function process(pageData, options, lastModDate = new Date()) {
 	}
 	if (options.selfExtractingArchive) {
 		extraDataOffset = await prependHTMLData(pageData, zipDataWriter, script, options);
+	} else if (!options.embeddedImage && options.embeddedPdf) {
+		await writeData(zipDataWriter.writable, new Uint8Array(options.embeddedPdf));
 	}
 	const zipWriter = new ZipWriter(zipDataWriter, { bufferedWrite: true, keepOrder: false, lastModDate });
 	const startOffset = zipDataWriter.offset;
