@@ -184,8 +184,8 @@ function getInstance(utilOptions) {
 		compressCSS(content, options) {
 			return vendor.cssMinifier.processString(content, options);
 		},
-		minifyMedias(stylesheets) {
-			return modules.mediasAltMinifier.process(stylesheets);
+		minifyMedias(stylesheets, options) {
+			return modules.mediasAltMinifier.process(stylesheets, options);
 		},
 		removeAlternativeImages(doc) {
 			return modules.imagesAltMinifier.process(doc);
