@@ -1391,7 +1391,7 @@ class Processor {
 	}
 
 	removeAlternativeMedias() {
-		const stats = util.minifyMedias(this.stylesheets);
+		const stats = util.minifyMedias(this.stylesheets, { keepPrintStyleSheets: this.options.keepPrintStyleSheets });
 		this.stats.set("processed", "medias", stats.processed);
 		this.stats.set("discarded", "medias", stats.discarded);
 	}

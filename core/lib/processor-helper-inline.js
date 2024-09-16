@@ -85,7 +85,7 @@ function getProcessorHelperClass(utilInstance) {
 			let stylesheet;
 			stylesheets.set(element, stylesheetInfo);
 			if (!options.inlineStylesheetsRefs.has(element)) {
-				if (!options.blockStylesheets) {
+				if (!options.blockStylesheets || (options.keepPrintStyleSheets && stylesheetInfo.mediaText == "print")) {
 					if (element.tagName.toUpperCase() == "LINK") {
 						stylesheet = await this.resolveLinkStylesheetURLs(element.href, baseURI, options, workStyleElement);
 					} else {
