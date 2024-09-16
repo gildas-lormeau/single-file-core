@@ -31,17 +31,18 @@ const helper = {
 
 const MEDIA_ALL = "all";
 const MEDIA_SCREEN = "screen";
+const MEDIA_PRINT = "print";
 
 export {
 	process
 };
 
-function process(stylesheets) {
+function process(stylesheets, { keepPrintStyleSheets } = {}) {
 	const stats = { processed: 0, discarded: 0 };
 	stylesheets.forEach((stylesheetInfo, key) => {
 		if (stylesheetInfo.stylesheet) {
-			if (matchesMediaType(stylesheetInfo.mediaText || MEDIA_ALL) && stylesheetInfo.stylesheet.children) {
-				const removedRules = processRules(stylesheetInfo.stylesheet.children, stats);
+			if (matchesMediaType(stylesheetInfo.mediaText || MEDIA_ALL, keepPrintStyleSheets) && stylesheetInfo.stylesheet.children) {
+				const removedRules = processRules(stylesheetInfo.stylesheet.children, stats, keepPrintStyleSheets);
 				removedRules.forEach(({ cssRules, cssRule }) => cssRules.remove(cssRule));
 			} else {
 				stylesheets.delete(key);
@@ -54,13 +55,13 @@ function process(stylesheets) {
 	return stats;
 }
 
-function processRules(cssRules, stats, removedRules = []) {
+function processRules(cssRules, stats, keepPrintStyleSheets, removedRules = []) {
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		const ruleData = cssRule.data;
 		if (ruleData.type == "Atrule" && ruleData.name == "media" && ruleData.block && ruleData.block.children && ruleData.prelude && ruleData.prelude.children) {
 			stats.processed++;
-			if (matchesMediaType(cssTree.generate(ruleData.prelude))) {
-				processRules(ruleData.block.children, stats, removedRules);
+			if (matchesMediaType(cssTree.generate(ruleData.prelude), keepPrintStyleSheets)) {
+				processRules(ruleData.block.children, stats, keepPrintStyleSheets, removedRules);
 			} else {
 				removedRules.push({ cssRules, cssRule });
 				stats.discarded++;
@@ -70,10 +71,10 @@ function processRules(cssRules, stats, removedRules = []) {
 	return removedRules;
 }
 
-function matchesMediaType(mediaText) {
+function matchesMediaType(mediaText, keepPrintStyleSheets) {
 	const foundMediaTypes = helper.flatten(mediaQueryParser.parseMediaList(mediaText).map(node => getMediaTypes(node)));
 	return foundMediaTypes.find(mediaTypeInfo =>
-		(!mediaTypeInfo.not && (mediaTypeInfo.value == MEDIA_SCREEN || mediaTypeInfo.value == MEDIA_ALL)) ||
+		(!mediaTypeInfo.not && (mediaTypeInfo.value == MEDIA_SCREEN || mediaTypeInfo.value == MEDIA_ALL || (keepPrintStyleSheets && mediaTypeInfo.value == MEDIA_PRINT))) ||
 		(mediaTypeInfo.not && (mediaTypeInfo.value != MEDIA_SCREEN)));
 }
 
