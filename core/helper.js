@@ -215,6 +215,14 @@ function preProcessDoc(doc, win, options) {
 			markedElements: []
 		};
 	}
+	let referrer = "";
+	if (doc.referrer) {
+		try {
+			referrer = new URL("/", new URL(doc.referrer).origin).href;
+		} catch (error) {
+			// ignored
+		}
+	}
 	return {
 		canvases: elementsInfo.canvases,
 		fonts: getFontsData(),
@@ -225,7 +233,7 @@ function preProcessDoc(doc, win, options) {
 		videos: elementsInfo.videos,
 		usedFonts: Array.from(elementsInfo.usedFonts.values()),
 		shadowRoots: elementsInfo.shadowRoots,
-		referrer: doc.referrer ? new URL("/", new URL(doc.referrer).origin).href : "",
+		referrer,
 		markedElements: elementsInfo.markedElements,
 		invalidElements,
 		scrollPosition: { x: win.scrollX, y: win.scrollY },
