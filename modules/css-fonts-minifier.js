@@ -423,14 +423,14 @@ function testUnicodeRange(docCharCodes, unicodeRange) {
 					range[0] = transformRange(firstRange.replace(REGEXP_QUESTION_MARK, "0"));
 					range[1] = transformRange(secondRange.replace(REGEXP_QUESTION_MARK, "F"));
 				} else if (range[0]) {
-					range[0] = transformRange(range[0]);
+					range[0] = range[1] = transformRange(range[0]);
 				}
 			}
 			if (!range[0] || docCharCodes.find(charCode => charCode >= range[0] && charCode <= range[1])) {
 				return true;
 			}
 		});
-		return (!unicodeRanges.length || result.length);
+		return Boolean(!unicodeRanges.length || result.length);
 	}
 	return true;
 }
