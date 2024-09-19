@@ -1252,7 +1252,11 @@ class Processor {
 			}
 			Array.from(frameElement.childNodes).forEach(node => node.remove());
 			if (src && !testIgnoredPath(src)) {
-				url = util.resolveURL(src, this.baseURI);
+				try {
+					url = util.resolveURL(src, this.baseURI);
+				} catch (error) {
+					// ignored
+				}
 				if (this.options.saveOriginalURLs && src && !isDataURL(src)) {
 					frameElement.setAttribute("data-sf-original-src", url);
 				}
