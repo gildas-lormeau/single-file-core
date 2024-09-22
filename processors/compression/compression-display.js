@@ -50,8 +50,7 @@ async function display(document, docContent, { disableFramePointerEvents } = {})
 		element.parentElement.replaceChild(noscriptElement, element);
 	});
 	document.documentElement.setAttribute("data-sfz", "");
-	document.querySelectorAll("link[rel*=icon]").forEach(element => element.parentElement.replaceChild(element, element));
-
+	document.querySelectorAll("link[rel*=icon]").forEach(element => element.replaceWith(element.cloneNode(true)));
 	function getDoctypeString(doc) {
 		const docType = doc.doctype;
 		let docTypeString = "";
