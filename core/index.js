@@ -912,7 +912,11 @@ class Processor {
 				try {
 					templateElement.replaceWith(placeHolderElement);
 				} catch (error) {
-					// ignored
+					if (originalElement) {
+						templateElement.replaceWith(originalElement);
+					} else {
+						templateElement.remove();
+					}
 				}
 			}
 		});
