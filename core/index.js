@@ -909,7 +909,11 @@ class Processor {
 					}
 					originalElement.childNodes.forEach(childNode => placeHolderElement.appendChild(childNode.cloneNode(true)));
 				}
-				templateElement.replaceWith(placeHolderElement);
+				try {
+					templateElement.replaceWith(placeHolderElement);
+				} catch (error) {
+					// ignored
+				}
 			}
 		});
 	}
