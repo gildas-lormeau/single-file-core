@@ -48,7 +48,13 @@ function init(initOptions) {
 	}
 }
 
-async function getPageData(options = {}, initOptions, doc = globalThis.document, win = globalThis) {
+async function getPageData(options = {}, initOptions, doc, win) {
+	if (doc === undefined) {
+		doc = globalThis.document;
+	}
+	if (win === undefined) {
+		win = globalThis;
+	}
 	const frames = processors.frameTree;
 	let framesSessionId;
 	init(initOptions);
