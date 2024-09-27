@@ -179,8 +179,7 @@ class Runner {
 		this.options.url = this.options.url || (rootDocDefined && this.options.doc.documentURI);
 		const matchResourceReferrer = this.options.url.match(/^.*\//);
 		this.options.resourceReferrer = this.options.passReferrerOnError && matchResourceReferrer && matchResourceReferrer[0];
-		const baseURI = this.options.doc.baseURI;
-		this.options.baseURI = rootDocDefined && (testValidURL(baseURI) ? baseURI : this.options.url);
+		this.options.baseURI = rootDocDefined && (testValidURL(this.options.doc.baseURI) ? this.options.doc.baseURI : this.options.url);
 		this.options.rootDocument = root;
 		this.options.updatedResources = this.options.updatedResources || {};
 		this.options.fontTests = new Map();
