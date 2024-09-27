@@ -788,7 +788,7 @@ class Processor {
 			const attributeValue = videoElement.getAttribute(util.VIDEO_ATTRIBUTE_NAME);
 			if (attributeValue) {
 				const videoData = this.options.videos[Number(attributeValue)];
-				const src = videoData.src || videoElement.src;
+				const src = (videoData && videoData.src) || videoElement.src;
 				if (videoElement && src) {
 					const linkElement = this.doc.createElement("a");
 					const imgElement = this.doc.createElement("img");
