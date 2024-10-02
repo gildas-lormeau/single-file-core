@@ -75,7 +75,7 @@ function matchesMediaType(mediaText, keepPrintStyleSheets) {
 	const foundMediaTypes = helper.flatten(mediaQueryParser.parseMediaList(mediaText).map(node => getMediaTypes(node)));
 	return foundMediaTypes.find(mediaTypeInfo =>
 		(!mediaTypeInfo.not && (mediaTypeInfo.value == MEDIA_SCREEN || mediaTypeInfo.value == MEDIA_ALL || (keepPrintStyleSheets && mediaTypeInfo.value == MEDIA_PRINT))) ||
-		(mediaTypeInfo.not && (mediaTypeInfo.value != MEDIA_SCREEN)));
+		(mediaTypeInfo.not && (mediaTypeInfo.value != MEDIA_SCREEN || mediaText.includes(" and "))));
 }
 
 function getMediaTypes(parentNode, mediaTypes = []) {
