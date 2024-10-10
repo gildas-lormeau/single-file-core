@@ -131,7 +131,7 @@ export {
 };
 
 function initUserScriptHandler() {
-	addEventListener(ON_INIT_USERSCRIPT_EVENT, () => globalThis[WAIT_FOR_USERSCRIPT_PROPERTY_NAME] = async (eventPrefixName, options) => {
+	addEventListener(ON_INIT_USERSCRIPT_EVENT, ({ detail }) => globalThis[WAIT_FOR_USERSCRIPT_PROPERTY_NAME] = async (eventPrefixName, options) => {
 		const userScriptOptions = Object.assign({}, options);
 		delete userScriptOptions.win;
 		delete userScriptOptions.doc;
@@ -140,13 +140,26 @@ function initUserScriptHandler() {
 		delete userScriptOptions.taskId;
 		delete userScriptOptions._migratedTemplateFormat;
 		delete userScriptOptions.woleetKey;
-		const event = new CustomEvent(eventPrefixName + "-request", { cancelable: true, detail: { options: userScriptOptions } });
+		let detailUserScript;
+		try {
+			detailUserScript = detail == "jsonDetail" ? JSON.stringify({ options: userScriptOptions }) : { options: userScriptOptions };
+		} catch (error) {
+			// ignored
+		}
+		const event = new CustomEvent(eventPrefixName + "-request", { cancelable: true, detail: detailUserScript });
 		let resolvePromiseResponse;
 		const promiseResponse = new Promise(resolve => {
 			resolvePromiseResponse = resolve;
 			addEventListener(eventPrefixName + "-response", event => {
-				if (event.detail && event.detail.options) {
-					Object.assign(options, event.detail.options);
+				if (event.detail) {
+					try {
+						const detail = typeof event.detail == "string" ? JSON.parse(event.detail) : event.detail;
+						if (detail.options) {
+							Object.assign(options, detail.options);
+						}
+					} catch (error) {
+						// ignored
+					}
 				}
 				resolve();
 			});
