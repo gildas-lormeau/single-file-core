@@ -956,7 +956,11 @@ class Processor {
 			this.doc.querySelectorAll("input, textarea").forEach(input => {
 				const value = input.getAttribute(util.INPUT_VALUE_ATTRIBUTE_NAME);
 				if (value != null) {
-					input.setAttribute("value", value);
+					if (input.tagName.toUpperCase() == "TEXTAREA") {
+						input.textContent = value;
+					} else {
+						input.setAttribute("value", value);
+					}
 				} else {
 					input.removeAttribute("value");
 				}
