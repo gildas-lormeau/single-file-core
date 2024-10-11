@@ -445,7 +445,7 @@ function getProcessorHelperClass(utilInstance) {
 				if (imageData && imageData.replaceable) {
 					imgElement.setAttribute("src", `${PREFIX_DATA_URI_IMAGE_SVG},<svg xmlns="http://www.w3.org/2000/svg" width="${imageData.size.pxWidth}" height="${imageData.size.pxHeight}"><rect fill-opacity="0"/></svg>`);
 					const backgroundStyle = {};
-					const backgroundSize = (imageData.objectFit == "content" || imageData.objectFit == "cover") && imageData.objectFit;
+					const backgroundSize = (imageData.objectFit == "content" || imageData.objectFit == "cover" || imageData.objectFit == "contain") && imageData.objectFit;
 					if (backgroundSize) {
 						backgroundStyle["background-size"] = imageData.objectFit;
 					}
