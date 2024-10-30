@@ -1220,7 +1220,7 @@ class Processor {
 				}
 			}
 		});
-		await Promise.all(Array.from(this.doc.querySelectorAll("style, link[rel*=stylesheet]")).map(async element => {
+		await Promise.all(Array.from(this.doc.querySelectorAll("style, link[rel*=stylesheet]:not([disabled])")).map(async element => {
 			const options = Object.assign({}, this.options, { charset: this.charset });
 			let mediaText;
 			if (element.media) {
