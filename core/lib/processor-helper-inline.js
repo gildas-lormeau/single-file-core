@@ -136,7 +136,7 @@ function getProcessorHelperClass(utilInstance) {
 					styleElement.remove();
 				}
 			});
-			if (options.groupDuplicateStylesheets) {
+			if (options.groupDuplicateStylesheets && doc.querySelector("style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "]")) {
 				const scriptElement = doc.createElement("script");
 				scriptElement.textContent = "document.currentScript.remove();addEventListener(\"load\",()=>document.querySelectorAll(\"style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "]\").forEach(e=>e.remove()))";
 				doc.body.appendChild(scriptElement);
