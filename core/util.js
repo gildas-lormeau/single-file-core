@@ -30,8 +30,6 @@ import * as helper from "./helper.js";
 const DEBUG = false;
 const ONE_MB = 1024 * 1024;
 const PREFIX_CONTENT_TYPE_TEXT = "text/";
-const DEFAULT_REPLACED_CHARACTERS = ["~", "+", "\\\\", "?", "%", "*", ":", "|", "\"", "<", ">", "\x00-\x1f", "\x7F"];
-const DEFAULT_REPLACEMENT_CHARACTER = "_";
 const CONTENT_TYPE_EXTENSIONS = {
 	"image/svg+xml": ".svg",
 	"image/png": ".png",
@@ -89,14 +87,14 @@ function getInstance(utilOptions) {
 	utilOptions.frameFetch = utilOptions.frameFetch || utilOptions.fetch || fetch;
 	return {
 		getDoctypeString,
-		getFilenameExtension(resourceURL, replacedCharacters, replacementCharacter) {
+		getFilenameExtension(resourceURL, replacedCharacters, replacementCharacter, replacementCharacters) {
 			let matchExtension;
 			try {
 				matchExtension = new URL(resourceURL).pathname.match(/(\.[^\\/.]*)$/);
 			} catch (error) {
 				// ignored
 			}
-			return ((matchExtension && matchExtension[1] && this.getValidFilename(matchExtension[1], replacedCharacters, replacementCharacter)) || "").toLowerCase();
+			return ((matchExtension && matchExtension[1] && this.getValidFilename(matchExtension[1], replacedCharacters, replacementCharacter, replacementCharacters)) || "").toLowerCase();
 		},
 		getContentTypeExtension(contentType) {
 			return CONTENT_TYPE_EXTENSIONS[contentType] || "";
@@ -115,17 +113,8 @@ function getInstance(utilOptions) {
 		getSearchParams(searchParams) {
 			return Array.from(new URLSearchParams(searchParams));
 		},
-		getValidFilename(filename, replacedCharacters = DEFAULT_REPLACED_CHARACTERS, replacementCharacter = DEFAULT_REPLACEMENT_CHARACTER) {
-			replacedCharacters.forEach(replacedCharacter => filename = filename.replace(new RegExp("[" + replacedCharacter + "]+", "g"), replacementCharacter));
-			filename = filename
-				.replace(/\.\.\//g, "")
-				.replace(/^\/+/, "")
-				.replace(/\/+/g, "/")
-				.replace(/\/$/, "")
-				.replace(/\.$/, "")
-				.replace(/\.\//g, "." + replacementCharacter)
-				.replace(/\/\./g, "/" + replacementCharacter);
-			return filename;
+		getValidFilename(filename, replacedCharacters, replacementCharacter, replacementCharacters) {
+			return helper.getValidFilename(filename, replacedCharacters, replacementCharacter, replacementCharacters);
 		},
 		parseDocContent(content, baseURI) {
 			const doc = (new DOMParser()).parseFromString(content, "text/html");

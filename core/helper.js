@@ -76,6 +76,9 @@ const COMMENT_HEADER_LEGACY = "Archive processed by SingleFile";
 const SINGLE_FILE_UI_ELEMENT_CLASS = "single-file-ui-element";
 const INFOBAR_TAGNAME = infobar.INFOBAR_TAGNAME;
 const EMPTY_RESOURCE = "data:,";
+const DEFAULT_REPLACED_CHARACTERS = ["~", "+", "?", "%", "*", ":", "|", "\"", "<", ">", "\\\\", "\x00-\x1f", "\x7F"];
+const DEFAULT_REPLACEMENT_CHARACTER = "_";
+const DEFAULT_REPLACEMENT_CHARACTERS = ["～", "＋", "？", "％", "＊", "：", "｜", "＂", "＜", "＞", "＼"];
 const addEventListener = (type, listener, options) => globalThis.addEventListener(type, listener, options);
 const dispatchEvent = event => { try { globalThis.dispatchEvent(event); } catch (error) {  /* ignored */ } };
 const JSON = globalThis.JSON;
@@ -100,6 +103,7 @@ export {
 	appendInfobar,
 	getContentSize,
 	digest,
+	getValidFilename,
 	ON_BEFORE_CAPTURE_EVENT_NAME,
 	ON_AFTER_CAPTURE_EVENT_NAME,
 	WIN_ID_ATTRIBUTE_NAME,
@@ -718,4 +722,18 @@ function getComputedStyle(win, element, pseudoElement) {
 	} catch (error) {
 		// ignored
 	}
+}
+
+function getValidFilename(filename, replacedCharacters = DEFAULT_REPLACED_CHARACTERS, replacementCharacter = DEFAULT_REPLACEMENT_CHARACTER, replacementCharacters = DEFAULT_REPLACEMENT_CHARACTERS) {
+	replacementCharacters.forEach((_, index) => filename = filename.replace(new RegExp("[" + replacedCharacters[index] + "]+", "g"), replacementCharacters[index]));
+	replacedCharacters.forEach(replacedCharacter => filename = filename.replace(new RegExp("[" + replacedCharacter + "]+", "g"), replacementCharacter));
+	filename = filename
+		.replace(/\.\.\//g, "")
+		.replace(/^\/+/, "")
+		.replace(/\/+/g, "/")
+		.replace(/\/$/, "")
+		.replace(/\.$/, "")
+		.replace(/\.\//g, "." + replacementCharacter)
+		.replace(/\/\./g, "/" + replacementCharacter);
+	return filename;
 }

@@ -24,7 +24,7 @@
 /* global globalThis */
 
 import { parse } from "./template-parser.js";
-import { getContentSize, digest } from "./../core/helper.js";
+import { getContentSize, digest, getValidFilename } from "./../core/helper.js";
 
 const Blob = globalThis.Blob;
 const FileReader = globalThis.FileReader;
@@ -34,8 +34,6 @@ const URLSearchParams = globalThis.URLSearchParams;
 const navigator = globalThis.navigator;
 
 // eslint-disable-next-line quotes
-const DEFAULT_REPLACED_CHARACTERS = ["~", "+", "\\\\", "?", "%", "*", ":", "|", '"', "<", ">", "\x00-\x1f", "\x7F"];
-const DEFAULT_REPLACEMENT_CHARACTER = "_";
 const REGEXP_ESCAPE = /([{}()^$&.*?/+|[\\\\]|\]|-)/g;
 
 const EMOJI_NAMES = {
@@ -16879,8 +16877,8 @@ async function formatFilename(content, doc, options) {
 	if (options.replaceEmojisInFilename) {
 		EMOJIS.forEach(emoji => (filename = replaceAll(filename, emoji, " _" + EMOJI_NAMES[emoji] + "_ ")));
 	}
-	const replacementCharacter = options.filenameReplacementCharacter;
-	filename = getValidFilename(filename, options.filenameReplacedCharacters, replacementCharacter);
+	const { replacementCharacter, filenameReplacedCharacters, replacementCharacters } = options.filenameReplacementCharacter;
+	filename = getValidFilename(filename, filenameReplacedCharacters, replacementCharacter, replacementCharacters);
 	if (!options.backgroundSave) {
 		filename = filename.replace(/\//g, replacementCharacter);
 	}
@@ -17210,19 +17208,6 @@ function getLastSegment(url, replacementCharacter) {
 	}
 	lastSegment = lastSegment.replace(/\/$/, "").replace(/^\//, "");
 	return lastSegment;
-}
-
-function getValidFilename(filename, replacedCharacters = DEFAULT_REPLACED_CHARACTERS, replacementCharacter = DEFAULT_REPLACEMENT_CHARACTER) {
-	replacedCharacters.forEach(replacedCharacter => (filename = filename.replace(new RegExp("[" + replacedCharacter + "]+", "g"), replacementCharacter)));
-	filename = filename
-		.replace(/\.\.\//g, "")
-		.replace(/^\/+/, "")
-		.replace(/\/+/g, "/")
-		.replace(/\/$/, "")
-		.replace(/\.$/, "")
-		.replace(/\.\//g, "." + replacementCharacter)
-		.replace(/\/\./g, "/" + replacementCharacter);
-	return filename;
 }
 
 function truncateText(content, maxSize) {

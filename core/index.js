@@ -383,7 +383,7 @@ class BatchRequest {
 				});
 				await onloadListener({ url: resourceURL });
 				if (!this.cancelled) {
-					const extension = util.getContentTypeExtension(content.contentType) || util.getFilenameExtension(resourceURL, options.filenameReplacedCharacters, options.filenameReplacementCharacter);
+					const extension = util.getContentTypeExtension(content.contentType) || util.getFilenameExtension(resourceURL, options.filenameReplacedCharacters, options.filenameReplacementCharacter, options.filenameReplacementCharacters);
 					resourceRequests.forEach(callbacks => {
 						const duplicateCallbacks = this.duplicates.get(requestKey);
 						const duplicate = duplicateCallbacks && duplicateCallbacks.length > 1 && duplicateCallbacks.includes(callbacks);
@@ -678,6 +678,7 @@ class Processor {
 				filenameTemplate: this.options.filenameTemplate,
 				filenameReplacedCharacters: this.options.filenameReplacedCharacters,
 				filenameReplacementCharacter: this.options.filenameReplacementCharacter,
+				filenameReplacementCharacters: this.options.filenameReplacementCharacters,
 				filenameMaxLengthUnit: this.options.filenameMaxLengthUnit,
 				filenameMaxLength: this.options.filenameMaxLength,
 				replaceEmojisInFilename: this.options.replaceEmojisInFilename,
