@@ -16944,6 +16944,7 @@ async function evalTemplate(template = "", options, content, doc, context = {}) 
 		"url-protocol": { getter: () => url.protocol },
 		"url-search": { getter: () => url.search.substring(1) },
 		"url-username": { getter: () => url.username },
+		"url-original": { getter: () => options.originalUrl },
 		"tab-id": { getter: () => String(options.tabId) },
 		"tab-index": { getter: () => String(options.tabIndex) },
 		"url-last-segment": { getter: () => decode(getLastSegment(url, options.filenameReplacementCharacter)) },
