@@ -16877,10 +16877,10 @@ async function formatFilename(content, doc, options) {
 	if (options.replaceEmojisInFilename) {
 		EMOJIS.forEach(emoji => (filename = replaceAll(filename, emoji, " _" + EMOJI_NAMES[emoji] + "_ ")));
 	}
-	const { replacementCharacter, filenameReplacedCharacters, replacementCharacters } = options.filenameReplacementCharacter;
-	filename = getValidFilename(filename, filenameReplacedCharacters, replacementCharacter, replacementCharacters);
+	const { filenameReplacementCharacter, filenameReplacedCharacters, filenameReplacementCharacters } = options;
+	filename = getValidFilename(filename, filenameReplacedCharacters, filenameReplacementCharacter, filenameReplacementCharacters);
 	if (!options.backgroundSave) {
-		filename = filename.replace(/\//g, replacementCharacter);
+		filename = filename.replace(/\//g, filenameReplacementCharacter);
 	}
 	if (!options.keepFilename && ((options.filenameMaxLengthUnit == "bytes" && getContentSize(filename) > options.filenameMaxLength) || filename.length > options.filenameMaxLength)) {
 		const extensionMatch = filename.match(/(\.[^.]{3,4})$/);
