@@ -145,7 +145,7 @@
 				const response = await fetch(url, options);
 				detail = { url, response: await response.arrayBuffer(), headers: [...response.headers], status: response.status };
 			} catch (error) {
-				detail = { url, error: error && error.toString() };
+				detail = { url, error: error && (error.message || error.toString()) };
 			}
 			document.dispatchEvent(new CustomEvent(FETCH_RESPONSE_EVENT, { detail }));
 		});
