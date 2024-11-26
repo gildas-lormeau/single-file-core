@@ -272,8 +272,10 @@
 							const rootBounds = getBoundingClientRectDefined ? rootBoundingRect : docBoundingRect;
 							const time = 0;
 							return { target, intersectionRatio, boundingClientRect, intersectionRect: boundingClientRect, isIntersecting, rootBounds, time };
-						});
-						observer.callback.call(intersectionObserver, params, intersectionObserver);
+						}).filter(params => params.boundingClientRect.width && params.boundingClientRect.height);
+						if (params.length) {
+							observer.callback.call(intersectionObserver, params, intersectionObserver);
+						}
 					}
 				});
 			}
