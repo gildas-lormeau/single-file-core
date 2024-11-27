@@ -62,7 +62,7 @@
 		featureSettings: "font-feature-settings"
 	};
 
-	const fetch = (url, options) => globalThis.fetch(url, options);
+	const fetch = globalThis.fetch.bind(globalThis);
 	const CustomEvent = globalThis.CustomEvent;
 	const document = globalThis.document;
 	const screen = globalThis.screen;
