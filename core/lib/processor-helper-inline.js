@@ -184,9 +184,6 @@ function getProcessorHelperClass(utilInstance) {
 							if (mediaQueryListNode) {
 								content.data = this.wrapMediaQuery(content.data, cssTree.generate(mediaQueryListNode));
 							}
-
-							content.data = content.data.replace(/:defined/gi, "*");
-
 							const importedStylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
 							const ancestorStyleSheets = new Set(importedStyleSheets);
 							ancestorStyleSheets.add(resourceURL);
@@ -228,7 +225,6 @@ function getProcessorHelperClass(utilInstance) {
 				if (content.data && content.data.match(/^<!doctype /i)) {
 					content.data = "";
 				}
-				content.data = content.data.replace(/:defined/gi, "*");
 				let stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
 				const importFound = await this.resolveImportURLs(stylesheet, resourceURL, options, workStylesheet);
 				if (importFound) {
