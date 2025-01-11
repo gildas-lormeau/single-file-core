@@ -1653,14 +1653,13 @@ function normalizeURL(url) {
 }
 
 function getOnEventAttributeNames(doc) {
-	const element = doc.createElement("div");
+	const element = doc.body || doc.createElement("div");
 	const attributeNames = [];
 	for (const propertyName in element) {
 		if (propertyName.startsWith("on")) {
 			attributeNames.push(propertyName);
 		}
 	}
-	attributeNames.push("onunload");
 	return attributeNames;
 }
 
