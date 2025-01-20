@@ -416,7 +416,9 @@ function getProcessorHelperClass(utilInstance) {
 			if (forbiddenPrefixFound) {
 				return "";
 			}
-			return content + (srcsetValue.w ? " " + srcsetValue.w + "w" : srcsetValue.d ? " " + srcsetValue.d + "x" : "");
+			return content + (srcsetValue.w ? " " + srcsetValue.w + "w" : 
+				srcsetValue.h ? " " + srcsetValue.h + "h" :
+				srcsetValue.d ? " " + srcsetValue.d + "x" : "");
 		}
 
 		testEmptyResource(resource) {

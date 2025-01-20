@@ -364,7 +364,9 @@ function getProcessorHelperClass(utilInstance) {
 			const { content, indexResource, extension, contentType } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "image" });
 			const name = "images/" + indexResource + extension;
 			resources.images.set(indexResource, { name, content, extension, contentType, url: resourceURL });
-			return name + (srcsetValue.w ? " " + srcsetValue.w + "w" : srcsetValue.d ? " " + srcsetValue.d + "x" : "");
+			return name + (srcsetValue.w ? " " + srcsetValue.w + "w" : 
+				srcsetValue.h ? " " + srcsetValue.h + "h" :
+				srcsetValue.d ? " " + srcsetValue.d + "x" : "");
 		}
 
 		testEmptyResource(resource) {
