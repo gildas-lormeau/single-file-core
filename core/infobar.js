@@ -193,7 +193,7 @@ function appendInfobar(doc, options, useShadowRoot) {
 			.replace(/: /g, ":")
 			.replace(/, /g, ",");
 		if (options.displayAbsoluteInfobar) {
-			styleElement.textContent = styleElement.textContent.replace(/position:fixed;/, "position:absolute;");
+			styleElement.textContent += `.infobar { position: absolute; }`;
 		}
 		shadowRootContent.appendChild(styleElement);
 		const infobarContent = doc.createElement("form");
