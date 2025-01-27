@@ -21,7 +21,7 @@
  *   Source.
  */
 
-const SELF_CLOSED_TAG_NAMES = ["AREA", "BASE", "BASEFONT", "BGSOUND", "BR", "COL", "COMMAND", "EMBED", "FRAME", "HR", "IMG", "INPUT", "KEYGEN", "LINK", "META", "PARAM", "SOURCE", "TRACK", "WBR"];
+const VOID_TAG_NAMES = ["AREA", "BASE", "BASEFONT", "BGSOUND", "BR", "COL", "COMMAND", "EMBED", "FRAME", "HR", "IMG", "INPUT", "KEYGEN", "LINK", "META", "PARAM", "SOURCE", "TRACK", "WBR"];
 
 const Node_ELEMENT_NODE = 1;
 const Node_TEXT_NODE = 3;
@@ -122,7 +122,7 @@ function serializeElement(element, compressHTML, isSVG) {
 		Array.from(element.childNodes).forEach(childNode => content += serialize(childNode, compressHTML, isSVG || tagName == "svg"));
 	}
 	const omittedEndTag = compressHTML && OMITTED_END_TAGS.find(omittedEndTag => tagName == getTagName(omittedEndTag) && omittedEndTag.accept(element.nextSibling, element));
-	if (isSVG || (!omittedEndTag && !SELF_CLOSED_TAG_NAMES.includes(tagName))) {
+	if (isSVG || (!omittedEndTag && !VOID_TAG_NAMES.includes(tagName))) {
 		content += "</" + tagName.toLowerCase() + ">";
 	}
 	return content;
