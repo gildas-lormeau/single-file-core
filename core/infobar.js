@@ -188,18 +188,18 @@ function appendInfobar(doc, options, useShadowRoot) {
 		const shadowRootContent = doc.createElement("div");
 		const styleElement = doc.createElement("style");
 		styleElement.textContent = INFOBAR_STYLES;
-		if (options.displayAbsoluteInfobar) {
+		if (options.positionAbsoluteInfobar) {
 			styleElement.textContent += `.infobar { position: absolute; }`;
 		}
-		if (options.infobarTop) {
-			styleElement.textContent += `.infobar { top: ${options.infobarTop}; bottom: auto; }`;
-		} else if (options.infobarBottom) {
-			styleElement.textContent += `.infobar { bottom: ${options.infobarBottom}; top: auto; }`;
+		if (options.positionTopInfobar) {
+			styleElement.textContent += `.infobar { top: ${options.positionTopInfobar}; bottom: auto; }`;
+		} else if (options.positionBottomInfobar) {
+			styleElement.textContent += `.infobar { bottom: ${options.positionBottomInfobar}; top: auto; }`;
 		}
-		if (options.infobarRight) {
-			styleElement.textContent += `.infobar { right: ${options.infobarRight}; left: auto; }`;
-		} else if (options.infobarLeft) {
-			styleElement.textContent += `.infobar { left: ${options.infobarLeft}; right: auto; }`;
+		if (options.positionRightInfobar) {
+			styleElement.textContent += `.infobar { right: ${options.positionRightInfobar}; left: auto; }`;
+		} else if (options.positionLeftInfobar) {
+			styleElement.textContent += `.infobar { left: ${options.positionLeftInfobar}; right: auto; }`;
 		}
 		styleElement.textContent = styleElement.textContent
 			.replace(/ {2}/g, "")
@@ -296,6 +296,11 @@ function displayIcon(doc, useShadowRoot, options = {}) {
 	const infoData = extractInfobarData(doc);
 	if (infoData.saveUrl) {
 		infoData.openInfobar = options.openInfobar;
+		infoData.positionAbsoluteInfobar = options.positionAbsoluteInfobar;
+		infoData.positionTopInfobar = options.positionTopInfobar;
+		infoData.positionRightInfobar = options.positionRightInfobar;
+		infoData.positionBottomInfobar = options.positionBottomInfobar;
+		infoData.positionLeftInfobar = options.positionLeftInfobar;
 		appendInfobar(doc, infoData, useShadowRoot);
 		refreshInfobarInfo(doc, infoData);
 	}

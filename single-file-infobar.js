@@ -61,6 +61,11 @@ import { appendInfobar, refreshInfobarInfo, extractInfobarData } from "./core/in
 			}
 			if (options.displayInfobar) {
 				infoData.openInfobar = options.openInfobar;
+				infoData.positionAbsoluteInfobar = options.positionAbsoluteInfobar;
+				infoData.positionTopInfobar = options.positionTopInfobar;
+				infoData.positionRightInfobar = options.positionRightInfobar;
+				infoData.positionBottomInfobar = options.positionBottomInfobar;
+				infoData.positionLeftInfobar = options.positionLeftInfobar;
 				appendInfobar(document, infoData, true);
 				refreshInfobarInfo(document, infoData);
 			}
