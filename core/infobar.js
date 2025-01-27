@@ -103,7 +103,6 @@ const INFOBAR_STYLES = `
   white-space: pre-wrap;
   margin-inline: 4px;
   margin-block: 4px;
-  padding-inline: 24px;
 }
 
 .infobar .infobar-icon,
@@ -116,7 +115,6 @@ const INFOBAR_STYLES = `
 
 .infobar .infobar-close-icon,
 .infobar .infobar-link-icon {
-  position: fixed;
   align-self: flex-start;
 }
 
@@ -153,7 +151,7 @@ const INFOBAR_STYLES = `
 }
 
 .infobar .infobar-link-icon {
-  right: 20px;
+  right: 4px;
   background-size: 60%;
   background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAgMAAADXB5lNAAABhmlDQ1BJQ0MgcHJvZmlsZQAAKJF9kj1Iw0AYht+mSkUrDnYQcchQnSyIijqWKhbBQmkrtOpgcukfNGlIUlwcBdeCgz+LVQcXZ10dXAVB8AfEydFJ0UVK/C4ptIjx4LiH9+59+e67A4RGhalm1wSgapaRisfEbG5VDLyiDwEAvZiVmKkn0osZeI6ve/j4ehfhWd7n/hz9St5kgE8kjjLdsIg3iGc2LZ3zPnGIlSSF+Jx43KACiR+5Lrv8xrnosMAzQ0YmNU8cIhaLHSx3MCsZKvE0cVhRNcoXsi4rnLc4q5Uaa9XJbxjMaytprtMcQRxLSCAJETJqKKMCCxFaNVJMpGg/5uEfdvxJcsnkKoORYwFVqJAcP/gb/O6tWZiadJOCMaD7xbY/RoHALtCs2/b3sW03TwD/M3Cltf3VBjD3SXq9rYWPgIFt4OK6rcl7wOUOMPSkS4bkSH6aQqEAvJ/RM+WAwVv6EGtu31r7OH0AMtSr5Rvg4BAYK1L2use9ezr79u+ZVv9+AFlNcp0UUpiqAAAACXBIWXMAAC4jAAAuIwF4pT92AAAAB3RJTUUH5AsHAB8H+DhhoQAAABl0RVh0Q29tbWVudABDcmVhdGVkIHdpdGggR0lNUFeBDhcAAAAJUExURQAAAICHi4qKioTuJAkAAAABdFJOUwBA5thmAAAAAWJLR0QCZgt8ZAAAAJJJREFUOI3t070NRCEMA2CnYAOyDyPwpHj/Va7hJ3FzV7zy3ET5JIwoAF6Jk4wzAJAkzxAYG9YRTgB+24wBgKmfrGAKTcEfAY4KRlRoIeBTgKOCERVaCPgU4Khge2GqKOBTgKOCERVaAEC/4PNcnyoSWHpjqkhwKxbcig0Q6AorXYF/+A6eIYD1lVbwG/jdA6/kA2THRAURVubcAAAAAElFTkSuQmCC);
 }
@@ -194,6 +192,9 @@ function appendInfobar(doc, options, useShadowRoot) {
 			.replace(/\n/g, "")
 			.replace(/: /g, ":")
 			.replace(/, /g, ",");
+		if (options.displayAbsoluteInfobar) {
+			styleElement.textContent = styleElement.textContent.replace(/position:fixed;/, "position:absolute;");
+		}
 		shadowRootContent.appendChild(styleElement);
 		const infobarContent = doc.createElement("form");
 		infobarContent.classList.add("infobar");
