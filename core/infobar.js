@@ -187,14 +187,25 @@ function appendInfobar(doc, options, useShadowRoot) {
 		}
 		const shadowRootContent = doc.createElement("div");
 		const styleElement = doc.createElement("style");
-		styleElement.textContent = INFOBAR_STYLES
+		styleElement.textContent = INFOBAR_STYLES;
+		if (options.displayAbsoluteInfobar) {
+			styleElement.textContent += `.infobar { position: absolute; }`;
+		}
+		if (options.infobarTop) {
+			styleElement.textContent += `.infobar { top: ${options.infobarTop}; bottom: auto; }`;
+		} else if (options.infobarBottom) {
+			styleElement.textContent += `.infobar { bottom: ${options.infobarBottom}; top: auto; }`;
+		}
+		if (options.infobarRight) {
+			styleElement.textContent += `.infobar { right: ${options.infobarRight}; left: auto; }`;
+		} else if (options.infobarLeft) {
+			styleElement.textContent += `.infobar { left: ${options.infobarLeft}; right: auto; }`;
+		}
+		styleElement.textContent = styleElement.textContent
 			.replace(/ {2}/g, "")
 			.replace(/\n/g, "")
 			.replace(/: /g, ":")
 			.replace(/, /g, ",");
-		if (options.displayAbsoluteInfobar) {
-			styleElement.textContent += `.infobar { position: absolute; }`;
-		}
 		shadowRootContent.appendChild(styleElement);
 		const infobarContent = doc.createElement("form");
 		infobarContent.classList.add("infobar");
