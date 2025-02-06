@@ -17017,6 +17017,8 @@ async function evalTemplate(template = "", options, content, doc, context = {}) 
 			return subdomains[subdomains.length - index - 1];
 		},
 		"stringify": value => { try { return JSON.stringify(value); } catch (error) { return value; } },
+		"encode-base64": value => { try { return btoa(value); } catch (error) { return value; } },
+		"decode-base64": value => { try { return atob(value); } catch (error) { return value; } },
 		"encode-uri": value => { try { return encodeURI(value); } catch (error) { return value; } },
 		"decode-uri": value => { try { return decodeURI(value); } catch (error) { return value; } },
 		"encode-uri-component": value => { try { return encodeURIComponent(value); } catch (error) { return value; } },
