@@ -188,18 +188,22 @@ function appendInfobar(doc, options, useShadowRoot) {
 		const shadowRootContent = doc.createElement("div");
 		const styleElement = doc.createElement("style");
 		styleElement.textContent = INFOBAR_STYLES;
-		if (options.positionAbsoluteInfobar) {
+		if (options.infobarPositionAbsolute) {
 			styleElement.textContent += `.infobar { position: absolute; }`;
+			const parentElementStyle = getComputedStyle(parentElement);
+			if (parentElementStyle.position == "static") {
+				parentElement.style.setProperty("position", "relative", "important");
+			}
 		}
-		if (options.positionTopInfobar) {
-			styleElement.textContent += `.infobar { top: ${options.positionTopInfobar}; bottom: auto; }`;
-		} else if (options.positionBottomInfobar) {
-			styleElement.textContent += `.infobar { bottom: ${options.positionBottomInfobar}; top: auto; }`;
+		if (options.infobarPositionTop) {
+			styleElement.textContent += `.infobar { top: ${options.infobarPositionTop}; bottom: auto; }`;
+		} else if (options.infobarPositionBottom) {
+			styleElement.textContent += `.infobar { bottom: ${options.infobarPositionBottom}; top: auto; }`;
 		}
-		if (options.positionRightInfobar) {
-			styleElement.textContent += `.infobar { right: ${options.positionRightInfobar}; left: auto; }`;
-		} else if (options.positionLeftInfobar) {
-			styleElement.textContent += `.infobar { left: ${options.positionLeftInfobar}; right: auto; }`;
+		if (options.infobarPositionRight) {
+			styleElement.textContent += `.infobar { right: ${options.infobarPositionRight}; left: auto; }`;
+		} else if (options.infobarPositionLeft) {
+			styleElement.textContent += `.infobar { left: ${options.infobarPositionLeft}; right: auto; }`;
 		}
 		styleElement.textContent = styleElement.textContent
 			.replace(/ {2}/g, "")
@@ -296,11 +300,11 @@ function displayIcon(doc, useShadowRoot, options = {}) {
 	const infoData = extractInfobarData(doc);
 	if (infoData.saveUrl) {
 		infoData.openInfobar = options.openInfobar;
-		infoData.positionAbsoluteInfobar = options.positionAbsoluteInfobar;
-		infoData.positionTopInfobar = options.positionTopInfobar;
-		infoData.positionRightInfobar = options.positionRightInfobar;
-		infoData.positionBottomInfobar = options.positionBottomInfobar;
-		infoData.positionLeftInfobar = options.positionLeftInfobar;
+		infoData.infobarPositionAbsolute = options.infobarPositionAbsolute;
+		infoData.infobarPositionTop = options.infobarPositionTop;
+		infoData.infobarPositionRight = options.infobarPositionRight;
+		infoData.infobarPositionBottom = options.infobarPositionBottom;
+		infoData.infobarPositionLeft = options.infobarPositionLeft;
 		appendInfobar(doc, infoData, useShadowRoot);
 		refreshInfobarInfo(doc, infoData);
 	}
