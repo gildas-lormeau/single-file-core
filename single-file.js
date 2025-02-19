@@ -21,8 +21,6 @@
  *   Source.
  */
 
-/* global globalThis */
-
 import * as processors from "./processors/index.js";
 import * as vendor from "./vendor/index.js";
 import * as modules from "./modules/index.js";

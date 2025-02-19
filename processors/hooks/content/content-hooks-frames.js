@@ -21,7 +21,7 @@
  *   Source.
  */
 
-/* global globalThis, window */
+/* global window */
 
 const LOAD_DEFERRED_IMAGES_START_EVENT = "single-file-load-deferred-images-start";
 const LOAD_DEFERRED_IMAGES_END_EVENT = "single-file-load-deferred-images-end";

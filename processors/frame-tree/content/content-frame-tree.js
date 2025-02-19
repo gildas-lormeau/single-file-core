@@ -21,8 +21,6 @@
  *   Source.
  */
 
-/* global globalThis */
-
 import * as lazy from "./../../lazy/content/content-lazy-loader.js";
 import {
 	ON_BEFORE_CAPTURE_EVENT_NAME,
@@ -293,6 +291,7 @@ function processFramesAsync(doc, frameElements, options, parentWindowId, session
 		const windowId = parentWindowId + WINDOW_ID_SEPARATOR + frameIndex;
 		try {
 			sendMessage(frameElement.contentWindow, { method: INIT_REQUEST_MESSAGE, windowId, sessionId, options, scrolling: frameElement.scrolling });
+			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			// ignored
 		}
@@ -310,6 +309,7 @@ function processFramesSync(doc, frameElements, options, parentWindowId, sessionI
 			frameDoc = frameElement.contentDocument;
 			frameWindow = frameElement.contentWindow;
 			frameWindow.stop();
+			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			// ignored
 		}
@@ -324,6 +324,7 @@ function processFramesSync(doc, frameElements, options, parentWindowId, sessionI
 				clearFrameTimeout("requestTimeouts", sessionId, windowId);
 				processFrames(frameDoc, options, windowId, sessionId);
 				frames.push(getFrameData(frameDoc, frameWindow, windowId, options, frameElement.scrolling));
+				// eslint-disable-next-line no-unused-vars
 			} catch (error) {
 				frames.push({ windowId, processed: true });
 			}
@@ -357,6 +358,7 @@ function cleanupFrames(frameElements, parentWindowId, sessionId) {
 		frameElement.removeAttribute(helper.WIN_ID_ATTRIBUTE_NAME);
 		try {
 			sendMessage(frameElement.contentWindow, { method: CLEANUP_REQUEST_MESSAGE, windowId, sessionId });
+			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			// ignored
 		}
@@ -366,12 +368,14 @@ function cleanupFrames(frameElements, parentWindowId, sessionId) {
 		let frameDoc;
 		try {
 			frameDoc = frameElement.contentDocument;
+			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			// ignored
 		}
 		if (frameDoc) {
 			try {
 				cleanupFrames(getFrames(frameDoc), windowId, sessionId);
+				// eslint-disable-next-line no-unused-vars
 			} catch (error) {
 				// ignored
 			}
@@ -383,6 +387,7 @@ function sendInitResponse(message) {
 	message.method = INIT_RESPONSE_MESSAGE;
 	try {
 		top.singlefile.processors.frameTree.initResponse(message);
+		// eslint-disable-next-line no-unused-vars
 	} catch (error) {
 		sendMessage(top, message, true);
 	}

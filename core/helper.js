@@ -21,8 +21,6 @@
  *   Source.
  */
 
-/* global globalThis */
-
 import * as cssUnescape from "./../vendor/css-unescape.js";
 import * as hooksFrames from "./../processors/hooks/content/content-hooks-frames.js";
 import * as infobar from "./infobar.js";
@@ -80,6 +78,7 @@ const DEFAULT_REPLACED_CHARACTERS = ["~", "+", "?", "%", "*", ":", "|", "\"", "<
 const DEFAULT_REPLACEMENT_CHARACTER = "_";
 const DEFAULT_REPLACEMENT_CHARACTERS = ["～", "＋", "？", "％", "＊", "：", "｜", "＂", "＜", "＞", "＼"];
 const addEventListener = (type, listener, options) => globalThis.addEventListener(type, listener, options);
+// eslint-disable-next-line no-unused-vars
 const dispatchEvent = event => { try { globalThis.dispatchEvent(event); } catch (error) {  /* ignored */ } };
 const JSON = globalThis.JSON;
 const crypto = globalThis.crypto;
@@ -147,6 +146,7 @@ function initUserScriptHandler() {
 		let detailUserScript;
 		try {
 			detailUserScript = detail == "jsonDetail" ? JSON.stringify({ options: userScriptOptions }) : { options: userScriptOptions };
+			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			// ignored
 		}
@@ -161,6 +161,7 @@ function initUserScriptHandler() {
 						if (detail.options) {
 							Object.assign(options, detail.options);
 						}
+						// eslint-disable-next-line no-unused-vars
 					} catch (error) {
 						// ignored
 					}
@@ -236,6 +237,7 @@ function preProcessDoc(doc, win, options) {
 	if (doc.referrer) {
 		try {
 			referrer = new URL("/", new URL(doc.referrer).origin).href;
+			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			// ignored
 		}
@@ -314,6 +316,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 							shadowRoot.removeEventListener(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, listener);
 						}
 					}
+					// eslint-disable-next-line no-unused-vars
 				} catch (error) {
 					// ignored
 				}
@@ -327,6 +330,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 					if (shadowRoot.adoptedStyleSheets && shadowRoot.adoptedStyleSheets.length === undefined) {
 						shadowRoot.dispatchEvent(new CustomEvent(UNREGISTER_GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, { bubbles: true }));
 					}
+					// eslint-disable-next-line no-unused-vars
 				} catch (error) {
 					// ignored
 				}
@@ -381,6 +385,7 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 			});
 			element.setAttribute(CANVAS_ATTRIBUTE_NAME, data.canvases.length - 1);
 			data.markedElements.push(element);
+			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			// ignored
 		}
@@ -436,6 +441,7 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 				data.posters.push(canvasElement.toDataURL("image/png", ""));
 				element.setAttribute(POSTER_ATTRIBUTE_NAME, data.posters.length - 1);
 				data.markedElements.push(element);
+				// eslint-disable-next-line no-unused-vars
 			} catch (error) {
 				// ignored
 			}
@@ -500,6 +506,7 @@ function getShadowRoot(element) {
 	} else if (chrome && chrome.dom && chrome.dom.openOrClosedShadowRoot) {
 		try {
 			return chrome.dom.openOrClosedShadowRoot(element);
+			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			return element.shadowRoot;
 		}
@@ -587,6 +594,7 @@ function getStylesheetsData(doc) {
 						contents[styleIndex] = Array.from(styleElement.sheet.cssRules).map(cssRule => cssRule.cssText).join("\n");
 					}
 				}
+				// eslint-disable-next-line no-unused-vars
 			} catch (error) {
 				// ignored
 			}
@@ -693,6 +701,7 @@ async function digest(algo, text) {
 	try {
 		const hash = await crypto.subtle.digest(algo, new TextEncoder("utf-8").encode(text));
 		return hex(hash);
+		// eslint-disable-next-line no-unused-vars
 	} catch (error) {
 		return "";
 	}
@@ -719,6 +728,7 @@ function flatten(array) {
 function getComputedStyle(win, element, pseudoElement) {
 	try {
 		return win.getComputedStyle(element, pseudoElement);
+		// eslint-disable-next-line no-unused-vars
 	} catch (error) {
 		// ignored
 	}

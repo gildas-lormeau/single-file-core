@@ -81,7 +81,6 @@ let utils, parser, serializer, MIMEType;
 
 		position++;
 
-		// eslint-disable-next-line no-constant-condition
 		while (true) {
 			while (position < input.length && input[position] !== "\"" && input[position] !== "\\") {
 				value += input[position];
@@ -273,7 +272,8 @@ let utils, parser, serializer, MIMEType;
 		static parse(string) {
 			try {
 				return new this(string);
-			} catch (e) {
+				// eslint-disable-next-line no-unused-vars
+			} catch (error) {
 				return null;
 			}
 		}

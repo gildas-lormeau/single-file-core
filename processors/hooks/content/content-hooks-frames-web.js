@@ -21,7 +21,7 @@
  *   Source.
  */
 
-/* global globalThis, window */
+/* global window */
 
 (globalThis => {
 
@@ -109,6 +109,7 @@
 		document.addEventListener(BLOCK_COOKIES_START_EVENT, () => {
 			try {
 				document.__defineGetter__("cookie", () => { throw new Error("document.cookie temporary blocked by SingleFile"); });
+				// eslint-disable-next-line no-unused-vars
 			} catch (error) {
 				// ignored
 			}
@@ -155,6 +156,7 @@
 				if (globalThis.bootstrap && event.detail.data) {
 					globalThis.bootstrap(event.detail.data);
 				}
+				// eslint-disable-next-line no-unused-vars
 			} catch (error) {
 				// ignored
 			}
@@ -438,6 +440,7 @@
 			if (dispatchScrollEvent) {
 				globalThis.dispatchEvent(new UIEvent("scroll"));
 			}
+			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			// ignored
 		}

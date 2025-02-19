@@ -21,8 +21,6 @@
  *   Source.
  */
 
-/* global globalThis */
-
 import {
 	getProcessorHelperClass,
 	cssTree
@@ -516,6 +514,7 @@ class Processor {
 					infobarURL = url.split("url: ")[1].trim();
 					infobarSaveDate = saveDate.split("saved date: ")[1];
 					firstComment.remove();
+					// eslint-disable-next-line no-unused-vars
 				} catch (error) {
 					// ignored
 				}
@@ -905,6 +904,7 @@ class Processor {
 						Array.from(originalElement.attributes).forEach(attribute => {
 							try {
 								placeHolderElement.setAttribute(attribute.name, attribute.value);
+								// eslint-disable-next-line no-unused-vars
 							} catch (error) {
 								// ignored
 							}
@@ -914,6 +914,7 @@ class Processor {
 				}
 				try {
 					templateElement.replaceWith(placeHolderElement);
+					// eslint-disable-next-line no-unused-vars
 				} catch (error) {
 					if (originalElement) {
 						templateElement.replaceWith(originalElement);
@@ -1107,6 +1108,7 @@ class Processor {
 					let resolvedURL;
 					try {
 						resolvedURL = util.resolveURL(href, this.options.baseURI || this.options.url);
+						// eslint-disable-next-line no-unused-vars
 					} catch (error) {
 						// ignored
 					}
@@ -1117,6 +1119,7 @@ class Processor {
 						}
 						try {
 							element.setAttribute("href", resolvedURL);
+							// eslint-disable-next-line no-unused-vars
 						} catch (error) {
 							// ignored
 						}
@@ -1133,12 +1136,14 @@ class Processor {
 				let resolvedURL;
 				try {
 					resolvedURL = util.resolveURL(href, this.options.baseURI || this.options.url);
+					// eslint-disable-next-line no-unused-vars
 				} catch (error) {
 					// ignored
 				}
 				if (resolvedURL) {
 					try {
 						element.setAttribute("href", resolvedURL);
+						// eslint-disable-next-line no-unused-vars
 					} catch (error) {
 						// ignored
 					}
@@ -1178,6 +1183,7 @@ class Processor {
 								context.drawImage(temporaryVideoElement, 0, 0, canvasElement.width, canvasElement.height);
 								try {
 									videoElement.poster = canvasElement.toDataURL("image/png", "");
+									// eslint-disable-next-line no-unused-vars
 								} catch (error) {
 									// ignored
 								}
@@ -1269,6 +1275,7 @@ class Processor {
 			if (src && !testIgnoredPath(src)) {
 				try {
 					url = util.resolveURL(src, this.baseURI);
+					// eslint-disable-next-line no-unused-vars
 				} catch (error) {
 					// ignored
 				}
@@ -1446,6 +1453,7 @@ class Processor {
 				element.textContent = "";
 				try {
 					resourceURL = util.resolveURL(scriptSrc, this.baseURI);
+					// eslint-disable-next-line no-unused-vars
 				} catch (error) {
 					// ignored
 				}

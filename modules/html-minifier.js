@@ -230,6 +230,7 @@ function compressJSONLD(node) {
 	if (node.nodeType == Node_ELEMENT_NODE && getTagName(node) == "SCRIPT" && node.type == "application/ld+json" && node.textContent.trim()) {
 		try {
 			node.textContent = JSON.stringify(JSON.parse(node.textContent));
+			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			// ignored
 		}
@@ -245,5 +246,5 @@ function removeEmptyInlineElements(doc) {
 }
 
 function getTagName(element) {
-	return  element.tagName && element.tagName.toUpperCase();
+	return element.tagName && element.tagName.toUpperCase();
 }

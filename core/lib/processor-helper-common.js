@@ -21,8 +21,6 @@
  *   Source.
  */
 
-/* global globalThis */
-
 import {
 	normalizeFontFamily,
 	getFontWeight
@@ -139,6 +137,7 @@ class ProcessorHelperCommon {
 					resourceElement.setAttribute(attributeName, util.EMPTY_RESOURCE);
 					try {
 						resourceURL = util.resolveURL(resourceURL, baseURI);
+						// eslint-disable-next-line no-unused-vars
 					} catch (error) {
 						// ignored
 					}
@@ -153,6 +152,7 @@ class ProcessorHelperCommon {
 								let symbolElement;
 								try {
 									symbolElement = svgDoc.querySelector(hashMatch[0]);
+									// eslint-disable-next-line no-unused-vars
 								} catch (error) {
 									// ignored
 								}
@@ -225,6 +225,7 @@ class ProcessorHelperCommon {
 						if (testValidPath(resourceURL)) {
 							try {
 								resourceURL = util.resolveURL(resourceURL, baseURI);
+								// eslint-disable-next-line no-unused-vars
 							} catch (error) {
 								// ignored
 							}
@@ -377,6 +378,7 @@ class ProcessorHelperCommon {
 						if (!originalResourceURL.startsWith("#")) {
 							try {
 								resolvedURL = util.resolveURL(resourceURL, baseURI);
+								// eslint-disable-next-line no-unused-vars
 							} catch (error) {
 								// ignored
 							}
@@ -538,6 +540,7 @@ class ProcessorHelperCommon {
 			property = ruleData.block.children.filter(node => {
 				try {
 					return node.property == propertyName && !cssTree.generate(node.value).match(/\\9$/);
+					// eslint-disable-next-line no-unused-vars
 				} catch (error) {
 					return node.property == propertyName;
 				}
@@ -546,6 +549,7 @@ class ProcessorHelperCommon {
 		if (property) {
 			try {
 				return cssTree.generate(property.data.value);
+				// eslint-disable-next-line no-unused-vars
 			} catch (error) {
 				// ignored
 			}

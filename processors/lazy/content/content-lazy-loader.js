@@ -21,8 +21,6 @@
  *   Source.
  */
 
-/* global globalThis */
-
 import * as hooksFrames from "./../../hooks/content/content-hooks-frames.js";
 import {
 	LAZY_SRC_ATTRIBUTE_NAME,
@@ -51,6 +49,7 @@ if (browser && browser.runtime && browser.runtime.onMessage && browser.runtime.o
 				timeouts.delete(message.type);
 				try {
 					timeoutData.callback();
+					// eslint-disable-next-line no-unused-vars
 				} catch (error) {
 					clearRegularTimeout(message.type);
 				}
@@ -192,6 +191,7 @@ async function setAsyncTimeout(type, callback, delay, forceNativeTimeout) {
 			timeouts.set(type, timeoutData);
 			try {
 				await browser.runtime.sendMessage({ method: "singlefile.lazyTimeout.setTimeout", type, delay });
+				// eslint-disable-next-line no-unused-vars
 			} catch (error) {
 				setRegularTimeout(type, callback, delay);
 			}
@@ -215,6 +215,7 @@ async function clearAsyncTimeout(type) {
 	if (browser && browser.runtime && browser.runtime.sendMessage) {
 		try {
 			await browser.runtime.sendMessage({ method: "singlefile.lazyTimeout.clearTimeout", type });
+			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			clearRegularTimeout(type);
 		}

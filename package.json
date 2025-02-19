@@ -14,5 +14,8 @@
   "bugs": {
     "url": "https://github.com/gildas-lormeau/single-file-core/issues"
   },
-  "homepage": "https://github.com/gildas-lormeau/single-file-core#readme"
+  "homepage": "https://github.com/gildas-lormeau/single-file-core#readme",
+  "dependencies": {
+    "eslint": "^9.20.1"
+  }
 }

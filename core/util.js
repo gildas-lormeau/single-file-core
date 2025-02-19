@@ -21,8 +21,6 @@
  *   Source.
  */
 
-/* global globalThis */
-
 import * as vendor from "./../vendor/index.js";
 import * as modules from "./../modules/index.js";
 import * as helper from "./helper.js";
@@ -91,6 +89,7 @@ function getInstance(utilOptions) {
 			let matchExtension;
 			try {
 				matchExtension = new URL(resourceURL).pathname.match(/(\.[^\\/.]*)$/);
+				// eslint-disable-next-line no-unused-vars
 			} catch (error) {
 				// ignored
 			}
@@ -265,6 +264,7 @@ function getInstance(utilOptions) {
 						fetchFrameResource(resourceURL, { frameId: options.frameId, referrer: options.resourceReferrer, headers: { accept } }),
 						networkTimeoutPromise
 					]);
+					// eslint-disable-next-line no-unused-vars
 				} catch (error) {
 					response = await Promise.race([
 						fetchResource(resourceURL, { headers: { accept } }),
@@ -277,6 +277,7 @@ function getInstance(utilOptions) {
 					networkTimeoutPromise
 				]);
 			}
+			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			return getFetchResponse(resourceURL, options);
 		} finally {
@@ -288,6 +289,7 @@ function getInstance(utilOptions) {
 		let buffer;
 		try {
 			buffer = await response.arrayBuffer();
+			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			return options.inline ? { data: options.asBinary ? helper.EMPTY_RESOURCE : "", resourceURL } : { resourceURL };
 		}
@@ -297,6 +299,7 @@ function getInstance(utilOptions) {
 			const mimeType = new vendor.MIMEType(response.headers.get("content-type"));
 			contentType = mimeType.type + "/" + mimeType.subtype;
 			charset = mimeType.parameters.get("charset");
+			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			// ignored
 		}
@@ -322,6 +325,7 @@ function getInstance(utilOptions) {
 				} else {
 					return getFetchResponse(resourceURL, options, buffer, null, contentType);
 				}
+				// eslint-disable-next-line no-unused-vars
 			} catch (error) {
 				return getFetchResponse(resourceURL, options);
 			}
@@ -340,6 +344,7 @@ function getInstance(utilOptions) {
 			} else {
 				try {
 					return getFetchResponse(resourceURL, options, buffer, charset, contentType);
+					// eslint-disable-next-line no-unused-vars
 				} catch (error) {
 					return getFetchResponse(resourceURL, options, null, charset);
 				}
@@ -372,6 +377,7 @@ async function getFetchResponse(resourceURL, options, data, charset, contentType
 			}
 			try {
 				data = new TextDecoder(charset).decode(data);
+				// eslint-disable-next-line no-unused-vars
 			} catch (error) {
 				charset = "utf-8";
 				data = new TextDecoder(charset).decode(data);

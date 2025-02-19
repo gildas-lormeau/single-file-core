@@ -60,7 +60,6 @@ function process(str) {
 
 		// NaN means non-codepoint
 		// Workaround erroneous numeric interpretation of +"0x"
-		// eslint-disable-next-line no-self-compare
 		return high !== high || escapedWhitespace
 			? escaped
 			: high < 0

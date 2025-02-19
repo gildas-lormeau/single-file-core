@@ -21,7 +21,7 @@
  *   Source.
  */
 
-/* global globalThis, window, document */
+/* global window, document */
 
 import { appendInfobar, refreshInfobarInfo, extractInfobarData } from "./core/infobar.js";
 
@@ -55,6 +55,7 @@ import { appendInfobar, refreshInfobarInfo, extractInfobarData } from "./core/in
 			if (browser && browser.runtime && browser.runtime.sendMessage) {
 				try {
 					options = await browser.runtime.sendMessage({ method: "tabs.getOptions", url: infoData.saveUrl });
+					// eslint-disable-next-line no-unused-vars
 				} catch (error) {
 					// ignored
 				}

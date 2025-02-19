@@ -158,6 +158,7 @@ function getMatchedElementsSelector(doc, selectorInfo, styles, matchedElementsCa
 					(matchedElement.style.getPropertyValue(DISPLAY_STYLE) != "none" || matchedElement.style.getPropertyPriority("display") != "important")
 				);
 			}
+			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			// ignored				
 		}

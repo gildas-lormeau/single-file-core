@@ -189,7 +189,7 @@ function appendInfobar(doc, options, useShadowRoot) {
 		const styleElement = doc.createElement("style");
 		styleElement.textContent = INFOBAR_STYLES;
 		if (options.infobarPositionAbsolute) {
-			styleElement.textContent += `.infobar { position: absolute; }`;
+			styleElement.textContent += ".infobar { position: absolute; }";
 			const parentElementStyle = getComputedStyle(parentElement);
 			if (parentElementStyle.position == "static") {
 				parentElement.style.setProperty("position", "relative", "important");

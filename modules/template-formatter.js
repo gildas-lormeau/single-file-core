@@ -21,7 +21,7 @@
  *   Source.
  */
 
-/* global globalThis */
+/* global btoa, atob */
 
 import { parse } from "./template-parser.js";
 import { getContentSize, digest, getValidFilename } from "./../core/helper.js";
@@ -33,7 +33,6 @@ const Intl = globalThis.Intl;
 const URLSearchParams = globalThis.URLSearchParams;
 const navigator = globalThis.navigator;
 
-// eslint-disable-next-line quotes
 const REGEXP_ESCAPE = /([{}()^$&.*?/+|[\\\\]|\]|-)/g;
 
 const EMOJI_NAMES = {
@@ -17016,12 +17015,19 @@ async function evalTemplate(template = "", options, content, doc, context = {}) 
 			const subdomains = urlSubDomains.split(".");
 			return subdomains[subdomains.length - index - 1];
 		},
+		// eslint-disable-next-line no-unused-vars
 		"stringify": value => { try { return JSON.stringify(value); } catch (error) { return value; } },
+		// eslint-disable-next-line no-unused-vars
 		"encode-base64": value => { try { return btoa(value); } catch (error) { return value; } },
+		// eslint-disable-next-line no-unused-vars
 		"decode-base64": value => { try { return atob(value); } catch (error) { return value; } },
+		// eslint-disable-next-line no-unused-vars
 		"encode-uri": value => { try { return encodeURI(value); } catch (error) { return value; } },
+		// eslint-disable-next-line no-unused-vars
 		"decode-uri": value => { try { return decodeURI(value); } catch (error) { return value; } },
+		// eslint-disable-next-line no-unused-vars
 		"encode-uri-component": value => { try { return encodeURIComponent(value); } catch (error) { return value; } },
+		// eslint-disable-next-line no-unused-vars
 		"decode-uri-component": value => { try { return decodeURIComponent(value); } catch (error) { return value; } },
 		"date-locale": locales => context.currentDate.toLocaleDateString(locales),
 		"time-locale": locales => context.currentDate.toLocaleTimeString(locales),
@@ -17096,6 +17102,7 @@ async function evalTemplate(template = "", options, content, doc, context = {}) 
 					try {
 						const dontReplaceSlash = fn.dontReplaceSlash === undefined ? true : fn.dontReplaceSlash;
 						return await getValue(() => fn(argument, ...optionalArguments), dontReplaceSlash, options.filenameReplacementCharacter, lengthData);
+						// eslint-disable-next-line no-unused-vars
 					} catch (error) {
 						return "";
 					}
@@ -17186,6 +17193,7 @@ function extractMaxLength(lengthData) {
 function decode(value) {
 	try {
 		return decodeURI(value);
+		// eslint-disable-next-line no-unused-vars
 	} catch (error) {
 		return value;
 	}

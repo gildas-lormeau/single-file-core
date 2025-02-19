@@ -106,6 +106,7 @@ function getSourceSrc(sourceSrcSet) {
 			if (srcset.length) {
 				return (srcset.find(srcset => srcset.url)).url;
 			}
+			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			// ignored
 		}

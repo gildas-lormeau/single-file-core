@@ -404,7 +404,7 @@ function Container(opts) {
 	}
 
 	this.nodes.forEach(node => {
-		node.parent = this; // eslint-disable-line no-param-reassign
+		node.parent = this;
 	});
 }
 

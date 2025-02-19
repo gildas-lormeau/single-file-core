@@ -21,8 +21,6 @@
  *   Source.
  */
 
-/* global globalThis */
-
 import * as cssTree from "./../../vendor/css-tree.js";
 
 const JSON = globalThis.JSON;
@@ -169,6 +167,7 @@ function getProcessorHelperClass(utilInstance) {
 						urlNode.value = util.EMPTY_RESOURCE;
 						try {
 							resourceURL = util.resolveURL(resourceURL, baseURI);
+							// eslint-disable-next-line no-unused-vars
 						} catch (error) {
 							// ignored
 						}
@@ -319,6 +318,7 @@ function getProcessorHelperClass(utilInstance) {
 							if (testValidPath(resourceURL)) {
 								try {
 									resourceURL = util.resolveURL(resourceURL, baseURI);
+									// eslint-disable-next-line no-unused-vars
 								} catch (error) {
 									// ignored
 								}
@@ -332,6 +332,7 @@ function getProcessorHelperClass(utilInstance) {
 										if (this.testEmptyResource(content)) {
 											try {
 												originURL = util.resolveURL(originURL, baseURI);
+												// eslint-disable-next-line no-unused-vars
 											} catch (error) {
 												// ignored
 											}
@@ -349,6 +350,7 @@ function getProcessorHelperClass(utilInstance) {
 													acceptHeaders: options.acceptHeaders,
 													networkTimeout: options.networkTimeout
 												})).data;
+												// eslint-disable-next-line no-unused-vars
 											} catch (error) {
 												// ignored
 											}
@@ -416,9 +418,9 @@ function getProcessorHelperClass(utilInstance) {
 			if (forbiddenPrefixFound) {
 				return "";
 			}
-			return content + (srcsetValue.w ? " " + srcsetValue.w + "w" : 
+			return content + (srcsetValue.w ? " " + srcsetValue.w + "w" :
 				srcsetValue.h ? " " + srcsetValue.h + "h" :
-				srcsetValue.d ? " " + srcsetValue.d + "x" : "");
+					srcsetValue.d ? " " + srcsetValue.d + "x" : "");
 		}
 
 		testEmptyResource(resource) {
@@ -564,6 +566,7 @@ function getProcessorHelperClass(utilInstance) {
 													fontFace.load().then(() => fontFace.loaded).then(() => { source.valid = true; globalThis.clearTimeout(timeout); }),
 													new Promise(resolve => timeout = globalThis.setTimeout(() => { source.valid = true; resolve(); }, FONT_MAX_LOAD_DELAY))
 												]);
+												// eslint-disable-next-line no-unused-vars
 											} catch (error) {
 												// ignored
 											}
@@ -606,8 +609,8 @@ function getProcessorHelperClass(utilInstance) {
 				fontInfo.reverse();
 				try {
 					srcDeclaration.data.value = cssTree.parse(fontInfo.map(fontSource => fontSource.src).join(","), { context: "value", parseCustomProperty: true });
-				}
-				catch (error) {
+					// eslint-disable-next-line no-unused-vars
+				} catch (error) {
 					// ignored
 				}
 			}

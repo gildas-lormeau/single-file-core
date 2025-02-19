@@ -246,7 +246,7 @@ function keyframes(content, preservedTokens) {
 		}
 	};
 
-	while (true) { // eslint-disable-line no-constant-condition
+	while (true) {
 
 		let level = 0;
 		buffer = "";
@@ -327,7 +327,7 @@ function collectComments(content, comments) {
 
 	let from = 0, end;
 
-	while (true) { // eslint-disable-line no-constant-condition
+	while (true) {
 
 		const start = content.indexOf("/*", from);
 
@@ -572,7 +572,8 @@ function processString(content = "", options = defaultOptions) {
 	try {
 		pattern = REGEXP_REMOVE_SPACES;
 		content = content.replace(pattern, token => token.replace(REGEXP_COLUMN, "___PSEUDOCLASSCOLON___"));
-	} catch (_error) {
+	// eslint-disable-next-line no-unused-vars
+	} catch (error) {
 		// ignored
 	}
 

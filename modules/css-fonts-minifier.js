@@ -21,8 +21,6 @@
  *   Source.
  */
 
-/* global globalThis */
-
 import * as cssTree from "./../vendor/css-tree.js";
 import * as fontPropertyParser from "./../vendor/css-font-property-parser.js";
 import {
@@ -248,6 +246,7 @@ function getDeclarationValue(declarations, propertyName) {
 	if (property) {
 		try {
 			return helper.removeQuotes(cssTree.generate(property.data.value)).toLowerCase();
+			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			// ignored
 		}
@@ -278,6 +277,7 @@ function getFontFamilyNames(declarations, options) {
 			}
 			const parsedFont = fontPropertyParser.parse(value);
 			parsedFont.family.forEach(familyName => fontFamilyNames.push(helper.normalizeFontFamily(familyName)));
+			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			// ignored				
 		}

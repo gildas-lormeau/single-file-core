@@ -98,7 +98,7 @@ function process(input) {
 	// 4. Splitting loop: Collect a sequence of characters that are space
 	//    characters or U+002C COMMA characters. If any U+002C COMMA characters
 	//    were collected, that is a parse error.		
-	while (true) { // eslint-disable-line no-constant-condition
+	while (true) {
 		collectCharacters(regexLeadingCommasOrSpaces);
 
 		// 5. If position is past the end of input, return candidates and abort these steps.
@@ -144,7 +144,7 @@ function process(input) {
 		// 8.3. Let state be in descriptor.
 		state = "in descriptor";
 
-		while (true) { // eslint-disable-line no-constant-condition
+		while (true) {
 
 			// 8.4. Let c be the character at position.
 			c = input.charAt(pos);
