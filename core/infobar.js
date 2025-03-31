@@ -247,7 +247,7 @@ function appendInfobar(doc, options, useShadowRoot) {
 			const scriptElement = doc.createElement("script");
 			let scriptContent = refreshInfobarInfo.toString() + ";";
 			scriptContent += extractInfobarData.toString() + ";";
-			scriptContent += "(" + initInfobar.toString() + ")(document, " + JSON.stringify(options) + ");";
+			scriptContent += "(" + initInfobar.toString() + ")(document, " + JSON.stringify(SINGLE_FILE_SIGNATURE) + ");";
 			scriptElement.textContent = scriptContent;
 			shadowRootContent.appendChild(scriptElement);
 			infobarContainer.innerHTML = shadowRootContent.outerHTML;
