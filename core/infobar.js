@@ -245,10 +245,9 @@ function appendInfobar(doc, options, useShadowRoot) {
 			infobarContainer.appendChild(shadowRootContent);
 		} else {
 			const scriptElement = doc.createElement("script");
-			let scriptContent = refreshInfobarInfo.toString();
-			scriptContent += ";const SINGLE_FILE_SIGNATURE = " + JSON.stringify(SINGLE_FILE_SIGNATURE) + ";";
-			scriptContent += extractInfobarData.toString();
-			scriptContent += "(" + initInfobar.toString() + ")(document)";
+			let scriptContent = refreshInfobarInfo.toString() + ";";
+			scriptContent += extractInfobarData.toString() + ";";
+			scriptContent += "(" + initInfobar.toString() + ")(document, " + JSON.stringify(options) + ");";
 			scriptElement.textContent = scriptContent;
 			shadowRootContent.appendChild(scriptElement);
 			infobarContainer.innerHTML = shadowRootContent.outerHTML;
@@ -256,10 +255,10 @@ function appendInfobar(doc, options, useShadowRoot) {
 	}
 }
 
-function extractInfobarData(doc) {
+function extractInfobarData(doc, signature = SINGLE_FILE_SIGNATURE) {
 	const result = doc.evaluate("//comment()", doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
 	let singleFileComment = result && result.singleNodeValue;
-	if (singleFileComment && singleFileComment.nodeType == Node.COMMENT_NODE && singleFileComment.textContent.includes(SINGLE_FILE_SIGNATURE)) {
+	if (singleFileComment && singleFileComment.nodeType == Node.COMMENT_NODE && singleFileComment.textContent.includes(signature)) {
 		const info = singleFileComment.textContent.split("\n");
 		const [, , urlData, ...optionalData] = info;
 		const urlMatch = urlData.match(/^ url: (.*) ?$/);
@@ -310,8 +309,8 @@ function displayIcon(doc, useShadowRoot, options = {}) {
 	}
 }
 
-function initInfobar(doc) {
-	const infoData = extractInfobarData(doc);
+function initInfobar(doc, signature) {
+	const infoData = extractInfobarData(doc, signature);
 	if (infoData && infoData.saveUrl) {
 		refreshInfobarInfo(doc, infoData);
 	}
