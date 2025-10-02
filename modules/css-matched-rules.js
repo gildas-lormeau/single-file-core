@@ -93,7 +93,9 @@ function createMediaInfo(media) {
 		elements: new Map(),
 		medias: new Map(),
 		rules: new Map(),
-		pseudoRules: new Map()
+		pseudoRules: new Map(),
+		layers: new Map(),
+		layerOrder: []
 	};
 	if (media == MEDIA_ALL) {
 		mediaInfo.matchedStyles = new Map();
@@ -102,7 +104,7 @@ function createMediaInfo(media) {
 }
 
 function getMatchedElementsRules(doc, cssRules, stylesheets, mediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes = {
-	mediaIndex: 0, ruleIndex: 0
+	mediaIndex: 0, ruleIndex: 0, anonymousLayerIndex: 0
 }) {
 	let startTime;
 	if (DEBUG && cssRules.length > 1) {
@@ -112,6 +114,81 @@ function getMatchedElementsRules(doc, cssRules, stylesheets, mediaInfo, sheetInd
 	cssRules.forEach(ruleData => {
 		if (ruleData.type == "Atrule" && ruleData.name == "import" && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head.data.importedChildren) {
 			getMatchedElementsRules(doc, ruleData.prelude.children.head.data.importedChildren, stylesheets, mediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
+		} else if (ruleData.type == "Atrule" && ruleData.name == "layer") {
+			const parentLayerContext = indexes.layerContext;
+			const targetLayerContainer = parentLayerContext && parentLayerContext.layerInfo
+				? parentLayerContext.layerInfo
+				: mediaInfo;
+
+			if (ruleData.prelude) {
+				const layerNames = [];
+				if (ruleData.prelude.children) {
+					ruleData.prelude.children.forEach(child => {
+						if (child.type === "LayerList" && child.children) {
+							child.children.forEach(layer => {
+								if (layer.type === "Layer" && layer.name) {
+									layerNames.push(layer.name);
+								}
+							});
+						} else if (child.type === "Layer" && child.name) {
+							layerNames.push(child.name);
+						}
+					});
+				}
+				if (layerNames.length > 0 && (!ruleData.block || !ruleData.block.children || layerNames.length == 1)) {
+					layerNames.forEach(layerName => {
+						if (!targetLayerContainer.layers.has(layerName)) {
+							const layerOrder = targetLayerContainer.layerOrder.length;
+							targetLayerContainer.layers.set(layerName, {
+								order: layerOrder,
+								rules: new Map(),
+								pseudoRules: new Map(),
+								layers: new Map(),
+								layerOrder: []
+							});
+							targetLayerContainer.layerOrder.push(layerName);
+						}
+					});
+					if (ruleData.block && ruleData.block.children) {
+						const layerInfo = targetLayerContainer.layers.get(layerNames[0]);
+						const previousAnonymousCount = indexes.anonymousLayerIndex;
+						indexes.layerContext = { layerName: layerNames[0], layerInfo };
+						indexes.anonymousLayerIndex = 0;
+						getMatchedElementsRules(doc, ruleData.block.children, stylesheets, mediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
+						indexes.anonymousLayerIndex = previousAnonymousCount;
+						if (parentLayerContext) {
+							indexes.layerContext = parentLayerContext;
+						} else {
+							delete indexes.layerContext;
+						}
+					}
+				}
+			} else if (ruleData.block && ruleData.block.children) {
+				const previousAnonymousCount = indexes.anonymousLayerIndex;
+				indexes.anonymousLayerIndex++;
+				const anonymousLayerName = `${previousAnonymousCount}`;
+				const anonymousLayerOrder = targetLayerContainer.layerOrder.length;
+				const anonymousLayer = {
+					order: anonymousLayerOrder,
+					rules: new Map(),
+					pseudoRules: new Map(),
+					isAnonymous: true,
+					layers: new Map(),
+					layerOrder: []
+				};
+				targetLayerContainer.layers.set(anonymousLayerName, anonymousLayer);
+				targetLayerContainer.layerOrder.push(anonymousLayerName);
+				indexes.layerContext = { layerName: anonymousLayerName, layerInfo: anonymousLayer };
+				const previousAnonymousCountForNested = indexes.anonymousLayerIndex;
+				indexes.anonymousLayerIndex = 0;
+				getMatchedElementsRules(doc, ruleData.block.children, stylesheets, mediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
+				indexes.anonymousLayerIndex = previousAnonymousCountForNested;
+				if (parentLayerContext) {
+					indexes.layerContext = parentLayerContext;
+				} else {
+					delete indexes.layerContext;
+				}
+			}
 		} else if (ruleData.block && ruleData.block.children && ruleData.prelude && ruleData.prelude.children) {
 			if (ruleData.type == "Atrule" && ruleData.name == "media") {
 				const mediaText = cssTree.generate(ruleData.prelude);
@@ -120,22 +197,89 @@ function getMatchedElementsRules(doc, cssRules, stylesheets, mediaInfo, sheetInd
 				getMatchedElementsRules(doc, ruleData.block.children, stylesheets, ruleMediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet);
 				indexes.mediaIndex++;
 			} else if (ruleData.type == "Rule") {
-				const selectors = ruleData.prelude.children.toArray();
-				const selectorsText = ruleData.prelude.children.toArray().map(selector => cssTree.generate(selector));
-				const ruleInfo = { ruleData, mediaInfo, ruleIndex: indexes.ruleIndex, sheetIndex, matchedSelectors: new Set(), declarations: new Set(), selectors, selectorsText };
-				if (!invalidSelector(selectorsText.join(","), workStylesheet) || selectorsText.find(selectorText => selectorText.includes("|"))) {
-					for (let selector = ruleData.prelude.children.head, selectorIndex = 0; selector; selector = selector.next, selectorIndex++) {
-						const selectorText = selectorsText[selectorIndex];
-						const selectorInfo = { selector, selectorText, ruleInfo };
-						getMatchedElementsSelector(doc, selectorInfo, styles, matchedElementsCache);
-					}
-				}
-				indexes.ruleIndex++;
+				processRule(doc, ruleData, null, mediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
 			}
 		}
 	});
 	if (DEBUG && cssRules.length > 1) {
 		log("  -- ENDED   getMatchedElementsRules", "delay =", Date.now() - startTime);
+	}
+}
+
+function processRule(doc, ruleData, parentRuleData, mediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes) {
+	const selectors = ruleData.prelude.children.toArray();
+	const selectorsText = ruleData.prelude.children.toArray().map(selector => cssTree.generate(selector));
+	let hasNestedRules = false;
+	if (ruleData.block && ruleData.block.children) {
+		for (let child = ruleData.block.children.head; child; child = child.next) {
+			if (child.data.type == "Rule") {
+				hasNestedRules = true;
+				break;
+			}
+		}
+	}
+	const layerContext = indexes.layerContext || null;
+	let layerName = null;
+	let layerOrder = null;
+	let isAnonymousLayer = false;
+	if (layerContext && layerContext.layerName) {
+		layerName = layerContext.layerName;
+		const layerInfo = layerContext.layerInfo;
+		if (layerInfo) {
+			layerOrder = layerInfo.order;
+			isAnonymousLayer = layerInfo.isAnonymous || false;
+		}
+	}
+	const ruleInfo = {
+		ruleData,
+		mediaInfo,
+		ruleIndex: indexes.ruleIndex,
+		sheetIndex,
+		matchedSelectors: new Set(),
+		declarations: new Set(),
+		selectors,
+		selectorsText,
+		parentRuleData,
+		hasNestedRules,
+		expandedSelectorText: null,
+		layerName,
+		layerOrder,
+		isAnonymousLayer,
+		layerContext
+	};
+	indexes.ruleIndex++;
+	if (layerContext && layerContext.layerInfo) {
+		layerContext.layerInfo.rules.set(ruleData, ruleInfo);
+	}
+	if (hasNestedRules && !layerName) {
+		mediaInfo.rules.set(ruleData, ruleInfo);
+	}
+	if (!invalidSelector(selectorsText.join(","), workStylesheet) || selectorsText.find(selectorText => selectorText.includes("|"))) {
+		for (let selector = ruleData.prelude.children.head, selectorIndex = 0; selector; selector = selector.next, selectorIndex++) {
+			let selectorText = selectorsText[selectorIndex];
+			let selectorForSpecificity = selector;
+			if (parentRuleData) {
+				const parentRuleInfo = mediaInfo.rules.get(parentRuleData);
+				const parentSelectorText = parentRuleInfo && parentRuleInfo.expandedSelectorText
+					? parentRuleInfo.expandedSelectorText
+					: cssTree.generate(parentRuleData.prelude.children.head.data);
+
+				const expandedSelectorText = combineSelectors(parentSelectorText, selectorText);
+				selectorText = expandedSelectorText;
+				ruleInfo.expandedSelectorText = expandedSelectorText;
+				const expandedAST = cssTree.parse(expandedSelectorText, { context: "selector" });
+				selectorForSpecificity = { data: expandedAST };
+			}
+			const selectorInfo = { selector: selectorForSpecificity, selectorText, ruleInfo };
+			getMatchedElementsSelector(doc, selectorInfo, styles, matchedElementsCache);
+		}
+	}
+	if (ruleData.block && ruleData.block.children) {
+		for (let child = ruleData.block.children.head; child; child = child.next) {
+			if (child.data.type == "Rule") {
+				processRule(doc, child.data, ruleData, mediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
+			}
+		}
 	}
 }
 
@@ -171,10 +315,13 @@ function getMatchedElementsSelector(doc, selectorInfo, styles, matchedElementsCa
 			if (filteredSelectorText == selectorInfo.selectorText) {
 				matchedElements.forEach(element => addRule(element, selectorInfo, styles));
 			} else {
-				let pseudoSelectors = selectorInfo.ruleInfo.mediaInfo.pseudoRules.get(selectorInfo.ruleInfo.ruleData);
+				const targetContainer = selectorInfo.ruleInfo.layerName && selectorInfo.ruleInfo.layerContext
+					? selectorInfo.ruleInfo.layerContext.layerInfo
+					: selectorInfo.ruleInfo.mediaInfo;
+				let pseudoSelectors = targetContainer.pseudoRules.get(selectorInfo.ruleInfo.ruleData);
 				if (!pseudoSelectors) {
 					pseudoSelectors = new Set();
-					selectorInfo.ruleInfo.mediaInfo.pseudoRules.set(selectorInfo.ruleInfo.ruleData, pseudoSelectors);
+					targetContainer.pseudoRules.set(selectorInfo.ruleInfo.ruleData, pseudoSelectors);
 				}
 				pseudoSelectors.add(selectorInfo.selectorText);
 			}
@@ -247,6 +394,7 @@ function addRule(element, selectorInfo, styles) {
 	const specificity = computeSpecificity(selectorInfo.selector.data);
 	specificity.ruleIndex = selectorInfo.ruleInfo.ruleIndex;
 	specificity.sheetIndex = selectorInfo.ruleInfo.sheetIndex;
+	specificity.layerOrder = selectorInfo.ruleInfo.layerOrder;
 	selectorInfo.specificity = specificity;
 	elementInfo.push(selectorInfo);
 }
@@ -260,7 +408,9 @@ function computeCascade(mediaInfo, parentMediaInfo, mediaAllInfo, workStylesheet
 					info = declarationsInfo.selectorInfo.ruleInfo;
 					const ruleData = info.ruleData;
 					const ascendantMedia = [mediaInfo, ...parentMediaInfo].find(media => media.rules.get(ruleData)) || mediaInfo;
-					ascendantMedia.rules.set(ruleData, info);
+					if (!info.layerName) {
+						ascendantMedia.rules.set(ruleData, info);
+					}
 					if (ruleData) {
 						info.matchedSelectors.add(declarationsInfo.selectorInfo.selectorText);
 					}
@@ -272,13 +422,82 @@ function computeCascade(mediaInfo, parentMediaInfo, mediaAllInfo, workStylesheet
 						mediaAllInfo.matchedStyles.set(styleData, info);
 					}
 				}
-				if (!info.declarations.has(property)) {
+				if (!info.declarations.has(property) && property.type === "Declaration") {
 					info.declarations.add(property);
 				}
 			}
 		}));
 	delete mediaInfo.elements;
+	const sortedRules = new Map([...mediaInfo.rules.entries()].sort((a, b) => a[1].ruleIndex - b[1].ruleIndex));
+	mediaInfo.rules = sortedRules;
+	const rulesToRemove = [];
+	mediaInfo.rules.forEach((ruleInfo, ruleData) => {
+		if (ruleInfo.hasNestedRules) {
+			const hasDirectDeclarations = ruleInfo.declarations.size > 0;
+			let hasWinningNestedChildren = false;
+			if (ruleData.block && ruleData.block.children) {
+				for (let child = ruleData.block.children.head; child; child = child.next) {
+					if (child.data.type === "Rule" && mediaInfo.rules.has(child.data)) {
+						hasWinningNestedChildren = true;
+						break;
+					}
+				}
+			}
+			if (!hasDirectDeclarations && !hasWinningNestedChildren) {
+				rulesToRemove.push(ruleData);
+			}
+		}
+	});
+	rulesToRemove.forEach(ruleData => mediaInfo.rules.delete(ruleData));
+	mediaInfo.layers.forEach(layerInfo => cleanupLayer(layerInfo));
 	mediaInfo.medias.forEach(childMediaInfo => computeCascade(childMediaInfo, [mediaInfo, ...parentMediaInfo], mediaAllInfo, workStylesheet, workStyleElement));
+}
+
+function cleanupLayer(layerInfo) {
+	function checkLayerForRule(layer, childData) {
+		for (const [, r] of layer.rules) {
+			if (r.ruleData === childData) {
+				return true;
+			}
+		}
+		if (layer.layers) {
+			for (const nestedLayer of layer.layers.values()) {
+				if (checkLayerForRule(nestedLayer, childData)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	if (layerInfo.layers) {
+		layerInfo.layers.forEach(nestedLayer => {
+			cleanupLayer(nestedLayer);
+		});
+	}
+	const layerRulesToRemove = [];
+	layerInfo.rules.forEach((ruleInfo, ruleData) => {
+		const hasDeclarations = ruleInfo.declarations.size > 0;
+		if (!hasDeclarations && !ruleInfo.hasNestedRules) {
+			layerRulesToRemove.push(ruleData);
+		} else if (ruleInfo.hasNestedRules) {
+			let hasWinningNestedChildren = false;
+			if (ruleInfo.ruleData.block && ruleInfo.ruleData.block.children) {
+				for (let child = ruleInfo.ruleData.block.children.head; child; child = child.next) {
+					if (child.data.type === "Rule") {
+						if (checkLayerForRule(layerInfo, child.data)) {
+							hasWinningNestedChildren = true;
+							break;
+						}
+					}
+				}
+			}
+
+			if (!hasDeclarations && !hasWinningNestedChildren) {
+				layerRulesToRemove.push(ruleData);
+			}
+		}
+	});
+	layerRulesToRemove.forEach(ruleData => layerInfo.rules.delete(ruleData));
 }
 
 function getDeclarationsInfo(elementInfo, workStylesheet, workStyleElement/*, element*/) {
@@ -296,14 +515,38 @@ function getDeclarationsInfo(elementInfo, workStylesheet, workStyleElement/*, el
 	return declarationsInfo;
 }
 
-function processDeclarations(declarationsInfo, declarations, selectorInfo, processedProperties, workStylesheet, workStyleElement) {
+function processDeclarations(declarationsInfo, declarations, selectorInfo, processedProperties, _workStylesheet, workStyleElement) {
 	for (let declaration = declarations.tail; declaration; declaration = declaration.prev) {
 		const declarationData = declaration.data;
 		const declarationText = cssTree.generate(declarationData);
 		if (declarationData.type == "Declaration" &&
 			(declarationText.match(REGEXP_VENDOR_IDENTIFIER) || !processedProperties.has(declarationData.property) || declarationData.important) && !invalidDeclaration(declarationText, workStyleElement)) {
 			const declarationInfo = declarationsInfo.get(declarationData);
-			if (!declarationInfo || (declarationData.important && !declarationInfo.important)) {
+			const currentLayerOrder = selectorInfo.ruleInfo ? selectorInfo.ruleInfo.layerOrder : null;
+			const existingLayerOrder = declarationInfo && declarationInfo.selectorInfo.ruleInfo ? declarationInfo.selectorInfo.ruleInfo.layerOrder : null;
+			let shouldReplace = false;
+			if (!declarationInfo) {
+				shouldReplace = true;
+			} else if (declarationData.important && !declarationInfo.important) {
+				shouldReplace = true;
+			} else if (declarationData.important && declarationInfo.important) {
+				if (currentLayerOrder === null && existingLayerOrder !== null) {
+					shouldReplace = false;
+				} else if (currentLayerOrder !== null && existingLayerOrder === null) {
+					shouldReplace = true;
+				} else if (currentLayerOrder !== null && existingLayerOrder !== null) {
+					shouldReplace = currentLayerOrder < existingLayerOrder;
+				}
+			} else if (!declarationData.important && !declarationInfo.important) {
+				if (currentLayerOrder === null && existingLayerOrder !== null) {
+					shouldReplace = true;
+				} else if (currentLayerOrder !== null && existingLayerOrder === null) {
+					shouldReplace = false;
+				} else if (currentLayerOrder !== null && existingLayerOrder !== null) {
+					shouldReplace = currentLayerOrder > existingLayerOrder;
+				}
+			}
+			if (shouldReplace) {
 				declarationsInfo.set(declarationData, { selectorInfo, important: declarationData.important });
 				if (!declarationText.match(REGEXP_VENDOR_IDENTIFIER)) {
 					processedProperties.add(declarationData.property);
@@ -376,6 +619,33 @@ function compareSpecificity(specificity1, specificity2) {
 		return 1;
 	} else {
 		return -1;
+	}
+}
+
+function combineSelectors(parentSelectorText, childSelectorText) {
+	const parentAST = cssTree.parse(parentSelectorText, { context: "selector" });
+	const childAST = cssTree.parse(childSelectorText, { context: "selector" });
+	let hasNestingSelector = false;
+	cssTree.walk(childAST, {
+		visit: "NestingSelector",
+		enter() {
+			hasNestingSelector = true;
+		}
+	});
+	if (hasNestingSelector) {
+		cssTree.walk(childAST, {
+			visit: "NestingSelector",
+			enter(_node, item, list) {
+				parentAST.children.forEach(parentNode => {
+					list.insertData(cssTree.clone(parentNode), item);
+				});
+				list.remove(item);
+			}
+		});
+		return cssTree.generate(childAST);
+	} else {
+		const combinedAST = cssTree.parse(parentSelectorText + " " + childSelectorText, { context: "selector" });
+		return cssTree.generate(combinedAST);
 	}
 }
 

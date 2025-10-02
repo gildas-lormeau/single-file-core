@@ -74,10 +74,14 @@ function processRules(cssRules, sheetIndex, mediaInfo, indexes = { mediaRuleInde
 		if (ruleData.type == "Atrule" && ruleData.name == "import" && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head.data.importedChildren) {
 			processRules(ruleData.prelude.children.head.data.importedChildren, sheetIndex, mediaInfo, indexes);
 		} else if (ruleData.block && ruleData.block.children && ruleData.prelude && ruleData.prelude.children) {
+			let anonymousLayerIndex = 0;
 			if (ruleData.type == "Atrule" && ruleData.name == "media") {
 				const mediaText = cssTree.generate(ruleData.prelude);
 				processRules(ruleData.block.children, sheetIndex, mediaInfo.medias.get("rule-" + sheetIndex + "-" + indexes.mediaRuleIndex + "-" + mediaText));
 				indexes.mediaRuleIndex++;
+			} if (ruleData.type == "Atrulse" && ruleData.name == "layer") {
+				const layerName = cssTree.generate(ruleData.prelude) || String(anonymousLayerIndex++);
+				processRules(ruleData.block.children, sheetIndex, mediaInfo.layers.get(layerName));
 			} else if (ruleData.type == "Rule") {
 				const ruleInfo = mediaInfo.rules.get(ruleData);
 				const pseudoSelectors = mediaInfo.pseudoRules.get(ruleData);
