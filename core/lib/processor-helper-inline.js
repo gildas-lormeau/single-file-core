@@ -183,6 +183,18 @@ function getProcessorHelperClass(utilInstance) {
 							if (mediaQueryListNode) {
 								content.data = this.wrapMediaQuery(content.data, cssTree.generate(mediaQueryListNode));
 							}
+							const layerListNode = cssTree.find(node, node => node.type == "LayerList");
+							if (layerListNode) {
+								const layerNames = [];
+								layerListNode.children.forEach(child => {
+									if (child.type == "Identifier") {
+										layerNames.push(child.name);
+									}
+								});
+								if (layerNames.length == 1) {
+									content.data = this.wrapLayer(content.data, layerNames[0]);
+								}
+							}
 							const importedStylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
 							const ancestorStyleSheets = new Set(importedStyleSheets);
 							ancestorStyleSheets.add(resourceURL);
@@ -465,6 +477,14 @@ function getProcessorHelperClass(utilInstance) {
 		wrapMediaQuery(stylesheetContent, mediaQuery) {
 			if (mediaQuery) {
 				return "@media " + mediaQuery + "{ " + stylesheetContent + " }";
+			} else {
+				return stylesheetContent;
+			}
+		}
+
+		wrapLayer(stylesheetContent, layerName) {
+			if (layerName) {
+				return "@layer " + layerName + " { " + stylesheetContent + " }";
 			} else {
 				return stylesheetContent;
 			}
