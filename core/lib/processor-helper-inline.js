@@ -195,6 +195,10 @@ function getProcessorHelperClass(utilInstance) {
 									content.data = this.wrapLayer(content.data, layerNames[0]);
 								}
 							}
+							const supportsNode = cssTree.find(node, node => node.type == "Supports");
+							if (supportsNode) {
+								content.data = "@supports " + cssTree.generate(supportsNode) + " { " + content.data + " }";
+							}
 							const importedStylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
 							const ancestorStyleSheets = new Set(importedStyleSheets);
 							ancestorStyleSheets.add(resourceURL);

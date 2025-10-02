@@ -92,6 +92,7 @@ function createMediaInfo(media) {
 		media: media,
 		elements: new Map(),
 		medias: new Map(),
+		supports: new Map(),
 		rules: new Map(),
 		pseudoRules: new Map(),
 		layers: new Map(),
@@ -104,7 +105,7 @@ function createMediaInfo(media) {
 }
 
 function getMatchedElementsRules(doc, cssRules, stylesheets, mediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes = {
-	mediaIndex: 0, ruleIndex: 0, anonymousLayerIndex: 0
+	mediaIndex: 0, ruleIndex: 0, anonymousLayerIndex: 0, supportsIndex: 0
 }) {
 	let startTime;
 	if (DEBUG && cssRules.length > 1) {
@@ -196,6 +197,12 @@ function getMatchedElementsRules(doc, cssRules, stylesheets, mediaInfo, sheetInd
 				mediaInfo.medias.set("rule-" + sheetIndex + "-" + indexes.mediaIndex + "-" + mediaText, ruleMediaInfo);
 				getMatchedElementsRules(doc, ruleData.block.children, stylesheets, ruleMediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet);
 				indexes.mediaIndex++;
+			} else if (ruleData.type == "Atrule" && ruleData.name == "supports") {
+				const supportsText = cssTree.generate(ruleData.prelude);
+				const ruleSupportsInfo = createMediaInfo(supportsText);
+				mediaInfo.supports.set("rule-" + sheetIndex + "-" + indexes.supportsIndex + "-" + supportsText, ruleSupportsInfo);
+				getMatchedElementsRules(doc, ruleData.block.children, stylesheets, ruleSupportsInfo, sheetIndex, styles, matchedElementsCache, workStylesheet);
+				indexes.supportsIndex++;
 			} else if (ruleData.type == "Rule") {
 				processRule(doc, ruleData, null, mediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
 			}
@@ -451,6 +458,7 @@ function computeCascade(mediaInfo, parentMediaInfo, mediaAllInfo, workStylesheet
 	rulesToRemove.forEach(ruleData => mediaInfo.rules.delete(ruleData));
 	mediaInfo.layers.forEach(layerInfo => cleanupLayer(layerInfo));
 	mediaInfo.medias.forEach(childMediaInfo => computeCascade(childMediaInfo, [mediaInfo, ...parentMediaInfo], mediaAllInfo, workStylesheet, workStyleElement));
+	mediaInfo.supports.forEach(childSupportsInfo => computeCascade(childSupportsInfo, [mediaInfo, ...parentMediaInfo], mediaAllInfo, workStylesheet, workStyleElement));
 }
 
 function cleanupLayer(layerInfo) {
@@ -578,6 +586,7 @@ function sortRules(media) {
 			!ruleInfo1.styleInfo && ruleInfo2.styleInfo ? 1 :
 				compareSpecificity(ruleInfo1.specificity, ruleInfo2.specificity)));
 	media.medias.forEach(sortRules);
+	media.supports.forEach(sortRules);
 }
 
 function computeSpecificity(selector, specificity = { a: 0, b: 0, c: 0 }) {

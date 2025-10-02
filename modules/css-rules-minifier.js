@@ -62,7 +62,7 @@ function process(stylesheets, styles, mediaAllInfo) {
 	return stats;
 }
 
-function processRules(cssRules, sheetIndex, mediaInfo, indexes = { mediaRuleIndex: 0 }) {
+function processRules(cssRules, sheetIndex, mediaInfo, indexes = { mediaRuleIndex: 0, supportsIndex: 0 }) {
 	let startTime;
 	if (DEBUG && cssRules.size > 1) {
 		startTime = Date.now();
@@ -79,7 +79,11 @@ function processRules(cssRules, sheetIndex, mediaInfo, indexes = { mediaRuleInde
 				const mediaText = cssTree.generate(ruleData.prelude);
 				processRules(ruleData.block.children, sheetIndex, mediaInfo.medias.get("rule-" + sheetIndex + "-" + indexes.mediaRuleIndex + "-" + mediaText));
 				indexes.mediaRuleIndex++;
-			} if (ruleData.type == "Atrulse" && ruleData.name == "layer") {
+			} else if (ruleData.type == "Atrule" && ruleData.name == "supports") {
+				const supportsText = cssTree.generate(ruleData.prelude);
+				processRules(ruleData.block.children, sheetIndex, mediaInfo.supports.get("rule-" + sheetIndex + "-" + indexes.supportsIndex + "-" + supportsText));
+				indexes.supportsIndex++;
+			} else if (ruleData.type == "Atrule" && ruleData.name == "layer") {
 				const layerName = cssTree.generate(ruleData.prelude) || String(anonymousLayerIndex++);
 				processRules(ruleData.block.children, sheetIndex, mediaInfo.layers.get(layerName));
 			} else if (ruleData.type == "Rule") {
