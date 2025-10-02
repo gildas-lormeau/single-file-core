@@ -62,7 +62,7 @@ function process(stylesheets, styles, mediaAllInfo) {
 	return stats;
 }
 
-function processRules(cssRules, sheetIndex, mediaInfo, indexes = { mediaRuleIndex: 0, supportsIndex: 0 }) {
+function processRules(cssRules, sheetIndex, ruleContext, indexes = { mediaRuleIndex: 0, supportsIndex: 0 }) {
 	let startTime;
 	if (DEBUG && cssRules.size > 1) {
 		startTime = Date.now();
@@ -72,23 +72,23 @@ function processRules(cssRules, sheetIndex, mediaInfo, indexes = { mediaRuleInde
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		const ruleData = cssRule.data;
 		if (ruleData.type == "Atrule" && ruleData.name == "import" && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head.data.importedChildren) {
-			processRules(ruleData.prelude.children.head.data.importedChildren, sheetIndex, mediaInfo, indexes);
+			processRules(ruleData.prelude.children.head.data.importedChildren, sheetIndex, ruleContext, indexes);
 		} else if (ruleData.block && ruleData.block.children && ruleData.prelude && ruleData.prelude.children) {
 			let anonymousLayerIndex = 0;
 			if (ruleData.type == "Atrule" && ruleData.name == "media") {
 				const mediaText = cssTree.generate(ruleData.prelude);
-				processRules(ruleData.block.children, sheetIndex, mediaInfo.medias.get("rule-" + sheetIndex + "-" + indexes.mediaRuleIndex + "-" + mediaText));
+				processRules(ruleData.block.children, sheetIndex, ruleContext.medias.get("rule-" + sheetIndex + "-" + indexes.mediaRuleIndex + "-" + mediaText));
 				indexes.mediaRuleIndex++;
 			} else if (ruleData.type == "Atrule" && ruleData.name == "supports") {
 				const supportsText = cssTree.generate(ruleData.prelude);
-				processRules(ruleData.block.children, sheetIndex, mediaInfo.supports.get("rule-" + sheetIndex + "-" + indexes.supportsIndex + "-" + supportsText));
+				processRules(ruleData.block.children, sheetIndex, ruleContext.supports.get("rule-" + sheetIndex + "-" + indexes.supportsIndex + "-" + supportsText));
 				indexes.supportsIndex++;
 			} else if (ruleData.type == "Atrule" && ruleData.name == "layer") {
 				const layerName = cssTree.generate(ruleData.prelude) || String(anonymousLayerIndex++);
-				processRules(ruleData.block.children, sheetIndex, mediaInfo.layers.get(layerName));
+				processRules(ruleData.block.children, sheetIndex, ruleContext.layers.get(layerName));
 			} else if (ruleData.type == "Rule") {
-				const ruleInfo = mediaInfo.rules.get(ruleData);
-				const pseudoSelectors = mediaInfo.pseudoRules.get(ruleData);
+				const ruleInfo = ruleContext.rules.get(ruleData);
+				const pseudoSelectors = ruleContext.pseudoRules.get(ruleData);
 				if (!ruleInfo && !pseudoSelectors) {
 					removedCssRules.push(cssRule);
 				} else if (ruleInfo) {

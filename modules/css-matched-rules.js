@@ -33,7 +33,7 @@ const DEBUG = false;
 class MatchedRules {
 	constructor(doc, stylesheets, styles) {
 		this.doc = doc;
-		this.mediaAllInfo = createMediaInfo(MEDIA_ALL);
+		this.mediaAllInfo = createRuleContext(MEDIA_ALL);
 		const matchedElementsCache = new Map();
 		let sheetIndex = 0;
 		const workStyleSheet = doc.createElement("style");
@@ -45,9 +45,9 @@ class MatchedRules {
 				const cssRules = stylesheetInfo.stylesheet.children;
 				if (cssRules) {
 					if (stylesheetInfo.mediaText && stylesheetInfo.mediaText != MEDIA_ALL) {
-						const mediaInfo = createMediaInfo(stylesheetInfo.mediaText);
-						this.mediaAllInfo.medias.set("style-" + sheetIndex + "-" + stylesheetInfo.mediaText, mediaInfo);
-						getMatchedElementsRules(doc, cssRules, stylesheets, mediaInfo, sheetIndex, styles, matchedElementsCache, workStyleSheet);
+						const ruleContext = createRuleContext(stylesheetInfo.mediaText);
+						this.mediaAllInfo.medias.set("style-" + sheetIndex + "-" + stylesheetInfo.mediaText, ruleContext);
+						getMatchedElementsRules(doc, cssRules, stylesheets, ruleContext, sheetIndex, styles, matchedElementsCache, workStyleSheet);
 					} else {
 						getMatchedElementsRules(doc, cssRules, stylesheets, this.mediaAllInfo, sheetIndex, styles, matchedElementsCache, workStyleSheet);
 					}
@@ -87,8 +87,8 @@ function getMediaAllInfo(doc, stylesheets, styles) {
 	return new MatchedRules(doc, stylesheets, styles).getMediaAllInfo();
 }
 
-function createMediaInfo(media) {
-	const mediaInfo = {
+function createRuleContext(media) {
+	const ruleContext = {
 		media: media,
 		elements: new Map(),
 		medias: new Map(),
@@ -99,12 +99,12 @@ function createMediaInfo(media) {
 		layerOrder: []
 	};
 	if (media == MEDIA_ALL) {
-		mediaInfo.matchedStyles = new Map();
+		ruleContext.matchedStyles = new Map();
 	}
-	return mediaInfo;
+	return ruleContext;
 }
 
-function getMatchedElementsRules(doc, cssRules, stylesheets, mediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes = {
+function getMatchedElementsRules(doc, cssRules, stylesheets, ruleContext, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes = {
 	mediaIndex: 0, ruleIndex: 0, anonymousLayerIndex: 0, supportsIndex: 0
 }) {
 	let startTime;
@@ -114,12 +114,12 @@ function getMatchedElementsRules(doc, cssRules, stylesheets, mediaInfo, sheetInd
 	}
 	cssRules.forEach(ruleData => {
 		if (ruleData.type == "Atrule" && ruleData.name == "import" && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head.data.importedChildren) {
-			getMatchedElementsRules(doc, ruleData.prelude.children.head.data.importedChildren, stylesheets, mediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
+			getMatchedElementsRules(doc, ruleData.prelude.children.head.data.importedChildren, stylesheets, ruleContext, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
 		} else if (ruleData.type == "Atrule" && ruleData.name == "layer") {
 			const parentLayerContext = indexes.layerContext;
 			const targetLayerContainer = parentLayerContext && parentLayerContext.layerInfo
 				? parentLayerContext.layerInfo
-				: mediaInfo;
+				: ruleContext;
 
 			if (ruleData.prelude) {
 				const layerNames = [];
@@ -155,7 +155,7 @@ function getMatchedElementsRules(doc, cssRules, stylesheets, mediaInfo, sheetInd
 						const previousAnonymousCount = indexes.anonymousLayerIndex;
 						indexes.layerContext = { layerName: layerNames[0], layerInfo };
 						indexes.anonymousLayerIndex = 0;
-						getMatchedElementsRules(doc, ruleData.block.children, stylesheets, mediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
+						getMatchedElementsRules(doc, ruleData.block.children, stylesheets, ruleContext, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
 						indexes.anonymousLayerIndex = previousAnonymousCount;
 						if (parentLayerContext) {
 							indexes.layerContext = parentLayerContext;
@@ -182,7 +182,7 @@ function getMatchedElementsRules(doc, cssRules, stylesheets, mediaInfo, sheetInd
 				indexes.layerContext = { layerName: anonymousLayerName, layerInfo: anonymousLayer };
 				const previousAnonymousCountForNested = indexes.anonymousLayerIndex;
 				indexes.anonymousLayerIndex = 0;
-				getMatchedElementsRules(doc, ruleData.block.children, stylesheets, mediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
+				getMatchedElementsRules(doc, ruleData.block.children, stylesheets, ruleContext, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
 				indexes.anonymousLayerIndex = previousAnonymousCountForNested;
 				if (parentLayerContext) {
 					indexes.layerContext = parentLayerContext;
@@ -193,18 +193,18 @@ function getMatchedElementsRules(doc, cssRules, stylesheets, mediaInfo, sheetInd
 		} else if (ruleData.block && ruleData.block.children && ruleData.prelude && ruleData.prelude.children) {
 			if (ruleData.type == "Atrule" && ruleData.name == "media") {
 				const mediaText = cssTree.generate(ruleData.prelude);
-				const ruleMediaInfo = createMediaInfo(mediaText);
-				mediaInfo.medias.set("rule-" + sheetIndex + "-" + indexes.mediaIndex + "-" + mediaText, ruleMediaInfo);
+				const ruleMediaInfo = createRuleContext(mediaText);
+				ruleContext.medias.set("rule-" + sheetIndex + "-" + indexes.mediaIndex + "-" + mediaText, ruleMediaInfo);
 				getMatchedElementsRules(doc, ruleData.block.children, stylesheets, ruleMediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet);
 				indexes.mediaIndex++;
 			} else if (ruleData.type == "Atrule" && ruleData.name == "supports") {
 				const supportsText = cssTree.generate(ruleData.prelude);
-				const ruleSupportsInfo = createMediaInfo(supportsText);
-				mediaInfo.supports.set("rule-" + sheetIndex + "-" + indexes.supportsIndex + "-" + supportsText, ruleSupportsInfo);
+				const ruleSupportsInfo = createRuleContext(supportsText);
+				ruleContext.supports.set("rule-" + sheetIndex + "-" + indexes.supportsIndex + "-" + supportsText, ruleSupportsInfo);
 				getMatchedElementsRules(doc, ruleData.block.children, stylesheets, ruleSupportsInfo, sheetIndex, styles, matchedElementsCache, workStylesheet);
 				indexes.supportsIndex++;
 			} else if (ruleData.type == "Rule") {
-				processRule(doc, ruleData, null, mediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
+				processRule(doc, ruleData, null, ruleContext, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
 			}
 		}
 	});
@@ -213,7 +213,7 @@ function getMatchedElementsRules(doc, cssRules, stylesheets, mediaInfo, sheetInd
 	}
 }
 
-function processRule(doc, ruleData, parentRuleData, mediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes) {
+function processRule(doc, ruleData, parentRuleData, ruleContext, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes) {
 	const selectors = ruleData.prelude.children.toArray();
 	const selectorsText = ruleData.prelude.children.toArray().map(selector => cssTree.generate(selector));
 	let hasNestedRules = false;
@@ -239,7 +239,7 @@ function processRule(doc, ruleData, parentRuleData, mediaInfo, sheetIndex, style
 	}
 	const ruleInfo = {
 		ruleData,
-		mediaInfo,
+		ruleContext,
 		ruleIndex: indexes.ruleIndex,
 		sheetIndex,
 		matchedSelectors: new Set(),
@@ -259,14 +259,14 @@ function processRule(doc, ruleData, parentRuleData, mediaInfo, sheetIndex, style
 		layerContext.layerInfo.rules.set(ruleData, ruleInfo);
 	}
 	if (hasNestedRules && !layerName) {
-		mediaInfo.rules.set(ruleData, ruleInfo);
+		ruleContext.rules.set(ruleData, ruleInfo);
 	}
 	if (!invalidSelector(selectorsText.join(","), workStylesheet) || selectorsText.find(selectorText => selectorText.includes("|"))) {
 		for (let selector = ruleData.prelude.children.head, selectorIndex = 0; selector; selector = selector.next, selectorIndex++) {
 			let selectorText = selectorsText[selectorIndex];
 			let selectorForSpecificity = selector;
 			if (parentRuleData) {
-				const parentRuleInfo = mediaInfo.rules.get(parentRuleData);
+				const parentRuleInfo = ruleContext.rules.get(parentRuleData);
 				const parentSelectorText = parentRuleInfo && parentRuleInfo.expandedSelectorText
 					? parentRuleInfo.expandedSelectorText
 					: cssTree.generate(parentRuleData.prelude.children.head.data);
@@ -277,6 +277,7 @@ function processRule(doc, ruleData, parentRuleData, mediaInfo, sheetIndex, style
 				const expandedAST = cssTree.parse(expandedSelectorText, { context: "selector" });
 				selectorForSpecificity = { data: expandedAST };
 			}
+
 			const selectorInfo = { selector: selectorForSpecificity, selectorText, ruleInfo };
 			getMatchedElementsSelector(doc, selectorInfo, styles, matchedElementsCache);
 		}
@@ -284,7 +285,7 @@ function processRule(doc, ruleData, parentRuleData, mediaInfo, sheetIndex, style
 	if (ruleData.block && ruleData.block.children) {
 		for (let child = ruleData.block.children.head; child; child = child.next) {
 			if (child.data.type == "Rule") {
-				processRule(doc, child.data, ruleData, mediaInfo, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
+				processRule(doc, child.data, ruleData, ruleContext, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
 			}
 		}
 	}
@@ -324,7 +325,7 @@ function getMatchedElementsSelector(doc, selectorInfo, styles, matchedElementsCa
 			} else {
 				const targetContainer = selectorInfo.ruleInfo.layerName && selectorInfo.ruleInfo.layerContext
 					? selectorInfo.ruleInfo.layerContext.layerInfo
-					: selectorInfo.ruleInfo.mediaInfo;
+					: selectorInfo.ruleInfo.ruleContext;
 				let pseudoSelectors = targetContainer.pseudoRules.get(selectorInfo.ruleInfo.ruleData);
 				if (!pseudoSelectors) {
 					pseudoSelectors = new Set();
@@ -388,15 +389,15 @@ function getFilteredSelector(selector, selectorText) {
 }
 
 function addRule(element, selectorInfo, styles) {
-	const mediaInfo = selectorInfo.ruleInfo.mediaInfo;
+	const ruleContext = selectorInfo.ruleInfo.ruleContext;
 	const elementStyle = styles.get(element);
-	let elementInfo = mediaInfo.elements.get(element);
+	let elementInfo = ruleContext.elements.get(element);
 	if (!elementInfo) {
 		elementInfo = [];
 		if (elementStyle) {
 			elementInfo.push({ styleInfo: { styleData: elementStyle, declarations: new Set() } });
 		}
-		mediaInfo.elements.set(element, elementInfo);
+		ruleContext.elements.set(element, elementInfo);
 	}
 	const specificity = computeSpecificity(selectorInfo.selector.data);
 	specificity.ruleIndex = selectorInfo.ruleInfo.ruleIndex;
@@ -406,15 +407,15 @@ function addRule(element, selectorInfo, styles) {
 	elementInfo.push(selectorInfo);
 }
 
-function computeCascade(mediaInfo, parentMediaInfo, mediaAllInfo, workStylesheet, workStyleElement) {
-	mediaInfo.elements.forEach((elementInfo/*, element*/) =>
+function computeCascade(ruleContext, parentRuleContext, mediaAllInfo, workStylesheet, workStyleElement) {
+	ruleContext.elements.forEach((elementInfo/*, element*/) =>
 		getDeclarationsInfo(elementInfo, workStylesheet, workStyleElement/*, element*/).forEach((declarationsInfo, property) => {
-			if (declarationsInfo.selectorInfo.ruleInfo || mediaInfo == mediaAllInfo) {
+			if (declarationsInfo.selectorInfo.ruleInfo || ruleContext == mediaAllInfo) {
 				let info;
 				if (declarationsInfo.selectorInfo.ruleInfo) {
 					info = declarationsInfo.selectorInfo.ruleInfo;
 					const ruleData = info.ruleData;
-					const ascendantMedia = [mediaInfo, ...parentMediaInfo].find(media => media.rules.get(ruleData)) || mediaInfo;
+					const ascendantMedia = [ruleContext, ...parentRuleContext].find(media => media.rules.get(ruleData)) || ruleContext;
 					if (!info.layerName) {
 						ascendantMedia.rules.set(ruleData, info);
 					}
@@ -434,17 +435,17 @@ function computeCascade(mediaInfo, parentMediaInfo, mediaAllInfo, workStylesheet
 				}
 			}
 		}));
-	delete mediaInfo.elements;
-	const sortedRules = new Map([...mediaInfo.rules.entries()].sort((a, b) => a[1].ruleIndex - b[1].ruleIndex));
-	mediaInfo.rules = sortedRules;
+	delete ruleContext.elements;
+	const sortedRules = new Map([...ruleContext.rules.entries()].sort((a, b) => a[1].ruleIndex - b[1].ruleIndex));
+	ruleContext.rules = sortedRules;
 	const rulesToRemove = [];
-	mediaInfo.rules.forEach((ruleInfo, ruleData) => {
+	ruleContext.rules.forEach((ruleInfo, ruleData) => {
 		if (ruleInfo.hasNestedRules) {
 			const hasDirectDeclarations = ruleInfo.declarations.size > 0;
 			let hasWinningNestedChildren = false;
 			if (ruleData.block && ruleData.block.children) {
 				for (let child = ruleData.block.children.head; child; child = child.next) {
-					if (child.data.type === "Rule" && mediaInfo.rules.has(child.data)) {
+					if (child.data.type === "Rule" && ruleContext.rules.has(child.data)) {
 						hasWinningNestedChildren = true;
 						break;
 					}
@@ -455,10 +456,10 @@ function computeCascade(mediaInfo, parentMediaInfo, mediaAllInfo, workStylesheet
 			}
 		}
 	});
-	rulesToRemove.forEach(ruleData => mediaInfo.rules.delete(ruleData));
-	mediaInfo.layers.forEach(layerInfo => cleanupLayer(layerInfo));
-	mediaInfo.medias.forEach(childMediaInfo => computeCascade(childMediaInfo, [mediaInfo, ...parentMediaInfo], mediaAllInfo, workStylesheet, workStyleElement));
-	mediaInfo.supports.forEach(childSupportsInfo => computeCascade(childSupportsInfo, [mediaInfo, ...parentMediaInfo], mediaAllInfo, workStylesheet, workStyleElement));
+	rulesToRemove.forEach(ruleData => ruleContext.rules.delete(ruleData));
+	ruleContext.layers.forEach(layerInfo => cleanupLayer(layerInfo));
+	ruleContext.medias.forEach(childMediaInfo => computeCascade(childMediaInfo, [ruleContext, ...parentRuleContext], mediaAllInfo, workStylesheet, workStyleElement));
+	ruleContext.supports.forEach(childSupportsInfo => computeCascade(childSupportsInfo, [ruleContext, ...parentRuleContext], mediaAllInfo, workStylesheet, workStyleElement));
 }
 
 function cleanupLayer(layerInfo) {
