@@ -83,6 +83,10 @@ function processRules(cssRules, sheetIndex, ruleContext, indexes = { mediaRuleIn
 				const supportsText = cssTree.generate(ruleData.prelude);
 				processRules(ruleData.block.children, sheetIndex, ruleContext.supports.get("rule-" + sheetIndex + "-" + indexes.supportsIndex + "-" + supportsText));
 				indexes.supportsIndex++;
+			} else if (ruleData.type == "Atrule" && ruleData.name == "container") {
+				const containerText = cssTree.generate(ruleData.prelude);
+				processRules(ruleData.block.children, sheetIndex, ruleContext.containers.get("rule-" + sheetIndex + "-" + indexes.containerIndex + "-" + containerText));
+				indexes.containerIndex++;
 			} else if (ruleData.type == "Atrule" && ruleData.name == "layer") {
 				const layerName = cssTree.generate(ruleData.prelude) || String(anonymousLayerIndex++);
 				processRules(ruleData.block.children, sheetIndex, ruleContext.layers.get(layerName));

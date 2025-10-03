@@ -93,6 +93,7 @@ function createRuleContext(media) {
 		elements: new Map(),
 		medias: new Map(),
 		supports: new Map(),
+		containers: new Map(),
 		rules: new Map(),
 		pseudoRules: new Map(),
 		layers: new Map(),
@@ -105,7 +106,7 @@ function createRuleContext(media) {
 }
 
 function getMatchedElementsRules(doc, cssRules, stylesheets, ruleContext, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes = {
-	mediaIndex: 0, ruleIndex: 0, anonymousLayerIndex: 0, supportsIndex: 0
+	mediaIndex: 0, ruleIndex: 0, anonymousLayerIndex: 0, supportsIndex: 0, containerIndex: 0
 }) {
 	let startTime;
 	if (DEBUG && cssRules.length > 1) {
@@ -203,6 +204,12 @@ function getMatchedElementsRules(doc, cssRules, stylesheets, ruleContext, sheetI
 				ruleContext.supports.set("rule-" + sheetIndex + "-" + indexes.supportsIndex + "-" + supportsText, ruleSupportsInfo);
 				getMatchedElementsRules(doc, ruleData.block.children, stylesheets, ruleSupportsInfo, sheetIndex, styles, matchedElementsCache, workStylesheet);
 				indexes.supportsIndex++;
+			} else if (ruleData.type == "Atrule" && ruleData.name == "container") {
+				const containerText = cssTree.generate(ruleData.prelude);
+				const ruleContainerInfo = createRuleContext(containerText);
+				ruleContext.containers.set("rule-" + sheetIndex + "-" + indexes.containerIndex + "-" + containerText, ruleContainerInfo);
+				getMatchedElementsRules(doc, ruleData.block.children, stylesheets, ruleContainerInfo, sheetIndex, styles, matchedElementsCache, workStylesheet);
+				indexes.containerIndex++;
 			} else if (ruleData.type == "Rule") {
 				processRule(doc, ruleData, null, ruleContext, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
 			}
@@ -461,6 +468,7 @@ function computeCascade(ruleContext, parentRuleContext, mediaAllInfo, workStyles
 	ruleContext.layers.forEach(layerInfo => cleanupLayer(layerInfo));
 	ruleContext.medias.forEach(childMediaInfo => computeCascade(childMediaInfo, [ruleContext, ...parentRuleContext], mediaAllInfo, workStylesheet, workStyleElement));
 	ruleContext.supports.forEach(childSupportsInfo => computeCascade(childSupportsInfo, [ruleContext, ...parentRuleContext], mediaAllInfo, workStylesheet, workStyleElement));
+	ruleContext.containers.forEach(childContainerInfo => computeCascade(childContainerInfo, [ruleContext, ...parentRuleContext], mediaAllInfo, workStylesheet, workStyleElement));
 }
 
 function cleanupLayer(layerInfo) {
@@ -601,6 +609,7 @@ function sortRules(media) {
 				compareSpecificity(ruleInfo1.specificity, ruleInfo2.specificity)));
 	media.medias.forEach(sortRules);
 	media.supports.forEach(sortRules);
+	media.containers.forEach(sortRules);
 }
 
 function computeSpecificity(selector, specificity = { a: 0, b: 0, c: 0 }) {
