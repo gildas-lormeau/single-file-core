@@ -255,9 +255,6 @@ function processRule(doc, ruleData, parentRuleData, ruleContext, sheetIndex, sty
 		layerContext
 	};
 	indexes.ruleIndex++;
-	if (layerContext && layerContext.layerInfo) {
-		layerContext.layerInfo.rules.set(ruleData, ruleInfo);
-	}
 	if (hasNestedRules && !layerName) {
 		ruleContext.rules.set(ruleData, ruleInfo);
 	}
@@ -416,7 +413,11 @@ function computeCascade(ruleContext, parentRuleContext, mediaAllInfo, workStyles
 					info = declarationsInfo.selectorInfo.ruleInfo;
 					const ruleData = info.ruleData;
 					const ascendantMedia = [ruleContext, ...parentRuleContext].find(media => media.rules.get(ruleData)) || ruleContext;
-					if (!info.layerName) {
+					if (info.layerName) {
+						if (info.layerContext && info.layerContext.layerInfo) {
+							info.layerContext.layerInfo.rules.set(ruleData, info);
+						}
+					} else {
 						ascendantMedia.rules.set(ruleData, info);
 					}
 					if (ruleData) {
@@ -512,6 +513,7 @@ function cleanupLayer(layerInfo) {
 function getDeclarationsInfo(elementInfo, workStylesheet, workStyleElement/*, element*/) {
 	const declarationsInfo = new Map();
 	const processedProperties = new Set();
+	const propertyToDeclaration = new Map();
 	elementInfo.forEach(selectorInfo => {
 		let declarations;
 		if (selectorInfo.styleInfo) {
@@ -519,19 +521,26 @@ function getDeclarationsInfo(elementInfo, workStylesheet, workStyleElement/*, el
 		} else {
 			declarations = selectorInfo.ruleInfo.ruleData.block.children;
 		}
-		processDeclarations(declarationsInfo, declarations, selectorInfo, processedProperties, workStylesheet, workStyleElement);
+		processDeclarations(declarationsInfo, declarations, selectorInfo, processedProperties, workStylesheet, workStyleElement, propertyToDeclaration);
 	});
 	return declarationsInfo;
 }
 
-function processDeclarations(declarationsInfo, declarations, selectorInfo, processedProperties, _workStylesheet, workStyleElement) {
+function processDeclarations(declarationsInfo, declarations, selectorInfo, processedProperties, _workStylesheet, workStyleElement, propertyToDeclaration) {
 	for (let declaration = declarations.tail; declaration; declaration = declaration.prev) {
 		const declarationData = declaration.data;
 		const declarationText = cssTree.generate(declarationData);
-		if (declarationData.type == "Declaration" &&
-			(declarationText.match(REGEXP_VENDOR_IDENTIFIER) || !processedProperties.has(declarationData.property) || declarationData.important) && !invalidDeclaration(declarationText, workStyleElement)) {
-			const declarationInfo = declarationsInfo.get(declarationData);
-			const currentLayerOrder = selectorInfo.ruleInfo ? selectorInfo.ruleInfo.layerOrder : null;
+		const currentLayerOrder = selectorInfo.ruleInfo ? selectorInfo.ruleInfo.layerOrder : null;
+		const shouldProcess = declarationData.type == "Declaration" &&
+			!invalidDeclaration(declarationText, workStyleElement) &&
+			(declarationText.match(REGEXP_VENDOR_IDENTIFIER) ||
+				!processedProperties.has(declarationData.property) ||
+				declarationData.important ||
+				currentLayerOrder !== null);
+
+		if (shouldProcess) {
+			const existingDeclarationData = propertyToDeclaration.get(declarationData.property);
+			const declarationInfo = existingDeclarationData ? declarationsInfo.get(existingDeclarationData) : undefined;
 			const existingLayerOrder = declarationInfo && declarationInfo.selectorInfo.ruleInfo ? declarationInfo.selectorInfo.ruleInfo.layerOrder : null;
 			let shouldReplace = false;
 			if (!declarationInfo) {
@@ -556,7 +565,11 @@ function processDeclarations(declarationsInfo, declarations, selectorInfo, proce
 				}
 			}
 			if (shouldReplace) {
+				if (existingDeclarationData) {
+					declarationsInfo.delete(existingDeclarationData);
+				}
 				declarationsInfo.set(declarationData, { selectorInfo, important: declarationData.important });
+				propertyToDeclaration.set(declarationData.property, declarationData);
 				if (!declarationText.match(REGEXP_VENDOR_IDENTIFIER)) {
 					processedProperties.add(declarationData.property);
 				}
