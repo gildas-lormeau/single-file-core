@@ -168,7 +168,7 @@ function getMatchedElementsRules(doc, cssRules, stylesheets, ruleContext, sheetI
 			} else if (ruleData.block && ruleData.block.children) {
 				const previousAnonymousCount = indexes.anonymousLayerIndex;
 				indexes.anonymousLayerIndex++;
-				const anonymousLayerName = `${previousAnonymousCount}`;
+				const anonymousLayerName = "anonymous-" + sheetIndex + "-" + previousAnonymousCount;
 				const anonymousLayerOrder = targetLayerContainer.layerOrder.length;
 				const anonymousLayer = {
 					order: anonymousLayerOrder,
@@ -570,7 +570,6 @@ function processDeclarations(declarationsInfo, declarations, selectorInfo, proce
 				declarationData.important ||
 				currentLayerOrder !== null ||
 				isRevertProperty);
-
 		if (shouldProcess) {
 			if (isRevertProperty) {
 				declarationsInfo.set(declarationData, { selectorInfo, important: declarationData.important });

@@ -88,7 +88,10 @@ function processRules(cssRules, sheetIndex, ruleContext, indexes = { mediaRuleIn
 				processRules(ruleData.block.children, sheetIndex, ruleContext.containers.get("rule-" + sheetIndex + "-" + indexes.containerIndex + "-" + containerText));
 				indexes.containerIndex++;
 			} else if (ruleData.type == "Atrule" && ruleData.name == "layer") {
-				const layerName = cssTree.generate(ruleData.prelude) || String(anonymousLayerIndex++);
+				let layerName = cssTree.generate(ruleData.prelude);
+				if (!layerName) {
+					layerName = "anonymous-" + sheetIndex + "-" + anonymousLayerIndex++;
+				}
 				processRules(ruleData.block.children, sheetIndex, ruleContext.layers.get(layerName));
 			} else if (ruleData.type == "Rule") {
 				const ruleInfo = ruleContext.rules.get(ruleData);
