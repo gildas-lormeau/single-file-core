@@ -522,6 +522,7 @@ function getDeclarationsInfo(elementInfo, workStylesheet, workStyleElement/*, el
 	const declarationsInfo = new Map();
 	const processedProperties = new Set();
 	const propertyToDeclaration = new Map();
+	const revertProperties = new Set();
 	elementInfo.forEach(selectorInfo => {
 		let declarations;
 		if (selectorInfo.styleInfo) {
@@ -529,57 +530,85 @@ function getDeclarationsInfo(elementInfo, workStylesheet, workStyleElement/*, el
 		} else {
 			declarations = selectorInfo.ruleInfo.ruleData.block.children;
 		}
-		processDeclarations(declarationsInfo, declarations, selectorInfo, processedProperties, workStylesheet, workStyleElement, propertyToDeclaration);
+		for (let declaration = declarations.head; declaration; declaration = declaration.next) {
+			const declarationData = declaration.data;
+			if (declarationData.type === "Declaration" && declarationData.value) {
+				const isRevertValue = declarationData.value.type === "Value" &&
+					declarationData.value.children &&
+					declarationData.value.children.first &&
+					declarationData.value.children.first.type === "Identifier" &&
+					(declarationData.value.children.first.name === "revert" ||
+						declarationData.value.children.first.name === "revert-layer");
+				if (isRevertValue) {
+					revertProperties.add(declarationData.property);
+				}
+			}
+		}
+	});
+	elementInfo.forEach(selectorInfo => {
+		let declarations;
+		if (selectorInfo.styleInfo) {
+			declarations = selectorInfo.styleInfo.styleData.children;
+		} else {
+			declarations = selectorInfo.ruleInfo.ruleData.block.children;
+		}
+		processDeclarations(declarationsInfo, declarations, selectorInfo, processedProperties, workStylesheet, workStyleElement, propertyToDeclaration, revertProperties);
 	});
 	return declarationsInfo;
 }
 
-function processDeclarations(declarationsInfo, declarations, selectorInfo, processedProperties, _workStylesheet, workStyleElement, propertyToDeclaration) {
+function processDeclarations(declarationsInfo, declarations, selectorInfo, processedProperties, _workStylesheet, workStyleElement, propertyToDeclaration, revertProperties) {
 	for (let declaration = declarations.tail; declaration; declaration = declaration.prev) {
 		const declarationData = declaration.data;
 		const declarationText = cssTree.generate(declarationData);
 		const currentLayerOrder = selectorInfo.ruleInfo ? selectorInfo.ruleInfo.layerOrder : null;
+		const isRevertProperty = declarationData.type === "Declaration" && revertProperties.has(declarationData.property);
 		const shouldProcess = declarationData.type == "Declaration" &&
 			!invalidDeclaration(declarationText, workStyleElement) &&
 			(declarationText.match(REGEXP_VENDOR_IDENTIFIER) ||
 				!processedProperties.has(declarationData.property) ||
 				declarationData.important ||
-				currentLayerOrder !== null);
+				currentLayerOrder !== null ||
+				isRevertProperty);
 
 		if (shouldProcess) {
-			const existingDeclarationData = propertyToDeclaration.get(declarationData.property);
-			const declarationInfo = existingDeclarationData ? declarationsInfo.get(existingDeclarationData) : undefined;
-			const existingLayerOrder = declarationInfo && declarationInfo.selectorInfo.ruleInfo ? declarationInfo.selectorInfo.ruleInfo.layerOrder : null;
-			let shouldReplace = false;
-			if (!declarationInfo) {
-				shouldReplace = true;
-			} else if (declarationData.important && !declarationInfo.important) {
-				shouldReplace = true;
-			} else if (declarationData.important && declarationInfo.important) {
-				if (currentLayerOrder === null && existingLayerOrder !== null) {
-					shouldReplace = false;
-				} else if (currentLayerOrder !== null && existingLayerOrder === null) {
-					shouldReplace = true;
-				} else if (currentLayerOrder !== null && existingLayerOrder !== null) {
-					shouldReplace = currentLayerOrder < existingLayerOrder;
-				}
-			} else if (!declarationData.important && !declarationInfo.important) {
-				if (currentLayerOrder === null && existingLayerOrder !== null) {
-					shouldReplace = true;
-				} else if (currentLayerOrder !== null && existingLayerOrder === null) {
-					shouldReplace = false;
-				} else if (currentLayerOrder !== null && existingLayerOrder !== null) {
-					shouldReplace = currentLayerOrder > existingLayerOrder;
-				}
-			}
-			if (shouldReplace) {
-				if (existingDeclarationData) {
-					declarationsInfo.delete(existingDeclarationData);
-				}
+			if (isRevertProperty) {
 				declarationsInfo.set(declarationData, { selectorInfo, important: declarationData.important });
-				propertyToDeclaration.set(declarationData.property, declarationData);
-				if (!declarationText.match(REGEXP_VENDOR_IDENTIFIER)) {
-					processedProperties.add(declarationData.property);
+			} else {
+				const existingDeclarationData = propertyToDeclaration.get(declarationData.property);
+				const declarationInfo = existingDeclarationData ? declarationsInfo.get(existingDeclarationData) : undefined;
+				const existingLayerOrder = declarationInfo && declarationInfo.selectorInfo.ruleInfo ? declarationInfo.selectorInfo.ruleInfo.layerOrder : null;
+				let shouldReplace = false;
+				if (!declarationInfo) {
+					shouldReplace = true;
+				} else if (declarationData.important && !declarationInfo.important) {
+					shouldReplace = true;
+				} else if (declarationData.important && declarationInfo.important) {
+					if (currentLayerOrder === null && existingLayerOrder !== null) {
+						shouldReplace = false;
+					} else if (currentLayerOrder !== null && existingLayerOrder === null) {
+						shouldReplace = true;
+					} else if (currentLayerOrder !== null && existingLayerOrder !== null) {
+						shouldReplace = currentLayerOrder < existingLayerOrder;
+					}
+				} else if (!declarationData.important && !declarationInfo.important) {
+					if (currentLayerOrder === null && existingLayerOrder !== null) {
+						shouldReplace = true;
+					} else if (currentLayerOrder !== null && existingLayerOrder === null) {
+						shouldReplace = false;
+					} else if (currentLayerOrder !== null && existingLayerOrder !== null) {
+						shouldReplace = currentLayerOrder > existingLayerOrder;
+					}
+				}
+				if (shouldReplace) {
+					if (existingDeclarationData) {
+						declarationsInfo.delete(existingDeclarationData);
+					}
+					declarationsInfo.set(declarationData, { selectorInfo, important: declarationData.important });
+					propertyToDeclaration.set(declarationData.property, declarationData);
+					if (!declarationText.match(REGEXP_VENDOR_IDENTIFIER)) {
+						processedProperties.add(declarationData.property);
+					}
 				}
 			}
 		} else if (declarationData.type == "Rule") {
