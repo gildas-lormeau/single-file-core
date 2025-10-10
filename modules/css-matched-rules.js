@@ -281,7 +281,7 @@ function processRule(doc, ruleData, parentRuleInfo, ruleContext, sheetIndex, sty
 			let expandedSelectorText;
 			let selectorForSpecificity = selector;
 			if (parentRuleInfo) {
-				const parentSelectorText = parentRuleInfo && parentRuleInfo.expandedSelectorText || parentRuleInfo.selectorText
+				const parentSelectorText = parentRuleInfo && parentRuleInfo.expandedSelectorText || parentRuleInfo.selectorText;
 				expandedSelectorText = combineSelectors(parentSelectorText, selectorText);
 				ruleInfo.expandedSelectorText = expandedSelectorText;
 				const expandedAST = cssTree.parse(expandedSelectorText, { context: "selector" });
