@@ -62,20 +62,25 @@ function process(stylesheets, styles, mediaAllInfo) {
 	return stats;
 }
 
-function processRules(cssRules, sheetIndex, ruleContext, indexes = { mediaRuleIndex: 0, supportsIndex: 0 }) {
+function processRules(cssRules, sheetIndex, ruleContext, indexes = { mediaRuleIndex: 0, supportsIndex: 0, anonymousLayerIndex: 0, containerIndex: 0 }) {
 	let startTime;
 	if (DEBUG && cssRules.size > 1) {
 		startTime = Date.now();
 		log("  -- STARTED processRules", "rules.length =", cssRules.size);
 	}
 	const removedCssRules = [];
-	let anonymousLayerIndex = 0;
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		const ruleData = cssRule.data;
 		if (ruleData.type == "Atrule" && ruleData.name == "import" && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head.data.importedChildren) {
 			processRules(ruleData.prelude.children.head.data.importedChildren, sheetIndex, ruleContext, indexes);
 		} else if (ruleData.type == "Atrule" && ruleData.name == "layer" && ruleData.block && ruleData.block.children) {
-			let layerName = ruleData.prelude ? cssTree.generate(ruleData.prelude) : "anonymous-" + sheetIndex + "-" + anonymousLayerIndex++;
+			let layerName;
+			if (ruleData.prelude) {
+				layerName = cssTree.generate(ruleData.prelude);
+			} else {
+				layerName = "anonymous-" + sheetIndex + "-" + indexes.anonymousLayerIndex;
+				indexes.anonymousLayerIndex++;
+			}
 			processRules(ruleData.block.children, sheetIndex, ruleContext.layers.get(layerName));
 		} else if (ruleData.block && ruleData.block.children && ruleData.prelude && ruleData.prelude.children) {
 			if (ruleData.type == "Atrule" && ruleData.name == "media") {
