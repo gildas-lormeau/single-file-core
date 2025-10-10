@@ -69,12 +69,15 @@ function processRules(cssRules, sheetIndex, ruleContext, indexes = { mediaRuleIn
 		log("  -- STARTED processRules", "rules.length =", cssRules.size);
 	}
 	const removedCssRules = [];
+	let anonymousLayerIndex = 0;
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		const ruleData = cssRule.data;
 		if (ruleData.type == "Atrule" && ruleData.name == "import" && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head.data.importedChildren) {
 			processRules(ruleData.prelude.children.head.data.importedChildren, sheetIndex, ruleContext, indexes);
+		} else if (ruleData.type == "Atrule" && ruleData.name == "layer" && ruleData.block && ruleData.block.children) {
+			let layerName = ruleData.prelude ? cssTree.generate(ruleData.prelude) : "anonymous-" + sheetIndex + "-" + anonymousLayerIndex++;
+			processRules(ruleData.block.children, sheetIndex, ruleContext.layers.get(layerName));
 		} else if (ruleData.block && ruleData.block.children && ruleData.prelude && ruleData.prelude.children) {
-			let anonymousLayerIndex = 0;
 			if (ruleData.type == "Atrule" && ruleData.name == "media") {
 				const mediaText = cssTree.generate(ruleData.prelude);
 				processRules(ruleData.block.children, sheetIndex, ruleContext.medias.get("rule-" + sheetIndex + "-" + indexes.mediaRuleIndex + "-" + mediaText));
@@ -87,12 +90,6 @@ function processRules(cssRules, sheetIndex, ruleContext, indexes = { mediaRuleIn
 				const containerText = cssTree.generate(ruleData.prelude);
 				processRules(ruleData.block.children, sheetIndex, ruleContext.containers.get("rule-" + sheetIndex + "-" + indexes.containerIndex + "-" + containerText));
 				indexes.containerIndex++;
-			} else if (ruleData.type == "Atrule" && ruleData.name == "layer") {
-				let layerName = cssTree.generate(ruleData.prelude);
-				if (!layerName) {
-					layerName = "anonymous-" + sheetIndex + "-" + anonymousLayerIndex++;
-				}
-				processRules(ruleData.block.children, sheetIndex, ruleContext.layers.get(layerName));
 			} else if (ruleData.type == "Rule") {
 				const ruleInfo = ruleContext.rules.get(ruleData);
 				const pseudoSelectors = ruleContext.pseudoRules.get(ruleData);
