@@ -110,30 +110,30 @@ async function getPageData(options = {}, initOptions, doc, win) {
 		frames.cleanup(framesSessionId);
 	}
 	const pageData = await processor.getPageData();
-	if (options.compressContent) {
-		const blob = await processors.compression.process(pageData, {
-			insertTextBody: options.insertTextBody,
-			url: options.url,
-			createRootDirectory: options.createRootDirectory,
-			selfExtractingArchive: options.selfExtractingArchive,
-			extractDataFromPage: options.extractDataFromPage,
-			preventAppendedData: options.preventAppendedData,
-			insertCanonicalLink: options.insertCanonicalLink,
-			insertMetaNoIndex: options.insertMetaNoIndex,
-			insertMetaCSP: options.insertMetaCSP,
-			password: options.password,
-			zipScript: options.zipScript,
-			embeddedImage: options.embeddedImage,
-			embeddedPdf: options.embeddedPdf
-		});
-		delete pageData.resources;
-		const reader = new globalThis.FileReader();
-		reader.readAsArrayBuffer(blob);
-		const arrayBuffer = await new Promise((resolve, reject) => {
-			reader.addEventListener("load", () => resolve(reader.result), false);
-			reader.addEventListener("error", event => reject(event.detail.error), false);
-		});
-		pageData.content = Array.from(new Uint8Array(arrayBuffer));
-	}
+	// if (options.compressContent) {
+	// 	const blob = await processors.compression.process(pageData, {
+	// 		insertTextBody: options.insertTextBody,
+	// 		url: options.url,
+	// 		createRootDirectory: options.createRootDirectory,
+	// 		selfExtractingArchive: options.selfExtractingArchive,
+	// 		extractDataFromPage: options.extractDataFromPage,
+	// 		preventAppendedData: options.preventAppendedData,
+	// 		insertCanonicalLink: options.insertCanonicalLink,
+	// 		insertMetaNoIndex: options.insertMetaNoIndex,
+	// 		insertMetaCSP: options.insertMetaCSP,
+	// 		password: options.password,
+	// 		zipScript: options.zipScript,
+	// 		embeddedImage: options.embeddedImage,
+	// 		embeddedPdf: options.embeddedPdf
+	// 	});
+	// 	delete pageData.resources;
+	// 	const reader = new globalThis.FileReader();
+	// 	reader.readAsArrayBuffer(blob);
+	// 	const arrayBuffer = await new Promise((resolve, reject) => {
+	// 		reader.addEventListener("load", () => resolve(reader.result), false);
+	// 		reader.addEventListener("error", event => reject(event.detail.error), false);
+	// 	});
+	// 	pageData.content = Array.from(new Uint8Array(arrayBuffer));
+	// }
 	return pageData;
 }

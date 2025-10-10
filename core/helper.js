@@ -76,7 +76,7 @@ const INFOBAR_TAGNAME = infobar.INFOBAR_TAGNAME;
 const EMPTY_RESOURCE = "data:,";
 const DEFAULT_REPLACED_CHARACTERS = ["~", "+", "?", "%", "*", ":", "|", "\"", "<", ">", "\\\\", "\x00-\x1f", "\x7F"];
 const DEFAULT_REPLACEMENT_CHARACTER = "_";
-const DEFAULT_REPLACEMENT_CHARACTERS = ["～", "＋", "？", "％", "＊", "：", "｜", "＂", "＜", "＞", "＼"];
+// const DEFAULT_REPLACEMENT_CHARACTERS = ["～", "＋", "？", "％", "＊", "：", "｜", "＂", "＜", "＞", "＼"];
 const addEventListener = (type, listener, options) => globalThis.addEventListener(type, listener, options);
 // eslint-disable-next-line no-unused-vars
 const dispatchEvent = event => { try { globalThis.dispatchEvent(event); } catch (error) {  /* ignored */ } };
@@ -734,8 +734,8 @@ function getComputedStyle(win, element, pseudoElement) {
 	}
 }
 
-function getValidFilename(filename, replacedCharacters = DEFAULT_REPLACED_CHARACTERS, replacementCharacter = DEFAULT_REPLACEMENT_CHARACTER, replacementCharacters = DEFAULT_REPLACEMENT_CHARACTERS) {
-	replacementCharacters.forEach((_, index) => filename = filename.replace(new RegExp("[" + replacedCharacters[index] + "]+", "g"), replacementCharacters[index]));
+function getValidFilename(filename, replacedCharacters = DEFAULT_REPLACED_CHARACTERS, replacementCharacter = DEFAULT_REPLACEMENT_CHARACTER, replacementCharacters /* = DEFAULT_REPLACEMENT_CHARACTERS */) {
+	// replacementCharacters.forEach((_, index) => filename = filename.replace(new RegExp("[" + replacedCharacters[index] + "]+", "g"), replacementCharacters[index]));
 	replacedCharacters.forEach(replacedCharacter => filename = filename.replace(new RegExp("[" + replacedCharacter + "]+", "g"), replacementCharacter));
 	filename = filename
 		.replace(/\.\.\//g, "")
