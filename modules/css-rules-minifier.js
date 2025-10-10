@@ -99,6 +99,7 @@ function processRules(cssRules, sheetIndex, ruleContext, indexes = { mediaRuleIn
 				if (!ruleInfo && !pseudoSelectors) {
 					removedCssRules.push(cssRule);
 				} else if (ruleInfo) {
+					processRules(ruleData.block.children, sheetIndex, ruleContext, indexes);
 					processRuleInfo(ruleData, ruleInfo, pseudoSelectors);
 					if (!ruleData.prelude.children.size || !ruleData.block.children.size) {
 						removedCssRules.push(cssRule);
@@ -132,7 +133,7 @@ function processRuleInfo(ruleData, ruleInfo, pseudoSelectors) {
 	}
 	if (!pseudoSelectorFound) {
 		for (let declaration = ruleData.block.children.tail; declaration; declaration = declaration.prev) {
-			if (!ruleInfo.declarations.has(declaration.data)) {
+			if (declaration.type === "Declaration" && !ruleInfo.declarations.has(declaration.data)) {
 				removedDeclarations.push(declaration);
 			}
 		}

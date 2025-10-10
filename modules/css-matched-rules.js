@@ -220,7 +220,7 @@ function getMatchedElementsRules(doc, cssRules, stylesheets, ruleContext, sheetI
 	}
 }
 
-function processRule(doc, ruleData, parentRuleData, ruleContext, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes) {
+function processRule(doc, ruleData, parentRuleInfo, ruleContext, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes) {
 	const selectors = ruleData.prelude.children.toArray();
 	const selectorsText = ruleData.prelude.children.toArray().map(selector => cssTree.generate(selector));
 	let hasNestedRules = false;
@@ -263,9 +263,9 @@ function processRule(doc, ruleData, parentRuleData, ruleContext, sheetIndex, sty
 		declarations: new Set(),
 		selectors,
 		selectorsText,
-		parentRuleData,
+		parentRuleInfo,
 		hasNestedRules,
-		expandedSelectorText: null,
+		selectorText: selectorsText.join(","),
 		layerName,
 		layerOrder,
 		isAnonymousLayer,
@@ -277,29 +277,25 @@ function processRule(doc, ruleData, parentRuleData, ruleContext, sheetIndex, sty
 	}
 	if (!invalidSelector(selectorsText.join(","), workStylesheet) || selectorsText.find(selectorText => selectorText.includes("|"))) {
 		for (let selector = ruleData.prelude.children.head, selectorIndex = 0; selector; selector = selector.next, selectorIndex++) {
-			let selectorText = selectorsText[selectorIndex];
+			const selectorText = selectorsText[selectorIndex];
+			let expandedSelectorText;
 			let selectorForSpecificity = selector;
-			if (parentRuleData) {
-				const parentRuleInfo = ruleContext.rules.get(parentRuleData);
-				const parentSelectorText = parentRuleInfo && parentRuleInfo.expandedSelectorText
-					? parentRuleInfo.expandedSelectorText
-					: cssTree.generate(parentRuleData.prelude.children.head.data);
-
-				const expandedSelectorText = combineSelectors(parentSelectorText, selectorText);
-				selectorText = expandedSelectorText;
+			if (parentRuleInfo) {
+				const parentSelectorText = parentRuleInfo && parentRuleInfo.expandedSelectorText || parentRuleInfo.selectorText
+				expandedSelectorText = combineSelectors(parentSelectorText, selectorText);
 				ruleInfo.expandedSelectorText = expandedSelectorText;
 				const expandedAST = cssTree.parse(expandedSelectorText, { context: "selector" });
 				selectorForSpecificity = { data: expandedAST };
 			}
 
-			const selectorInfo = { selector: selectorForSpecificity, selectorText, ruleInfo };
+			const selectorInfo = { selector: selectorForSpecificity, selectorText, expandedSelectorText, ruleInfo };
 			getMatchedElementsSelector(doc, selectorInfo, styles, matchedElementsCache);
 		}
 	}
 	if (ruleData.block && ruleData.block.children) {
 		for (let child = ruleData.block.children.head; child; child = child.next) {
 			if (child.data.type == "Rule") {
-				processRule(doc, child.data, ruleData, ruleContext, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
+				processRule(doc, child.data, ruleInfo, ruleContext, sheetIndex, styles, matchedElementsCache, workStylesheet, indexes);
 			}
 		}
 	}
@@ -311,8 +307,9 @@ function invalidSelector(selectorText, workStylesheet) {
 }
 
 function getMatchedElementsSelector(doc, selectorInfo, styles, matchedElementsCache) {
-	const filteredSelectorText = getFilteredSelector(selectorInfo.selector, selectorInfo.selectorText);
-	const selectorText = filteredSelectorText != selectorInfo.selectorText ? filteredSelectorText : selectorInfo.selectorText;
+	const expandedSelectorText = selectorInfo.expandedSelectorText || selectorInfo.selectorText;
+	const filteredSelectorText = getFilteredSelector(selectorInfo.selector, expandedSelectorText);
+	const selectorText = filteredSelectorText != expandedSelectorText ? filteredSelectorText : expandedSelectorText;
 	const cachedMatchedElements = matchedElementsCache.get(selectorText);
 	let matchedElements = cachedMatchedElements;
 	if (!matchedElements) {
@@ -334,7 +331,7 @@ function getMatchedElementsSelector(doc, selectorInfo, styles, matchedElementsCa
 			matchedElementsCache.set(selectorText, matchedElements);
 		}
 		if (matchedElements.length) {
-			if (filteredSelectorText == selectorInfo.selectorText) {
+			if (filteredSelectorText == selectorInfo.selectorText || filteredSelectorText == selectorInfo.expandedSelectorText) {
 				matchedElements.forEach(element => addRule(element, selectorInfo, styles));
 			} else {
 				const targetContainer = selectorInfo.ruleInfo.layerName && selectorInfo.ruleInfo.layerContext
