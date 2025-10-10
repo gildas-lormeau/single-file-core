@@ -228,7 +228,9 @@ function processRule(doc, ruleData, parentRuleData, ruleContext, sheetIndex, sty
 		for (let child = ruleData.block.children.head; child; child = child.next) {
 			if (child.data.type == "Raw") {
 				try {
-					child.data = cssTree.parse("& " + child.data.value, { context: "rule" });
+					if (child.data.value.indexOf("{") < child.data.value.indexOf("}")) {
+						child.data = cssTree.parse("& " + child.data.value, { context: "rule" });
+					}
 					// eslint-disable-next-line no-unused-vars
 				} catch (error) {
 					// ignored
