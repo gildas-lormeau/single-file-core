@@ -226,6 +226,14 @@ function processRule(doc, ruleData, parentRuleData, ruleContext, sheetIndex, sty
 	let hasNestedRules = false;
 	if (ruleData.block && ruleData.block.children) {
 		for (let child = ruleData.block.children.head; child; child = child.next) {
+			if (child.data.type == "Raw") {
+				try {
+					child.data = cssTree.parse("& " + child.data.value, { context: "rule" });
+					// eslint-disable-next-line no-unused-vars
+				} catch (error) {
+					// ignored
+				}
+			}
 			if (child.data.type == "Rule") {
 				hasNestedRules = true;
 				break;
