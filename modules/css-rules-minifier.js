@@ -57,6 +57,10 @@ function processStylesheetRules(doc, cssRules, stylesheets, stats, ancestorsSele
 			processStylesheetRules(doc, ruleData.prelude.children.head.data.importedChildren, stylesheets, stats, ancestorsSelectors);
 		} else if (ruleData.type == "Atrule" && ruleData.block && ruleData.name != "font-face" && ruleData.name != "keyframes") {
 			processStylesheetRules(doc, ruleData.block.children, stylesheets, stats, ancestorsSelectors);
+			if (ruleData.block.children.size == 0) {
+				stats.discarded++;
+				removedRules.add(child);
+			}
 		} else if (ruleData.type == "Rule") {
 			const selectorsText = ruleData.prelude.children.toArray().map(selector => cssTree.generate(selector));
 			const removedSelectors = [];
