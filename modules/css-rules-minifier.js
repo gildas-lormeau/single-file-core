@@ -43,7 +43,7 @@ function process(doc, stylesheets) {
 }
 
 function processStylesheetRules(doc, cssRules, stylesheets, stats, ancestorsSelectors = []) {
-	const removedRules = [];
+	const removedRules = new Set();
 	for (let child = cssRules.head; child; child = child.next) {
 		stats.processed++;
 		const ruleData = child.data;
@@ -59,21 +59,17 @@ function processStylesheetRules(doc, cssRules, stylesheets, stats, ancestorsSele
 					removedSelectors.push(selector);
 				}
 			}
-			/*
-			removedSelectors.forEach(selector => {
-				ruleData.prelude.children.remove(selector);
-			});
-			*/
+			removedSelectors.forEach(selector => ruleData.prelude.children.remove(selector));
 			if (ruleData.prelude.children.size == 0) {
 				stats.discarded++;
-				removedRules.push(child);
+				removedRules.add(child);
 			} else if (ruleData.block && ruleData.block.children) {
 				fixRawRules(ruleData);
 				processStylesheetRules(doc, ruleData.block.children, stylesheets, stats, ancestorsSelectors.concat(ruleData.prelude));
 			}
 			if (ruleData.block.children.size == 0) {
 				stats.discarded++;
-				removedRules.push(child);
+				removedRules.add(child);
 			}
 		}
 	}
