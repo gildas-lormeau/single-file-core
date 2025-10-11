@@ -140,7 +140,7 @@ function getFilteredSelector(selector, selectorText) {
 }
 
 function fixRawRules(ruleData) {
-	let children = [];
+	const children = [];
 	if (ruleData.block && ruleData.block.children) {
 		for (let child = ruleData.block.children.head; child; child = child.next) {
 			if (child.data.type == "Raw") {
