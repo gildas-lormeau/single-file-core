@@ -25,20 +25,26 @@ import * as cssTree from "./../vendor/css-tree.js";
 const IGNORED_PSEUDO_ELEMENTS = ["after", "before", "first-letter", "first-line", "placeholder", "selection", "part", "marker"];
 const KEPT_PSEUDO_CLASSES = ["is", "where"];
 
+const matchedSelectorsCache = new Map();
+
 export {
 	process
 };
 
 function process(doc, stylesheets) {
 	const stats = { processed: 0, discarded: 0 };
-	stylesheets.forEach((stylesheetInfo, key) => {
-		if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
-			const cssRules = stylesheetInfo.stylesheet.children;
-			if (cssRules) {
-				processStylesheetRules(doc, cssRules, stylesheets, stats);
+	try {
+		stylesheets.forEach((stylesheetInfo, key) => {
+			if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
+				const cssRules = stylesheetInfo.stylesheet.children;
+				if (cssRules) {
+					processStylesheetRules(doc, cssRules, stylesheets, stats);
+				}
 			}
-		}
-	});
+		});
+	} finally {
+		matchedSelectorsCache.clear();
+	}
 	return stats;
 }
 
@@ -81,7 +87,15 @@ function matchElements(doc, selector, selectorText, ancestorsSelectors) {
 		selectorText = combineWithAncestors(selector.data, ancestorsSelectors);
 	}
 	try {
-		return Boolean(doc.querySelector(getFilteredSelector(selector, selectorText)));
+		const selectorsText = getFilteredSelector(selector, selectorText);
+		const cachedResult = matchedSelectorsCache.get(selectorsText);
+		if (cachedResult !== undefined) {
+			return cachedResult;
+		} else {
+			const result = Boolean(doc.querySelector(selectorsText));
+			matchedSelectorsCache.set(selectorsText, result);
+			return result;
+		}
 		// eslint-disable-next-line no-unused-vars
 	} catch (_error) {
 		// ignored				
