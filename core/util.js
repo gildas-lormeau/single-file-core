@@ -160,14 +160,11 @@ function getInstance(utilOptions) {
 		minifyHTML(doc, options) {
 			return modules.htmlMinifier.process(doc, options);
 		},
-		minifyCSSRules(stylesheets, styles, mediaAllInfo) {
-			return modules.cssRulesMinifier.process(stylesheets, styles, mediaAllInfo);
+		minifyCSSRules(doc, stylesheets) {
+			return modules.cssRulesMinifier.process(doc, stylesheets);
 		},
 		removeUnusedFonts(doc, stylesheets, styles, options) {
 			return modules.fontsMinifier.process(doc, stylesheets, styles, options);
-		},
-		getMediaAllInfo(doc, stylesheets, styles) {
-			return modules.matchedRules.getMediaAllInfo(doc, stylesheets, styles);
 		},
 		compressCSS(content, options) {
 			return vendor.cssMinifier.processString(content, options);

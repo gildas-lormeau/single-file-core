@@ -22,7 +22,6 @@
  */
 
 import * as fontsMinifier from "./css-fonts-minifier.js";
-import * as matchedRules from "./css-matched-rules.js";
 import * as mediasAltMinifier from "./css-medias-alt-minifier.js";
 import * as cssRulesMinifier from "./css-rules-minifier.js";
 import * as imagesAltMinifier from "./html-images-alt-minifier.js";
@@ -32,7 +31,6 @@ import * as templateFormatter from "./template-formatter.js";
 
 export {
 	fontsMinifier,
-	matchedRules,
 	mediasAltMinifier,
 	cssRulesMinifier,
 	imagesAltMinifier,

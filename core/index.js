@@ -1404,10 +1404,7 @@ class Processor {
 	}
 
 	removeUnusedStyles() {
-		if (!this.mediaAllInfo) {
-			this.mediaAllInfo = util.getMediaAllInfo(this.doc, this.stylesheets, this.styles);
-		}
-		const stats = util.minifyCSSRules(this.stylesheets, this.styles, this.mediaAllInfo);
+		const stats = util.minifyCSSRules(this.doc, this.stylesheets);
 		this.stats.set("processed", "CSS rules", stats.processed);
 		this.stats.set("discarded", "CSS rules", stats.discarded);
 	}
