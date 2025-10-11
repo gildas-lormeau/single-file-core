@@ -22,7 +22,7 @@
  */
 import * as cssTree from "./../vendor/css-tree.js";
 
-const IGNORED_PSEUDO_ELEMENTS = ["after", "before", "first-letter", "first-line", "placeholder", "selection", "part", "marker"];
+const IGNORED_PSEUDO_ELEMENTS = ["after", "before", "first-letter", "first-line", "placeholder", "selection", "part", "marker", "grammar-error", "spelling-error", "cue", "cue-region"];
 const KEPT_PSEUDO_CLASSES = ["is", "where"];
 
 const matchedSelectorsCache = new Map();
@@ -71,6 +71,7 @@ function processStylesheetRules(doc, cssRules, stylesheets, stats, ancestorsSele
 				removedRules.add(child);
 			} else if (ruleData.block && ruleData.block.children) {
 				fixRawRules(ruleData);
+				cleanDeclarations(ruleData.block);
 				processStylesheetRules(doc, ruleData.block.children, stylesheets, stats, ancestorsSelectors.concat(ruleData.prelude));
 			}
 			if (ruleData.block.children.size == 0) {
@@ -168,7 +169,7 @@ function fixRawRules(ruleData) {
 						children.push(child);
 					}
 					// eslint-disable-next-line no-unused-vars
-				} catch (error) {
+				} catch (_error) {
 					children.push(child);
 				}
 			} else {
@@ -180,6 +181,22 @@ function fixRawRules(ruleData) {
 	children.forEach(child => {
 		ruleData.block.children.appendData(child.data);
 	});
+}
+
+function cleanDeclarations(block) {
+	if (!block || !block.children) return;
+	const propertyMap = new Map();
+	const toRemove = [];
+	for (let child = block.children.head; child; child = child.next) {
+		if (child.data.type === "Declaration") {
+			const prop = child.data.property;
+			if (propertyMap.has(prop)) {
+				toRemove.push(propertyMap.get(prop));
+			}
+			propertyMap.set(prop, child);
+		}
+	}
+	toRemove.forEach(child => block.children.remove(child));
 }
 
 function combineWithAncestors(selector, ancestorsSelectors) {
