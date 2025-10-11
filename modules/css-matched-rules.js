@@ -272,9 +272,6 @@ function processRule(doc, ruleData, parentRuleInfo, ruleContext, sheetIndex, sty
 		layerContext
 	};
 	indexes.ruleIndex++;
-	if (hasNestedRules && !layerName) {
-		ruleContext.rules.set(ruleData, ruleInfo);
-	}
 	if (!invalidSelector(selectorsText.join(","), workStylesheet) || selectorsText.find(selectorText => selectorText.includes("|"))) {
 		for (let selector = ruleData.prelude.children.head, selectorIndex = 0; selector; selector = selector.next, selectorIndex++) {
 			const selectorText = selectorsText[selectorIndex];
