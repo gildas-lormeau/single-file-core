@@ -115,7 +115,7 @@ function collectLayerOrder(doc, cssRules, layerStack = [], conditionalStack = []
 					}
 				});
 			}
-		} else if (ruleData.type === "Atrule" && ruleData.block) {
+		} else if (ruleData.type === "Atrule" && ruleData.block && ruleData.block.children) {
 			const isConditional = ["media", "supports", "container"].includes(ruleData.name);
 			const newConditionalStack = isConditional
 				? [...conditionalStack, { name: ruleData.name, prelude: cssTree.generate(ruleData.prelude) }]
