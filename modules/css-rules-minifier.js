@@ -74,6 +74,9 @@ function process(doc, stylesheets) {
 			}
 		});
 	} finally {
+		if (doc.matchedElements) {
+			doc.matchedElements.forEach(element => delete element.matchingSelectors);
+		}
 		delete doc.matchedElements;
 		delete doc.matchedSelectors;
 		delete doc.layerOrder;
@@ -249,10 +252,7 @@ function hasDynamicStatePseudoClass(selectorNode) {
 
 function computeCascade(doc) {
 	const winningDeclarations = new Set();
-	doc.matchedElements.forEach(element => {
-		const cascadedStyles = computeElementCascadedStyles(element, winningDeclarations, doc);
-		element.cascadedStyles = cascadedStyles;
-	});
+	doc.matchedElements.forEach(element => computeElementCascadedStyles(element, winningDeclarations, doc));
 	removeLosingDeclarations(doc, winningDeclarations);
 }
 
@@ -298,7 +298,6 @@ function computeElementCascadedStyles(element, winningDeclarations, doc) {
 		});
 	});
 	cascadedStyles.forEach(({ declarationNode }) => winningDeclarations.add(declarationNode));
-	return cascadedStyles;
 }
 
 function getContextKey(conditionalContext) {
