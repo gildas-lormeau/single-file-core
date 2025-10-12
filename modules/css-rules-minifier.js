@@ -426,12 +426,12 @@ function buildEffectiveLayerOrder(doc, element) {
 	}
 	const applicable = [];
 	for (let indexDeclaration = 0; indexDeclaration < doc.layerDeclarations.length; indexDeclaration++) {
-		const decl = doc.layerDeclarations[indexDeclaration];
-		if (!decl.conditionalContext || decl.conditionalContext.length === 0) {
-			applicable.push(decl.name);
+		const declaration = doc.layerDeclarations[indexDeclaration];
+		if (!declaration.conditionalContext || declaration.conditionalContext.length === 0) {
+			applicable.push(declaration.name);
 			continue;
 		}
-		applicable.push(decl.name);
+		applicable.push(declaration.name);
 	}
 	const map = new Map();
 	for (let indexApplicable = 0; indexApplicable < applicable.length; indexApplicable++) {
