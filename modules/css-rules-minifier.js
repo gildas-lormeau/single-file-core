@@ -61,7 +61,7 @@ function processStylesheetRules(doc, cssRules, stylesheets, stats, ancestorsSele
 				stats.discarded++;
 				removedRules.add(child);
 			}
-		} else if (ruleData.type == "Rule") {
+		} else if (ruleData.type == "Rule" && ruleData.prelude && ruleData.prelude.children) {
 			const selectorsText = ruleData.prelude.children.toArray().map(selector => cssTree.generate(selector));
 			const removedSelectors = [];
 			for (let selector = ruleData.prelude.children.head, selectorIndex = 0; selector; selector = selector.next, selectorIndex++) {
