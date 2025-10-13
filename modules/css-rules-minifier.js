@@ -296,7 +296,7 @@ function computeElementCascadedStyles(element, winningDeclarations, docContext) 
 		contextGroups.get(contextKey).push(item);
 	});
 	contextGroups.forEach(declarations => {
-		declarations.sort((declarationA, declarationB) => compareDeclarations(declarationA, declarationB, element, docContext));
+		declarations.sort((declarationA, declarationB) => compareDeclarations(declarationA, declarationB, docContext));
 		declarations.forEach(item => {
 			const conditionalContext = docContext.selectorData.get(item.selector).conditionalContext;
 			cascadedStyles.set(item.property + ":" + getContextKey(conditionalContext), {
@@ -367,7 +367,7 @@ function cleanEmptyRules(cssRules, docContext) {
 	removedRules.forEach(rule => cssRules.remove(rule));
 }
 
-function compareDeclarations(declarationA, declarationB, element, docContext) {
+function compareDeclarations(declarationA, declarationB, docContext) {
 	const importantA = declarationA.important ? 1 : 0;
 	const importantB = declarationB.important ? 1 : 0;
 	if (importantA !== importantB) {
@@ -375,7 +375,7 @@ function compareDeclarations(declarationA, declarationB, element, docContext) {
 	}
 	const selectorDataA = docContext.selectorData.get(declarationA.selector);
 	const selectorDataB = docContext.selectorData.get(declarationB.selector);
-	const layerComparison = compareLayers(selectorDataA.layers, selectorDataB.layers, element, docContext);
+	const layerComparison = compareLayers(selectorDataA.layers, selectorDataB.layers, docContext);
 	if (layerComparison !== 0) {
 		return importantA ? -layerComparison : layerComparison;
 	}
@@ -394,7 +394,7 @@ function compareDeclarations(declarationA, declarationB, element, docContext) {
 	return 0;
 }
 
-function compareLayers(layersA, layersB, element, docContext) {
+function compareLayers(layersA, layersB, docContext) {
 	const isUnlayeredA = !layersA || layersA.length === 0 || layersA.every(layerName => layerName === "");
 	const isUnlayeredB = !layersB || layersB.length === 0 || layersB.every(layerName => layerName === "");
 	if (isUnlayeredA && isUnlayeredB) {
