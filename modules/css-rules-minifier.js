@@ -427,10 +427,6 @@ function buildEffectiveLayerOrder(doc, element) {
 	const applicable = [];
 	for (let indexDeclaration = 0; indexDeclaration < doc.layerDeclarations.length; indexDeclaration++) {
 		const declaration = doc.layerDeclarations[indexDeclaration];
-		if (!declaration.conditionalContext || declaration.conditionalContext.length === 0) {
-			applicable.push(declaration.name);
-			continue;
-		}
 		applicable.push(declaration.name);
 	}
 	const map = new Map();
