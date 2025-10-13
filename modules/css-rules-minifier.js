@@ -573,15 +573,13 @@ function combineWithAncestors(selector, ancestorsSelectors, docContext) {
 		}
 		const parentSelectors = selectorList.children.toArray();
 		const nextContexts = [];
-		contexts.forEach(context => {
-			parentSelectors.forEach(parentSelector => {
-				const parentText = getSelectorText(parentSelector, docContext);
-				const combined = context ? combineSelectors(context, parentText) : parentText;
-				if (!nextContexts.includes(combined)) {
-					nextContexts.push(combined);
-				}
-			});
-		});
+		contexts.forEach(context => parentSelectors.forEach(parentSelector => {
+			const parentText = getSelectorText(parentSelector, docContext);
+			const combined = context ? combineSelectors(context, parentText) : parentText;
+			if (!nextContexts.includes(combined)) {
+				nextContexts.push(combined);
+			}
+		}));
 		if (nextContexts.length) {
 			contexts = nextContexts;
 		}
