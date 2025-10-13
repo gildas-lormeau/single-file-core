@@ -139,7 +139,7 @@ function processStylesheetRules(cssRules, stylesheets, processingContext, docCon
 			docContext.stats.discarded++;
 			removedRules.add(cssRule);
 		} else if (ruleData.type === "Atrule" && ruleData.block && ruleData.name != "font-face" && ruleData.name != "keyframes") {
-			const isConditional = ["media", "supports", "container"].includes(ruleData.name);
+			const isConditional = CONDITIONAL_AT_RULE_NAMES.includes(ruleData.name);
 			const newConditionalStack = isConditional
 				? [...conditionalStack, { name: ruleData.name, prelude: cssTree.generate(ruleData.prelude) }]
 				: conditionalStack;
@@ -540,21 +540,21 @@ function cleanDeclarations(block) {
 	const removedDeclarations = [];
 	for (let ruleChild = block.children.head; ruleChild; ruleChild = ruleChild.next) {
 		if (ruleChild.data.type === "Declaration") {
-			const prop = ruleChild.data.property;
+			const property = ruleChild.data.property;
 			const isImportant = ruleChild.data.important;
-			if (propertyMap.has(prop)) {
-				const existing = propertyMap.get(prop);
+			if (propertyMap.has(property)) {
+				const existing = propertyMap.get(property);
 				if (existing.isImportant === isImportant) {
 					removedDeclarations.push(existing.node);
-					propertyMap.set(prop, { node: ruleChild, isImportant });
+					propertyMap.set(property, { node: ruleChild, isImportant });
 				} else if (isImportant && !existing.isImportant) {
 					removedDeclarations.push(existing.node);
-					propertyMap.set(prop, { node: ruleChild, isImportant });
+					propertyMap.set(property, { node: ruleChild, isImportant });
 				} else {
 					removedDeclarations.push(ruleChild);
 				}
 			} else {
-				propertyMap.set(prop, { node: ruleChild, isImportant });
+				propertyMap.set(property, { node: ruleChild, isImportant });
 			}
 		}
 	}
