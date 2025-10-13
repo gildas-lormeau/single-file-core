@@ -314,10 +314,7 @@ function getContextKey(conditionalContext) {
 	if (!conditionalContext || conditionalContext.length === 0) {
 		return "";
 	}
-	return JSON.stringify(conditionalContext.map(context => ({
-		name: context.name,
-		prelude: context.prelude
-	})));
+	return conditionalContext.map(context => `${context.name}:${context.prelude}`).join("|");
 }
 
 function removeLosingDeclarations(winningDeclarations, docContext) {
