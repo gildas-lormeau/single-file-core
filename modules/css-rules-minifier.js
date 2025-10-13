@@ -92,10 +92,7 @@ function collectLayerOrder(cssRules, layerContext, docContext) {
 				layerNames.forEach(layerName => registerLayerDeclaration(layerStack, layerName, conditionalStack, docContext));
 			}
 		} else if (ruleData.type === "Atrule" && ruleData.block && ruleData.block.children) {
-			const isConditional = CONDITIONAL_AT_RULE_NAMES.includes(ruleData.name);
-			const newConditionalStack = isConditional
-				? [...conditionalStack, { name: ruleData.name, prelude: cssTree.generate(ruleData.prelude) }]
-				: conditionalStack;
+			const newConditionalStack = buildConditionalStack(conditionalStack, ruleData);
 			collectLayerOrder(ruleData.block.children, { layerStack, conditionalStack: newConditionalStack }, docContext);
 		} else if (ruleData.type === "Rule" && ruleData.block && ruleData.block.children) {
 			collectLayerOrder(ruleData.block.children, layerContext, docContext);
@@ -139,10 +136,7 @@ function processStylesheetRules(cssRules, stylesheets, processingContext, docCon
 			docContext.stats.discarded++;
 			removedRules.add(cssRule);
 		} else if (ruleData.type === "Atrule" && ruleData.block && ruleData.name != "font-face" && ruleData.name != "keyframes") {
-			const isConditional = CONDITIONAL_AT_RULE_NAMES.includes(ruleData.name);
-			const newConditionalStack = isConditional
-				? [...conditionalStack, { name: ruleData.name, prelude: cssTree.generate(ruleData.prelude) }]
-				: conditionalStack;
+			const newConditionalStack = buildConditionalStack(conditionalStack, ruleData);
 			const newProcessingContext = { ...processingContext, conditionalStack: newConditionalStack };
 			fixRawRules(ruleData);
 			processStylesheetRules(ruleData.block.children, stylesheets, newProcessingContext, docContext);
@@ -213,6 +207,13 @@ function processStylesheetRules(cssRules, stylesheets, processingContext, docCon
 		}
 	}
 	removedRules.forEach(rule => cssRules.remove(rule));
+}
+
+function buildConditionalStack(conditionalStack, ruleData) {
+	const isConditional = CONDITIONAL_AT_RULE_NAMES.includes(ruleData.name);
+	return isConditional
+		? [...conditionalStack, { name: ruleData.name, prelude: cssTree.generate(ruleData.prelude) }]
+		: conditionalStack;
 }
 
 function getSelectorText(selectorAST, docContext) {
