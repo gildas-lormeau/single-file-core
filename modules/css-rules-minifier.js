@@ -128,7 +128,6 @@ function getFullLayerName(layers) {
 }
 
 function minifyStylesheetRules(cssRules, stylesheets, processingContext, docContext) {
-	const { ancestorsSelectors, layerStack, conditionalStack } = processingContext;
 	const removedRules = new Set();
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		docContext.stats.processed++;
@@ -148,7 +147,7 @@ function minifyStylesheetRules(cssRules, stylesheets, processingContext, docCont
 			docContext.stats.discarded++;
 			removedRules.add(cssRule);
 		} else if (ruleData.type === "Atrule" && ruleData.block && ruleData.name != "font-face" && ruleData.name != "keyframes") {
-			const newConditionalStack = buildConditionalStack(conditionalStack, ruleData);
+			const newConditionalStack = buildConditionalStack(processingContext.conditionalStack, ruleData);
 			const newProcessingContext = { ...processingContext, conditionalStack: newConditionalStack };
 			fixRawRules(ruleData);
 			minifyStylesheetRules(ruleData.block.children, stylesheets, newProcessingContext, docContext);
@@ -157,68 +156,97 @@ function minifyStylesheetRules(cssRules, stylesheets, processingContext, docCont
 				removedRules.add(cssRule);
 			}
 		} else if (ruleData.type === "Rule" && ruleData.prelude.children) {
-			ruleData.order = docContext.rulesCounter++;
-			const selectorsText = ruleData.prelude.children.toArray().map(selector => getSelectorText(selector, docContext));
-			const removedSelectors = [];
-			for (let selector = ruleData.prelude.children.head, selectorIndex = 0; selector; selector = selector.next, selectorIndex++) {
-				let resolvedSelectorText = selectorsText[selectorIndex];
-				if (ancestorsSelectors.length) {
-					resolvedSelectorText = combineWithAncestors(selector.data, ancestorsSelectors, docContext);
-				}
-				const resolvedSelectorAST = cssTree.parse(resolvedSelectorText, { context: "selectorList" });
-				let maxSpecificity = { a: 0, b: 0, c: 0 };
-				cssTree.walk(resolvedSelectorAST, {
-					visit: "Selector",
-					enter(node) {
-						const specificity = computeSpecificity(node);
-						if (specificity.a > maxSpecificity.a ||
-							(specificity.a === maxSpecificity.a && specificity.b > maxSpecificity.b) ||
-							(specificity.a === maxSpecificity.a && specificity.b === maxSpecificity.b && specificity.c > maxSpecificity.c)) {
-							maxSpecificity = specificity;
-						}
-					}
-				});
-				docContext.selectorData.set(selector, {
-					specificity: maxSpecificity,
-					order: ruleData.order,
-					rule: ruleData,
-					layers: layerStack,
-					conditionalContext: conditionalStack,
-					hasPseudoElement: hasPseudoElement(selector.data),
-					hasDynamicState: hasDynamicStatePseudoClass(selector.data)
-				});
-				const selectorData = docContext.selectorData.get(selector);
-				if (!selectorData.hasPseudoElement && !selectorData.hasDynamicState) {
-					const matchedElements = matchElements(selector, resolvedSelectorText, docContext);
-					if (!matchedElements || matchedElements.length === 0) {
-						removedSelectors.push(selector);
-					} else {
-						matchedElements.forEach(element => {
-							docContext.matchedElements.add(element);
-							let matchingSelectors = docContext.matchingSelectors.get(element);
-							if (!matchingSelectors) {
-								matchingSelectors = [];
-								docContext.matchingSelectors.set(element, matchingSelectors);
-								element.matchingSelectors = matchingSelectors;
-							}
-							matchingSelectors.push(selector);
-						});
-					}
-				}
-			}
-			removedSelectors.forEach(selector => ruleData.prelude.children.remove(selector));
-			if (ruleData.prelude.children.size === 0) {
-				docContext.stats.discarded++;
-				removedRules.add(cssRule);
-			} else if (ruleData.block && ruleData.block.children) {
-				fixRawRules(ruleData);
-				cleanDeclarations(ruleData.block);
-				const newProcessingContext = { ...processingContext, ancestorsSelectors: [...processingContext.ancestorsSelectors, ruleData.prelude] };
-				minifyStylesheetRules(ruleData.block.children, stylesheets, newProcessingContext, docContext);
-			}
+			minifyStylesheetRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext);
 		}
 	}
 	removedRules.forEach(rule => cssRules.remove(rule));
+}
+
+function minifyStylesheetRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext) {
+	ruleData.order = docContext.rulesCounter++;
+	const selectorsText = ruleData.prelude.children.toArray().map(selector => getSelectorText(selector, docContext));
+	const removedSelectors = processSelectors(ruleData, processingContext, docContext, selectorsText);
+	const wasDiscarded = removeUnmatchedSelectors(ruleData, removedSelectors, removedRules, cssRule, docContext);
+	if (!wasDiscarded && ruleData.block && ruleData.block.children) {
+		processNestedRules(ruleData, stylesheets, processingContext, docContext);
+	}
+}
+
+function processSelectors(ruleData, processingContext, docContext, selectorsText) {
+	const { ancestorsSelectors, layerStack, conditionalStack } = processingContext;
+	const removedSelectors = [];
+	for (let selector = ruleData.prelude.children.head, selectorIndex = 0; selector; selector = selector.next, selectorIndex++) {
+		let resolvedSelectorText = selectorsText[selectorIndex];
+		if (ancestorsSelectors.length) {
+			resolvedSelectorText = combineWithAncestors(selector.data, ancestorsSelectors, docContext);
+		}
+		const resolvedSelectorAST = cssTree.parse(resolvedSelectorText, { context: "selectorList" });
+		docContext.selectorData.set(selector, {
+			specificity: computeMaxSpecificity(resolvedSelectorAST),
+			order: ruleData.order,
+			rule: ruleData,
+			layers: layerStack,
+			conditionalContext: conditionalStack,
+			hasPseudoElement: hasPseudoElement(selector.data),
+			hasDynamicState: hasDynamicStatePseudoClass(selector.data)
+		});
+		const selectorData = docContext.selectorData.get(selector);
+		if (!selectorData.hasPseudoElement && !selectorData.hasDynamicState) {
+			const matchedElements = matchElements(selector, resolvedSelectorText, docContext);
+			if (!matchedElements || matchedElements.length === 0) {
+				removedSelectors.push(selector);
+			} else {
+				updateMatchingSelectors(matchedElements, selector, docContext);
+			}
+		}
+	}
+	return removedSelectors;
+}
+
+function computeMaxSpecificity(selector) {
+	let maxSpecificity = { a: 0, b: 0, c: 0 };
+	cssTree.walk(selector, {
+		visit: "Selector",
+		enter(node) {
+			const specificity = computeSpecificity(node);
+			if (specificity.a > maxSpecificity.a ||
+				(specificity.a === maxSpecificity.a && specificity.b > maxSpecificity.b) ||
+				(specificity.a === maxSpecificity.a && specificity.b === maxSpecificity.b && specificity.c > maxSpecificity.c)) {
+				maxSpecificity = specificity;
+			}
+		}
+	});
+	return maxSpecificity;
+}
+
+function updateMatchingSelectors(matchedElements, selector, docContext) {
+	matchedElements.forEach(element => {
+		docContext.matchedElements.add(element);
+		let matchingSelectors = docContext.matchingSelectors.get(element);
+		if (!matchingSelectors) {
+			matchingSelectors = [];
+			docContext.matchingSelectors.set(element, matchingSelectors);
+			element.matchingSelectors = matchingSelectors;
+		}
+		matchingSelectors.push(selector);
+	});
+}
+
+function removeUnmatchedSelectors(ruleData, removedSelectors, removedRules, cssRule, docContext) {
+	removedSelectors.forEach(selector => ruleData.prelude.children.remove(selector));
+	if (ruleData.prelude.children.size === 0) {
+		docContext.stats.discarded++;
+		removedRules.add(cssRule);
+		return true;
+	}
+	return false;
+}
+
+function processNestedRules(ruleData, stylesheets, processingContext, docContext) {
+	fixRawRules(ruleData);
+	cleanDeclarations(ruleData.block);
+	const newProcessingContext = { ...processingContext, ancestorsSelectors: [...processingContext.ancestorsSelectors, ruleData.prelude] };
+	minifyStylesheetRules(ruleData.block.children, stylesheets, newProcessingContext, docContext);
 }
 
 function buildConditionalStack(conditionalStack, ruleData) {
