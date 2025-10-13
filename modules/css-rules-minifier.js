@@ -47,7 +47,8 @@ function process(doc, stylesheets) {
 		layerDeclarationCounter: 0,
 		layerDeclarations: [],
 		layerOrder: new Map(),
-		rulesSourceCounter: 0
+		selectorData: new Map(),
+		rulesSourceCounter: 0,
 	};
 	stylesheets.forEach((stylesheetInfo, key) => {
 		if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
@@ -170,14 +171,16 @@ function processStylesheetRules(cssRules, stylesheets, ancestorsSelectors = [], 
 						}
 					}
 				});
-				selector.specificity = maxSpecificity;
-				selector.sourceOrder = ruleData.sourceOrder;
-				selector.rule = ruleData;
-				selector.layers = layerStack;
-				selector.conditionalContext = conditionalStack;
-				selector.hasPseudoElement = hasPseudoElement(selector.data);
-				selector.hasDynamicState = hasDynamicStatePseudoClass(selector.data);
-				if (!selector.hasPseudoElement && !selector.hasDynamicState) {
+				docContext.selectorData.set(selector, {
+					specificity: maxSpecificity,
+					sourceOrder: ruleData.sourceOrder,
+					rule: ruleData,
+					layers: layerStack,
+					conditionalContext: conditionalStack,
+					hasPseudoElement: hasPseudoElement(selector.data),
+					hasDynamicState: hasDynamicStatePseudoClass(selector.data)
+				});
+				if (!docContext.selectorData.get(selector).hasPseudoElement && !docContext.selectorData.get(selector).hasDynamicState) {
 					const matchedElements = matchElements(selector, resolvedSelectorText, docContext);
 					if (!matchedElements || matchedElements.length === 0) {
 						removedSelectors.push(selector);
@@ -188,6 +191,7 @@ function processStylesheetRules(cssRules, stylesheets, ancestorsSelectors = [], 
 							if (!matchingSelectors) {
 								matchingSelectors = [];
 								docContext.matchingSelectors.set(element, matchingSelectors);
+								element.matchingSelectors = matchingSelectors;
 							}
 							matchingSelectors.push(selector);
 						});
@@ -253,7 +257,8 @@ function computeElementCascadedStyles(element, winningDeclarations, docContext) 
 	const matchingSelectors = docContext.matchingSelectors.get(element);
 	const allDeclarations = [];
 	matchingSelectors.forEach(selector => {
-		const declarations = selector.rule.block && selector.rule.block.children;
+		const rule = docContext.selectorData.get(selector).rule;
+		const declarations = rule.block && rule.block.children;
 		if (declarations) {
 			for (let declaration = declarations.head; declaration; declaration = declaration.next) {
 				if (declaration.data.type === "Declaration") {
@@ -270,7 +275,8 @@ function computeElementCascadedStyles(element, winningDeclarations, docContext) 
 	});
 	const contextGroups = new Map();
 	allDeclarations.forEach(item => {
-		const contextKey = getContextKey(item.selector.conditionalContext);
+		const conditionalContext = docContext.selectorData.get(item.selector).conditionalContext;
+		const contextKey = getContextKey(conditionalContext);
 		if (!contextGroups.has(contextKey)) {
 			contextGroups.set(contextKey, []);
 		}
@@ -279,7 +285,8 @@ function computeElementCascadedStyles(element, winningDeclarations, docContext) 
 	contextGroups.forEach(declarations => {
 		declarations.sort((declarationA, declarationB) => compareDeclarations(declarationA, declarationB, element, docContext));
 		declarations.forEach(item => {
-			cascadedStyles.set(item.property + ":" + getContextKey(item.selector.conditionalContext), {
+			const conditionalContext = docContext.selectorData.get(item.selector).conditionalContext;
+			cascadedStyles.set(item.property + ":" + getContextKey(conditionalContext), {
 				declaration: item.declaration,
 				selector: item.selector,
 				declarationNode: item.declarationNode,
@@ -306,7 +313,8 @@ function removeLosingDeclarations(winningDeclarations, docContext) {
 		const matchingSelectors = docContext.matchingSelectors.get(element);
 		if (matchingSelectors) {
 			matchingSelectors.forEach(selector => {
-				const declarations = selector.rule.block && selector.rule.block.children;
+				const rule = docContext.selectorData.get(selector).rule;
+				const declarations = rule.block && rule.block.children;
 				if (declarations) {
 					for (let declaration = declarations.head; declaration; declaration = declaration.next) {
 						if (declaration.data.type === "Declaration") {
@@ -352,21 +360,23 @@ function compareDeclarations(declarationA, declarationB, element, docContext) {
 	if (importantA !== importantB) {
 		return importantA - importantB;
 	}
-	const layerComparison = compareLayers(declarationA.selector.layers, declarationB.selector.layers, element, docContext);
+	const selectorDataA = docContext.selectorData.get(declarationA.selector);
+	const selectorDataB = docContext.selectorData.get(declarationB.selector);
+	const layerComparison = compareLayers(selectorDataA.layers, selectorDataB.layers, element, docContext);
 	if (layerComparison !== 0) {
 		return importantA ? -layerComparison : layerComparison;
 	}
-	if (declarationA.selector.specificity.a !== declarationB.selector.specificity.a) {
-		return declarationA.selector.specificity.a - declarationB.selector.specificity.a;
+	if (selectorDataA.specificity.a !== selectorDataB.specificity.a) {
+		return selectorDataA.specificity.a - selectorDataB.specificity.a;
 	}
-	if (declarationA.selector.specificity.b !== declarationB.selector.specificity.b) {
-		return declarationA.selector.specificity.b - declarationB.selector.specificity.b;
+	if (selectorDataA.specificity.b !== selectorDataB.specificity.b) {
+		return selectorDataA.specificity.b - selectorDataB.specificity.b;
 	}
-	if (declarationA.selector.specificity.c !== declarationB.selector.specificity.c) {
-		return declarationA.selector.specificity.c - declarationB.selector.specificity.c;
+	if (selectorDataA.specificity.c !== selectorDataB.specificity.c) {
+		return selectorDataA.specificity.c - selectorDataB.specificity.c;
 	}
-	if (declarationA.selector.sourceOrder !== declarationB.selector.sourceOrder) {
-		return declarationA.selector.sourceOrder - declarationB.selector.sourceOrder;
+	if (selectorDataA.sourceOrder !== selectorDataB.sourceOrder) {
+		return selectorDataA.sourceOrder - selectorDataB.sourceOrder;
 	}
 	return 0;
 }
