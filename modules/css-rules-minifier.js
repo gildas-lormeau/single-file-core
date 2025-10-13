@@ -89,27 +89,11 @@ function collectLayerOrder(cssRules, layerContext, docContext) {
 		if (ruleData.type === "Atrule" && ruleData.name === "layer") {
 			if (ruleData.block) {
 				const layerName = ruleData.prelude ? cssTree.generate(ruleData.prelude) : "";
-				const fullLayerName = [...layerStack, layerName].filter(l => l !== "").join(".");
-				if (fullLayerName) {
-					docContext.layerDeclarations.push({
-						name: fullLayerName,
-						order: docContext.layerDeclarationCounter++,
-						conditionalContext: conditionalStack.slice()
-					});
-				}
+				registerLayerDeclaration(layerStack, layerName, conditionalStack, docContext);
 				collectLayerOrder(ruleData.block.children, { layerStack: [...layerStack, layerName], conditionalStack }, docContext);
 			} else if (ruleData.prelude) {
 				const layerNames = cssTree.generate(ruleData.prelude).split(",");
-				layerNames.forEach(layerName => {
-					const fullLayerName = [...layerStack, layerName].filter(l => l !== "").join(".");
-					if (fullLayerName) {
-						docContext.layerDeclarations.push({
-							name: fullLayerName,
-							order: docContext.layerDeclarationCounter++,
-							conditionalContext: conditionalStack.slice()
-						});
-					}
-				});
+				layerNames.forEach(layerName => registerLayerDeclaration(layerStack, layerName, conditionalStack, docContext));
 			}
 		} else if (ruleData.type === "Atrule" && ruleData.block && ruleData.block.children) {
 			const isConditional = CONDITIONAL_AT_RULE_NAMES.includes(ruleData.name);
@@ -120,6 +104,17 @@ function collectLayerOrder(cssRules, layerContext, docContext) {
 		} else if (ruleData.type === "Rule" && ruleData.block && ruleData.block.children) {
 			collectLayerOrder(ruleData.block.children, layerContext, docContext);
 		}
+	}
+}
+
+function registerLayerDeclaration(layerStack, layerName, conditionalStack, docContext) {
+	const fullLayerName = [...layerStack, layerName].filter(layerName => layerName !== "").join(".");
+	if (fullLayerName) {
+		docContext.layerDeclarations.push({
+			name: fullLayerName,
+			order: docContext.layerDeclarationCounter++,
+			conditionalContext: conditionalStack.slice()
+		});
 	}
 }
 
