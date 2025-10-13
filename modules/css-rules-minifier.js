@@ -149,9 +149,6 @@ function minifyStylesheetRules(cssRules, stylesheets, processingContext, docCont
 				docContext.stats.discarded++;
 				removedRules.add(cssRule);
 			}
-		} else if (ruleData.type === "Atrule" && ruleData.name === "layer" && !ruleData.block) {
-			docContext.stats.discarded++;
-			removedRules.add(cssRule);
 		} else if (ruleData.type === "Atrule" && ruleData.block && ruleData.name != "font-face" && ruleData.name != "keyframes") {
 			const newConditionalStack = buildConditionalStack(processingContext.conditionalStack, ruleData);
 			const newProcessingContext = { ...processingContext, conditionalStack: newConditionalStack };
