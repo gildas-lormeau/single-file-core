@@ -381,8 +381,8 @@ function compareDeclarations(declarationA, declarationB, doc, element) {
 }
 
 function compareLayers(layersA, layersB, doc, element) {
-	const isUnlayeredA = !layersA || layersA.length === 0 || layersA.every(l => l === "");
-	const isUnlayeredB = !layersB || layersB.length === 0 || layersB.every(l => l === "");
+	const isUnlayeredA = !layersA || layersA.length === 0 || layersA.every(layerName => layerName === "");
+	const isUnlayeredB = !layersB || layersB.length === 0 || layersB.every(layerName => layerName === "");
 	if (isUnlayeredA && isUnlayeredB) {
 		return 0;
 	}
@@ -392,8 +392,8 @@ function compareLayers(layersA, layersB, doc, element) {
 	if (isUnlayeredB) {
 		return -1;
 	}
-	const fullLayerNameA = layersA.filter(layerName => layerName !== "").join(".");
-	const fullLayerNameB = layersB.filter(layerName => layerName !== "").join(".");
+	const fullLayerNameA = getFullLayerName(layersA);
+	const fullLayerNameB = getFullLayerName(layersB);
 	if (fullLayerNameA === fullLayerNameB) {
 		return 0;
 	}
@@ -401,8 +401,8 @@ function compareLayers(layersA, layersB, doc, element) {
 	const effectiveMap = buildEffectiveLayerOrder(doc, element);
 	for (let indexLayer = 0; indexLayer < minLength; indexLayer++) {
 		if (layersA[indexLayer] !== layersB[indexLayer]) {
-			const partialLayerA = layersA.slice(0, indexLayer + 1).filter(l => l !== "").join(".");
-			const partialLayerB = layersB.slice(0, indexLayer + 1).filter(l => l !== "").join(".");
+			const partialLayerA = getFullLayerName(layersA.slice(0, indexLayer + 1));
+			const partialLayerB = getFullLayerName(layersB.slice(0, indexLayer + 1));
 			const orderA = effectiveMap.get(partialLayerA);
 			const orderB = effectiveMap.get(partialLayerB);
 			if (orderA !== undefined && orderB !== undefined) {
@@ -418,6 +418,10 @@ function compareLayers(layersA, layersB, doc, element) {
 		}
 	}
 	return layersA.length - layersB.length;
+}
+
+function getFullLayerName(layers) {
+	return layers.filter(layerName => layerName !== "").join(".");
 }
 
 function buildEffectiveLayerOrder(doc, element) {
