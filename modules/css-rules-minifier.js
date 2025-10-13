@@ -68,6 +68,12 @@ function collectLayerOrder(stylesheets, docContext) {
 	});
 }
 
+function computeCascade(docContext) {
+	const winningDeclarations = new Set();
+	docContext.matchedElements.forEach(element => computeElementCascadedStyles(element, winningDeclarations, docContext));
+	removeLosingDeclarations(winningDeclarations, docContext);
+}
+
 function minifyRules(stylesheets, docContext) {
 	stylesheets.forEach((stylesheetInfo, key) => {
 		if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
@@ -295,12 +301,6 @@ function hasDynamicStatePseudoClass(selectorNode) {
 		}
 	});
 	return found;
-}
-
-function computeCascade(docContext) {
-	const winningDeclarations = new Set();
-	docContext.matchedElements.forEach(element => computeElementCascadedStyles(element, winningDeclarations, docContext));
-	removeLosingDeclarations(winningDeclarations, docContext);
 }
 
 function computeElementCascadedStyles(element, winningDeclarations, docContext) {
