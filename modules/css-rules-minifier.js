@@ -108,7 +108,7 @@ function collectLayerOrder(cssRules, layerContext, docContext) {
 }
 
 function registerLayerDeclaration(layerStack, layerName, conditionalStack, docContext) {
-	const fullLayerName = [...layerStack, layerName].filter(layerName => layerName !== "").join(".");
+	const fullLayerName = getFullLayerName([...layerStack, layerName]);
 	if (fullLayerName) {
 		docContext.layerDeclarations.push({
 			name: fullLayerName,
@@ -116,6 +116,10 @@ function registerLayerDeclaration(layerStack, layerName, conditionalStack, docCo
 			conditionalContext: conditionalStack.slice()
 		});
 	}
+}
+
+function getFullLayerName(layers) {
+	return layers.filter(layerName => layerName !== "").join(".");
 }
 
 function processStylesheetRules(cssRules, stylesheets, processingContext, docContext) {
@@ -428,10 +432,6 @@ function compareLayers(layersA, layersB, element, docContext) {
 		}
 	}
 	return layersA.length - layersB.length;
-}
-
-function getFullLayerName(layers) {
-	return layers.filter(layerName => layerName !== "").join(".");
 }
 
 function buildEffectiveLayerOrder(docContext) {
