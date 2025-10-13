@@ -38,21 +38,23 @@ export {
 };
 
 function process(doc, stylesheets) {
-	const stats = { processed: 0, discarded: 0 };
-	let sourceOrderCounter = 0;
-	doc.matchedElements = new Set();
-	doc.matchedSelectors = new Map();
-	doc.layerOrder = new Map();
-	doc.layerDeclarationCounter = 0;
-	doc.layerDeclarations = [];
-	doc.layerOrderCache = new Map();
-	doc.globalLayerOrder = null;
+	const docContext = {
+		doc,
+		stats: { processed: 0, discarded: 0 },
+		matchedElements: new Set(),
+		matchedSelectors: new Map(),
+		layerDeclarationCounter: 0,
+		layerDeclarations: [],
+		layerOrder: new Map(),
+		globalLayerOrder: null,
+		rulesSourceOrder: 0
+	};
 	try {
 		stylesheets.forEach((stylesheetInfo, key) => {
 			if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
 				const cssRules = stylesheetInfo.stylesheet.children;
 				if (cssRules) {
-					collectLayerOrder(doc, cssRules, [], []);
+					collectLayerOrder(cssRules, [], [], docContext);
 				}
 			}
 		});
@@ -60,34 +62,28 @@ function process(doc, stylesheets) {
 			if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
 				const cssRules = stylesheetInfo.stylesheet.children;
 				if (cssRules) {
-					sourceOrderCounter = processStylesheetRules(doc, cssRules, stylesheets, stats, [], sourceOrderCounter, [], []);
+					processStylesheetRules(cssRules, stylesheets, [], [], [], docContext);
 				}
 			}
 		});
-		computeCascade(doc);
+		computeCascade(docContext);
 		stylesheets.forEach((stylesheetInfo, key) => {
 			if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
 				const cssRules = stylesheetInfo.stylesheet.children;
 				if (cssRules) {
-					cleanEmptyRules(cssRules, stats);
+					cleanEmptyRules(cssRules, docContext);
 				}
 			}
 		});
 	} finally {
-		if (doc.matchedElements) {
-			doc.matchedElements.forEach(element => delete element.matchingSelectors);
+		if (docContext.matchedElements) {
+			docContext.matchedElements.forEach(element => delete element.matchingSelectors);
 		}
-		delete doc.matchedElements;
-		delete doc.matchedSelectors;
-		delete doc.layerOrder;
-		delete doc.layerDeclarations;
-		delete doc.globalLayerOrder;
-		delete doc.layerOrderCache;
 	}
-	return stats;
+	return docContext.stats;
 }
 
-function collectLayerOrder(doc, cssRules, layerStack = [], conditionalStack = []) {
+function collectLayerOrder(cssRules, layerStack = [], conditionalStack = [], docContext) {
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		const ruleData = cssRule.data;
 		if (ruleData.type === "Atrule" && ruleData.name === "layer") {
@@ -95,21 +91,21 @@ function collectLayerOrder(doc, cssRules, layerStack = [], conditionalStack = []
 				const layerName = ruleData.prelude ? cssTree.generate(ruleData.prelude) : "";
 				const fullLayerName = [...layerStack, layerName].filter(l => l !== "").join(".");
 				if (fullLayerName) {
-					doc.layerDeclarations.push({
+					docContext.layerDeclarations.push({
 						name: fullLayerName,
-						order: doc.layerDeclarationCounter++,
+						order: docContext.layerDeclarationCounter++,
 						conditionalContext: conditionalStack.slice()
 					});
 				}
-				collectLayerOrder(doc, ruleData.block.children, [...layerStack, layerName], conditionalStack);
+				collectLayerOrder(ruleData.block.children, [...layerStack, layerName], conditionalStack, docContext);
 			} else if (ruleData.prelude) {
 				const layerNames = cssTree.generate(ruleData.prelude).split(",");
 				layerNames.forEach(layerName => {
 					const fullLayerName = [...layerStack, layerName].filter(l => l !== "").join(".");
 					if (fullLayerName) {
-						doc.layerDeclarations.push({
+						docContext.layerDeclarations.push({
 							name: fullLayerName,
-							order: doc.layerDeclarationCounter++,
+							order: docContext.layerDeclarationCounter++,
 							conditionalContext: conditionalStack.slice()
 						});
 					}
@@ -120,31 +116,31 @@ function collectLayerOrder(doc, cssRules, layerStack = [], conditionalStack = []
 			const newConditionalStack = isConditional
 				? [...conditionalStack, { name: ruleData.name, prelude: cssTree.generate(ruleData.prelude) }]
 				: conditionalStack;
-			collectLayerOrder(doc, ruleData.block.children, layerStack, newConditionalStack);
+			collectLayerOrder(ruleData.block.children, layerStack, newConditionalStack, docContext);
 		} else if (ruleData.type === "Rule" && ruleData.block && ruleData.block.children) {
-			collectLayerOrder(doc, ruleData.block.children, layerStack, conditionalStack);
+			collectLayerOrder(ruleData.block.children, layerStack, conditionalStack, docContext);
 		}
 	}
 }
 
-function processStylesheetRules(doc, cssRules, stylesheets, stats, ancestorsSelectors = [], sourceOrderCounter = 0, layerStack = [], conditionalStack = []) {
+function processStylesheetRules(cssRules, stylesheets, ancestorsSelectors = [], layerStack = [], conditionalStack = [], docContext) {
 	const removedRules = new Set();
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
-		stats.processed++;
+		docContext.stats.processed++;
 		const ruleData = cssRule.data;
 		if (ruleData.type === "Atrule" && ruleData.name === "import" && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head.data.importedChildren) {
-			sourceOrderCounter = processStylesheetRules(doc, ruleData.prelude.children.head.data.importedChildren, stylesheets, stats, ancestorsSelectors, sourceOrderCounter, layerStack, conditionalStack);
+			processStylesheetRules(ruleData.prelude.children.head.data.importedChildren, stylesheets, ancestorsSelectors, layerStack, conditionalStack, docContext);
 		} else if (ruleData.type === "Atrule" && ruleData.name === "layer" && ruleData.block) {
 			const layerName = ruleData.prelude ? cssTree.generate(ruleData.prelude) : "";
 			const newLayerStack = [...layerStack, layerName];
 			fixRawRules(ruleData);
-			sourceOrderCounter = processStylesheetRules(doc, ruleData.block.children, stylesheets, stats, ancestorsSelectors, sourceOrderCounter, newLayerStack, conditionalStack);
+			processStylesheetRules(ruleData.block.children, stylesheets, ancestorsSelectors, newLayerStack, conditionalStack, docContext);
 			if (ruleData.block.children.size === 0) {
-				stats.discarded++;
+				docContext.stats.discarded++;
 				removedRules.add(cssRule);
 			}
 		} else if (ruleData.type === "Atrule" && ruleData.name === "layer" && !ruleData.block) {
-			stats.discarded++;
+			docContext.stats.discarded++;
 			removedRules.add(cssRule);
 		} else if (ruleData.type === "Atrule" && ruleData.block && ruleData.name != "font-face" && ruleData.name != "keyframes") {
 			const isConditional = ["media", "supports", "container"].includes(ruleData.name);
@@ -152,13 +148,13 @@ function processStylesheetRules(doc, cssRules, stylesheets, stats, ancestorsSele
 				? [...conditionalStack, { name: ruleData.name, prelude: cssTree.generate(ruleData.prelude) }]
 				: conditionalStack;
 			fixRawRules(ruleData);
-			sourceOrderCounter = processStylesheetRules(doc, ruleData.block.children, stylesheets, stats, ancestorsSelectors, sourceOrderCounter, layerStack, newConditionalStack);
+			processStylesheetRules(ruleData.block.children, stylesheets, ancestorsSelectors, layerStack, newConditionalStack, docContext);
 			if (ruleData.block.children.size === 0) {
-				stats.discarded++;
+				docContext.stats.discarded++;
 				removedRules.add(cssRule);
 			}
 		} else if (ruleData.type === "Rule" && ruleData.prelude.children) {
-			ruleData.sourceOrder = sourceOrderCounter++;
+			ruleData.sourceOrder = docContext.rulesSourceOrder++;
 			const selectorsText = ruleData.prelude.children.toArray().map(selector => cssTree.generate(selector));
 			const removedSelectors = [];
 			for (let selector = ruleData.prelude.children.head, selectorIndex = 0; selector; selector = selector.next, selectorIndex++) {
@@ -187,12 +183,12 @@ function processStylesheetRules(doc, cssRules, stylesheets, stats, ancestorsSele
 				selector.hasPseudoElement = hasPseudoElement(selector.data);
 				selector.hasDynamicState = hasDynamicStatePseudoClass(selector.data);
 				if (!selector.hasPseudoElement && !selector.hasDynamicState) {
-					const matchedElements = matchElements(doc, selector, resolvedSelectorText);
+					const matchedElements = matchElements(selector, resolvedSelectorText, docContext);
 					if (!matchedElements || matchedElements.length === 0) {
 						removedSelectors.push(selector);
 					} else {
 						matchedElements.forEach(element => {
-							doc.matchedElements.add(element);
+							docContext.matchedElements.add(element);
 							if (!element.matchingSelectors) {
 								element.matchingSelectors = [];
 							}
@@ -203,17 +199,16 @@ function processStylesheetRules(doc, cssRules, stylesheets, stats, ancestorsSele
 			}
 			removedSelectors.forEach(selector => ruleData.prelude.children.remove(selector));
 			if (ruleData.prelude.children.size === 0) {
-				stats.discarded++;
+				docContext.stats.discarded++;
 				removedRules.add(cssRule);
 			} else if (ruleData.block && ruleData.block.children) {
 				fixRawRules(ruleData);
 				cleanDeclarations(ruleData.block);
-				sourceOrderCounter = processStylesheetRules(doc, ruleData.block.children, stylesheets, stats, ancestorsSelectors.concat(ruleData.prelude), sourceOrderCounter, layerStack, conditionalStack);
+				processStylesheetRules(ruleData.block.children, stylesheets, ancestorsSelectors.concat(ruleData.prelude), layerStack, conditionalStack, docContext);
 			}
 		}
 	}
 	removedRules.forEach(rule => cssRules.remove(rule));
-	return sourceOrderCounter;
 }
 
 function hasPseudoElement(selectorNode) {
@@ -250,13 +245,13 @@ function hasDynamicStatePseudoClass(selectorNode) {
 	return found;
 }
 
-function computeCascade(doc) {
+function computeCascade(docContext) {
 	const winningDeclarations = new Set();
-	doc.matchedElements.forEach(element => computeElementCascadedStyles(element, winningDeclarations, doc));
-	removeLosingDeclarations(doc, winningDeclarations);
+	docContext.matchedElements.forEach(element => computeElementCascadedStyles(element, winningDeclarations, docContext));
+	removeLosingDeclarations(winningDeclarations, docContext);
 }
 
-function computeElementCascadedStyles(element, winningDeclarations, doc) {
+function computeElementCascadedStyles(element, winningDeclarations, docContext) {
 	const cascadedStyles = new Map();
 	if (!element.matchingSelectors) {
 		return cascadedStyles;
@@ -287,7 +282,7 @@ function computeElementCascadedStyles(element, winningDeclarations, doc) {
 		contextGroups.get(contextKey).push(item);
 	});
 	contextGroups.forEach(declarations => {
-		declarations.sort((a, b) => compareDeclarations(a, b, doc, element));
+		declarations.sort((a, b) => compareDeclarations(a, b, element, docContext));
 		declarations.forEach(item => {
 			cascadedStyles.set(item.property + ":" + getContextKey(item.selector.conditionalContext), {
 				declaration: item.declaration,
@@ -310,9 +305,9 @@ function getContextKey(conditionalContext) {
 	})));
 }
 
-function removeLosingDeclarations(doc, winningDeclarations) {
+function removeLosingDeclarations(winningDeclarations, docContext) {
 	const allDeclarationNodes = new Map();
-	doc.matchedElements.forEach(element => {
+	docContext.matchedElements.forEach(element => {
 		if (element.matchingSelectors) {
 			element.matchingSelectors.forEach(selector => {
 				const declarations = selector.rule.block && selector.rule.block.children;
@@ -333,21 +328,21 @@ function removeLosingDeclarations(doc, winningDeclarations) {
 	});
 }
 
-function cleanEmptyRules(cssRules, stats) {
+function cleanEmptyRules(cssRules, docContext) {
 	const removedRules = new Set();
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		const ruleData = cssRule.data;
 		if (ruleData.type === "Rule") {
 			if (!ruleData.block || !ruleData.block.children || ruleData.block.children.size === 0) {
-				stats.discarded++;
+				docContext.stats.discarded++;
 				removedRules.add(cssRule);
 			} else {
-				cleanEmptyRules(ruleData.block.children, stats);
+				cleanEmptyRules(ruleData.block.children, docContext);
 			}
 		} else if (ruleData.type === "Atrule" && ruleData.block && ruleData.name !== "font-face" && ruleData.name !== "keyframes") {
-			cleanEmptyRules(ruleData.block.children, stats);
+			cleanEmptyRules(ruleData.block.children, docContext);
 			if (ruleData.block.children.size === 0) {
-				stats.discarded++;
+				docContext.stats.discarded++;
 				removedRules.add(cssRule);
 			}
 		}
@@ -355,13 +350,13 @@ function cleanEmptyRules(cssRules, stats) {
 	removedRules.forEach(rule => cssRules.remove(rule));
 }
 
-function compareDeclarations(declarationA, declarationB, doc, element) {
+function compareDeclarations(declarationA, declarationB, element, docContext) {
 	const importantA = declarationA.important ? 1 : 0;
 	const importantB = declarationB.important ? 1 : 0;
 	if (importantA !== importantB) {
 		return importantA - importantB;
 	}
-	const layerComparison = compareLayers(declarationA.selector.layers, declarationB.selector.layers, doc, element);
+	const layerComparison = compareLayers(declarationA.selector.layers, declarationB.selector.layers, element, docContext);
 	if (layerComparison !== 0) {
 		return importantA ? -layerComparison : layerComparison;
 	}
@@ -380,7 +375,7 @@ function compareDeclarations(declarationA, declarationB, doc, element) {
 	return 0;
 }
 
-function compareLayers(layersA, layersB, doc, element) {
+function compareLayers(layersA, layersB, element, docContext) {
 	const isUnlayeredA = !layersA || layersA.length === 0 || layersA.every(layerName => layerName === "");
 	const isUnlayeredB = !layersB || layersB.length === 0 || layersB.every(layerName => layerName === "");
 	if (isUnlayeredA && isUnlayeredB) {
@@ -398,7 +393,7 @@ function compareLayers(layersA, layersB, doc, element) {
 		return 0;
 	}
 	const minLength = Math.min(layersA.length, layersB.length);
-	const effectiveMap = buildEffectiveLayerOrder(doc, element);
+	const effectiveMap = buildEffectiveLayerOrder(element, docContext);
 	for (let indexLayer = 0; indexLayer < minLength; indexLayer++) {
 		if (layersA[indexLayer] !== layersB[indexLayer]) {
 			const partialLayerA = getFullLayerName(layersA.slice(0, indexLayer + 1));
@@ -424,13 +419,13 @@ function getFullLayerName(layers) {
 	return layers.filter(layerName => layerName !== "").join(".");
 }
 
-function buildEffectiveLayerOrder(doc, element) {
-	if (element && doc.layerOrderCache && doc.layerOrderCache.has(element)) {
-		return doc.layerOrderCache.get(element);
+function buildEffectiveLayerOrder(element, docContext) {
+	if (element && docContext.layerOrder.has(element)) {
+		return docContext.layerOrder.get(element);
 	}
 	const applicable = [];
-	for (let indexDeclaration = 0; indexDeclaration < doc.layerDeclarations.length; indexDeclaration++) {
-		const declaration = doc.layerDeclarations[indexDeclaration];
+	for (let indexDeclaration = 0; indexDeclaration < docContext.layerDeclarations.length; indexDeclaration++) {
+		const declaration = docContext.layerDeclarations[indexDeclaration];
 		applicable.push(declaration.name);
 	}
 	const map = new Map();
@@ -438,23 +433,23 @@ function buildEffectiveLayerOrder(doc, element) {
 		const name = applicable[indexApplicable];
 		if (!map.has(name)) map.set(name, map.size);
 	}
-	if (element && doc.layerOrderCache) {
-		doc.layerOrderCache.set(element, map);
+	if (element) {
+		docContext.layerOrder.set(element, map);
 	} else {
-		doc.globalLayerOrder = map;
+		docContext.globalLayerOrder = map;
 	}
 	return map;
 }
 
-function matchElements(doc, selector, resolvedSelectorText) {
+function matchElements(selector, resolvedSelectorText, docContext) {
 	try {
 		const selectorText = getFilteredSelector(selector, resolvedSelectorText);
-		const cachedResult = doc.matchedSelectors.get(selectorText);
+		const cachedResult = docContext.matchedSelectors.get(selectorText);
 		if (cachedResult !== undefined) {
 			return cachedResult;
 		} else {
-			const matchedElements = Array.from(doc.querySelectorAll(selectorText));
-			doc.matchedSelectors.set(selectorText, matchedElements);
+			const matchedElements = Array.from(docContext.doc.querySelectorAll(selectorText));
+			docContext.matchedSelectors.set(selectorText, matchedElements);
 			return matchedElements;
 		}
 		// eslint-disable-next-line no-unused-vars
