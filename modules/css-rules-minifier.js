@@ -48,7 +48,7 @@ function process(doc, stylesheets) {
 		layerDeclarations: [],
 		layerOrder: new Map(),
 		selectorData: new Map(),
-		selectorTextCache: new Map(),
+		selectorTexts: new Map(),
 		rulesSourceCounter: 0,
 	};
 	stylesheets.forEach((stylesheetInfo, key) => {
@@ -218,10 +218,10 @@ function processStylesheetRules(cssRules, stylesheets, processingContext, docCon
 }
 
 function getSelectorText(selectorAST, docContext) {
-	if (!docContext.selectorTextCache.has(selectorAST)) {
-		docContext.selectorTextCache.set(selectorAST, cssTree.generate(selectorAST));
+	if (!docContext.selectorTexts.has(selectorAST)) {
+		docContext.selectorTexts.set(selectorAST, cssTree.generate(selectorAST));
 	}
-	return docContext.selectorTextCache.get(selectorAST);
+	return docContext.selectorTexts.get(selectorAST);
 }
 
 function hasPseudoElement(selectorNode) {
