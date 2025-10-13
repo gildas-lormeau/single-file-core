@@ -43,43 +43,38 @@ function process(doc, stylesheets) {
 		stats: { processed: 0, discarded: 0 },
 		matchedElements: new Set(),
 		matchedSelectors: new Map(),
+		matchingSelectors: new Map(),
 		layerDeclarationCounter: 0,
 		layerDeclarations: [],
 		layerOrder: new Map(),
 		rulesSourceCounter: 0
 	};
-	try {
-		stylesheets.forEach((stylesheetInfo, key) => {
-			if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
-				const cssRules = stylesheetInfo.stylesheet.children;
-				if (cssRules) {
-					collectLayerOrder(cssRules, [], [], docContext);
-				}
+	stylesheets.forEach((stylesheetInfo, key) => {
+		if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
+			const cssRules = stylesheetInfo.stylesheet.children;
+			if (cssRules) {
+				collectLayerOrder(cssRules, [], [], docContext);
 			}
-		});
-		buildEffectiveLayerOrder(docContext);
-		stylesheets.forEach((stylesheetInfo, key) => {
-			if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
-				const cssRules = stylesheetInfo.stylesheet.children;
-				if (cssRules) {
-					processStylesheetRules(cssRules, stylesheets, [], [], [], docContext);
-				}
-			}
-		});
-		computeCascade(docContext);
-		stylesheets.forEach((stylesheetInfo, key) => {
-			if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
-				const cssRules = stylesheetInfo.stylesheet.children;
-				if (cssRules) {
-					cleanEmptyRules(cssRules, docContext);
-				}
-			}
-		});
-	} finally {
-		if (docContext.matchedElements) {
-			docContext.matchedElements.forEach(element => delete element.matchingSelectors);
 		}
-	}
+	});
+	buildEffectiveLayerOrder(docContext);
+	stylesheets.forEach((stylesheetInfo, key) => {
+		if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
+			const cssRules = stylesheetInfo.stylesheet.children;
+			if (cssRules) {
+				processStylesheetRules(cssRules, stylesheets, [], [], [], docContext);
+			}
+		}
+	});
+	computeCascade(docContext);
+	stylesheets.forEach((stylesheetInfo, key) => {
+		if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
+			const cssRules = stylesheetInfo.stylesheet.children;
+			if (cssRules) {
+				cleanEmptyRules(cssRules, docContext);
+			}
+		}
+	});
 	return docContext.stats;
 }
 
@@ -189,10 +184,12 @@ function processStylesheetRules(cssRules, stylesheets, ancestorsSelectors = [], 
 					} else {
 						matchedElements.forEach(element => {
 							docContext.matchedElements.add(element);
-							if (!element.matchingSelectors) {
-								element.matchingSelectors = [];
+							let matchingSelectors = docContext.matchingSelectors.get(element);
+							if (!matchingSelectors) {
+								matchingSelectors = [];
+								docContext.matchingSelectors.set(element, matchingSelectors);
 							}
-							element.matchingSelectors.push(selector);
+							matchingSelectors.push(selector);
 						});
 					}
 				}
@@ -253,11 +250,12 @@ function computeCascade(docContext) {
 
 function computeElementCascadedStyles(element, winningDeclarations, docContext) {
 	const cascadedStyles = new Map();
-	if (!element.matchingSelectors) {
+	const matchingSelectors = docContext.matchingSelectors.get(element);
+	if (!matchingSelectors) {
 		return cascadedStyles;
 	}
 	const allDeclarations = [];
-	element.matchingSelectors.forEach(selector => {
+	matchingSelectors.forEach(selector => {
 		const declarations = selector.rule.block && selector.rule.block.children;
 		if (declarations) {
 			for (let declaration = declarations.head; declaration; declaration = declaration.next) {
@@ -282,7 +280,7 @@ function computeElementCascadedStyles(element, winningDeclarations, docContext) 
 		contextGroups.get(contextKey).push(item);
 	});
 	contextGroups.forEach(declarations => {
-		declarations.sort((a, b) => compareDeclarations(a, b, element, docContext));
+		declarations.sort((declarationA, declarationB) => compareDeclarations(declarationA, declarationB, element, docContext));
 		declarations.forEach(item => {
 			cascadedStyles.set(item.property + ":" + getContextKey(item.selector.conditionalContext), {
 				declaration: item.declaration,
@@ -308,8 +306,9 @@ function getContextKey(conditionalContext) {
 function removeLosingDeclarations(winningDeclarations, docContext) {
 	const allDeclarationNodes = new Map();
 	docContext.matchedElements.forEach(element => {
-		if (element.matchingSelectors) {
-			element.matchingSelectors.forEach(selector => {
+		const matchingSelectors = docContext.matchingSelectors.get(element);
+		if (matchingSelectors) {
+			matchingSelectors.forEach(selector => {
 				const declarations = selector.rule.block && selector.rule.block.children;
 				if (declarations) {
 					for (let declaration = declarations.head; declaration; declaration = declaration.next) {
