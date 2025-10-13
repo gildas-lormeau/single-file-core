@@ -45,7 +45,6 @@ function process(doc, stylesheets) {
 		matchedSelectors: new Map(),
 		layerDeclarationCounter: 0,
 		layerDeclarations: [],
-		layerOrder: new Map(),
 		globalLayerOrder: null,
 		rulesSourceOrder: 0
 	};
@@ -58,6 +57,7 @@ function process(doc, stylesheets) {
 				}
 			}
 		});
+		buildEffectiveLayerOrder(docContext);
 		stylesheets.forEach((stylesheetInfo, key) => {
 			if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
 				const cssRules = stylesheetInfo.stylesheet.children;
@@ -393,7 +393,7 @@ function compareLayers(layersA, layersB, element, docContext) {
 		return 0;
 	}
 	const minLength = Math.min(layersA.length, layersB.length);
-	const effectiveMap = buildEffectiveLayerOrder(element, docContext);
+	const effectiveMap = docContext.globalLayerOrder;
 	for (let indexLayer = 0; indexLayer < minLength; indexLayer++) {
 		if (layersA[indexLayer] !== layersB[indexLayer]) {
 			const partialLayerA = getFullLayerName(layersA.slice(0, indexLayer + 1));
@@ -419,10 +419,7 @@ function getFullLayerName(layers) {
 	return layers.filter(layerName => layerName !== "").join(".");
 }
 
-function buildEffectiveLayerOrder(element, docContext) {
-	if (element && docContext.layerOrder.has(element)) {
-		return docContext.layerOrder.get(element);
-	}
+function buildEffectiveLayerOrder(docContext) {
 	const applicable = [];
 	for (let indexDeclaration = 0; indexDeclaration < docContext.layerDeclarations.length; indexDeclaration++) {
 		const declaration = docContext.layerDeclarations[indexDeclaration];
@@ -433,11 +430,7 @@ function buildEffectiveLayerOrder(element, docContext) {
 		const name = applicable[indexApplicable];
 		if (!map.has(name)) map.set(name, map.size);
 	}
-	if (element) {
-		docContext.layerOrder.set(element, map);
-	} else {
-		docContext.globalLayerOrder = map;
-	}
+	docContext.globalLayerOrder = map;
 	return map;
 }
 
