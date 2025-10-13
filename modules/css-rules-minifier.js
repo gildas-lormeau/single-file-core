@@ -251,9 +251,6 @@ function computeCascade(docContext) {
 function computeElementCascadedStyles(element, winningDeclarations, docContext) {
 	const cascadedStyles = new Map();
 	const matchingSelectors = docContext.matchingSelectors.get(element);
-	if (!matchingSelectors) {
-		return cascadedStyles;
-	}
 	const allDeclarations = [];
 	matchingSelectors.forEach(selector => {
 		const declarations = selector.rule.block && selector.rule.block.children;
