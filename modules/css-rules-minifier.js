@@ -54,7 +54,7 @@ function process(doc, stylesheets) {
 		if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
 			const cssRules = stylesheetInfo.stylesheet.children;
 			if (cssRules) {
-				collectLayerOrder(cssRules, [], [], docContext);
+				collectLayerOrder(cssRules, { layerStack: [], conditionalStack: [] }, docContext);
 			}
 		}
 	});
@@ -63,7 +63,7 @@ function process(doc, stylesheets) {
 		if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
 			const cssRules = stylesheetInfo.stylesheet.children;
 			if (cssRules) {
-				processStylesheetRules(cssRules, stylesheets, [], [], [], docContext);
+				processStylesheetRules(cssRules, stylesheets, { ancestorsSelectors: [], layerStack: [], conditionalStack: [] }, docContext);
 			}
 		}
 	});
@@ -79,7 +79,8 @@ function process(doc, stylesheets) {
 	return docContext.stats;
 }
 
-function collectLayerOrder(cssRules, layerStack = [], conditionalStack = [], docContext) {
+function collectLayerOrder(cssRules, layerContext, docContext) {
+	const { layerStack, conditionalStack } = layerContext;
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		const ruleData = cssRule.data;
 		if (ruleData.type === "Atrule" && ruleData.name === "layer") {
@@ -93,7 +94,7 @@ function collectLayerOrder(cssRules, layerStack = [], conditionalStack = [], doc
 						conditionalContext: conditionalStack.slice()
 					});
 				}
-				collectLayerOrder(ruleData.block.children, [...layerStack, layerName], conditionalStack, docContext);
+				collectLayerOrder(ruleData.block.children, { layerStack: [...layerStack, layerName], conditionalStack }, docContext);
 			} else if (ruleData.prelude) {
 				const layerNames = cssTree.generate(ruleData.prelude).split(",");
 				layerNames.forEach(layerName => {
@@ -112,25 +113,26 @@ function collectLayerOrder(cssRules, layerStack = [], conditionalStack = [], doc
 			const newConditionalStack = isConditional
 				? [...conditionalStack, { name: ruleData.name, prelude: cssTree.generate(ruleData.prelude) }]
 				: conditionalStack;
-			collectLayerOrder(ruleData.block.children, layerStack, newConditionalStack, docContext);
+			collectLayerOrder(ruleData.block.children, { layerStack, conditionalStack: newConditionalStack }, docContext);
 		} else if (ruleData.type === "Rule" && ruleData.block && ruleData.block.children) {
-			collectLayerOrder(ruleData.block.children, layerStack, conditionalStack, docContext);
+			collectLayerOrder(ruleData.block.children, layerContext, docContext);
 		}
 	}
 }
 
-function processStylesheetRules(cssRules, stylesheets, ancestorsSelectors = [], layerStack = [], conditionalStack = [], docContext) {
+function processStylesheetRules(cssRules, stylesheets, processingContext, docContext) {
+	const { ancestorsSelectors, layerStack, conditionalStack } = processingContext;
 	const removedRules = new Set();
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		docContext.stats.processed++;
 		const ruleData = cssRule.data;
 		if (ruleData.type === "Atrule" && ruleData.name === "import" && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head.data.importedChildren) {
-			processStylesheetRules(ruleData.prelude.children.head.data.importedChildren, stylesheets, ancestorsSelectors, layerStack, conditionalStack, docContext);
+			processStylesheetRules(ruleData.prelude.children.head.data.importedChildren, stylesheets, processingContext, docContext);
 		} else if (ruleData.type === "Atrule" && ruleData.name === "layer" && ruleData.block) {
 			const layerName = ruleData.prelude ? cssTree.generate(ruleData.prelude) : "";
-			const newLayerStack = [...layerStack, layerName];
+			const newProcessingContext = { ...processingContext, layerStack: [...processingContext.layerStack, layerName] };
 			fixRawRules(ruleData);
-			processStylesheetRules(ruleData.block.children, stylesheets, ancestorsSelectors, newLayerStack, conditionalStack, docContext);
+			processStylesheetRules(ruleData.block.children, stylesheets, newProcessingContext, docContext);
 			if (ruleData.block.children.size === 0) {
 				docContext.stats.discarded++;
 				removedRules.add(cssRule);
@@ -143,8 +145,9 @@ function processStylesheetRules(cssRules, stylesheets, ancestorsSelectors = [], 
 			const newConditionalStack = isConditional
 				? [...conditionalStack, { name: ruleData.name, prelude: cssTree.generate(ruleData.prelude) }]
 				: conditionalStack;
+			const newProcessingContext = { ...processingContext, conditionalStack: newConditionalStack };
 			fixRawRules(ruleData);
-			processStylesheetRules(ruleData.block.children, stylesheets, ancestorsSelectors, layerStack, newConditionalStack, docContext);
+			processStylesheetRules(ruleData.block.children, stylesheets, newProcessingContext, docContext);
 			if (ruleData.block.children.size === 0) {
 				docContext.stats.discarded++;
 				removedRules.add(cssRule);
@@ -205,7 +208,8 @@ function processStylesheetRules(cssRules, stylesheets, ancestorsSelectors = [], 
 			} else if (ruleData.block && ruleData.block.children) {
 				fixRawRules(ruleData);
 				cleanDeclarations(ruleData.block);
-				processStylesheetRules(ruleData.block.children, stylesheets, ancestorsSelectors.concat(ruleData.prelude), layerStack, conditionalStack, docContext);
+				const newProcessingContext = { ...processingContext, ancestorsSelectors: [...processingContext.ancestorsSelectors, ruleData.prelude] };
+				processStylesheetRules(ruleData.block.children, stylesheets, newProcessingContext, docContext);
 			}
 		}
 	}
