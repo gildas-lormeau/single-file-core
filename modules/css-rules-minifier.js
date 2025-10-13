@@ -33,6 +33,8 @@ const UNMATCHABLE_PSEUDO_CLASSES = [
 	"playing", "paused", "seeking", "buffering", "stalled", "muted", "volume-locked"
 ];
 
+const CONDITIONAL_AT_RULE_NAMES = ["media", "supports", "container"];
+
 export {
 	process
 };
@@ -110,7 +112,7 @@ function collectLayerOrder(cssRules, layerContext, docContext) {
 				});
 			}
 		} else if (ruleData.type === "Atrule" && ruleData.block && ruleData.block.children) {
-			const isConditional = ["media", "supports", "container"].includes(ruleData.name);
+			const isConditional = CONDITIONAL_AT_RULE_NAMES.includes(ruleData.name);
 			const newConditionalStack = isConditional
 				? [...conditionalStack, { name: ruleData.name, prelude: cssTree.generate(ruleData.prelude) }]
 				: conditionalStack;
