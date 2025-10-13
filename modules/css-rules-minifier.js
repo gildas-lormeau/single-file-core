@@ -586,7 +586,7 @@ function combineWithAncestors(selector, ancestorsSelectors) {
 		const result = context ? combineSelectors(context, selectorText) : selectorText;
 		expandedSelectors.add(result);
 	});
-	return Array.from(expandedSelectors).join(", ");
+	return Array.from(expandedSelectors).join(",");
 }
 
 function combineSelectors(parentSelectorText, childSelectorText) {
