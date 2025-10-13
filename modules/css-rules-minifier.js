@@ -185,7 +185,8 @@ function processStylesheetRules(cssRules, stylesheets, processingContext, docCon
 					hasPseudoElement: hasPseudoElement(selector.data),
 					hasDynamicState: hasDynamicStatePseudoClass(selector.data)
 				});
-				if (!docContext.selectorData.get(selector).hasPseudoElement && !docContext.selectorData.get(selector).hasDynamicState) {
+				const selectorData = docContext.selectorData.get(selector);
+				if (!selectorData.hasPseudoElement && !selectorData.hasDynamicState) {
 					const matchedElements = matchElements(selector, resolvedSelectorText, docContext);
 					if (!matchedElements || matchedElements.length === 0) {
 						removedSelectors.push(selector);
