@@ -48,6 +48,7 @@ function process(doc, stylesheets) {
 		layerDeclarations: [],
 		layerOrder: new Map(),
 		selectorData: new Map(),
+		selectorTextCache: new Map(),
 		rulesSourceCounter: 0,
 	};
 	stylesheets.forEach((stylesheetInfo, key) => {
@@ -154,12 +155,12 @@ function processStylesheetRules(cssRules, stylesheets, processingContext, docCon
 			}
 		} else if (ruleData.type === "Rule" && ruleData.prelude.children) {
 			ruleData.sourceOrder = docContext.rulesSourceCounter++;
-			const selectorsText = ruleData.prelude.children.toArray().map(selector => cssTree.generate(selector));
+			const selectorsText = ruleData.prelude.children.toArray().map(selector => getSelectorText(selector, docContext));
 			const removedSelectors = [];
 			for (let selector = ruleData.prelude.children.head, selectorIndex = 0; selector; selector = selector.next, selectorIndex++) {
 				let resolvedSelectorText = selectorsText[selectorIndex];
 				if (ancestorsSelectors.length) {
-					resolvedSelectorText = combineWithAncestors(selector.data, ancestorsSelectors);
+					resolvedSelectorText = combineWithAncestors(selector.data, ancestorsSelectors, docContext);
 				}
 				const resolvedSelectorAST = cssTree.parse(resolvedSelectorText, { context: "selectorList" });
 				let maxSpecificity = { a: 0, b: 0, c: 0 };
@@ -214,6 +215,13 @@ function processStylesheetRules(cssRules, stylesheets, processingContext, docCon
 		}
 	}
 	removedRules.forEach(rule => cssRules.remove(rule));
+}
+
+function getSelectorText(selectorAST, docContext) {
+	if (!docContext.selectorTextCache.has(selectorAST)) {
+		docContext.selectorTextCache.set(selectorAST, cssTree.generate(selectorAST));
+	}
+	return docContext.selectorTextCache.get(selectorAST);
 }
 
 function hasPseudoElement(selectorNode) {
@@ -443,7 +451,7 @@ function buildEffectiveLayerOrder(docContext) {
 
 function matchElements(selector, resolvedSelectorText, docContext) {
 	try {
-		const selectorText = getFilteredSelector(selector, resolvedSelectorText);
+		const selectorText = getFilteredSelector(selector, resolvedSelectorText, docContext);
 		const cachedResult = docContext.matchedSelectors.get(selectorText);
 		if (cachedResult !== undefined) {
 			return cachedResult;
@@ -458,13 +466,13 @@ function matchElements(selector, resolvedSelectorText, docContext) {
 	}
 }
 
-function getFilteredSelector(selector, selectorText) {
+function getFilteredSelector(selector, selectorText, docContext) {
 	const removedSelectors = [];
 	let namespaceFound = false;
-	selector = { data: cssTree.parse(cssTree.generate(selector.data), { context: "selector" }) };
+	selector = { data: cssTree.parse(getSelectorText(selector.data, docContext), { context: "selector" }) };
 	filterNamespace(selector);
 	if (namespaceFound) {
-		selectorText = cssTree.generate(selector.data);
+		selectorText = getSelectorText(selector.data, docContext);
 	}
 	filterPseudoClasses(selector);
 	if (removedSelectors.length) {
@@ -562,8 +570,8 @@ function cleanDeclarations(ruleData) {
 	removedDeclarations.forEach(declaration => ruleData.children.remove(declaration));
 }
 
-function combineWithAncestors(selector, ancestorsSelectors) {
-	const selectorText = cssTree.generate(selector);
+function combineWithAncestors(selector, ancestorsSelectors, docContext) {
+	const selectorText = getSelectorText(selector, docContext);
 	if (!ancestorsSelectors || !ancestorsSelectors.length) {
 		return selectorText;
 	}
@@ -576,7 +584,7 @@ function combineWithAncestors(selector, ancestorsSelectors) {
 		const nextContexts = [];
 		contexts.forEach(context => {
 			parentSelectors.forEach(parentSelector => {
-				const parentText = cssTree.generate(parentSelector);
+				const parentText = getSelectorText(parentSelector, docContext);
 				const combined = context ? combineSelectors(context, parentText) : parentText;
 				if (!nextContexts.includes(combined)) {
 					nextContexts.push(combined);
