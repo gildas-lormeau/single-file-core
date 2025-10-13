@@ -547,10 +547,21 @@ function cleanDeclarations(ruleData) {
 	for (let ruleChild = ruleData.children.head; ruleChild; ruleChild = ruleChild.next) {
 		if (ruleChild.data.type === "Declaration") {
 			const prop = ruleChild.data.property;
+			const isImportant = ruleChild.data.important;
 			if (propertyMap.has(prop)) {
-				removedDeclarations.push(propertyMap.get(prop));
+				const existing = propertyMap.get(prop);
+				if (existing.isImportant === isImportant) {
+					removedDeclarations.push(existing.node);
+					propertyMap.set(prop, { node: ruleChild, isImportant });
+				} else if (isImportant && !existing.isImportant) {
+					removedDeclarations.push(existing.node);
+					propertyMap.set(prop, { node: ruleChild, isImportant });
+				} else {
+					removedDeclarations.push(ruleChild);
+				}
+			} else {
+				propertyMap.set(prop, { node: ruleChild, isImportant });
 			}
-			propertyMap.set(prop, ruleChild);
 		}
 	}
 	removedDeclarations.forEach(declaration => ruleData.children.remove(declaration));
