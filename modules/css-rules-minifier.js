@@ -541,10 +541,10 @@ function fixRawRules(ruleData) {
 	ruleChildren.forEach(ruleChild => ruleData.block.children.appendData(ruleChild.data));
 }
 
-function cleanDeclarations(ruleData) {
+function cleanDeclarations(block) {
 	const propertyMap = new Map();
 	const removedDeclarations = [];
-	for (let ruleChild = ruleData.children.head; ruleChild; ruleChild = ruleChild.next) {
+	for (let ruleChild = block.children.head; ruleChild; ruleChild = ruleChild.next) {
 		if (ruleChild.data.type === "Declaration") {
 			const prop = ruleChild.data.property;
 			const isImportant = ruleChild.data.important;
@@ -564,7 +564,7 @@ function cleanDeclarations(ruleData) {
 			}
 		}
 	}
-	removedDeclarations.forEach(declaration => ruleData.children.remove(declaration));
+	removedDeclarations.forEach(declaration => block.children.remove(declaration));
 }
 
 function combineWithAncestors(selector, ancestorsSelectors, docContext) {
