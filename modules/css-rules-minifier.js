@@ -25,7 +25,7 @@ import { computeSpecificity } from "./css-specificity.js";
 
 const PSEUDO_ELEMENT_NAMES = ["after", "before", "first-letter", "first-line", "placeholder", "selection", "part", "marker", "grammar-error", "spelling-error", "cue", "cue-region", "backdrop", "column", "scroll-marker", "scroll-marker-group", "details-content", "checkmark", "file-selector-button", "picker-icon", "target-text"];
 
-const DYNAMIC_STATE_PSEUDO_CLASSES = ["hover", "focus", "active", "focus-within", "focus-visible", "target", "visited", "link"];
+const DYNAMIC_STATE_PSEUDO_CLASSES = ["hover", "focus", "active", "focus-within", "focus-visible", "target", "visited", "link", "target-current"];
 
 const UNMATCHABLE_PSEUDO_CLASSES = [
 	"user-invalid",
