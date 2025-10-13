@@ -47,7 +47,7 @@ function process(doc, stylesheets) {
 		layerOrder: new Map(),
 		selectorData: new Map(),
 		selectorTexts: new Map(),
-		rulesSourceCounter: 0,
+		rulesCounter: 0,
 	};
 	stylesheets.forEach((stylesheetInfo, key) => {
 		if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
@@ -151,7 +151,7 @@ function processStylesheetRules(cssRules, stylesheets, processingContext, docCon
 				removedRules.add(cssRule);
 			}
 		} else if (ruleData.type === "Rule" && ruleData.prelude.children) {
-			ruleData.sourceOrder = docContext.rulesSourceCounter++;
+			ruleData.order = docContext.rulesCounter++;
 			const selectorsText = ruleData.prelude.children.toArray().map(selector => getSelectorText(selector, docContext));
 			const removedSelectors = [];
 			for (let selector = ruleData.prelude.children.head, selectorIndex = 0; selector; selector = selector.next, selectorIndex++) {
@@ -174,7 +174,7 @@ function processStylesheetRules(cssRules, stylesheets, processingContext, docCon
 				});
 				docContext.selectorData.set(selector, {
 					specificity: maxSpecificity,
-					sourceOrder: ruleData.sourceOrder,
+					order: ruleData.order,
 					rule: ruleData,
 					layers: layerStack,
 					conditionalContext: conditionalStack,
@@ -382,8 +382,8 @@ function compareDeclarations(declarationA, declarationB, docContext) {
 	if (selectorDataA.specificity.c !== selectorDataB.specificity.c) {
 		return selectorDataA.specificity.c - selectorDataB.specificity.c;
 	}
-	if (selectorDataA.sourceOrder !== selectorDataB.sourceOrder) {
-		return selectorDataA.sourceOrder - selectorDataB.sourceOrder;
+	if (selectorDataA.order !== selectorDataB.order) {
+		return selectorDataA.order - selectorDataB.order;
 	}
 	return 0;
 }
