@@ -45,8 +45,8 @@ function process(doc, stylesheets) {
 		matchedSelectors: new Map(),
 		layerDeclarationCounter: 0,
 		layerDeclarations: [],
-		globalLayerOrder: null,
-		rulesSourceOrder: 0
+		layerOrder: new Map(),
+		rulesSourceCounter: 0
 	};
 	try {
 		stylesheets.forEach((stylesheetInfo, key) => {
@@ -154,7 +154,7 @@ function processStylesheetRules(cssRules, stylesheets, ancestorsSelectors = [], 
 				removedRules.add(cssRule);
 			}
 		} else if (ruleData.type === "Rule" && ruleData.prelude.children) {
-			ruleData.sourceOrder = docContext.rulesSourceOrder++;
+			ruleData.sourceOrder = docContext.rulesSourceCounter++;
 			const selectorsText = ruleData.prelude.children.toArray().map(selector => cssTree.generate(selector));
 			const removedSelectors = [];
 			for (let selector = ruleData.prelude.children.head, selectorIndex = 0; selector; selector = selector.next, selectorIndex++) {
@@ -393,7 +393,7 @@ function compareLayers(layersA, layersB, element, docContext) {
 		return 0;
 	}
 	const minLength = Math.min(layersA.length, layersB.length);
-	const effectiveMap = docContext.globalLayerOrder;
+	const effectiveMap = docContext.layerOrder;
 	for (let indexLayer = 0; indexLayer < minLength; indexLayer++) {
 		if (layersA[indexLayer] !== layersB[indexLayer]) {
 			const partialLayerA = getFullLayerName(layersA.slice(0, indexLayer + 1));
@@ -425,13 +425,10 @@ function buildEffectiveLayerOrder(docContext) {
 		const declaration = docContext.layerDeclarations[indexDeclaration];
 		applicable.push(declaration.name);
 	}
-	const map = new Map();
 	for (let indexApplicable = 0; indexApplicable < applicable.length; indexApplicable++) {
 		const name = applicable[indexApplicable];
-		if (!map.has(name)) map.set(name, map.size);
+		if (!docContext.layerOrder.has(name)) docContext.layerOrder.set(name, docContext.layerOrder.size);
 	}
-	docContext.globalLayerOrder = map;
-	return map;
 }
 
 function matchElements(selector, resolvedSelectorText, docContext) {
