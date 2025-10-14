@@ -208,15 +208,23 @@ function processSelectors(ruleData, processingContext, docContext, selectorsText
 
 function computeMaxSpecificity(selector) {
 	let maxSpecificity = { a: 0, b: 0, c: 0 };
+	const stack = [];
 	cssTree.walk(selector, {
-		visit: "Selector",
 		enter(node) {
+			stack.push(node);
+			if (node.type === "Selector") {
+				const insideWhere = stack.some(n => n.type === "PseudoClassSelector" && n.name === "where");
+				if (insideWhere) return;
 			const specificity = computeSpecificity(node);
 			if (specificity.a > maxSpecificity.a ||
 				(specificity.a === maxSpecificity.a && specificity.b > maxSpecificity.b) ||
 				(specificity.a === maxSpecificity.a && specificity.b === maxSpecificity.b && specificity.c > maxSpecificity.c)) {
 				maxSpecificity = specificity;
 			}
+			}
+		},
+		leave() {
+			stack.pop();
 		}
 	});
 	return maxSpecificity;
