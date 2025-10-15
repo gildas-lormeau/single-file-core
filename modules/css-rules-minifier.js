@@ -254,8 +254,9 @@ function selectorContainsNestingOrScope(selector) {
 	let found = false;
 	cssTree.walk(selector, {
 		enter(node) {
-			if (node.type === "NestingSelector") found = true;
-			if (node.type === "PseudoClassSelector" && node.name === "scope") found = true;
+			if (node.type === "NestingSelector" || (node.type === "PseudoClassSelector" && node.name === "scope")) {
+				found = true;
+			}
 		}
 	});
 	return found;
