@@ -226,16 +226,13 @@ function processSelectors(ruleData, processingContext, docContext) {
 			rule: ruleData,
 			layers: layerStack,
 			conditionalContext: conditionalStack,
-			hasPseudoElement: hasPseudoElement(selector.data),
-			hasDynamicState: hasDynamicStatePseudoClass(selector.data),
 			scopeIncludeLists,
 			scopeExclusionLists,
 			scopeNestingLevel,
 			scopeRelative: !startsWithCombinator && !selectorContainsNestingOrScope(selector.data)
 		});
-		const selectorData = docContext.selectorData.get(selector);
-		if (!selectorData.hasPseudoElement &&
-			!selectorData.hasDynamicState &&
+		if (!hasPseudoElement(selector.data) &&
+			!hasDynamicStatePseudoClass(selector.data) &&
 			(!startsWithCombinator || !ancestorsSelectors || !ancestorsSelectors.length)) {
 			const matchedElements = matchElements(selector, docContext, ancestorsSelectors);
 			if (matchedElements.length) {
