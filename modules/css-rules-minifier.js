@@ -25,7 +25,7 @@ import { computeMaxSpecificity } from "./css-specificity.js";
 import { parsePrelude } from "./css-scope-prelude-parser.js";
 import { sanitizeSelector } from "./css-selector-sanitizer.js";
 
-const DEBUG = true;
+const DEBUG = false;
 
 const PSEUDO_ELEMENT_NAMES = ["after", "before", "first-letter", "first-line", "placeholder", "selection", "part", "marker", "grammar-error", "spelling-error", "cue", "cue-region", "backdrop", "column", "scroll-marker", "scroll-marker-group", "details-content", "checkmark", "file-selector-button", "picker-icon", "target-text"];
 
