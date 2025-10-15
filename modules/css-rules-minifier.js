@@ -28,10 +28,35 @@ import { sanitizeSelector } from "./css-selector-sanitizer.js";
 const DEBUG = false;
 
 const CANONICAL_PSEUDO_ELEMENT_NAMES = new Set(["after", "before", "first-letter", "first-line", "placeholder", "selection", "part", "marker"]);
-
 const DYNAMIC_STATE_PSEUDO_CLASSES = new Set(["hover", "focus", "active", "focus-within", "focus-visible", "target", "visited", "link", "target-current"]);
-
 const CONDITIONAL_AT_RULE_NAMES = new Set(["media", "supports", "container"]);
+const RULE_TYPE = "Rule";
+const AT_RULE_TYPE = "Atrule";
+const NESTING_SELECTOR_TYPE = "NestingSelector";
+const PSEUDO_CLASS_SELECTOR_TYPE = "PseudoClassSelector";
+const DECLARATION_TYPE = "Declaration";
+const RAW_TYPE = "Raw";
+const PSEUDO_ELEMENT_SELECTOR_TYPE = "PseudoElementSelector";
+const LAYER_NAME = "layer";
+const SCOPE_NAME = "scope";
+const IMPORT_NAME = "import";
+const FONT_FACE_NAME = "font-face";
+const KEYFRAMES_NAME = "keyframes";
+const COMBINATOR_NAME = "Combinator";
+const SELECTOR_LIST_CONTEXT = "selectorList";
+const STYLESHEET_CONTEXT = "stylesheet";
+const SELECTOR_CONTEXT = "selector";
+const ROOT_PSEUDO_CLASS = ":root";
+const PRELUDE_SEPARATOR = ",";
+const NESTING_SELECTOR = "&";
+const VENDOR_PREFIX = "-";
+const CUSTOM_PROPERTY_PREFIX = "--";
+const LAYER_NAME_SEPARATOR = ".";
+const DECLARATION_KEY_SEPARATOR = ":";
+const CONTEXT_KEY_SEPARATOR = "|";
+const BLOCK_OPEN = "{";
+const BLOCK_CLOSE = "}";
+const EMPTY_STRING = "";
 
 export {
 	process
@@ -104,12 +129,12 @@ function collectStylesheetLayerOrder(cssRules, layerContext, docContext) {
 	const { layerStack, conditionalStack } = layerContext;
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		const ruleData = cssRule.data;
-		if (ruleData.type === "Atrule" && ruleData.name === "layer") {
+		if (ruleData.type === AT_RULE_TYPE && ruleData.name === LAYER_NAME) {
 			collectStylesheetLayerRule(ruleData, layerStack, conditionalStack, docContext);
-		} else if (ruleData.type === "Atrule" && ruleData.block && ruleData.block.children) {
+		} else if (ruleData.type === AT_RULE_TYPE && ruleData.block && ruleData.block.children) {
 			const newConditionalStack = buildConditionalStack(conditionalStack, ruleData);
 			collectStylesheetLayerOrder(ruleData.block.children, { layerStack, conditionalStack: newConditionalStack }, docContext);
-		} else if (ruleData.type === "Rule" && ruleData.block && ruleData.block.children) {
+		} else if (ruleData.type === RULE_TYPE && ruleData.block && ruleData.block.children) {
 			collectStylesheetLayerOrder(ruleData.block.children, layerContext, docContext);
 		}
 	}
@@ -117,11 +142,11 @@ function collectStylesheetLayerOrder(cssRules, layerContext, docContext) {
 
 function collectStylesheetLayerRule(ruleData, layerStack, conditionalStack, docContext) {
 	if (ruleData.block) {
-		const layerName = ruleData.prelude ? cssTree.generate(ruleData.prelude) : "";
+		const layerName = cssTree.generate(ruleData.prelude);
 		registerLayerDeclaration(layerStack, layerName, conditionalStack, docContext);
 		collectStylesheetLayerOrder(ruleData.block.children, { layerStack: [...layerStack, layerName], conditionalStack }, docContext);
 	} else if (ruleData.prelude) {
-		const layerNames = cssTree.generate(ruleData.prelude).split(",");
+		const layerNames = cssTree.generate(ruleData.prelude).split(PRELUDE_SEPARATOR);
 		layerNames.forEach(layerName => registerLayerDeclaration(layerStack, layerName, conditionalStack, docContext));
 	}
 }
@@ -131,15 +156,15 @@ function minifyStylesheetRules(cssRules, stylesheets, processingContext, docCont
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		docContext.stats.processed++;
 		const ruleData = cssRule.data;
-		if (ruleData.type === "Atrule" && ruleData.name === "import" && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head.data.importedChildren) {
+		if (ruleData.type === AT_RULE_TYPE && ruleData.name === IMPORT_NAME && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head.data.importedChildren) {
 			minifyStylesheetRules(ruleData.prelude.children.head.data.importedChildren, stylesheets, processingContext, docContext);
-		} else if (ruleData.type === "Atrule" && ruleData.name === "layer" && ruleData.block) {
+		} else if (ruleData.type === AT_RULE_TYPE && ruleData.name === LAYER_NAME && ruleData.block) {
 			minifyLayerRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext);
-		} else if (ruleData.type === "Atrule" && ruleData.name === "scope" && ruleData.block) {
+		} else if (ruleData.type === AT_RULE_TYPE && ruleData.name === SCOPE_NAME && ruleData.block) {
 			minifyScopeRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext);
-		} else if (ruleData.type === "Atrule" && ruleData.block && ruleData.name !== "font-face" && ruleData.name !== "keyframes" && !ruleData.name.startsWith("-")) {
+		} else if (ruleData.type === AT_RULE_TYPE && ruleData.block && ruleData.name !== FONT_FACE_NAME && ruleData.name !== KEYFRAMES_NAME && !ruleData.name.startsWith(VENDOR_PREFIX)) {
 			minifyAtRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext);
-		} else if (ruleData.type === "Rule" && ruleData.prelude.children) {
+		} else if (ruleData.type === RULE_TYPE && ruleData.prelude.children) {
 			minifyStylesheetRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext);
 		}
 	}
@@ -147,7 +172,7 @@ function minifyStylesheetRules(cssRules, stylesheets, processingContext, docCont
 }
 
 function minifyLayerRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext) {
-	const layerName = ruleData.prelude ? cssTree.generate(ruleData.prelude) : "";
+	const layerName = cssTree.generate(ruleData.prelude);
 	const newProcessingContext = { ...processingContext, layerStack: [...processingContext.layerStack, layerName] };
 	expandRawRules(ruleData);
 	minifyStylesheetRules(ruleData.block.children, stylesheets, newProcessingContext, docContext);
@@ -247,14 +272,14 @@ function processSelectors(ruleData, processingContext, docContext) {
 function selectorStartsWithCombinator(selector) {
 	if (!hasChildren(selector)) return false;
 	const firstChild = selector.children.head.data;
-	return firstChild && firstChild.type === "Combinator";
+	return firstChild && firstChild.type === COMBINATOR_NAME;
 }
 
 function selectorContainsNestingOrScope(selector) {
 	let found = false;
 	cssTree.walk(selector, {
 		enter(node) {
-			if (node.type === "NestingSelector" || (node.type === "PseudoClassSelector" && node.name === "scope")) {
+			if (node.type === NESTING_SELECTOR_TYPE || (node.type === PSEUDO_CLASS_SELECTOR_TYPE && node.name === SCOPE_NAME)) {
 				found = true;
 			}
 		}
@@ -312,11 +337,11 @@ function hasPseudoElement(selector) {
 	let found = false;
 	cssTree.walk(selector, {
 		enter(node) {
-			if (node.type === "PseudoElementSelector") {
+			if (node.type === PSEUDO_ELEMENT_SELECTOR_TYPE) {
 				found = true;
 				return this.break;
 			}
-			if (node.type === "PseudoClassSelector" && CANONICAL_PSEUDO_ELEMENT_NAMES.has(node.name)) {
+			if (node.type === PSEUDO_CLASS_SELECTOR_TYPE && CANONICAL_PSEUDO_ELEMENT_NAMES.has(node.name)) {
 				found = true;
 				return this.break;
 			}
@@ -328,7 +353,7 @@ function hasPseudoElement(selector) {
 function hasDynamicStatePseudoClass(selector) {
 	let found = false;
 	cssTree.walk(selector, {
-		visit: "PseudoClassSelector",
+		visit: PSEUDO_CLASS_SELECTOR_TYPE,
 		enter(node) {
 			if (DYNAMIC_STATE_PSEUDO_CLASSES.has(node.name)) {
 				found = true;
@@ -355,7 +380,7 @@ function computeCascadedStylesForElement(element, winningDeclarations, docContex
 		declarations.forEach(declarationData => {
 			const { selector, declaration } = declarationData;
 			const conditionalStack = docContext.selectorData.get(selector).conditionalStack;
-			cascadedStyles.set(declaration.data.property + ":" + createContextKey(conditionalStack), {
+			cascadedStyles.set(declaration.data.property + DECLARATION_KEY_SEPARATOR + createContextKey(conditionalStack), {
 				selector,
 				declaration
 			});
@@ -372,7 +397,7 @@ function collectDeclarationItemsForElement(element, docContext) {
 		const declarations = cssRule.block && cssRule.block.children;
 		if (declarations) {
 			for (let declaration = declarations.head; declaration; declaration = declaration.next) {
-				if (declaration.data.type === "Declaration") {
+				if (declaration.data.type === DECLARATION_TYPE) {
 					allDeclarations.push({
 						declaration,
 						selector,
@@ -387,10 +412,7 @@ function collectDeclarationItemsForElement(element, docContext) {
 }
 
 function createContextKey(conditionalStack) {
-	if (!conditionalStack || conditionalStack.length === 0) {
-		return "";
-	}
-	return conditionalStack.map(context => `${context.name}:${context.prelude}`).join("|");
+	return conditionalStack.map(context => `${context.name}:${context.prelude}`).join(CONTEXT_KEY_SEPARATOR);
 }
 
 function removeLosingDeclarations(winningDeclarations, docContext) {
@@ -404,9 +426,9 @@ function removeLosingDeclarations(winningDeclarations, docContext) {
 				const declarations = cssRule.block && cssRule.block.children;
 				if (declarations) {
 					for (let declaration = declarations.head; declaration; declaration = declaration.next) {
-						if (declaration.data.type === "Declaration") {
+						if (declaration.data.type === DECLARATION_TYPE) {
 							allDeclarations.set(declaration, declarations);
-							if (declaration.data.property && declaration.data.property.startsWith("--")) {
+							if (declaration.data.property && declaration.data.property.startsWith(CUSTOM_PROPERTY_PREFIX)) {
 								protectedDeclarations.add(declaration);
 							}
 						}
@@ -426,14 +448,14 @@ function cleanStylesheetEmptyRules(cssRules, docContext) {
 	const removedRules = new Set();
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		const ruleData = cssRule.data;
-		if (ruleData.type === "Rule") {
+		if (ruleData.type === RULE_TYPE) {
 			if (!ruleData.block || !ruleData.block.children || ruleData.block.children.size === 0) {
 				docContext.stats.discarded++;
 				removedRules.add(cssRule);
 			} else {
 				cleanStylesheetEmptyRules(ruleData.block.children, docContext);
 			}
-		} else if (ruleData.type === "Atrule" && ruleData.block && ruleData.name !== "font-face" && ruleData.name !== "keyframes") {
+		} else if (ruleData.type === AT_RULE_TYPE && ruleData.block && ruleData.name !== FONT_FACE_NAME && ruleData.name !== KEYFRAMES_NAME) {
 			cleanStylesheetEmptyRules(ruleData.block.children, docContext);
 			if (ruleData.block.children.size === 0) {
 				docContext.stats.discarded++;
@@ -474,8 +496,8 @@ function compareDeclarations(declarationA, declarationB, docContext) {
 }
 
 function compareLayers(layersA, layersB, docContext) {
-	const isUnlayeredA = !layersA || layersA.length === 0 || layersA.every(layerName => layerName === "");
-	const isUnlayeredB = !layersB || layersB.length === 0 || layersB.every(layerName => layerName === "");
+	const isUnlayeredA = !layersA || layersA.length === 0 || layersA.every(layerName => layerName === EMPTY_STRING);
+	const isUnlayeredB = !layersB || layersB.length === 0 || layersB.every(layerName => layerName === EMPTY_STRING);
 	if (isUnlayeredA && isUnlayeredB) {
 		return 0;
 	}
@@ -531,7 +553,7 @@ function matchElements(selector, docContext, ancestorsSelectors) {
 	let selectorText;
 	if (ancestorsSelectors && ancestorsSelectors.length) {
 		selectorText = combineWithAncestors(selector.data, ancestorsSelectors, docContext);
-		const combinedAst = parseCss(selectorText, "selectorList");
+		const combinedAst = parseCss(selectorText, SELECTOR_LIST_CONTEXT);
 		selectorText = sanitizeSelector({ data: combinedAst }, docContext, ancestorsSelectors);
 	}
 	if (!selectorText) {
@@ -569,7 +591,11 @@ function createMatchCacheKey(hasScope, selectorData, selectorText) {
 		const exclude = selectorData.scopeExclusionLists || [];
 		const relative = selectorData.scopeRelative ? 1 : 0;
 		const nesting = selectorData.scopeNestingLevel || 0;
-		return [selectorText, JSON.stringify(include), JSON.stringify(exclude), String(relative), String(nesting)].join("|");
+		return [
+			selectorText,
+			JSON.stringify(include),
+			JSON.stringify(exclude), String(relative), String(nesting)
+		].join(CONTEXT_KEY_SEPARATOR);
 	} else {
 		return selectorText;
 	}
@@ -580,7 +606,7 @@ function collectScopedMatches(cacheKey, selector, docContext) {
 	const includeLists = selectorData.scopeIncludeLists && selectorData.scopeIncludeLists.length ? selectorData.scopeIncludeLists[selectorData.scopeIncludeLists.length - 1] : [];
 	const excludeLists = selectorData.scopeExclusionLists && selectorData.scopeExclusionLists.length ? selectorData.scopeExclusionLists[selectorData.scopeExclusionLists.length - 1] : [];
 	const matchedSet = new Set();
-	const includes = includeLists.length ? includeLists : [":root"];
+	const includes = includeLists.length ? includeLists : [ROOT_PSEUDO_CLASS];
 	for (const includeSelector of includes) {
 		const rootsForInclude = getScopeRoots(includeSelector, docContext);
 		for (const rootForInclude of rootsForInclude) {
@@ -607,9 +633,9 @@ function collectScopedMatches(cacheKey, selector, docContext) {
 function normalizeForRoot(selector) {
 	const selectorData = cssTree.clone(selector.data);
 	cssTree.walk(selectorData, {
-		visit: "NestingSelector",
+		visit: NESTING_SELECTOR_TYPE,
 		enter(_node, item, list) {
-			const scope = { type: "PseudoClassSelector", name: "scope" };
+			const scope = { type: PSEUDO_CLASS_SELECTOR_TYPE, name: SCOPE_NAME };
 			list.insertData(scope, item);
 			list.remove(item);
 		}
@@ -618,8 +644,8 @@ function normalizeForRoot(selector) {
 		const childData = selectorChild.data;
 		if (childData && childData.children && childData.children.head) {
 			const headData = childData.children.head.data;
-			if (headData && headData.type === "Combinator") {
-				const scope = { type: "PseudoClassSelector", name: "scope" };
+			if (headData && headData.type === COMBINATOR_NAME) {
+				const scope = { type: PSEUDO_CLASS_SELECTOR_TYPE, name: SCOPE_NAME };
 				childData.children.insertData(scope, childData.children.head);
 			}
 		}
@@ -654,7 +680,7 @@ function cleanDeclarations(block) {
 	const propertyMap = new Map();
 	const removedDeclarations = [];
 	for (let ruleChild = block.children.head; ruleChild; ruleChild = ruleChild.next) {
-		if (ruleChild.data.type === "Declaration") {
+		if (ruleChild.data.type === DECLARATION_TYPE) {
 			const property = ruleChild.data.property;
 			const isImportant = ruleChild.data.important;
 			if (propertyMap.has(property)) {
@@ -680,9 +706,10 @@ function expandRawRules(ruleData) {
 	const ruleChildren = [];
 	if (ruleData.block && ruleData.block.children) {
 		for (let cssRule = ruleData.block.children.head; cssRule; cssRule = cssRule.next) {
-			if (cssRule.data.type === "Raw") {
-				if (cssRule.data.value.indexOf("{") !== -1 && cssRule.data.value.indexOf("{") < cssRule.data.value.indexOf("}")) {
-					const stylesheet = parseCss(cssRule.data.value, "stylesheet");
+			if (cssRule.data.type === RAW_TYPE) {
+				if (cssRule.data.value.indexOf(BLOCK_OPEN) !== -1 &&
+					cssRule.data.value.indexOf(BLOCK_OPEN) < cssRule.data.value.indexOf(BLOCK_CLOSE)) {
+					const stylesheet = parseCss(cssRule.data.value, STYLESHEET_CONTEXT);
 					for (let stylesheetChild = stylesheet.children.head; stylesheetChild; stylesheetChild = stylesheetChild.next) {
 						ruleChildren.push(stylesheetChild);
 					}
@@ -703,7 +730,7 @@ function combineWithAncestors(selector, ancestorsSelectors, docContext) {
 	if (!ancestorsSelectors || !ancestorsSelectors.length) {
 		return selectorText;
 	}
-	let contexts = [""];
+	let contexts = [EMPTY_STRING];
 	ancestorsSelectors.forEach(selectorList => {
 		if (!hasChildren(selectorList)) {
 			return;
@@ -726,15 +753,15 @@ function combineWithAncestors(selector, ancestorsSelectors, docContext) {
 		const result = context ? combineSelectors(context, selectorText) : selectorText;
 		expandedSelectors.add(result);
 	});
-	return Array.from(expandedSelectors).join(",");
+	return Array.from(expandedSelectors).join(PRELUDE_SEPARATOR);
 }
 
 function combineSelectors(parentSelectorText, childSelectorText) {
-	const childSelector = parseCss(childSelectorText || "&");
+	const childSelector = parseCss(childSelectorText || NESTING_SELECTOR);
 	const parentSelector = parentSelectorText ? parseCss(parentSelectorText) : null;
 	let hasNesting = false;
 	cssTree.walk(childSelector, {
-		visit: "NestingSelector",
+		visit: NESTING_SELECTOR_TYPE,
 		enter(_node, item, list) {
 			hasNesting = true;
 			if (!parentSelector) {
@@ -808,19 +835,11 @@ function getScopeRoots(selector, docContext) {
 	return roots;
 }
 
-function parseCss(text, context = "selector") {
+function parseCss(text, context = SELECTOR_CONTEXT) {
 	const options = { context };
-	try {
-		return cssTree.parse(text, options);
-	} catch (error) {
-		if (DEBUG) {
-			// eslint-disable-next-line no-console
-			console.warn("parseCss: cssTree.parse threw for text:", text, error);
-		}
-		throw error;
-	}
+	return cssTree.parse(text, options);
 }
 
 function getFullLayerName(layers) {
-	return layers.filter(layerName => layerName !== "").join(".");
+	return layers.filter(layerName => layerName !== EMPTY_STRING).join(LAYER_NAME_SEPARATOR);
 }
