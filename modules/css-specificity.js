@@ -20,8 +20,12 @@
  *   notice and a URL through which recipients can access the Corresponding 
  *   Source.
  */
+import * as cssTree from "./../vendor/css-tree.js";
 
-export { computeSpecificity };
+export {
+    computeSpecificity,
+    computeMaxSpecificity
+};
 
 function computeSpecificity(selector, specificity = { a: 0, b: 0, c: 0 }) {
     if (!selector || !selector.type) {
@@ -132,4 +136,75 @@ function getMaxSpecificityFromList(selectorList) {
     });
 
     return maxSpec;
+}
+
+function computeMaxSpecificity(selector, ancestorsSelectors) {
+    // If no ancestors provided, keep existing behavior
+    if (!ancestorsSelectors || !ancestorsSelectors.length) {
+        let maxSpecificity = { a: 0, b: 0, c: 0 };
+        const stack = [];
+        cssTree.walk(selector, {
+            enter(node) {
+                stack.push(node);
+                if (node.type === "Selector") {
+                    const insideWhere = stack.some(n => n.type === "PseudoClassSelector" && n.name === "where");
+                    if (insideWhere) return;
+                    const specificity = computeSpecificity(node);
+                    if (specificity.a > maxSpecificity.a ||
+                        (specificity.a === maxSpecificity.a && specificity.b > maxSpecificity.b) ||
+                        (specificity.a === maxSpecificity.a && specificity.b === maxSpecificity.b && specificity.c > maxSpecificity.c)) {
+                        maxSpecificity = specificity;
+                    }
+                }
+            },
+            leave() {
+                stack.pop();
+            }
+        });
+        return maxSpecificity;
+    }
+
+    // When ancestors are provided, compute specificity for every expanded selector
+    // Build context strings for ancestors (similar to combineWithAncestors behavior)
+    const childText = cssTree.generate(selector);
+    let contexts = [""];
+    ancestorsSelectors.forEach(selectorList => {
+        if (!selectorList || !selectorList.children || !selectorList.children.size) return;
+        const parentSelectors = selectorList.children.toArray();
+        const nextContexts = [];
+        contexts.forEach(context => parentSelectors.forEach(parentSelector => {
+            const parentText = cssTree.generate(parentSelector);
+            const combined = context ? context + " " + parentText : parentText;
+            if (!nextContexts.includes(combined)) nextContexts.push(combined);
+        }));
+        if (nextContexts.length) contexts = nextContexts;
+    });
+
+    function combineStrings(context, child) {
+        if (!context) return child;
+        if (!child) return context;
+        if (child.indexOf("&") !== -1) return child.split("&").join(context);
+        return context + " " + child;
+    }
+
+    let maxSpecificity = { a: 0, b: 0, c: 0 };
+    const seen = new Set();
+    contexts.forEach(context => {
+        const full = combineStrings(context, childText);
+        if (seen.has(full)) return;
+        seen.add(full);
+        try {
+            const parsed = cssTree.parse(full, { context: "selectorList" });
+            // reuse original logic to compute max specificity over parsed AST
+            const spec = computeMaxSpecificity(parsed);
+            if (spec.a > maxSpecificity.a ||
+                (spec.a === maxSpecificity.a && spec.b > maxSpecificity.b) ||
+                (spec.a === maxSpecificity.a && spec.b === maxSpecificity.b && spec.c > maxSpecificity.c)) {
+                maxSpecificity = spec;
+            }
+        } catch {
+            // ignore parse errors and continue
+        }
+    });
+    return maxSpecificity;
 }
