@@ -55,7 +55,7 @@ export {
  * Sanitize a selector AST into a QSA-safe selector string.
  * Optional `ancestors` array may be provided to expand nesting selectors (`&`).
  */
-function sanitizeSelector(selector, docContext, ancestors) {
+function sanitizeSelector(selector, ancestors, docContext) {
     if (!docContext.normalizedSelectorText) docContext.normalizedSelectorText = new WeakMap();
     if (docContext.normalizedSelectorText.has(selector)) {
         return docContext.normalizedSelectorText.get(selector);
@@ -63,7 +63,9 @@ function sanitizeSelector(selector, docContext, ancestors) {
     const ast = cssTree.clone(selector.data);
     normalizeSelectorNode(ast, ancestors);
     let normalized = cssTree.generate(ast);
-    if (!normalized || !normalized.trim()) normalized = "*";
+    if (!normalized || !normalized.trim()) {
+        normalized = "*";
+    }
     docContext.normalizedSelectorText.set(selector, normalized);
     return normalized;
 }
@@ -94,7 +96,7 @@ function normalizeSelectorNode(selector, ancestors) {
             selector.children.remove(current);
         } else if (childNode.type === "PseudoClassSelector") {
             const pseudoName = (childNode.name || "").toLowerCase();
-            if (UNMATCHABLE_PSEUDO_CLASSES.includes(pseudoName) || pseudoName.startsWith("-")) {
+            if (UNMATCHABLE_PSEUDO_CLASSES.includes(pseudoName)) {
                 selector.children.remove(current);
             }
         }
