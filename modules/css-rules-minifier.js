@@ -27,11 +27,11 @@ import { sanitizeSelector } from "./css-selector-sanitizer.js";
 
 const DEBUG = false;
 
-const PSEUDO_ELEMENT_KEYWORDS = ["after", "before", "first-letter", "first-line", "placeholder", "selection", "part", "marker", "grammar-error", "spelling-error", "cue", "cue-region", "backdrop", "column", "scroll-marker", "scroll-marker-group", "details-content", "checkmark", "file-selector-button", "picker-icon", "target-text"];
+const PSEUDO_ELEMENT_KEYWORDS = new Set(["after", "before", "first-letter", "first-line", "placeholder", "selection", "part", "marker", "grammar-error", "spelling-error", "cue", "cue-region", "backdrop", "column", "scroll-marker", "scroll-marker-group", "details-content", "checkmark", "file-selector-button", "picker-icon", "target-text"]);
 
-const DYNAMIC_STATE_PSEUDO_CLASSES = ["hover", "focus", "active", "focus-within", "focus-visible", "target", "visited", "link", "target-current"];
+const DYNAMIC_STATE_PSEUDO_CLASSES = new Set(["hover", "focus", "active", "focus-within", "focus-visible", "target", "visited", "link", "target-current"]);
 
-const CONDITIONAL_AT_RULE_NAMES = ["media", "supports", "container"];
+const CONDITIONAL_AT_RULE_NAMES = new Set(["media", "supports", "container"]);
 
 export {
 	process
@@ -295,7 +295,7 @@ function processNestedRules(ruleData, stylesheets, processingContext, docContext
 }
 
 function buildConditionalStack(conditionalStack, ruleData) {
-	const isConditional = CONDITIONAL_AT_RULE_NAMES.includes(ruleData.name);
+	const isConditional = CONDITIONAL_AT_RULE_NAMES.has(ruleData.name);
 	return isConditional
 		? [...conditionalStack, { name: ruleData.name, prelude: cssTree.generate(ruleData.prelude) }]
 		: conditionalStack;
@@ -316,7 +316,7 @@ function hasPseudoElement(selector) {
 				found = true;
 				return this.break;
 			}
-			if (node.type === "PseudoClassSelector" && PSEUDO_ELEMENT_KEYWORDS.includes(node.name)) {
+			if (node.type === "PseudoClassSelector" && PSEUDO_ELEMENT_KEYWORDS.has(node.name)) {
 				found = true;
 				return this.break;
 			}
@@ -330,7 +330,7 @@ function hasDynamicStatePseudoClass(selector) {
 	cssTree.walk(selector, {
 		visit: "PseudoClassSelector",
 		enter(node) {
-			if (DYNAMIC_STATE_PSEUDO_CLASSES.includes(node.name)) {
+			if (DYNAMIC_STATE_PSEUDO_CLASSES.has(node.name)) {
 				found = true;
 			}
 		}
