@@ -311,9 +311,9 @@ function getSelectorText(selector, docContext) {
 	return docContext.selectorTexts.get(selector);
 }
 
-function hasPseudoElement(selectorNode) {
+function hasPseudoElement(selector) {
 	let found = false;
-	cssTree.walk(selectorNode, {
+	cssTree.walk(selector, {
 		enter(node) {
 			if (node.type === "PseudoElementSelector") {
 				found = true;
@@ -328,9 +328,9 @@ function hasPseudoElement(selectorNode) {
 	return found;
 }
 
-function hasDynamicStatePseudoClass(selectorNode) {
+function hasDynamicStatePseudoClass(selector) {
 	let found = false;
-	cssTree.walk(selectorNode, {
+	cssTree.walk(selector, {
 		visit: "PseudoClassSelector",
 		enter(node) {
 			if (DYNAMIC_STATE_PSEUDO_CLASSES.includes(node.name)) {
@@ -358,14 +358,14 @@ function computeCascadedStylesForElement(element, winningDeclarations, docContex
 		declarations.forEach(item => {
 			const conditionalContext = docContext.selectorData.get(item.selector).conditionalContext;
 			cascadedStyles.set(item.property + ":" + createContextKey(conditionalContext), {
-				declaration: item.declaration,
+				declarationData: item.declarationData,
 				selector: item.selector,
-				declarationNode: item.declarationNode,
+				declaration: item.declaration,
 				property: item.property
 			});
 		});
 	});
-	cascadedStyles.forEach(({ declarationNode }) => winningDeclarations.add(declarationNode));
+	cascadedStyles.forEach(({ declaration }) => winningDeclarations.add(declaration));
 }
 
 function collectDeclarationItemsForElement(element, docContext) {
@@ -394,7 +394,7 @@ function createContextKey(conditionalContext) {
 }
 
 function removeLosingDeclarations(winningDeclarations, docContext) {
-	const allDeclarationNodes = new Map();
+	const allDeclarations = new Map();
 	const protectedDeclarations = new Set();
 	docContext.matchedElements.forEach(element => {
 		const matchingSelectors = docContext.matchingSelectors.get(element);
@@ -405,7 +405,7 @@ function removeLosingDeclarations(winningDeclarations, docContext) {
 				if (declarations) {
 					for (let declaration = declarations.head; declaration; declaration = declaration.next) {
 						if (declaration.data.type === "Declaration") {
-							allDeclarationNodes.set(declaration, declarations);
+							allDeclarations.set(declaration, declarations);
 							if (declaration.data.property && declaration.data.property.startsWith("--")) {
 								protectedDeclarations.add(declaration);
 							}
@@ -415,7 +415,7 @@ function removeLosingDeclarations(winningDeclarations, docContext) {
 			});
 		}
 	});
-	allDeclarationNodes.forEach((list, node) => {
+	allDeclarations.forEach((list, node) => {
 		if (!winningDeclarations.has(node) && !protectedDeclarations.has(node)) {
 			list.remove(node);
 		}
@@ -584,18 +584,18 @@ function collectScopedMatches(cacheKey, selector, docContext) {
 	for (const includeSelector of includes) {
 		const rootsForInclude = getScopeRoots(includeSelector, docContext);
 		for (const rootForInclude of rootsForInclude) {
-			const rootNodes = queryNodesForRoot(rootForInclude, normalizeForRoot(selector));
-			if (rootNodes.length && excludeLists && excludeLists.length) {
-				const excludeNodes = new Set();
+			const roots = querySelectorForRoot(rootForInclude, normalizeForRoot(selector));
+			if (roots.length && excludeLists && excludeLists.length) {
+				const excludeRoots = new Set();
 				for (const excludeSelector of excludeLists) {
 					const rootsForExclude = getScopeRoots(excludeSelector, docContext);
-					rootsForExclude.forEach(rootForExclude => excludeNodes.add(rootForExclude));
+					rootsForExclude.forEach(rootForExclude => excludeRoots.add(rootForExclude));
 				}
-				const filteredNodes = rootNodes.filter(filteredNode =>
-					!Array.from(excludeNodes).some(excludedNode => excludedNode.contains(filteredNode)));
-				filteredNodes.forEach(filteredNode => matchedSet.add(filteredNode));
+				const filteredRoots = roots.filter(node =>
+					!Array.from(excludeRoots).some(excludedRoot => excludedRoot.contains(node)));
+				filteredRoots.forEach(filteredRoot => matchedSet.add(filteredRoot));
 			} else {
-				rootNodes.forEach(n => matchedSet.add(n));
+				roots.forEach(n => matchedSet.add(n));
 			}
 		}
 	}
@@ -609,8 +609,8 @@ function normalizeForRoot(selector) {
 	cssTree.walk(selectorData, {
 		visit: "NestingSelector",
 		enter(_node, item, list) {
-			const scopeNode = { type: "PseudoClassSelector", name: "scope" };
-			list.insertData(scopeNode, item);
+			const scope = { type: "PseudoClassSelector", name: "scope" };
+			list.insertData(scope, item);
 			list.remove(item);
 		}
 	});
@@ -619,15 +619,15 @@ function normalizeForRoot(selector) {
 		if (childData && childData.children && childData.children.head) {
 			const headData = childData.children.head.data;
 			if (headData && headData.type === "Combinator") {
-				const scopeNode = { type: "PseudoClassSelector", name: "scope" };
-				childData.children.insertData(scopeNode, childData.children.head);
+				const scope = { type: "PseudoClassSelector", name: "scope" };
+				childData.children.insertData(scope, childData.children.head);
 			}
 		}
 	}
 	return cssTree.generate(selectorData);
 }
 
-function queryNodesForRoot(root, selector) {
+function querySelectorForRoot(root, selector) {
 	try {
 		const nodes = Array.from(root.querySelectorAll(selector));
 		try {
@@ -651,17 +651,17 @@ function queryNodesForRoot(root, selector) {
 }
 
 function createDeclarationItem(declaration, selector, element, docContext) {
-	const declarationNodeData = declaration && declaration.data;
-	const declarationData = {
-		property: declarationNodeData ? declarationNodeData.property : undefined,
-		declaration: declarationNodeData,
-		declarationNode: declaration,
+	const declarationData = declaration && declaration.data;
+	const declarationItem = {
+		property: declarationData ? declarationData.property : undefined,
+		declarationData,
+		declaration,
 		selector: selector,
-		important: declarationNodeData ? declarationNodeData.important : false
+		important: declarationData ? declarationData.important : false
 	};
 	const selectorData = docContext.selectorData.get(selector) || {};
-	declarationData.effectiveSpecificity = computeEffectiveSpecificity(selectorData, element, docContext);
-	return declarationData;
+	declarationItem.effectiveSpecificity = computeEffectiveSpecificity(selectorData, element, docContext);
+	return declarationItem;
 }
 
 function cleanDeclarations(block) {
@@ -755,7 +755,7 @@ function combineSelectors(parentSelectorText, childSelectorText) {
 				list.remove(item);
 				return;
 			}
-			const nodes = parentSelector.children.toArray().map(parentNode => cssTree.clone(parentNode));
+			const nodes = parentSelector.children.toArray().map(parent => cssTree.clone(parent));
 			nodes.forEach(node => list.insertData(node, item));
 			list.remove(item);
 		}
