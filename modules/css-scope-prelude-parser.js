@@ -20,6 +20,7 @@
  *   notice and a URL through which recipients can access the Corresponding 
  *   Source.
  */
+
 import * as cssTree from "./../vendor/css-tree.js";
 
 const CANONICAL_PSEUDO_ELEMENT_NAMES = new Set(["after", "before", "first-letter", "first-line", "placeholder", "selection", "part", "marker"]);

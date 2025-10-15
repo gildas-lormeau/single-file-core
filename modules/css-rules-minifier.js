@@ -20,6 +20,7 @@
  *   notice and a URL through which recipients can access the Corresponding 
  *   Source.
  */
+
 import * as cssTree from "./../vendor/css-tree.js";
 import { computeMaxSpecificity } from "./css-specificity.js";
 import { parsePrelude } from "./css-scope-prelude-parser.js";
