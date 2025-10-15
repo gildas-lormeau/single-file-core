@@ -22,7 +22,7 @@
  */
 import * as cssTree from "./../vendor/css-tree.js";
 
-const PSEUDO_ELEMENT_KEYWORDS = new Set(["after", "before", "first-letter", "first-line", "placeholder", "selection", "part", "marker", "grammar-error", "spelling-error", "cue", "cue-region", "backdrop", "column", "scroll-marker", "scroll-marker-group", "details-content", "checkmark", "file-selector-button", "picker-icon", "target-text"]);
+const CANONICAL_PSEUDO_ELEMENT_NAMES = new Set(["after", "before", "first-letter", "first-line", "placeholder", "selection", "part", "marker"]);
 
 export {
   parsePrelude
@@ -94,7 +94,7 @@ function parsePrelude(prelude) {
         enter(node) {
           const name = (node.name || "").toLowerCase();
           // keep this conservative: disallow known pseudo-element names if used as pseudo-class
-          if (PSEUDO_ELEMENT_KEYWORDS.has(name)) {
+          if (CANONICAL_PSEUDO_ELEMENT_NAMES.has(name)) {
             found = true;
           }
         }
