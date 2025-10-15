@@ -342,23 +342,22 @@ function computeCascadedStylesForElement(element, winningDeclarations, docContex
 	const cascadedStyles = new Map();
 	const allDeclarations = collectDeclarationItemsForElement(element, docContext);
 	const contextGroups = new Map();
-	allDeclarations.forEach(item => {
-		const conditionalStack = docContext.selectorData.get(item.selector).conditionalStack;
+	allDeclarations.forEach(declarationData => {
+		const conditionalStack = docContext.selectorData.get(declarationData.selector).conditionalStack;
 		const contextKey = createContextKey(conditionalStack);
 		if (!contextGroups.has(contextKey)) {
 			contextGroups.set(contextKey, []);
 		}
-		contextGroups.get(contextKey).push(item);
+		contextGroups.get(contextKey).push(declarationData);
 	});
 	contextGroups.forEach(declarations => {
 		declarations.sort((declarationA, declarationB) => compareDeclarations(declarationA, declarationB, docContext));
-		declarations.forEach(item => {
-			const conditionalStack = docContext.selectorData.get(item.selector).conditionalStack;
-			cascadedStyles.set(item.property + ":" + createContextKey(conditionalStack), {
-				declarationData: item.declarationData,
-				selector: item.selector,
-				declaration: item.declaration,
-				property: item.property
+		declarations.forEach(declarationData => {
+			const { selector, declaration } = declarationData;
+			const conditionalStack = docContext.selectorData.get(selector).conditionalStack;
+			cascadedStyles.set(declaration.data.property + ":" + createContextKey(conditionalStack), {
+				selector,
+				declaration
 			});
 		});
 	});
@@ -374,8 +373,12 @@ function collectDeclarationItemsForElement(element, docContext) {
 		if (declarations) {
 			for (let declaration = declarations.head; declaration; declaration = declaration.next) {
 				if (declaration.data.type === "Declaration") {
-					const declarationData = createDeclarationItem(declaration, selector, element, docContext);
-					allDeclarations.push(declarationData);
+					allDeclarations.push({
+						declaration,
+						selector,
+						effectiveSpecificity: computeEffectiveSpecificity(
+							docContext.selectorData.get(selector), element, docContext)
+					});
 				}
 			}
 		}
@@ -442,8 +445,8 @@ function cleanStylesheetEmptyRules(cssRules, docContext) {
 }
 
 function compareDeclarations(declarationA, declarationB, docContext) {
-	const importantA = declarationA.important ? 1 : 0;
-	const importantB = declarationB.important ? 1 : 0;
+	const importantA = declarationA.declaration.data.important ? 1 : 0;
+	const importantB = declarationB.declaration.data.important ? 1 : 0;
 	if (importantA !== importantB) {
 		return importantA - importantB;
 	}
@@ -645,20 +648,6 @@ function querySelectorForRoot(root, selector) {
 		}
 		return [];
 	}
-}
-
-function createDeclarationItem(declaration, selector, element, docContext) {
-	const declarationData = declaration && declaration.data;
-	const declarationItem = {
-		property: declarationData ? declarationData.property : undefined,
-		declarationData,
-		declaration,
-		selector: selector,
-		important: declarationData ? declarationData.important : false
-	};
-	const selectorData = docContext.selectorData.get(selector) || {};
-	declarationItem.effectiveSpecificity = computeEffectiveSpecificity(selectorData, element, docContext);
-	return declarationItem;
 }
 
 function cleanDeclarations(block) {
