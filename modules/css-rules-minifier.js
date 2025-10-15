@@ -276,9 +276,12 @@ function processSelectors(ruleData, processingContext, docContext) {
 }
 
 function selectorStartsWithCombinator(selector) {
-	if (!hasChildNodes(selector)) return false;
-	const firstChild = selector.children.head.data;
-	return firstChild && firstChild.type === COMBINATOR_NAME;
+	if (hasChildNodes(selector)) {
+		const firstChild = selector.children.head.data;
+		return firstChild && firstChild.type === COMBINATOR_NAME;
+	} else {
+		return false;
+	}
 }
 
 function updateMatchingSelectors(matchedElements, selector, docContext) {
