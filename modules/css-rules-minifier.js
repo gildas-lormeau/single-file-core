@@ -276,12 +276,9 @@ function processSelectors(ruleData, processingContext, docContext) {
 }
 
 function selectorStartsWithCombinator(selector) {
-	if (hasChildNodes(selector)) {
-		const firstChild = selector.children.head.data;
-		return firstChild && firstChild.type === COMBINATOR_NAME;
-	} else {
-		return false;
-	}
+	if (!hasChildNodes(selector)) return false;
+	const firstChild = selector.children.head.data;
+	return firstChild && firstChild.type === COMBINATOR_NAME;
 }
 
 function updateMatchingSelectors(matchedElements, selector, docContext) {
@@ -559,7 +556,7 @@ function matchElements(selector, ancestorsSelectors, docContext) {
 		if (hasScope) {
 			return collectScopedMatches(cacheKey, selector, docContext);
 		} else {
-			const nodes = querySelectorAll(docContext.doc, selectorText);
+			const nodes = querySelectorAll(docContext.doc, selectorText, docContext.scopeRoots);
 			docContext.matchedSelectors.set(cacheKey, nodes);
 			return nodes;
 		}
@@ -612,7 +609,7 @@ function collectScopedMatches(cacheKey, selector, docContext) {
 function collectMatchesForInclude(includeSelector, selector, excludeLists, docContext, matchedSet) {
 	const rootsForInclude = getScopeRoots(includeSelector, docContext);
 	for (const rootForInclude of rootsForInclude) {
-		const roots = querySelectorForRoot(rootForInclude, normalizeForRoot(selector));
+		const roots = querySelectorForRoot(rootForInclude, normalizeForRoot(selector), docContext.scopeRoots);
 		if (roots.length) {
 			if (excludeLists && excludeLists.length) {
 				const filteredRoots = filterExcludedRoots(roots, excludeLists, docContext);
@@ -656,8 +653,8 @@ function normalizeForRoot(selector) {
 	return cssTree.generate(selectorData);
 }
 
-function querySelectorForRoot(root, selector) {
-	const nodes = querySelectorAll(root, selector);
+function querySelectorForRoot(root, selector, cache) {
+	const nodes = querySelectorAll(root, selector, cache);
 	try {
 		if (root.matches && root.matches(selector)) {
 			if (nodes.indexOf(root) === -1) {
@@ -824,8 +821,7 @@ function getIncludeSpecificity(includeSelector, docContext) {
 function getScopeRoots(selector, docContext) {
 	let roots = docContext.scopeRoots.get(selector);
 	if (!roots) {
-		roots = querySelectorAll(docContext.doc, selector);
-		docContext.scopeRoots.set(selector, roots);
+		roots = querySelectorAll(docContext.doc, selector, docContext.scopeRoots);
 	}
 	return roots;
 }
@@ -839,14 +835,37 @@ function getFullLayerName(layers) {
 	return layers.filter(layerName => layerName !== EMPTY_STRING).join(LAYER_NAME_SEPARATOR);
 }
 
-function querySelectorAll(root, selector) {
-	try {
-		return Array.from(root.querySelectorAll(selector));
-	} catch {
-		if (DEBUG) {
-			// eslint-disable-next-line no-console
-			console.warn("getScopeRoots: querySelectorAll threw for selector:", selector);
+function querySelectorAll(root, selector, cache) {
+	if (cache && cache !== root) {
+		let rootCache = cache.get(root);
+		if (!rootCache) {
+			rootCache = new Map();
+			cache.set(root, rootCache);
 		}
-		return [];
+		if (rootCache.has(selector)) {
+			return rootCache.get(selector);
+		}
+		try {
+			const nodes = Array.from(root.querySelectorAll(selector));
+			rootCache.set(selector, nodes);
+			return nodes;
+		} catch {
+			if (DEBUG) {
+				// eslint-disable-next-line no-console
+				console.warn("querySelectorAll: querySelectorAll threw for selector:", selector);
+			}
+			rootCache.set(selector, []);
+			return [];
+		}
+	} else {
+		try {
+			return Array.from(root.querySelectorAll(selector));
+		} catch {
+			if (DEBUG) {
+				// eslint-disable-next-line no-console
+				console.warn("querySelectorAll: querySelectorAll threw for selector:", selector);
+			}
+			return [];
+		}
 	}
 }
