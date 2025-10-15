@@ -203,7 +203,7 @@ function registerLayerDeclaration(layerStack, layerName, conditionalStack, docCo
 		docContext.layerDeclarations.push({
 			name: fullLayerName,
 			order: docContext.layerDeclarationCounter++,
-			conditionalContext: conditionalStack.slice()
+			conditionalStack: conditionalStack.slice()
 		});
 	}
 }
@@ -222,10 +222,9 @@ function processSelectors(ruleData, processingContext, docContext) {
 		const startsWithCombinator = selectorStartsWithCombinator(selector.data);
 		docContext.selectorData.set(selector, {
 			specificity: computeMaxSpecificity(selector.data, ancestorsSelectors),
-			order: ruleData.order,
 			rule: ruleData,
-			layers: layerStack,
-			conditionalContext: conditionalStack,
+			layerStack,
+			conditionalStack,
 			scopeIncludeLists,
 			scopeExclusionLists,
 			scopeNestingLevel,
@@ -343,8 +342,8 @@ function computeCascadedStylesForElement(element, winningDeclarations, docContex
 	const allDeclarations = collectDeclarationItemsForElement(element, docContext);
 	const contextGroups = new Map();
 	allDeclarations.forEach(item => {
-		const conditionalContext = docContext.selectorData.get(item.selector).conditionalContext;
-		const contextKey = createContextKey(conditionalContext);
+		const conditionalStack = docContext.selectorData.get(item.selector).conditionalStack;
+		const contextKey = createContextKey(conditionalStack);
 		if (!contextGroups.has(contextKey)) {
 			contextGroups.set(contextKey, []);
 		}
@@ -353,8 +352,8 @@ function computeCascadedStylesForElement(element, winningDeclarations, docContex
 	contextGroups.forEach(declarations => {
 		declarations.sort((declarationA, declarationB) => compareDeclarations(declarationA, declarationB, docContext));
 		declarations.forEach(item => {
-			const conditionalContext = docContext.selectorData.get(item.selector).conditionalContext;
-			cascadedStyles.set(item.property + ":" + createContextKey(conditionalContext), {
+			const conditionalStack = docContext.selectorData.get(item.selector).conditionalStack;
+			cascadedStyles.set(item.property + ":" + createContextKey(conditionalStack), {
 				declarationData: item.declarationData,
 				selector: item.selector,
 				declaration: item.declaration,
@@ -383,11 +382,11 @@ function collectDeclarationItemsForElement(element, docContext) {
 	return allDeclarations;
 }
 
-function createContextKey(conditionalContext) {
-	if (!conditionalContext || conditionalContext.length === 0) {
+function createContextKey(conditionalStack) {
+	if (!conditionalStack || conditionalStack.length === 0) {
 		return "";
 	}
-	return conditionalContext.map(context => `${context.name}:${context.prelude}`).join("|");
+	return conditionalStack.map(context => `${context.name}:${context.prelude}`).join("|");
 }
 
 function removeLosingDeclarations(winningDeclarations, docContext) {
@@ -449,7 +448,7 @@ function compareDeclarations(declarationA, declarationB, docContext) {
 	}
 	const selectorDataA = docContext.selectorData.get(declarationA.selector);
 	const selectorDataB = docContext.selectorData.get(declarationB.selector);
-	const layerComparison = compareLayers(selectorDataA.layers, selectorDataB.layers, docContext);
+	const layerComparison = compareLayers(selectorDataA.layerStack, selectorDataB.layerStack, docContext);
 	if (layerComparison !== 0) {
 		return importantA ? -layerComparison : layerComparison;
 	}
@@ -464,8 +463,8 @@ function compareDeclarations(declarationA, declarationB, docContext) {
 	if (specificityA.c !== specificityB.c) {
 		return specificityA.c - specificityB.c;
 	}
-	if (selectorDataA.order !== selectorDataB.order) {
-		return selectorDataA.order - selectorDataB.order;
+	if (selectorDataA.rule.order !== selectorDataB.rule.order) {
+		return selectorDataA.rule.order - selectorDataB.rule.order;
 	}
 	return 0;
 }
