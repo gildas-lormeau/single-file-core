@@ -24,14 +24,6 @@ import * as cssTree from "./../vendor/css-tree.js";
 
 const PSEUDO_ELEMENT_NAMES = ["after", "before", "first-letter", "first-line", "placeholder", "selection", "part", "marker", "grammar-error", "spelling-error", "cue", "cue-region", "backdrop", "column", "scroll-marker", "scroll-marker-group", "details-content", "checkmark", "file-selector-button", "picker-icon", "target-text"];
 
-/*
-const DYNAMIC_STATE_PSEUDO_CLASSES = ["hover", "focus", "active", "focus-within", "focus-visible", "target", "visited", "link", "target-current"];
-
-const UNMATCHABLE_PSEUDO_CLASSES = ["user-invalid", "current", "past", "future", "playing", "paused", "seeking", "buffering", "stalled", "muted", "volume-locked"];
-
-const CONDITIONAL_AT_RULE_NAMES = ["media", "supports", "container"];
-*/
-
 export {
 	parsePrelude
 };
