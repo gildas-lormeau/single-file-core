@@ -304,11 +304,11 @@ function buildConditionalStack(conditionalStack, ruleData) {
 		: conditionalStack;
 }
 
-function getSelectorText(selectorAST, docContext) {
-	if (!docContext.selectorTexts.has(selectorAST)) {
-		docContext.selectorTexts.set(selectorAST, cssTree.generate(selectorAST));
+function getSelectorText(selector, docContext) {
+	if (!docContext.selectorTexts.has(selector)) {
+		docContext.selectorTexts.set(selector, cssTree.generate(selector));
 	}
-	return docContext.selectorTexts.get(selectorAST);
+	return docContext.selectorTexts.get(selector);
 }
 
 function hasPseudoElement(selectorNode) {
@@ -742,30 +742,30 @@ function combineWithAncestors(selector, ancestorsSelectors, docContext) {
 }
 
 function combineSelectors(parentSelectorText, childSelectorText) {
-	const childAST = parseCss(childSelectorText || "&");
-	const parentAST = parentSelectorText ? parseCss(parentSelectorText) : null;
+	const childSelector = parseCss(childSelectorText || "&");
+	const parentSelector = parentSelectorText ? parseCss(parentSelectorText) : null;
 	let hasNesting = false;
-	cssTree.walk(childAST, {
+	cssTree.walk(childSelector, {
 		visit: "NestingSelector",
 		enter(_node, item, list) {
 			hasNesting = true;
-			if (!parentAST) {
+			if (!parentSelector) {
 				list.remove(item);
 				return;
 			}
-			const nodes = parentAST.children.toArray().map(parentNode => cssTree.clone(parentNode));
+			const nodes = parentSelector.children.toArray().map(parentNode => cssTree.clone(parentNode));
 			nodes.forEach(node => list.insertData(node, item));
 			list.remove(item);
 		}
 	});
 	if (hasNesting) {
-		return cssTree.generate(childAST);
+		return cssTree.generate(childSelector);
 	}
-	if (!parentAST) {
-		return cssTree.generate(childAST);
+	if (!parentSelector) {
+		return cssTree.generate(childSelector);
 	}
-	const combinedAST = parseCss(`${parentSelectorText} ${childSelectorText}`);
-	return cssTree.generate(combinedAST);
+	const combinedSelector = parseCss(`${parentSelectorText} ${childSelectorText}`);
+	return cssTree.generate(combinedSelector);
 }
 
 function hasChildren(node) {
@@ -796,8 +796,8 @@ function computeEffectiveSpecificity(selectorData, element, docContext) {
 function getIncludeSpecificity(includeSelector, docContext) {
 	let specificity = docContext.scopeSpecificities.get(includeSelector);
 	if (!specificity) {
-		const incAST = parseCss(includeSelector);
-		specificity = computeMaxSpecificity(incAST, []);
+		const selector = parseCss(includeSelector);
+		specificity = computeMaxSpecificity(selector, []);
 		docContext.scopeSpecificities.set(includeSelector, specificity);
 	}
 	return specificity;
