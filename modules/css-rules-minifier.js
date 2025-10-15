@@ -514,14 +514,16 @@ function compareLayers(layersA, layersB, docContext) {
 }
 
 function buildEffectiveLayerOrder(docContext) {
-	const applicable = [];
+	const layerNames = [];
 	for (let indexDeclaration = 0; indexDeclaration < docContext.layerDeclarations.length; indexDeclaration++) {
 		const declaration = docContext.layerDeclarations[indexDeclaration];
-		applicable.push(declaration.name);
+		layerNames.push(declaration.name);
 	}
-	for (let indexApplicable = 0; indexApplicable < applicable.length; indexApplicable++) {
-		const name = applicable[indexApplicable];
-		if (!docContext.layerOrder.has(name)) docContext.layerOrder.set(name, docContext.layerOrder.size);
+	for (let indexLayerName = 0; indexLayerName < layerNames.length; indexLayerName++) {
+		const name = layerNames[indexLayerName];
+		if (!docContext.layerOrder.has(name)) {
+			docContext.layerOrder.set(name, docContext.layerOrder.size);
+		}
 	}
 }
 
