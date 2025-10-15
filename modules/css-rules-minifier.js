@@ -478,8 +478,8 @@ function compareDeclarations(declarationA, declarationB, docContext) {
 	if (layerComparison !== 0) {
 		return importantA ? -layerComparison : layerComparison;
 	}
-	const specificityA = declarationA.effectiveSpecificity || selectorDataA.specificity;
-	const specificityB = declarationB.effectiveSpecificity || selectorDataB.specificity;
+	const specificityA = declarationA.effectiveSpecificity;
+	const specificityB = declarationB.effectiveSpecificity;
 	if (specificityA.a !== specificityB.a) {
 		return specificityA.a - specificityB.a;
 	}
@@ -496,8 +496,8 @@ function compareDeclarations(declarationA, declarationB, docContext) {
 }
 
 function compareLayers(layersA, layersB, docContext) {
-	const isUnlayeredA = !layersA || layersA.length === 0 || layersA.every(layerName => layerName === EMPTY_STRING);
-	const isUnlayeredB = !layersB || layersB.length === 0 || layersB.every(layerName => layerName === EMPTY_STRING);
+	const isUnlayeredA = layersA.length === 0 || layersA.every(layerName => layerName === EMPTY_STRING);
+	const isUnlayeredB = layersB.length === 0 || layersB.every(layerName => layerName === EMPTY_STRING);
 	if (isUnlayeredA && isUnlayeredB) {
 		return 0;
 	}
@@ -729,31 +729,31 @@ function combineWithAncestors(selector, ancestorsSelectors, docContext) {
 	const selectorText = getSelectorText(selector, docContext);
 	if (!ancestorsSelectors || !ancestorsSelectors.length) {
 		return selectorText;
-	}
-	let contexts = [EMPTY_STRING];
-	ancestorsSelectors.forEach(selectorList => {
-		if (!hasChildren(selectorList)) {
-			return;
-		}
-		const parentSelectors = selectorList.children.toArray();
-		const nextContexts = [];
-		contexts.forEach(context => parentSelectors.forEach(parentSelector => {
-			const parentText = getSelectorText(parentSelector, docContext);
-			const combined = context ? combineSelectors(context, parentText) : parentText;
-			if (!nextContexts.includes(combined)) {
-				nextContexts.push(combined);
+	} else {
+		let contexts = [EMPTY_STRING];
+		ancestorsSelectors.forEach(selectorList => {
+			if (hasChildren(selectorList)) {
+				const parentSelectors = selectorList.children.toArray();
+				const nextContexts = [];
+				contexts.forEach(context => parentSelectors.forEach(parentSelector => {
+					const parentText = getSelectorText(parentSelector, docContext);
+					const combined = context ? combineSelectors(context, parentText) : parentText;
+					if (!nextContexts.includes(combined)) {
+						nextContexts.push(combined);
+					}
+				}));
+				if (nextContexts.length) {
+					contexts = nextContexts;
+				}
 			}
-		}));
-		if (nextContexts.length) {
-			contexts = nextContexts;
-		}
-	});
-	const expandedSelectors = new Set();
-	contexts.forEach(context => {
-		const result = context ? combineSelectors(context, selectorText) : selectorText;
-		expandedSelectors.add(result);
-	});
-	return Array.from(expandedSelectors).join(PRELUDE_SEPARATOR);
+		});
+		const expandedSelectors = new Set();
+		contexts.forEach(context => {
+			const result = context ? combineSelectors(context, selectorText) : selectorText;
+			expandedSelectors.add(result);
+		});
+		return Array.from(expandedSelectors).join(PRELUDE_SEPARATOR);
+	}
 }
 
 function combineSelectors(parentSelectorText, childSelectorText) {
