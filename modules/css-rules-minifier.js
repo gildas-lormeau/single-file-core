@@ -911,7 +911,7 @@ function querySelectorAll(root, selector, cache) {
 }
 
 function getInlineStyleDeclarations(element) {
-  const style = element.getAttribute && element.getAttribute(STYLE_ATTRIBUTE_NAME);
+  const style = element.getAttribute(STYLE_ATTRIBUTE_NAME);
   if (style) {
     let declarationNodes;
     try {
