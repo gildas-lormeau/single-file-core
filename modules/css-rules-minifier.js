@@ -250,27 +250,12 @@ function registerLayerDeclaration(layerStack, layerName, conditionalStack, docCo
 
 function processSelectors(ruleData, processingContext, docContext) {
 	const removedSelectors = [];
-	const {
-		ancestorsSelectors,
-		layerStack,
-		conditionalStack,
-		scopeIncludeLists,
-		scopeExclusionLists,
-		scopeNestingLevel
-	} = processingContext;
+	const { ancestorsSelectors } = processingContext;
 	for (let selector = ruleData.prelude.children.head, selectorIndex = 0; selector; selector = selector.next, selectorIndex++) {
 		const startsWithCombinator = selectorStartsWithCombinator(selector.data);
 		const selectorAnalysis = analyzeSelector(selector.data);
-		docContext.selectorData.set(selector, {
-			specificity: computeMaxSpecificity(selector.data, ancestorsSelectors),
-			rule: ruleData,
-			layerStack,
-			conditionalStack,
-			scopeIncludeLists,
-			scopeExclusionLists,
-			scopeNestingLevel,
-			scopeRelative: !startsWithCombinator && !selectorAnalysis.hasNestingOrScope
-		});
+		const scopeRelative = !startsWithCombinator && !selectorAnalysis.hasNestingOrScope;
+		registerSelector(selector, ruleData, scopeRelative, processingContext, docContext);
 		if (!selectorAnalysis.hasPseudoElement &&
 			!selectorAnalysis.hasDynamicStatePseudoClass &&
 			(!startsWithCombinator || !ancestorsSelectors || !ancestorsSelectors.length)) {
@@ -283,6 +268,27 @@ function processSelectors(ruleData, processingContext, docContext) {
 		}
 	}
 	return removedSelectors;
+}
+
+function registerSelector(selector, ruleData, scopeRelative, processingContext, docContext) {
+	const {
+		ancestorsSelectors,
+		layerStack,
+		conditionalStack,
+		scopeIncludeLists,
+		scopeExclusionLists,
+		scopeNestingLevel
+	} = processingContext;
+	docContext.selectorData.set(selector, {
+		specificity: computeMaxSpecificity(selector.data, ancestorsSelectors),
+		rule: ruleData,
+		layerStack,
+		conditionalStack,
+		scopeIncludeLists,
+		scopeExclusionLists,
+		scopeNestingLevel,
+		scopeRelative
+	});
 }
 
 function selectorStartsWithCombinator(selector) {
