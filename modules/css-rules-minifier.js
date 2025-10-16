@@ -891,7 +891,7 @@ function querySelectorAll(root, selector, cache) {
 		} catch {
 			if (DEBUG) {
 				// eslint-disable-next-line no-console
-				console.warn(QSA_ERROR_MESSAGE, selector);
+				console.warn(QSA_ERROR_MESSAGE, selector, root.tagName ? root.tagName : EMPTY_STRING);
 			}
 			rootCache.set(selector, []);
 			return [];
