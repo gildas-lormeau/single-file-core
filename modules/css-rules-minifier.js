@@ -174,6 +174,24 @@ function collectStylesheetLayerRule(ruleData, layerStack, conditionalStack, docC
 	}
 }
 
+function buildConditionalStack(conditionalStack, ruleData, docContext) {
+	const isConditional = CONDITIONAL_AT_RULE_NAMES.has(ruleData.name);
+	return isConditional
+		? [...conditionalStack, { name: ruleData.name, prelude: getPreludeText(ruleData.prelude, docContext) }]
+		: conditionalStack;
+}
+
+function registerLayerDeclaration(layerStack, layerName, conditionalStack, docContext) {
+	const fullLayerName = getFullLayerName([...layerStack, layerName]);
+	if (fullLayerName) {
+		docContext.layerDeclarations.push({
+			name: fullLayerName,
+			order: docContext.layerDeclarationCounter++,
+			conditionalStack: conditionalStack.slice()
+		});
+	}
+}
+
 function minifyStylesheetRules(cssRules, stylesheets, processingContext, docContext) {
 	const removedRules = new Set();
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
@@ -248,17 +266,6 @@ function minifyStylesheetRule(ruleData, cssRule, stylesheets, processingContext,
 	}
 }
 
-function registerLayerDeclaration(layerStack, layerName, conditionalStack, docContext) {
-	const fullLayerName = getFullLayerName([...layerStack, layerName]);
-	if (fullLayerName) {
-		docContext.layerDeclarations.push({
-			name: fullLayerName,
-			order: docContext.layerDeclarationCounter++,
-			conditionalStack: conditionalStack.slice()
-		});
-	}
-}
-
 function processSelectors(ruleData, processingContext, docContext) {
 	const removedSelectors = [];
 	const { ancestorsSelectors } = processingContext;
@@ -283,73 +290,32 @@ function processSelectors(ruleData, processingContext, docContext) {
 	return removedSelectors;
 }
 
-function registerSelector(selector, ruleData, scopeRelative, processingContext, docContext) {
-	const {
-		ancestorsSelectors,
-		layerStack,
-		conditionalStack,
-		scopeIncludeLists,
-		scopeExclusionLists,
-		scopeNestingLevel
-	} = processingContext;
-	docContext.selectorData.set(selector, {
-		specificity: computeMaxSpecificity(selector.data, ancestorsSelectors),
-		rule: ruleData,
-		layerStack,
-		conditionalStack,
-		scopeIncludeLists,
-		scopeExclusionLists,
-		scopeNestingLevel,
-		scopeRelative
-	});
-}
-
-function matchElements(selector, ancestorsSelectors, docContext) {
-	const selectorText = prepareSelectorText(selector, ancestorsSelectors, docContext);
-	const selectorData = docContext.selectorData.get(selector);
-	const hasScope = selectorData && ((selectorData.scopeIncludeLists && selectorData.scopeIncludeLists.length) || selectorData.scopeNestingLevel > 0);
-	const cacheKey = createMatchCacheKey(hasScope, selectorData, selectorText);
-	const cached = docContext.matchedSelectors.get(cacheKey);
-	if (cached) {
-		return cached;
-	} else {
-		if (hasScope) {
-			return collectScopedMatches(cacheKey, selector, docContext);
-		} else {
-			const nodes = querySelectorAll(docContext.doc, selectorText, docContext.scopeRoots);
-			docContext.matchedSelectors.set(cacheKey, nodes);
-			return nodes;
+function analyzeSelector(selector) {
+	let hasPseudoElement = false;
+	let hasDynamicStatePseudoClass = false;
+	let hasNestingOrScope = false;
+	let startsWithCombinator = false;
+	cssTree.walk(selector, {
+		enter(node) {
+			if (node.type === PSEUDO_ELEMENT_SELECTOR_TYPE) {
+				hasPseudoElement = true;
+			} else if (node.type === PSEUDO_CLASS_SELECTOR_TYPE) {
+				if (CANONICAL_PSEUDO_ELEMENT_NAMES.has(node.name)) {
+					hasPseudoElement = true;
+				} else if (DYNAMIC_STATE_PSEUDO_CLASSES.has(node.name)) {
+					hasDynamicStatePseudoClass = true;
+				} else if (node.name === SCOPE_NAME) {
+					hasNestingOrScope = true;
+				}
+			} else if (node.type === NESTING_SELECTOR_TYPE) {
+				hasNestingOrScope = true;
+			}
 		}
-	}
-}
-
-function prepareSelectorText(selector, ancestorsSelectors, docContext) {
-	let selectorText;
-	if (ancestorsSelectors && ancestorsSelectors.length) {
-		selectorText = combineSelectorWithAncestors(selector.data, ancestorsSelectors, docContext);
-		const combinedAst = parseCss(selectorText, SELECTOR_LIST_CONTEXT);
-		selectorText = sanitizeSelector({ data: combinedAst }, ancestorsSelectors, docContext);
-	}
-	if (!selectorText) {
-		selectorText = sanitizeSelector(selector, ancestorsSelectors, docContext);
-	}
-	return selectorText;
-}
-
-function createMatchCacheKey(hasScope, selectorData, selectorText) {
-	if (hasScope) {
-		const include = selectorData.scopeIncludeLists || [];
-		const exclude = selectorData.scopeExclusionLists || [];
-		const relative = selectorData.scopeRelative ? 1 : 0;
-		const nesting = selectorData.scopeNestingLevel || 0;
-		return [
-			selectorText,
-			JSON.stringify(include),
-			JSON.stringify(exclude), String(relative), String(nesting)
-		].join(CONTEXT_KEY_SEPARATOR);
-	} else {
-		return selectorText;
-	}
+	});
+	const firstChild = selector.children.head.data;
+	startsWithCombinator = firstChild && firstChild.type === COMBINATOR_NAME;
+	const scopeRelative = !startsWithCombinator && !hasNestingOrScope;
+	return { hasPseudoElement, hasDynamicStatePseudoClass, startsWithCombinator, scopeRelative };
 }
 
 function updateMatchingSelectors(matchedElements, selector, docContext) {
@@ -372,11 +338,25 @@ function processNestedRules(ruleData, stylesheets, processingContext, docContext
 	minifyStylesheetRules(ruleData.block.children, stylesheets, newProcessingContext, docContext);
 }
 
-function buildConditionalStack(conditionalStack, ruleData, docContext) {
-	const isConditional = CONDITIONAL_AT_RULE_NAMES.has(ruleData.name);
-	return isConditional
-		? [...conditionalStack, { name: ruleData.name, prelude: getPreludeText(ruleData.prelude, docContext) }]
-		: conditionalStack;
+function registerSelector(selector, ruleData, scopeRelative, processingContext, docContext) {
+	const {
+		ancestorsSelectors,
+		layerStack,
+		conditionalStack,
+		scopeIncludeLists,
+		scopeExclusionLists,
+		scopeNestingLevel
+	} = processingContext;
+	docContext.selectorData.set(selector, {
+		specificity: computeMaxSpecificity(selector.data, ancestorsSelectors),
+		rule: ruleData,
+		layerStack,
+		conditionalStack,
+		scopeIncludeLists,
+		scopeExclusionLists,
+		scopeNestingLevel,
+		scopeRelative
+	});
 }
 
 function computeCascadedStylesForElement(element, winningDeclarations, docContext) {
@@ -406,15 +386,8 @@ function computeCascadedStylesForElement(element, winningDeclarations, docContex
 	cascadedStyles.forEach(({ declaration }) => winningDeclarations.add(declaration));
 }
 
-function getConditionalStackForSelector(selector, docContext) {
-	let conditionalStack = [];
-	if (selector) {
-		const selectorData = docContext.selectorData.get(selector);
-		if (selectorData && selectorData.conditionalStack) {
-			conditionalStack = selectorData.conditionalStack;
-		}
-	}
-	return conditionalStack;
+function createContextKey(conditionalStack) {
+	return conditionalStack.map(context => `${context.name}:${context.prelude}`).join(CONTEXT_KEY_SEPARATOR);
 }
 
 function collectDeclarationItemsForElement(element, docContext) {
@@ -448,8 +421,143 @@ function collectDeclarationItemsForElement(element, docContext) {
 	return allDeclarations;
 }
 
-function createContextKey(conditionalStack) {
-	return conditionalStack.map(context => `${context.name}:${context.prelude}`).join(CONTEXT_KEY_SEPARATOR);
+function getConditionalStackForSelector(selector, docContext) {
+	let conditionalStack = [];
+	if (selector) {
+		const selectorData = docContext.selectorData.get(selector);
+		if (selectorData && selectorData.conditionalStack) {
+			conditionalStack = selectorData.conditionalStack;
+		}
+	}
+	return conditionalStack;
+}
+
+function matchElements(selector, ancestorsSelectors, docContext) {
+	const selectorText = createSelectorText(selector, ancestorsSelectors, docContext);
+	const selectorData = docContext.selectorData.get(selector);
+	const hasScope = selectorData && ((selectorData.scopeIncludeLists && selectorData.scopeIncludeLists.length) || selectorData.scopeNestingLevel > 0);
+	const cacheKey = createMatchCacheKey(hasScope, selectorData, selectorText);
+	const cached = docContext.matchedSelectors.get(cacheKey);
+	if (cached) {
+		return cached;
+	} else {
+		if (hasScope) {
+			return collectScopedMatches(cacheKey, selector, docContext);
+		} else {
+			const nodes = querySelectorAll(docContext.doc, selectorText, docContext.scopeRoots);
+			docContext.matchedSelectors.set(cacheKey, nodes);
+			return nodes;
+		}
+	}
+}
+
+function createSelectorText(selector, ancestorsSelectors, docContext) {
+	let selectorText;
+	if (ancestorsSelectors && ancestorsSelectors.length) {
+		selectorText = combineSelectorWithAncestors(selector.data, ancestorsSelectors, docContext);
+		const combinedAst = parseCss(selectorText, SELECTOR_LIST_CONTEXT);
+		selectorText = sanitizeSelector({ data: combinedAst }, ancestorsSelectors, docContext);
+	}
+	if (!selectorText) {
+		selectorText = sanitizeSelector(selector, ancestorsSelectors, docContext);
+	}
+	return selectorText;
+}
+
+function createMatchCacheKey(hasScope, selectorData, selectorText) {
+	if (hasScope) {
+		const include = selectorData.scopeIncludeLists || [];
+		const exclude = selectorData.scopeExclusionLists || [];
+		const relative = selectorData.scopeRelative ? 1 : 0;
+		const nesting = selectorData.scopeNestingLevel || 0;
+		return [
+			selectorText,
+			JSON.stringify(include),
+			JSON.stringify(exclude), String(relative), String(nesting)
+		].join(CONTEXT_KEY_SEPARATOR);
+	} else {
+		return selectorText;
+	}
+}
+
+function collectScopedMatches(cacheKey, selector, docContext) {
+	const selectorData = docContext.selectorData.get(selector);
+	const includeLists = selectorData.scopeIncludeLists && selectorData.scopeIncludeLists.length ? selectorData.scopeIncludeLists[selectorData.scopeIncludeLists.length - 1] : [];
+	const excludeLists = selectorData.scopeExclusionLists && selectorData.scopeExclusionLists.length ? selectorData.scopeExclusionLists[selectorData.scopeExclusionLists.length - 1] : [];
+	const matchedSet = new Set();
+	const includes = includeLists.length ? includeLists : [ROOT_PSEUDO_CLASS];
+	for (const includeSelector of includes) {
+		collectMatchesForInclude(includeSelector, selector, excludeLists, docContext, matchedSet);
+	}
+	const matchedElements = Array.from(matchedSet);
+	docContext.matchedSelectors.set(cacheKey, matchedElements);
+	return matchedElements;
+}
+
+function collectMatchesForInclude(includeSelector, selector, excludeLists, docContext, matchedSet) {
+	const rootsForInclude = getScopeRoots(includeSelector, docContext);
+	for (const rootForInclude of rootsForInclude) {
+		const roots = querySelectorForRoot(rootForInclude, normalizeForRoot(selector), docContext.scopeRoots);
+		if (roots.length) {
+			if (excludeLists && excludeLists.length) {
+				const filteredRoots = filterExcludedRoots(roots, excludeLists, docContext);
+				filteredRoots.forEach(root => matchedSet.add(root));
+			} else {
+				roots.forEach(root => matchedSet.add(root));
+			}
+		}
+	}
+}
+
+function querySelectorForRoot(root, selector, cache) {
+	const nodes = querySelectorAll(root, selector, cache);
+	if (root.matches && root.matches(selector)) {
+		if (nodes.indexOf(root) === -1) {
+			nodes.unshift(root);
+		}
+	}
+	return nodes;
+}
+
+function normalizeForRoot(selector) {
+	const selectorData = cssTree.clone(selector.data);
+	cssTree.walk(selectorData, {
+		visit: NESTING_SELECTOR_TYPE,
+		enter(_node, item, list) {
+			const scope = { type: PSEUDO_CLASS_SELECTOR_TYPE, name: SCOPE_NAME };
+			list.insertData(scope, item);
+			list.remove(item);
+		}
+	});
+	for (let selectorChild = selectorData.children.head; selectorChild; selectorChild = selectorChild.next) {
+		const childData = selectorChild.data;
+		if (hasChildNodes(childData)) {
+			const head = childData.children.head;
+			const headData = head.data;
+			if (headData && headData.type === COMBINATOR_NAME) {
+				const scope = { type: PSEUDO_CLASS_SELECTOR_TYPE, name: SCOPE_NAME };
+				childData.children.insertData(scope, head);
+			}
+		}
+	}
+	return cssTree.generate(selectorData);
+}
+
+function getScopeRoots(selector, docContext) {
+	let roots = docContext.scopeRoots.get(selector);
+	if (!roots) {
+		roots = querySelectorAll(docContext.doc, selector, docContext.scopeRoots);
+	}
+	return roots;
+}
+
+function filterExcludedRoots(roots, excludeLists, docContext) {
+	const excludeRoots = new Set();
+	for (const excludeSelector of excludeLists) {
+		const rootsForExclude = getScopeRoots(excludeSelector, docContext);
+		rootsForExclude.forEach(root => excludeRoots.add(root));
+	}
+	return roots.filter(node => !Array.from(excludeRoots).some(excludedRoot => excludedRoot.contains(node)));
 }
 
 function compareDeclarations(declarationA, declarationB, docContext) {
@@ -536,78 +644,6 @@ function compareLayers(layersA, layersB, docContext) {
 		}
 	}
 	return layersA.length - layersB.length;
-}
-
-function collectScopedMatches(cacheKey, selector, docContext) {
-	const selectorData = docContext.selectorData.get(selector);
-	const includeLists = selectorData.scopeIncludeLists && selectorData.scopeIncludeLists.length ? selectorData.scopeIncludeLists[selectorData.scopeIncludeLists.length - 1] : [];
-	const excludeLists = selectorData.scopeExclusionLists && selectorData.scopeExclusionLists.length ? selectorData.scopeExclusionLists[selectorData.scopeExclusionLists.length - 1] : [];
-	const matchedSet = new Set();
-	const includes = includeLists.length ? includeLists : [ROOT_PSEUDO_CLASS];
-	for (const includeSelector of includes) {
-		collectMatchesForInclude(includeSelector, selector, excludeLists, docContext, matchedSet);
-	}
-	const matchedElements = Array.from(matchedSet);
-	docContext.matchedSelectors.set(cacheKey, matchedElements);
-	return matchedElements;
-}
-
-function collectMatchesForInclude(includeSelector, selector, excludeLists, docContext, matchedSet) {
-	const rootsForInclude = getScopeRoots(includeSelector, docContext);
-	for (const rootForInclude of rootsForInclude) {
-		const roots = querySelectorForRoot(rootForInclude, normalizeForRoot(selector), docContext.scopeRoots);
-		if (roots.length) {
-			if (excludeLists && excludeLists.length) {
-				const filteredRoots = filterExcludedRoots(roots, excludeLists, docContext);
-				filteredRoots.forEach(root => matchedSet.add(root));
-			} else {
-				roots.forEach(root => matchedSet.add(root));
-			}
-		}
-	}
-}
-
-function filterExcludedRoots(roots, excludeLists, docContext) {
-	const excludeRoots = new Set();
-	for (const excludeSelector of excludeLists) {
-		const rootsForExclude = getScopeRoots(excludeSelector, docContext);
-		rootsForExclude.forEach(root => excludeRoots.add(root));
-	}
-	return roots.filter(node => !Array.from(excludeRoots).some(excludedRoot => excludedRoot.contains(node)));
-}
-
-function querySelectorForRoot(root, selector, cache) {
-	const nodes = querySelectorAll(root, selector, cache);
-	if (root.matches && root.matches(selector)) {
-		if (nodes.indexOf(root) === -1) {
-			nodes.unshift(root);
-		}
-	}
-	return nodes;
-}
-
-function normalizeForRoot(selector) {
-	const selectorData = cssTree.clone(selector.data);
-	cssTree.walk(selectorData, {
-		visit: NESTING_SELECTOR_TYPE,
-		enter(_node, item, list) {
-			const scope = { type: PSEUDO_CLASS_SELECTOR_TYPE, name: SCOPE_NAME };
-			list.insertData(scope, item);
-			list.remove(item);
-		}
-	});
-	for (let selectorChild = selectorData.children.head; selectorChild; selectorChild = selectorChild.next) {
-		const childData = selectorChild.data;
-		if (hasChildNodes(childData)) {
-			const head = childData.children.head;
-			const headData = head.data;
-			if (headData && headData.type === COMBINATOR_NAME) {
-				const scope = { type: PSEUDO_CLASS_SELECTOR_TYPE, name: SCOPE_NAME };
-				childData.children.insertData(scope, head);
-			}
-		}
-	}
-	return cssTree.generate(selectorData);
 }
 
 function removeStylesheetEmptyRules(cssRules, docContext) {
@@ -807,34 +843,6 @@ function computeEffectiveSpecificity(selectorData, element, docContext) {
 	return effectiveSpecificity;
 }
 
-function analyzeSelector(selector) {
-	let hasPseudoElement = false;
-	let hasDynamicStatePseudoClass = false;
-	let hasNestingOrScope = false;
-	let startsWithCombinator = false;
-	cssTree.walk(selector, {
-		enter(node) {
-			if (node.type === PSEUDO_ELEMENT_SELECTOR_TYPE) {
-				hasPseudoElement = true;
-			} else if (node.type === PSEUDO_CLASS_SELECTOR_TYPE) {
-				if (CANONICAL_PSEUDO_ELEMENT_NAMES.has(node.name)) {
-					hasPseudoElement = true;
-				} else if (DYNAMIC_STATE_PSEUDO_CLASSES.has(node.name)) {
-					hasDynamicStatePseudoClass = true;
-				} else if (node.name === SCOPE_NAME) {
-					hasNestingOrScope = true;
-				}
-			} else if (node.type === NESTING_SELECTOR_TYPE) {
-				hasNestingOrScope = true;
-			}
-		}
-	});
-	const firstChild = selector.children.head.data;
-	startsWithCombinator = firstChild && firstChild.type === COMBINATOR_NAME;
-	const scopeRelative = !startsWithCombinator && !hasNestingOrScope;
-	return { hasPseudoElement, hasDynamicStatePseudoClass, startsWithCombinator, scopeRelative };
-}
-
 function getIncludeSpecificity(includeSelector, docContext) {
 	let specificity = docContext.scopeSpecificities.get(includeSelector);
 	if (!specificity) {
@@ -843,14 +851,6 @@ function getIncludeSpecificity(includeSelector, docContext) {
 		docContext.scopeSpecificities.set(includeSelector, specificity);
 	}
 	return specificity;
-}
-
-function getScopeRoots(selector, docContext) {
-	let roots = docContext.scopeRoots.get(selector);
-	if (!roots) {
-		roots = querySelectorAll(docContext.doc, selector, docContext.scopeRoots);
-	}
-	return roots;
 }
 
 function hasChildNodes(node) {
