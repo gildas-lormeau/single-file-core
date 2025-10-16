@@ -116,7 +116,11 @@ function minifyRules(stylesheets, docContext) {
 		if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
 			const cssRules = stylesheetInfo.stylesheet.children;
 			if (cssRules) {
-				minifyStylesheetRules(cssRules, stylesheets, { ancestorsSelectors: [], layerStack: [], conditionalStack: [] }, docContext);
+				minifyStylesheetRules(cssRules, stylesheets, {
+					ancestorsSelectors: [],
+					layerStack: [],
+					conditionalStack: []
+				}, docContext);
 			}
 		}
 	});
