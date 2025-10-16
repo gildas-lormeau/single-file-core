@@ -885,18 +885,19 @@ function querySelectorAll(root, selector, cache) {
 		}
 		if (rootCache.has(selector)) {
 			return rootCache.get(selector);
-		}
-		try {
-			const nodes = Array.from(root.querySelectorAll(selector));
-			rootCache.set(selector, nodes);
-			return nodes;
-		} catch {
-			if (DEBUG) {
-				// eslint-disable-next-line no-console
-				console.warn(QSA_ERROR_MESSAGE, selector, root.tagName ? root.tagName : EMPTY_STRING);
+		} else {
+			try {
+				const nodes = Array.from(root.querySelectorAll(selector));
+				rootCache.set(selector, nodes);
+				return nodes;
+			} catch {
+				if (DEBUG) {
+					// eslint-disable-next-line no-console
+					console.warn(QSA_ERROR_MESSAGE, selector, root.tagName ? root.tagName : EMPTY_STRING);
+				}
+				rootCache.set(selector, []);
+				return [];
 			}
-			rootCache.set(selector, []);
-			return [];
 		}
 	} else {
 		try {
