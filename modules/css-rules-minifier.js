@@ -49,6 +49,8 @@ const SELECTOR_LIST_CONTEXT = "selectorList";
 const STYLESHEET_CONTEXT = "stylesheet";
 const SELECTOR_CONTEXT = "selector";
 const DECLARATION_LIST_CONTEXT = "declarationList";
+const PARSE_CSS_ERROR_MESSAGE = "Failed to parse CSS";
+const QSA_ERROR_MESSAGE = "Failed to match selector";
 const ROOT_PSEUDO_CLASS = ":root";
 const PRELUDE_SEPARATOR = ",";
 const NESTING_SELECTOR = "&";
@@ -699,16 +701,9 @@ function normalizeForRoot(selector) {
 
 function querySelectorForRoot(root, selector, cache) {
 	const nodes = querySelectorAll(root, selector, cache);
-	try {
-		if (root.matches && root.matches(selector)) {
-			if (nodes.indexOf(root) === -1) {
-				nodes.unshift(root);
-			}
-		}
-	} catch (error) {
-		if (DEBUG) {
-			// eslint-disable-next-line no-console
-			console.warn("queryNodesForRoot: root.matches threw for selector:", selector, error);
+	if (root.matches && root.matches(selector)) {
+		if (nodes.indexOf(root) === -1) {
+			nodes.unshift(root);
 		}
 	}
 	return nodes;
@@ -755,7 +750,7 @@ function expandRawCssRules(ruleData) {
 					} catch (error) {
 						if (DEBUG) {
 							// eslint-disable-next-line no-console
-							console.warn("expandRawCssRules: parseCss threw for rule:", cssRuleNode.data.value, error);
+							console.warn(PARSE_CSS_ERROR_MESSAGE, cssRuleNode.data.value, error);
 						}
 					}
 				} else {
@@ -896,7 +891,7 @@ function querySelectorAll(root, selector, cache) {
 		} catch {
 			if (DEBUG) {
 				// eslint-disable-next-line no-console
-				console.warn("querySelectorAll: querySelectorAll threw for selector:", selector);
+				console.warn(QSA_ERROR_MESSAGE, selector);
 			}
 			rootCache.set(selector, []);
 			return [];
@@ -907,7 +902,7 @@ function querySelectorAll(root, selector, cache) {
 		} catch {
 			if (DEBUG) {
 				// eslint-disable-next-line no-console
-				console.warn("querySelectorAll: querySelectorAll threw for selector:", selector);
+				console.warn(QSA_ERROR_MESSAGE, selector);
 			}
 			return [];
 		}
