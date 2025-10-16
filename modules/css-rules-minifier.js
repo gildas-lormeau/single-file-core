@@ -787,10 +787,6 @@ function combineSelectors(parentSelectorText, childSelectorText) {
 	return cssTree.generate(combinedSelector);
 }
 
-function hasChildNodes(node) {
-	return Boolean(node && node.children && node.children.head);
-}
-
 function computeEffectiveSpecificity(selectorData, element, docContext) {
 	const baseSpecificity = selectorData.specificity;
 	let effectiveSpecificity = { a: baseSpecificity.a, b: baseSpecificity.b, c: baseSpecificity.c };
@@ -855,6 +851,10 @@ function getScopeRoots(selector, docContext) {
 		roots = querySelectorAll(docContext.doc, selector, docContext.scopeRoots);
 	}
 	return roots;
+}
+
+function hasChildNodes(node) {
+	return Boolean(node && node.children && node.children.head);
 }
 
 function getSelectorText(selector, docContext) {
