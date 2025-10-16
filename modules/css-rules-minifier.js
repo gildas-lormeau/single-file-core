@@ -811,6 +811,34 @@ function computeEffectiveSpecificity(selectorData, element, docContext) {
 	return effectiveSpecificity;
 }
 
+function analyzeSelector(selector) {
+	let hasPseudoElement = false;
+	let hasDynamicStatePseudoClass = false;
+	let hasNestingOrScope = false;
+	let startsWithCombinator = false;
+	cssTree.walk(selector, {
+		enter(node) {
+			if (node.type === PSEUDO_ELEMENT_SELECTOR_TYPE) {
+				hasPseudoElement = true;
+			} else if (node.type === PSEUDO_CLASS_SELECTOR_TYPE) {
+				if (CANONICAL_PSEUDO_ELEMENT_NAMES.has(node.name)) {
+					hasPseudoElement = true;
+				} else if (DYNAMIC_STATE_PSEUDO_CLASSES.has(node.name)) {
+					hasDynamicStatePseudoClass = true;
+				} else if (node.name === SCOPE_NAME) {
+					hasNestingOrScope = true;
+				}
+			} else if (node.type === NESTING_SELECTOR_TYPE) {
+				hasNestingOrScope = true;
+			}
+		}
+	});
+	const firstChild = selector.children.head.data;
+	startsWithCombinator = firstChild && firstChild.type === COMBINATOR_NAME;
+	const scopeRelative = !startsWithCombinator && !hasNestingOrScope;
+	return { hasPseudoElement, hasDynamicStatePseudoClass, startsWithCombinator, scopeRelative };
+}
+
 function getIncludeSpecificity(includeSelector, docContext) {
 	let specificity = docContext.scopeSpecificities.get(includeSelector);
 	if (!specificity) {
@@ -847,41 +875,13 @@ function getPreludeText(prelude, docContext) {
 	}
 }
 
-function analyzeSelector(selector) {
-	let hasPseudoElement = false;
-	let hasDynamicStatePseudoClass = false;
-	let hasNestingOrScope = false;
-	let startsWithCombinator = false;
-	cssTree.walk(selector, {
-		enter(node) {
-			if (node.type === PSEUDO_ELEMENT_SELECTOR_TYPE) {
-				hasPseudoElement = true;
-			} else if (node.type === PSEUDO_CLASS_SELECTOR_TYPE) {
-				if (CANONICAL_PSEUDO_ELEMENT_NAMES.has(node.name)) {
-					hasPseudoElement = true;
-				} else if (DYNAMIC_STATE_PSEUDO_CLASSES.has(node.name)) {
-					hasDynamicStatePseudoClass = true;
-				} else if (node.name === SCOPE_NAME) {
-					hasNestingOrScope = true;
-				}
-			} else if (node.type === NESTING_SELECTOR_TYPE) {
-				hasNestingOrScope = true;
-			}
-		}
-	});
-	const firstChild = selector.children.head.data;
-	startsWithCombinator = firstChild && firstChild.type === COMBINATOR_NAME;
-	const scopeRelative = !startsWithCombinator && !hasNestingOrScope;
-	return { hasPseudoElement, hasDynamicStatePseudoClass, startsWithCombinator, scopeRelative };
+function getFullLayerName(layers) {
+	return layers.filter(layerName => layerName !== EMPTY_STRING).join(LAYER_NAME_SEPARATOR);
 }
 
 function parseCss(text, context = SELECTOR_CONTEXT) {
 	const options = { context };
 	return cssTree.parse(text, options);
-}
-
-function getFullLayerName(layers) {
-	return layers.filter(layerName => layerName !== EMPTY_STRING).join(LAYER_NAME_SEPARATOR);
 }
 
 function querySelectorAll(root, selector, cache) {
