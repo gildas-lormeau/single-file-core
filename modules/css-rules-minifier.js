@@ -187,15 +187,15 @@ function minifyStylesheetRules(cssRules, stylesheets, processingContext, docCont
 }
 
 function minifyRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext) {
-	if (ruleData.type === AT_RULE_TYPE && ruleData.name === IMPORT_NAME && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head.data.importedChildren) {
+	if (ruleData.type === AT_RULE_TYPE && ruleData.name === IMPORT_NAME && hasChildNodes(ruleData.prelude) && ruleData.prelude.children.head.data.importedChildren) {
 		minifyStylesheetRules(ruleData.prelude.children.head.data.importedChildren, stylesheets, processingContext, docContext);
-	} else if (ruleData.type === AT_RULE_TYPE && ruleData.name === LAYER_NAME && ruleData.block) {
+	} else if (ruleData.type === AT_RULE_TYPE && ruleData.name === LAYER_NAME && hasChildNodes(ruleData.block)) {
 		minifyLayerRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext);
-	} else if (ruleData.type === AT_RULE_TYPE && ruleData.name === SCOPE_NAME && ruleData.block) {
+	} else if (ruleData.type === AT_RULE_TYPE && ruleData.name === SCOPE_NAME && hasChildNodes(ruleData.block)) {
 		minifyScopeRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext);
-	} else if (ruleData.type === AT_RULE_TYPE && ruleData.block && ruleData.name !== FONT_FACE_NAME && ruleData.name !== KEYFRAMES_NAME && !ruleData.name.startsWith(VENDOR_PREFIX)) {
+	} else if (ruleData.type === AT_RULE_TYPE && ruleData.name !== FONT_FACE_NAME && ruleData.name !== KEYFRAMES_NAME && !ruleData.name.startsWith(VENDOR_PREFIX) && hasChildNodes(ruleData.block)) {
 		minifyAtRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext);
-	} else if (ruleData.type === RULE_TYPE && ruleData.prelude.children) {
+	} else if (ruleData.type === RULE_TYPE && hasChildNodes(ruleData.prelude)) {
 		minifyStylesheetRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext);
 	}
 }
@@ -205,7 +205,7 @@ function minifyLayerRule(ruleData, cssRule, stylesheets, processingContext, remo
 	const newProcessingContext = { ...processingContext, layerStack: [...processingContext.layerStack, layerName] };
 	expandRawCssRules(ruleData);
 	minifyStylesheetRules(ruleData.block.children, stylesheets, newProcessingContext, docContext);
-	if (ruleData.block.children.size === 0) {
+	if (!hasChildNodes(ruleData.block)) {
 		docContext.stats.discarded++;
 		removedRules.add(cssRule);
 	}
@@ -225,7 +225,7 @@ function minifyScopeRule(ruleData, cssRule, stylesheets, processingContext, remo
 	};
 	expandRawCssRules(ruleData);
 	minifyStylesheetRules(ruleData.block.children, stylesheets, newProcessingContext, docContext);
-	if (ruleData.block.children.size === 0) {
+	if (!hasChildNodes(ruleData.block)) {
 		docContext.stats.discarded++;
 		removedRules.add(cssRule);
 	}
@@ -236,7 +236,7 @@ function minifyAtRule(ruleData, cssRule, stylesheets, processingContext, removed
 	const newProcessingContext = { ...processingContext, conditionalStack: newConditionalStack };
 	expandRawCssRules(ruleData);
 	minifyStylesheetRules(ruleData.block.children, stylesheets, newProcessingContext, docContext);
-	if (ruleData.block.children.size === 0) {
+	if (!hasChildNodes(ruleData.block)) {
 		docContext.stats.discarded++;
 		removedRules.add(cssRule);
 	}
@@ -246,7 +246,7 @@ function minifyStylesheetRule(ruleData, cssRule, stylesheets, processingContext,
 	ruleData.order = docContext.rulesCounter++;
 	const removedSelectors = processSelectors(ruleData, processingContext, docContext);
 	const wasDiscarded = removeUnmatchedSelectors(ruleData, removedSelectors, removedRules, cssRule, docContext);
-	if (!wasDiscarded && ruleData.block && ruleData.block.children) {
+	if (!wasDiscarded && hasChildNodes(ruleData.block)) {
 		processNestedRules(ruleData, stylesheets, processingContext, docContext);
 	}
 }
@@ -601,11 +601,12 @@ function normalizeForRoot(selector) {
 	});
 	for (let selectorChild = selectorData.children.head; selectorChild; selectorChild = selectorChild.next) {
 		const childData = selectorChild.data;
-		if (childData && childData.children && childData.children.head) {
-			const headData = childData.children.head.data;
+		if (hasChildNodes(childData)) {
+			const head = childData.children.head;
+			const headData = head.data;
 			if (headData && headData.type === COMBINATOR_NAME) {
 				const scope = { type: PSEUDO_CLASS_SELECTOR_TYPE, name: SCOPE_NAME };
-				childData.children.insertData(scope, childData.children.head);
+				childData.children.insertData(scope, head);
 			}
 		}
 	}
@@ -617,15 +618,15 @@ function removeStylesheetEmptyRules(cssRules, docContext) {
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		const ruleData = cssRule.data;
 		if (ruleData.type === RULE_TYPE) {
-			if (!ruleData.block || !ruleData.block.children || ruleData.block.children.size === 0) {
+			if (hasChildNodes(ruleData.block)) {
+				removeStylesheetEmptyRules(ruleData.block.children, docContext);
+			} else {
 				docContext.stats.discarded++;
 				removedRules.add(cssRule);
-			} else {
-				removeStylesheetEmptyRules(ruleData.block.children, docContext);
 			}
 		} else if (ruleData.type === AT_RULE_TYPE && ruleData.block && ruleData.name !== FONT_FACE_NAME && ruleData.name !== KEYFRAMES_NAME) {
 			removeStylesheetEmptyRules(ruleData.block.children, docContext);
-			if (ruleData.block.children.size === 0) {
+			if (!hasChildNodes(ruleData.block)) {
 				docContext.stats.discarded++;
 				removedRules.add(cssRule);
 			}
@@ -638,7 +639,7 @@ function removeUnmatchedSelectors(ruleData, removedSelectors, removedRules, cssR
 	if (removedSelectors && removedSelectors.length) {
 		removedSelectors.forEach(selector => ruleData.prelude.children.remove(selector));
 	}
-	if (ruleData.prelude.children.size === 0) {
+	if (!hasChildNodes(ruleData.prelude)) {
 		docContext.stats.discarded++;
 		removedRules.add(cssRule);
 		return true;
@@ -703,7 +704,7 @@ function removeLosingDeclarations(winningDeclarations, docContext) {
 
 function expandRawCssRules(ruleData) {
 	const ruleChildren = [];
-	if (ruleData.block && ruleData.block.children) {
+	if (hasChildNodes(ruleData.block)) {
 		for (let cssRuleNode = ruleData.block.children.head; cssRuleNode; cssRuleNode = cssRuleNode.next) {
 			if (cssRuleNode.data.type === RAW_TYPE) {
 				if (cssRuleNode.data.value.indexOf(BLOCK_OPEN) !== -1 &&
