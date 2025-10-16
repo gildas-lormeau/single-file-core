@@ -252,12 +252,15 @@ function processSelectors(ruleData, processingContext, docContext) {
 	const removedSelectors = [];
 	const { ancestorsSelectors } = processingContext;
 	for (let selector = ruleData.prelude.children.head, selectorIndex = 0; selector; selector = selector.next, selectorIndex++) {
-		const selectorStartsWithCombinator = startsWithCombinator(selector.data);
-		const { hasNestingOrScope, hasPseudoElement, hasDynamicStatePseudoClass } = analyzeSelector(selector.data);
-		const scopeRelative = !selectorStartsWithCombinator && !hasNestingOrScope;
+		const {
+			startsWithCombinator,
+			hasPseudoElement,
+			hasDynamicStatePseudoClass,
+			scopeRelative
+		} = analyzeSelector(selector.data);
 		registerSelector(selector, ruleData, scopeRelative, processingContext, docContext);
 		if (!hasPseudoElement && !hasDynamicStatePseudoClass &&
-			(!selectorStartsWithCombinator || !ancestorsSelectors || !ancestorsSelectors.length)) {
+			(!startsWithCombinator || !ancestorsSelectors || !ancestorsSelectors.length)) {
 			const matchedElements = matchElements(selector, ancestorsSelectors, docContext);
 			if (matchedElements.length) {
 				updateMatchingSelectors(matchedElements, selector, docContext);
@@ -288,13 +291,6 @@ function registerSelector(selector, ruleData, scopeRelative, processingContext, 
 		scopeNestingLevel,
 		scopeRelative
 	});
-}
-
-function startsWithCombinator(selector) {
-	if (hasChildNodes(selector)) {
-		const firstChild = selector.children.head.data;
-		return firstChild && firstChild.type === COMBINATOR_NAME;
-	}
 }
 
 function updateMatchingSelectors(matchedElements, selector, docContext) {
@@ -358,6 +354,7 @@ function analyzeSelector(selector) {
 	let hasPseudoElement = false;
 	let hasDynamicStatePseudoClass = false;
 	let hasNestingOrScope = false;
+	let startsWithCombinator = false;
 	cssTree.walk(selector, {
 		enter(node) {
 			if (node.type === PSEUDO_ELEMENT_SELECTOR_TYPE) {
@@ -375,7 +372,10 @@ function analyzeSelector(selector) {
 			}
 		}
 	});
-	return { hasPseudoElement, hasDynamicStatePseudoClass, hasNestingOrScope };
+	const firstChild = selector.children.head.data;
+	startsWithCombinator = firstChild && firstChild.type === COMBINATOR_NAME;
+	const scopeRelative = !startsWithCombinator && !hasNestingOrScope;
+	return { hasPseudoElement, hasDynamicStatePseudoClass, startsWithCombinator, scopeRelative };
 }
 
 function computeCascadedStylesForElement(element, winningDeclarations, docContext) {
