@@ -62,6 +62,8 @@ const CONTEXT_KEY_SEPARATOR = "|";
 const BLOCK_OPEN = "{";
 const BLOCK_CLOSE = "}";
 const EMPTY_STRING = "";
+const CSS_IMPORTANCE_NOT_IMPORTANT = 0;
+const CSS_IMPORTANCE_IMPORTANT = 1;
 
 export {
 	process
@@ -491,8 +493,8 @@ function cleanStylesheetEmptyRules(cssRules, docContext) {
 }
 
 function compareDeclarations(declarationA, declarationB, docContext) {
-	const importantA = declarationA.declaration.data.important ? 1 : 0;
-	const importantB = declarationB.declaration.data.important ? 1 : 0;
+	const importantA = declarationA.declaration.data.important ? CSS_IMPORTANCE_IMPORTANT : CSS_IMPORTANCE_NOT_IMPORTANT;
+	const importantB = declarationB.declaration.data.important ? CSS_IMPORTANCE_IMPORTANT : CSS_IMPORTANCE_NOT_IMPORTANT;
 	if (importantA !== importantB) {
 		return importantA - importantB;
 	}
