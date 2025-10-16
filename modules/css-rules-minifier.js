@@ -382,52 +382,6 @@ function buildConditionalStack(conditionalStack, ruleData, docContext) {
 		: conditionalStack;
 }
 
-function getSelectorText(selector, docContext) {
-	if (!docContext.selectorTexts.has(selector)) {
-		docContext.selectorTexts.set(selector, cssTree.generate(selector));
-	}
-	return docContext.selectorTexts.get(selector);
-}
-
-function getPreludeText(prelude, docContext) {
-	if (prelude) {
-		if (!docContext.preludeTexts.has(prelude)) {
-			docContext.preludeTexts.set(prelude, cssTree.generate(prelude));
-		}
-		return docContext.preludeTexts.get(prelude);
-	} else {
-		return EMPTY_STRING;
-	}
-}
-
-function analyzeSelector(selector) {
-	let hasPseudoElement = false;
-	let hasDynamicStatePseudoClass = false;
-	let hasNestingOrScope = false;
-	let startsWithCombinator = false;
-	cssTree.walk(selector, {
-		enter(node) {
-			if (node.type === PSEUDO_ELEMENT_SELECTOR_TYPE) {
-				hasPseudoElement = true;
-			} else if (node.type === PSEUDO_CLASS_SELECTOR_TYPE) {
-				if (CANONICAL_PSEUDO_ELEMENT_NAMES.has(node.name)) {
-					hasPseudoElement = true;
-				} else if (DYNAMIC_STATE_PSEUDO_CLASSES.has(node.name)) {
-					hasDynamicStatePseudoClass = true;
-				} else if (node.name === SCOPE_NAME) {
-					hasNestingOrScope = true;
-				}
-			} else if (node.type === NESTING_SELECTOR_TYPE) {
-				hasNestingOrScope = true;
-			}
-		}
-	});
-	const firstChild = selector.children.head.data;
-	startsWithCombinator = firstChild && firstChild.type === COMBINATOR_NAME;
-	const scopeRelative = !startsWithCombinator && !hasNestingOrScope;
-	return { hasPseudoElement, hasDynamicStatePseudoClass, startsWithCombinator, scopeRelative };
-}
-
 function computeCascadedStylesForElement(element, winningDeclarations, docContext) {
 	const cascadedStyles = new Map();
 	const allDeclarations = collectDeclarationItemsForElement(element, docContext);
@@ -875,6 +829,52 @@ function getScopeRoots(selector, docContext) {
 		roots = querySelectorAll(docContext.doc, selector, docContext.scopeRoots);
 	}
 	return roots;
+}
+
+function getSelectorText(selector, docContext) {
+	if (!docContext.selectorTexts.has(selector)) {
+		docContext.selectorTexts.set(selector, cssTree.generate(selector));
+	}
+	return docContext.selectorTexts.get(selector);
+}
+
+function getPreludeText(prelude, docContext) {
+	if (prelude) {
+		if (!docContext.preludeTexts.has(prelude)) {
+			docContext.preludeTexts.set(prelude, cssTree.generate(prelude));
+		}
+		return docContext.preludeTexts.get(prelude);
+	} else {
+		return EMPTY_STRING;
+	}
+}
+
+function analyzeSelector(selector) {
+	let hasPseudoElement = false;
+	let hasDynamicStatePseudoClass = false;
+	let hasNestingOrScope = false;
+	let startsWithCombinator = false;
+	cssTree.walk(selector, {
+		enter(node) {
+			if (node.type === PSEUDO_ELEMENT_SELECTOR_TYPE) {
+				hasPseudoElement = true;
+			} else if (node.type === PSEUDO_CLASS_SELECTOR_TYPE) {
+				if (CANONICAL_PSEUDO_ELEMENT_NAMES.has(node.name)) {
+					hasPseudoElement = true;
+				} else if (DYNAMIC_STATE_PSEUDO_CLASSES.has(node.name)) {
+					hasDynamicStatePseudoClass = true;
+				} else if (node.name === SCOPE_NAME) {
+					hasNestingOrScope = true;
+				}
+			} else if (node.type === NESTING_SELECTOR_TYPE) {
+				hasNestingOrScope = true;
+			}
+		}
+	});
+	const firstChild = selector.children.head.data;
+	startsWithCombinator = firstChild && firstChild.type === COMBINATOR_NAME;
+	const scopeRelative = !startsWithCombinator && !hasNestingOrScope;
+	return { hasPseudoElement, hasDynamicStatePseudoClass, startsWithCombinator, scopeRelative };
 }
 
 function parseCss(text, context = SELECTOR_CONTEXT) {
