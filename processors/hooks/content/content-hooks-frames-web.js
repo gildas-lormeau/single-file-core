@@ -21,8 +21,6 @@
  *   Source.
  */
 
-/* global window */
-
 (globalThis => {
 
 	const LOAD_DEFERRED_IMAGES_START_EVENT = "single-file-load-deferred-images-start";
@@ -261,7 +259,7 @@
 		if (!keepZoomLevel) {
 			dispatchResizeEvent();
 			const docBoundingRect = scrollingElement.getBoundingClientRect();
-			if (window == window.top) {
+			if (globalThis.window == globalThis.window.top) {
 				[...observers].forEach(([intersectionObserver, observer]) => {
 					const getBoundingClientRectDefined = observer.options && observer.options.root && observer.options.root.getBoundingClientRect;
 					const rootBoundingRect = getBoundingClientRectDefined && observer.options.root.getBoundingClientRect();
@@ -446,4 +444,4 @@
 		}
 	}
 
-})(typeof globalThis == "object" ? globalThis : window);
+})(typeof globalThis == "object" ? globalThis : globalThis.window);

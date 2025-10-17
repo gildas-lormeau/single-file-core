@@ -21,8 +21,6 @@
  *   Source.
  */
 
-/* global window */
-
 const LOAD_DEFERRED_IMAGES_START_EVENT = "single-file-load-deferred-images-start";
 const LOAD_DEFERRED_IMAGES_END_EVENT = "single-file-load-deferred-images-end";
 const LOAD_DEFERRED_IMAGES_KEEP_ZOOM_LEVEL_START_EVENT = "single-file-load-deferred-images-keep-zoom-level-start";
@@ -51,15 +49,15 @@ const JSON = globalThis.JSON;
 const MutationObserver = globalThis.MutationObserver;
 
 let fontFaces, worklets;
-if (window[FONT_FACE_PROPERTY_NAME]) {
-	fontFaces = window[FONT_FACE_PROPERTY_NAME];
+if (globalThis.window[FONT_FACE_PROPERTY_NAME]) {
+	fontFaces = globalThis.window[FONT_FACE_PROPERTY_NAME];
 } else {
-	fontFaces = window[FONT_FACE_PROPERTY_NAME] = new Map();
+	fontFaces = globalThis.window[FONT_FACE_PROPERTY_NAME] = new Map();
 }
-if (window[WORKLET_PROPERTY_NAME]) {
-	worklets = window[WORKLET_PROPERTY_NAME];
+if (globalThis.window[WORKLET_PROPERTY_NAME]) {
+	worklets = globalThis.window[WORKLET_PROPERTY_NAME];
 } else {
-	worklets = window[WORKLET_PROPERTY_NAME] = new Map();
+	worklets = globalThis.window[WORKLET_PROPERTY_NAME] = new Map();
 }
 
 init();
