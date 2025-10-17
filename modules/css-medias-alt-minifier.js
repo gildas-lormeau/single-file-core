@@ -22,8 +22,13 @@
  */
 
 import * as cssTree from "./../vendor/css-tree.js";
-import * as mediaQueryParser from "./../vendor/css-media-query-parser.js";
 import { flatten } from "./../core/helper.js";
+import {
+	parseMediaListSafe,
+	containsNotKeyword as utilContainsNotKeyword,
+	extractMediaTypes,
+	isFeaturefulOrCompound
+} from "./media-query-utils.js";
 
 const helper = {
 	flatten
@@ -72,28 +77,26 @@ function processRules(cssRules, stats, keepPrintStyleSheets, removedRules = []) 
 }
 
 function matchesMediaType(mediaText, keepPrintStyleSheets) {
-	const foundMediaTypes = helper.flatten(mediaQueryParser.parseMediaList(mediaText).map(node => getMediaTypes(node)));
-	return foundMediaTypes.find(mediaTypeInfo =>
-		(!mediaTypeInfo.not && (mediaTypeInfo.value == MEDIA_SCREEN || mediaTypeInfo.value == MEDIA_ALL || (keepPrintStyleSheets && mediaTypeInfo.value == MEDIA_PRINT))) ||
-		(mediaTypeInfo.not && (mediaTypeInfo.value != MEDIA_SCREEN || mediaText.includes(" and "))));
-}
-
-function getMediaTypes(parentNode, mediaTypes = []) {
-	parentNode.nodes.map((node, indexNode) => {
-		if (node.type == "media-query") {
-			return getMediaTypes(node);
-		} else {
-			if (node.type == "media-type") {
-				const nodeMediaType = {
-					not: Boolean(indexNode && parentNode.nodes[0].type == "keyword" && parentNode.nodes[0].value == "not"),
-					value: node.value
-				};
-				mediaTypes.push(nodeMediaType);
-			}
+	let parsed;
+	try {
+		parsed = parseMediaListSafe(mediaText);
+		for (const node of parsed) {
+			if (!node || !node.nodes) continue;
+			if (isFeaturefulOrCompound(node)) return true;
+			if (utilContainsNotKeyword(node)) return true;
 		}
-	});
-	if (!mediaTypes.length) {
-		mediaTypes.push({ not: false, value: MEDIA_ALL });
+	} catch {
+		return true;
 	}
-	return mediaTypes;
+	let foundMediaTypes = helper.flatten(parsed.filter(n => n && n.nodes).map(node => extractMediaTypes(node)));
+	if (!foundMediaTypes || !foundMediaTypes.length) {
+		foundMediaTypes = [{ not: false, value: MEDIA_ALL }];
+	}
+	return foundMediaTypes.some(mediaTypeInfo =>
+		!mediaTypeInfo.not && (
+			mediaTypeInfo.value == MEDIA_SCREEN ||
+			mediaTypeInfo.value == MEDIA_ALL ||
+			(keepPrintStyleSheets && mediaTypeInfo.value == MEDIA_PRINT)
+		)
+	);
 }
