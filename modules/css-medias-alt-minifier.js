@@ -28,7 +28,7 @@ import {
 	containsNotKeyword as utilContainsNotKeyword,
 	extractMediaTypes,
 	isFeaturefulOrCompound
-} from "./media-query-utils.js";
+} from "./css-media-query-utils.js";
 
 const helper = {
 	flatten

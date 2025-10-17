@@ -1,4 +1,4 @@
-import * as mediaQueryParser from "./../vendor/css-media-query-parser.js";
+import * as mediaQueryParser from "../vendor/css-media-query-parser.js";
 
 function parseMediaListSafe(mediaText) {
     return mediaQueryParser.parseMediaList(mediaText);
