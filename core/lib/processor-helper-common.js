@@ -230,7 +230,7 @@ class ProcessorHelperCommon {
 								// ignored
 							}
 							if (testValidURL(resourceURL)) {
-								return this.processImageSrcset(resourceURL, srcsetValue, resources, batchRequest);
+								return this.processImageSrcset(resourceURL, srcsetValue, resources, batchRequest, options);
 							} else {
 								return "";
 							}

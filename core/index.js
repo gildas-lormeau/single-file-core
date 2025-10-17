@@ -329,6 +329,8 @@ class BatchRequest {
 	constructor() {
 		this.requests = new Map();
 		this.duplicates = new Map();
+		// Map from sequential index to UUID for compressContent mode
+		this.indexToUUID = new Map();
 	}
 
 	addURL(resourceURL, { asBinary, expectedType, groupDuplicates, baseURI, blockMixedContent, contentType } = {}) {
@@ -354,6 +356,14 @@ class BatchRequest {
 
 	getMaxResources() {
 		return this.requests.size;
+	}
+
+	getUUID(sequentialIndex) {
+		// Get or create UUID for this sequential index
+		if (!this.indexToUUID.has(sequentialIndex)) {
+			this.indexToUUID.set(sequentialIndex, globalThis.crypto.randomUUID());
+		}
+		return this.indexToUUID.get(sequentialIndex);
 	}
 
 	run(onloadListener, options) {

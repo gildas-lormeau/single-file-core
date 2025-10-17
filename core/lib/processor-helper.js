@@ -254,7 +254,9 @@ function getProcessorHelperClass(utilInstance) {
 				baseURI,
 				blockMixedContent: options.blockMixedContent
 			});
-			const name = "fonts/" + indexResource + extension;
+			// Use UUID for filename in compressContent mode, sequential for inline mode
+			const filenameId = options.compressContent ? batchRequest.getUUID(indexResource) : indexResource;
+			const name = "fonts/" + filenameId + extension;
 			if (!isDataURL(resourceURL) && options.saveOriginalURLs) {
 				urlNode.value = "-sf-url-original(" + JSON.stringify(originalResourceURL) + ") " + name;
 			} else {
@@ -272,7 +274,9 @@ function getProcessorHelperClass(utilInstance) {
 					if (!testIgnoredPath(resourceURL) && testValidURL(resourceURL)) {
 						let { content, indexResource, contentType, extension } = await batchRequest.addURL(resourceURL,
 							{ asBinary: true, expectedType: "image" });
-						const name = "images/" + indexResource + extension;
+						// Use UUID for filename in compressContent mode, sequential for inline mode
+						const filenameId = options.compressContent ? batchRequest.getUUID(indexResource) : indexResource;
+						const name = "images/" + filenameId + extension;
 						if (!isDataURL(resourceURL) && options.saveOriginalURLs) {
 							urlNode.value = "-sf-url-original(" + JSON.stringify(originalResourceURL) + ") " + name;
 						} else {
@@ -340,7 +344,9 @@ function getProcessorHelperClass(utilInstance) {
 									if (removeElementIfMissing && this.testEmptyResource(content)) {
 										resourceElement.remove();
 									} else if (!this.testEmptyResource(content)) {
-										const name = "images/" + indexResource + extension;
+										// Use UUID for filename in compressContent mode, sequential for inline mode
+										const filenameId = options.compressContent ? batchRequest.getUUID(indexResource) : indexResource;
+										const name = "images/" + filenameId + extension;
 										resourceElement.setAttribute(attributeName, name);
 										resources.images.set(indexResource, { name, content, extension, contentType, url: resourceURL });
 									}
@@ -362,9 +368,11 @@ function getProcessorHelperClass(utilInstance) {
 			}
 		}
 
-		async processImageSrcset(resourceURL, srcsetValue, resources, batchRequest) {
+		async processImageSrcset(resourceURL, srcsetValue, resources, batchRequest, options) {
 			const { content, indexResource, extension, contentType } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "image" });
-			const name = "images/" + indexResource + extension;
+			// Use UUID for filename in compressContent mode, sequential for inline mode
+			const filenameId = options.compressContent ? batchRequest.getUUID(indexResource) : indexResource;
+			const name = "images/" + filenameId + extension;
 			resources.images.set(indexResource, { name, content, extension, contentType, url: resourceURL });
 			return name + (srcsetValue.w ? " " + srcsetValue.w + "w" :
 				srcsetValue.h ? " " + srcsetValue.h + "h" :
@@ -424,7 +432,9 @@ function getProcessorHelperClass(utilInstance) {
 				networkTimeout: options.networkTimeout
 			});
 			content = getUpdatedResourceContent(resourceURL, options) || content;
-			const name = "scripts/" + indexResource + extension;
+			// Use UUID for filename in compressContent mode, sequential for inline mode
+			const filenameId = options.compressContent ? batchRequest.getUUID(indexResource) : indexResource;
+			const name = "scripts/" + filenameId + extension;
 			element.setAttribute("src", name);
 			resources.scripts.set(indexResource, { name, content, extension, contentType, url: resourceURL });
 		}
@@ -443,7 +453,9 @@ function getProcessorHelperClass(utilInstance) {
 				acceptHeaders: options.acceptHeaders,
 				networkTimeout: options.networkTimeout
 			});
-			const name = "scripts/" + indexResource + extension;
+			// Use UUID for filename in compressContent mode, sequential for inline mode
+			const filenameId = options.compressContent ? batchRequest.getUUID(indexResource) : indexResource;
+			const name = "scripts/" + filenameId + extension;
 			if (workletOptions) {
 				scriptElement.textContent += `  CSS.paintWorklet.addModule("${name}", ${JSON.stringify(workletOptions)});\n`;
 			} else {
