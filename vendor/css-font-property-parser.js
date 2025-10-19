@@ -49,6 +49,7 @@
  */
 
 import * as cssTree from "./css-tree.js";
+import { process as cssUnescape } from "./css-unescape.js";
 
 const GLOBAL_KEYWORDS = new Set([
 	"inherit",
@@ -235,20 +236,9 @@ function error(message) {
 }
 
 function removeQuotes(string) {
-	return unescapeCssString(string).trim();
-}
-
-function unescapeCssString(string) {
+	if (!string) return string;
 	if ((string[0] === "\"" && string[string.length - 1] === "\"") || (string[0] === "'" && string[string.length - 1] === "'")) {
 		string = string.slice(1, -1);
 	}
-	string = string.replace(/\\([0-9a-fA-F]{1,6})(?:\s)?/g, (m, hex) => {
-		const code = parseInt(hex, 16);
-		if (code >= 0 && code <= 0x10FFFF) {
-			return String.fromCodePoint(code);
-		}
-		return "";
-	});
-	string = string.replace(/\\([\s\S])/g, (m, ch) => ch);
-	return string;
+	return cssUnescape(string).trim();
 }
