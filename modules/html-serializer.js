@@ -147,17 +147,22 @@ function serializeAttribute(attribute, element, compressHTML) {
 		}
 		const invalidUnquotedValue = !compressHTML || value.match(/[ \t\n\f\r'"`=<>]/);
 		content += " ";
-		if (!attribute.namespace) {
+		const namespaceURI = attribute.namespaceURI;
+		const localName = attribute.localName || name;
+		if (!namespaceURI) {
 			content += name;
-		} else if (attribute.namespaceURI == "http://www.w3.org/XML/1998/namespace") {
-			content += "xml:" + name;
-		} else if (attribute.namespaceURI == "http://www.w3.org/2000/xmlns/") {
-			if (name !== "xmlns") {
-				content += "xmlns:";
+		} else if (namespaceURI == "http://www.w3.org/XML/1998/namespace") {
+			content += "xml:" + localName;
+		} else if (namespaceURI == "http://www.w3.org/2000/xmlns/") {
+			if (localName === "xmlns") {
+				content += "xmlns";
+			} else {
+				content += "xmlns:" + localName;
 			}
-			content += name;
-		} else if (attribute.namespaceURI == "http://www.w3.org/1999/xlink") {
-			content += "xlink:" + name;
+		} else if (namespaceURI == "http://www.w3.org/1999/xlink") {
+			content += "xlink:" + localName;
+		} else if (attribute.prefix) {
+			content += attribute.prefix + ":" + localName;
 		} else {
 			content += name;
 		}
