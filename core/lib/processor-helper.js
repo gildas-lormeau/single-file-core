@@ -162,9 +162,17 @@ function getProcessorHelperClass(utilInstance) {
 						}
 						if (testValidURL(resourceURL)) {
 							const mediaQueryListNode = cssTree.find(node, node => node.type == "MediaQueryList");
-							let mediaText;
+							let mediaText, layerName, supportsCondition;
 							if (mediaQueryListNode) {
 								mediaText = cssTree.generate(mediaQueryListNode);
+							}
+							const layerNode = cssTree.find(node, node => node.type == "Layer");
+							if (layerNode) {
+								layerName = layerNode.name;
+							}
+							const supportsNode = cssTree.find(node, node => node.type == "Supports");
+							if (supportsNode) {
+								supportsCondition = cssTree.generate(supportsNode);
 							}
 							const existingStylesheet = Array.from(stylesheets).find(([, stylesheetInfo]) => stylesheetInfo.resourceURL == resourceURL);
 							let stylesheet;
@@ -178,7 +186,9 @@ function getProcessorHelperClass(utilInstance) {
 							} else {
 								const stylesheetInfo = {
 									scoped,
-									mediaText
+									mediaText,
+									layerName,
+									supportsCondition
 								};
 								const content = await this.getStylesheetContent(resourceURL, options);
 								stylesheetInfo.url = resourceURL = content.resourceURL;
@@ -190,6 +200,8 @@ function getProcessorHelperClass(utilInstance) {
 							}
 							urlNode.importedChildren = stylesheet.children;
 							urlNode.importedMediaText = mediaText;
+							urlNode.importedLayerName = layerName;
+							urlNode.importedSupportsCondition = supportsCondition;
 						}
 					}
 				}

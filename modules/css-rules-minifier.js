@@ -123,6 +123,12 @@ function minifyRules(stylesheets, docContext) {
 		if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
 			if (hasChildNodes(stylesheetInfo.stylesheet)) {
 				const topConditionalStack = stylesheetInfo.mediaText ? [{ name: "media", prelude: stylesheetInfo.mediaText }] : [];
+				if (stylesheetInfo.layerName) {
+					topConditionalStack.push({ name: "layer", prelude: stylesheetInfo.layerName });
+				}
+				if (stylesheetInfo.supportsCondition) {
+					topConditionalStack.push({ name: "supports", prelude: stylesheetInfo.supportsCondition });
+				}
 				minifyStylesheetRules(stylesheetInfo.stylesheet.children, stylesheets, {
 					ancestorsSelectors: [],
 					layerStack: [],
@@ -219,6 +225,12 @@ function minifyRule(ruleData, cssRule, stylesheets, processingContext, removedRu
 function minifyImportRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext) {
 	const urlNode = ruleData.prelude.children.head.data;
 	const topConditionalStack = urlNode.importedMediaText ? [{ name: "media", prelude: urlNode.importedMediaText }] : [];
+	if (urlNode.importedLayerName) {
+		topConditionalStack.push({ name: "layer", prelude: urlNode.importedLayerName });
+	}
+	if (urlNode.importedSupportsCondition) {
+		topConditionalStack.push({ name: "supports", prelude: urlNode.importedSupportsCondition });
+	}
 	minifyStylesheetRules(urlNode.importedChildren, stylesheets, {
 		...processingContext,
 		conditionalStack: topConditionalStack
