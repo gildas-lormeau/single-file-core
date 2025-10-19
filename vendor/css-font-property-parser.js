@@ -49,25 +49,23 @@
  */
 
 import * as cssTree from "./css-tree.js";
-const REGEXP_SIMPLE_QUOTES_STRING = /^'(.*?)'$/;
-const REGEXP_DOUBLE_QUOTES_STRING = /^"(.*?)"$/;
 
-const globalKeywords = [
+const GLOBAL_KEYWORDS = new Set([
 	"inherit",
 	"initial",
 	"unset"
-];
+]);
 
-const systemFontKeywords = [
+const SYSTEM_FONT_KEYWORDS = new Set([
 	"caption",
 	"icon",
 	"menu",
 	"message-box",
 	"small-caption",
 	"status-bar"
-];
+]);
 
-const fontWeightKeywords = [
+const FONT_WEIGHT_KEYWORDS = new Set([
 	"normal",
 	"bold",
 	"bolder",
@@ -81,15 +79,20 @@ const fontWeightKeywords = [
 	"700",
 	"800",
 	"900"
-];
+]);
 
-const fontStyleKeywords = [
+const FONT_STYLE_KEYWORDS = new Set([
 	"normal",
 	"italic",
 	"oblique"
-];
+]);
 
-const fontStretchKeywords = [
+const FONT_VARIANT_KEYWORDS = new Set([
+	"normal",
+	"small-caps"
+]);
+
+const FONT_STRETCH_KEYWORDS = new Set([
 	"normal",
 	"condensed",
 	"semi-condensed",
@@ -99,7 +102,29 @@ const fontStretchKeywords = [
 	"semi-expanded",
 	"extra-expanded",
 	"ultra-expanded"
-];
+]);
+
+const SIZE_TYPES = new Set([
+	"Dimension",
+	"Identifier",
+	"Percentage",
+	"Number",
+	"Function",
+	"UnaryExpression"
+]);
+
+const FONT_DESCRIPTOR_KEYS = new Set([
+	"style",
+	"variant",
+	"weight",
+	"stretch"
+]);
+
+const OPERATOR_TYPE = "Operator";
+const IDENTIFIER_TYPE = "Identifier";
+const NORMAL_KEYWORD = "normal";
+const LINE_HEIGHT_SEPARATOR = "/";
+const FAMILY_SEPARATOR = ",";
 
 const errorPrefix = "[parse-css-font] ";
 
@@ -109,64 +134,67 @@ export {
 
 function parse(value) {
 	const stringValue = cssTree.generate(value);
-	if (systemFontKeywords.indexOf(stringValue) !== -1) {
+	const stringValueLower = stringValue.toLowerCase();
+	if (SYSTEM_FONT_KEYWORDS.has(stringValueLower)) {
 		return { system: stringValue };
 	}
+	if (GLOBAL_KEYWORDS.has(stringValueLower)) {
+		return { global: stringValue };
+	}
 	const tokens = value.children;
-
 	const font = {
-		lineHeight: "normal",
-		stretch: "normal",
-		style: "normal",
-		variant: "normal",
-		weight: "normal",
+		lineHeight: NORMAL_KEYWORD,
+		stretch: NORMAL_KEYWORD,
+		style: NORMAL_KEYWORD,
+		variant: NORMAL_KEYWORD,
+		weight: NORMAL_KEYWORD,
 	};
-
-	let isLocked = false;
+	const seen = { style: false, variant: false, weight: false, stretch: false };
 	for (let tokenNode = tokens.head; tokenNode; tokenNode = tokenNode.next) {
-		const token = cssTree.generate(tokenNode.data);
-		if (token === "normal" || globalKeywords.indexOf(token) !== -1) {
-			["style", "variant", "weight", "stretch"].forEach((prop) => {
-				font[prop] = token;
+		const tokenRaw = tokenNode.data.name || tokenNode.data.value || cssTree.generate(tokenNode.data);
+		const token = tokenRaw.toLowerCase();
+		if (token === NORMAL_KEYWORD) {
+			FONT_DESCRIPTOR_KEYS.forEach((prop) => {
+				if (!seen[prop]) {
+					font[prop] = tokenRaw;
+				}
 			});
-			isLocked = true;
 			continue;
 		}
-
-		if (fontWeightKeywords.indexOf(token) !== -1) {
-			if (isLocked) {
-				continue;
+		if (FONT_WEIGHT_KEYWORDS.has(token)) {
+			if (!seen.weight) {
+				font.weight = tokenRaw;
+				seen.weight = true;
 			}
-			font.weight = token;
 			continue;
 		}
-
-		if (fontStyleKeywords.indexOf(token) !== -1) {
-			if (isLocked) {
-				continue;
+		if (FONT_STYLE_KEYWORDS.has(token)) {
+			if (!seen.style) {
+				font.style = tokenRaw;
+				seen.style = true;
 			}
-			font.style = token;
 			continue;
 		}
-
-		if (fontStretchKeywords.indexOf(token) !== -1) {
-			if (isLocked) {
-				continue;
+		if (FONT_VARIANT_KEYWORDS.has(token)) {
+			if (!seen.variant) {
+				font.variant = tokenRaw;
+				seen.variant = true;
 			}
-			font.stretch = token;
 			continue;
 		}
-
-		if (tokenNode.data.type == "Dimension") {
+		if (FONT_STRETCH_KEYWORDS.has(token)) {
+			if (!seen.stretch) {
+				font.stretch = tokenRaw;
+				seen.stretch = true;
+			}
+			continue;
+		}
+		if (SIZE_TYPES.has(tokenNode.data.type)) {
 			font.size = cssTree.generate(tokenNode.data);
 			tokenNode = tokenNode.next;
-			if (tokenNode && tokenNode.data.type == "Operator" && tokenNode.data.value == "/" && tokenNode.next) {
-				tokenNode = tokenNode.next;
-				font.lineHeight = cssTree.generate(tokenNode.data);
-				tokenNode = tokenNode.next;
-			} else if (tokens.head.data.type == "Operator" && tokens.head.data.value == "/" && tokens.head.next) {
-				font.lineHeight = cssTree.generate(tokens.head.next.data);
-				tokenNode = tokens.head.next.next;
+			if (tokenNode && tokenNode.data.type == OPERATOR_TYPE && tokenNode.data.value == LINE_HEIGHT_SEPARATOR && tokenNode.next) {
+				font.lineHeight = cssTree.generate(tokenNode.next.data);
+				tokenNode = tokenNode.next.next;
 			}
 			if (!tokenNode) {
 				throw error("Missing required font-family.");
@@ -174,12 +202,12 @@ function parse(value) {
 			font.family = [];
 			let familyName = "";
 			while (tokenNode) {
-				while (tokenNode && tokenNode.data.type == "Operator" && tokenNode.data.value == ",") {
+				while (tokenNode && tokenNode.data.type == OPERATOR_TYPE && tokenNode.data.value == FAMILY_SEPARATOR) {
 					tokenNode = tokenNode.next;
 				}
 				if (tokenNode) {
-					if (tokenNode.data.type == "Identifier") {
-						while (tokenNode && tokenNode.data.type == "Identifier") {
+					if (tokenNode.data.type == IDENTIFIER_TYPE) {
+						while (tokenNode && tokenNode.data.type == IDENTIFIER_TYPE) {
 							familyName += " " + cssTree.generate(tokenNode.data);
 							tokenNode = tokenNode.next;
 						}
@@ -196,15 +224,7 @@ function parse(value) {
 			}
 			return font;
 		}
-
-		if (font.variant !== "normal") {
-			throw error("Unknown or unsupported font token: " + font.variant);
-		}
-
-		if (isLocked) {
-			continue;
-		}
-		font.variant = token;
+		throw error("Unknown or unsupported font token: " + tokenRaw);
 	}
 
 	throw error("Missing required font-size.");
@@ -215,10 +235,20 @@ function error(message) {
 }
 
 function removeQuotes(string) {
-	if (string.match(REGEXP_SIMPLE_QUOTES_STRING)) {
-		string = string.replace(REGEXP_SIMPLE_QUOTES_STRING, "$1");
-	} else {
-		string = string.replace(REGEXP_DOUBLE_QUOTES_STRING, "$1");
+	return unescapeCssString(string).trim();
+}
+
+function unescapeCssString(string) {
+	if ((string[0] === "\"" && string[string.length - 1] === "\"") || (string[0] === "'" && string[string.length - 1] === "'")) {
+		string = string.slice(1, -1);
 	}
-	return string.trim();
+	string = string.replace(/\\([0-9a-fA-F]{1,6})(?:\s)?/g, (m, hex) => {
+		const code = parseInt(hex, 16);
+		if (code >= 0 && code <= 0x10FFFF) {
+			return String.fromCodePoint(code);
+		}
+		return "";
+	});
+	string = string.replace(/\\([\s\S])/g, (m, ch) => ch);
+	return string;
 }
