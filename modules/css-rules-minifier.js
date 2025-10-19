@@ -122,10 +122,11 @@ function minifyRules(stylesheets, docContext) {
 	stylesheets.forEach((stylesheetInfo, key) => {
 		if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
 			if (hasChildNodes(stylesheetInfo.stylesheet)) {
+				const topConditionalStack = stylesheetInfo.mediaText ? [{ name: "media", prelude: stylesheetInfo.mediaText }] : [];
 				minifyStylesheetRules(stylesheetInfo.stylesheet.children, stylesheets, {
 					ancestorsSelectors: [],
 					layerStack: [],
-					conditionalStack: []
+					conditionalStack: topConditionalStack
 				}, docContext);
 			}
 		}
