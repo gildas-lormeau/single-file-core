@@ -204,7 +204,7 @@ function minifyStylesheetRules(cssRules, stylesheets, processingContext, docCont
 
 function minifyRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext) {
 	if (ruleData.type === AT_RULE_TYPE && ruleData.name === IMPORT_NAME && hasChildNodes(ruleData.prelude) && ruleData.prelude.children.head.data.importedChildren) {
-		minifyStylesheetRules(ruleData.prelude.children.head.data.importedChildren, stylesheets, processingContext, docContext);
+		minifyImportRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext);
 	} else if (ruleData.type === AT_RULE_TYPE && ruleData.name === LAYER_NAME && hasChildNodes(ruleData.block)) {
 		minifyLayerRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext);
 	} else if (ruleData.type === AT_RULE_TYPE && ruleData.name === SCOPE_NAME && hasChildNodes(ruleData.block)) {
@@ -214,6 +214,15 @@ function minifyRule(ruleData, cssRule, stylesheets, processingContext, removedRu
 	} else if (ruleData.type === RULE_TYPE && hasChildNodes(ruleData.prelude)) {
 		minifyStylesheetRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext);
 	}
+}
+
+function minifyImportRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext) {
+	const urlNode = ruleData.prelude.children.head.data;
+	const topConditionalStack = urlNode.importedMediaText ? [{ name: "media", prelude: urlNode.importedMediaText }] : [];
+	minifyStylesheetRules(urlNode.importedChildren, stylesheets, {
+		...processingContext,
+		conditionalStack: topConditionalStack
+	}, docContext);
 }
 
 function minifyLayerRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext) {

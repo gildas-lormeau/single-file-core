@@ -189,6 +189,7 @@ function getProcessorHelperClass(utilInstance) {
 								stylesheets.set({ urlNode }, stylesheetInfo);
 							}
 							urlNode.importedChildren = stylesheet.children;
+							urlNode.importedMediaText = mediaText;
 						}
 					}
 				}
