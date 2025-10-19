@@ -398,7 +398,8 @@ function collectDeclarationItemsForElement(element, docContext) {
 		if (hasChildNodes(cssRule.block)) {
 			const declarations = cssRule.block.children;
 			for (let declaration = declarations.head; declaration; declaration = declaration.next) {
-				if (declaration.data.type === DECLARATION_TYPE) {
+				const { type, value } = declaration.data;
+				if (type === DECLARATION_TYPE && value && value.type !== RAW_TYPE) {
 					allDeclarations.push({
 						declaration,
 						selector,
@@ -719,7 +720,8 @@ function removeLosingDeclarations(winningDeclarations, docContext) {
 					for (let declaration = declarations.head; declaration; declaration = declaration.next) {
 						if (declaration.data.type === DECLARATION_TYPE) {
 							allDeclarations.set(declaration, declarations);
-							if (declaration.data.property && declaration.data.property.startsWith(CUSTOM_PROPERTY_PREFIX)) {
+							const { property, value } = declaration.data;
+							if (property && property.startsWith(CUSTOM_PROPERTY_PREFIX) || (value && value.type === RAW_TYPE)) {
 								protectedDeclarations.add(declaration);
 							}
 						}
