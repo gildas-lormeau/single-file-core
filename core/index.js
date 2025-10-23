@@ -853,18 +853,22 @@ class Processor {
 
 	removeDiscardedResources() {
 		this.doc.querySelectorAll("." + util.SINGLE_FILE_UI_ELEMENT_CLASS).forEach(element => element.remove());
-		const noscriptPlaceholders = new Map();
-		this.doc.querySelectorAll("noscript").forEach(noscriptElement => {
-			const placeholderElement = this.doc.createElement("div");
-			placeholderElement.innerHTML = noscriptElement.dataset[util.NO_SCRIPT_PROPERTY_NAME];
-			noscriptElement.replaceWith(placeholderElement);
-			noscriptPlaceholders.set(placeholderElement, noscriptElement);
-		});
+		if (this.options.removeNoScriptTags) {
+			this.doc.querySelectorAll("noscript").forEach(noscriptElement => noscriptElement.remove());
+		} else {
+			const noscriptPlaceholders = new Map();
+			this.doc.querySelectorAll("noscript").forEach(noscriptElement => {
+				const placeholderElement = this.doc.createElement("div");
+				placeholderElement.innerHTML = noscriptElement.dataset[util.NO_SCRIPT_PROPERTY_NAME];
+				noscriptElement.replaceWith(placeholderElement);
+				noscriptPlaceholders.set(placeholderElement, noscriptElement);
+			});
+			noscriptPlaceholders.forEach((noscriptElement, placeholderElement) => {
+				noscriptElement.dataset[util.NO_SCRIPT_PROPERTY_NAME] = placeholderElement.innerHTML;
+				placeholderElement.replaceWith(noscriptElement);
+			});
+		}
 		this.doc.querySelectorAll("meta[http-equiv=refresh], meta[disabled-http-equiv]").forEach(element => element.remove());
-		noscriptPlaceholders.forEach((noscriptElement, placeholderElement) => {
-			noscriptElement.dataset[util.NO_SCRIPT_PROPERTY_NAME] = placeholderElement.innerHTML;
-			placeholderElement.replaceWith(noscriptElement);
-		});
 		this.doc.querySelectorAll("meta[http-equiv=\"content-security-policy\"]").forEach(element => element.remove());
 		const objectElements = this.doc.querySelectorAll("applet, object[data]:not([type=\"image/svg+xml\"]):not([type=\"image/svg-xml\"]):not([type=\"text/html\"]):not([data*=\".svg\"]):not([data*=\".pdf\"]), embed[src]:not([src*=\".svg\"]):not([src*=\".pdf\"])");
 		this.stats.set("discarded", "objects", objectElements.length);
