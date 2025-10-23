@@ -578,7 +578,6 @@ class Processor {
 			styleElement.textContent = "img[src=\"data:,\"],source[src=\"data:,\"]{display:none!important}";
 			this.doc.head.appendChild(styleElement);
 		}
-		this.doc.head.querySelectorAll("noscript").forEach(element => element.parentElement.appendChild(element));
 		let size;
 		if (this.options.displayStats) {
 			size = util.getContentSize(this.doc.documentElement.outerHTML);
@@ -853,9 +852,7 @@ class Processor {
 
 	removeDiscardedResources() {
 		this.doc.querySelectorAll("." + util.SINGLE_FILE_UI_ELEMENT_CLASS).forEach(element => element.remove());
-		if (this.options.removeNoScriptTags) {
-			this.doc.querySelectorAll("noscript").forEach(noscriptElement => noscriptElement.remove());
-		} else {
+		if (this.options.removeNoScriptTags === false) {
 			const noscriptPlaceholders = new Map();
 			this.doc.querySelectorAll("noscript").forEach(noscriptElement => {
 				const placeholderElement = this.doc.createElement("div");
@@ -867,6 +864,8 @@ class Processor {
 				noscriptElement.dataset[util.NO_SCRIPT_PROPERTY_NAME] = placeholderElement.innerHTML;
 				placeholderElement.replaceWith(noscriptElement);
 			});
+		} else {
+			this.doc.querySelectorAll("noscript").forEach(element => element.remove());
 		}
 		this.doc.querySelectorAll("meta[http-equiv=refresh], meta[disabled-http-equiv]").forEach(element => element.remove());
 		this.doc.querySelectorAll("meta[http-equiv=\"content-security-policy\"]").forEach(element => element.remove());
