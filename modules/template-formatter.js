@@ -17097,7 +17097,8 @@ async function evalTemplate(template = "", options, content, doc, context = {}) 
 				}
 				optionalArguments = optionalArguments
 					.map(argument => argument.replace(/\\\\(.)/g, "$1"))
-					.filter(argument => argument != undefined && argument != null && argument != "");
+					.filter(argument => argument != undefined && argument != null)
+					.map(argument => argument == "" ? undefined : argument);
 				if ((argument != undefined && argument != null && argument != "") || optionalArguments.length > 0) {
 					try {
 						const dontReplaceSlash = fn.dontReplaceSlash === undefined ? true : fn.dontReplaceSlash;
