@@ -423,7 +423,7 @@ function collectDeclarationItemsForElement(element, docContext) {
 				const { type, value } = declaration.data;
 				if (type === DECLARATION_TYPE && value) {
 					const isRawValue = value.type === RAW_TYPE;
-					const isVendorValue = value.type === VALUE_TYPE && value.children.head.data.name && value.children.head.data.name.startsWith(VENDOR_PREFIX);
+					const isVendorValue = value.type === VALUE_TYPE && value.children.head && value.children.head.data.name && value.children.head.data.name.startsWith(VENDOR_PREFIX);
 					if (!isRawValue && !isVendorValue) {
 						allDeclarations.push({
 							declaration,
