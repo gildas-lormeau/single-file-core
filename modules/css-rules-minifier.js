@@ -65,6 +65,7 @@ const BLOCK_CLOSE = "}";
 const EMPTY_STRING = "";
 const CSS_IMPORTANCE_NOT_IMPORTANT = 0;
 const CSS_IMPORTANCE_IMPORTANT = 1;
+const INVALID_CSS_ESCAPE_TEST = /\\(?![0-9a-fA-F]{1,6}\s|[^0-9a-zA-Z])/;
 
 export {
 	process
@@ -423,8 +424,9 @@ function collectDeclarationItemsForElement(element, docContext) {
 				const { type, value } = declaration.data;
 				if (type === DECLARATION_TYPE && value) {
 					const isRawValue = value.type === RAW_TYPE;
-					const isVendorValue = value.type === VALUE_TYPE && value.children.head && value.children.head.data.name && value.children.head.data.name.startsWith(VENDOR_PREFIX);
-					if (!isRawValue && !isVendorValue) {
+					const isVendorValue = value.type === VALUE_TYPE && hasChildNodes(value) && value.children.head.data.name && value.children.head.data.name.startsWith(VENDOR_PREFIX);
+					const isInvalidValue = value.type === VALUE_TYPE && hasChildNodes(value) && value.children.head.data.name && INVALID_CSS_ESCAPE_TEST.test(value.children.head.data.name);
+					if (!isRawValue && !isVendorValue && !isInvalidValue) {
 						allDeclarations.push({
 							declaration,
 							selector,
