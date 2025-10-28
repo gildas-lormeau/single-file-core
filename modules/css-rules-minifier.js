@@ -37,6 +37,7 @@ const NESTING_SELECTOR_TYPE = "NestingSelector";
 const PSEUDO_CLASS_SELECTOR_TYPE = "PseudoClassSelector";
 const DECLARATION_TYPE = "Declaration";
 const RAW_TYPE = "Raw";
+const VALUE_TYPE = "Value";
 const PSEUDO_ELEMENT_SELECTOR_TYPE = "PseudoElementSelector";
 const LAYER_NAME = "layer";
 const SCOPE_NAME = "scope";
@@ -355,7 +356,6 @@ function updateMatchingSelectors(matchedElements, selector, docContext) {
 
 function processNestedRules(ruleData, stylesheets, processingContext, docContext) {
 	expandRawCssRules(ruleData);
-	removeDuplicateDeclarations(ruleData.block);
 	const newProcessingContext = { ...processingContext, ancestorsSelectors: [...processingContext.ancestorsSelectors, ruleData.prelude] };
 	minifyStylesheetRules(ruleData.block.children, stylesheets, newProcessingContext, docContext);
 }
@@ -421,14 +421,18 @@ function collectDeclarationItemsForElement(element, docContext) {
 			const declarations = cssRule.block.children;
 			for (let declaration = declarations.head; declaration; declaration = declaration.next) {
 				const { type, value } = declaration.data;
-				if (type === DECLARATION_TYPE && value && value.type !== RAW_TYPE) {
-					allDeclarations.push({
-						declaration,
-						selector,
-						effectiveSpecificity: computeEffectiveSpecificity(
-							docContext.selectorData.get(selector), element, docContext),
-						isInline: false
-					});
+				if (type === DECLARATION_TYPE && value) {
+					const isRawValue = value.type === RAW_TYPE;
+					const isVendorValue = value.type === VALUE_TYPE && value.children.head.data.name && value.children.head.data.name.startsWith(VENDOR_PREFIX);
+					if (!isRawValue && !isVendorValue) {
+						allDeclarations.push({
+							declaration,
+							selector,
+							effectiveSpecificity: computeEffectiveSpecificity(
+								docContext.selectorData.get(selector), element, docContext),
+							isInline: false
+						});
+					}
 				}
 			}
 		}
@@ -701,32 +705,6 @@ function removeUnmatchedSelectors(ruleData, removedSelectors, removedRules, cssR
 		return true;
 	}
 	return false;
-}
-
-function removeDuplicateDeclarations(block) {
-	const propertyMap = new Map();
-	const removedDeclarations = [];
-	for (let ruleChildNode = block.children.head; ruleChildNode; ruleChildNode = ruleChildNode.next) {
-		if (ruleChildNode.data.type === DECLARATION_TYPE) {
-			const property = ruleChildNode.data.property;
-			const isImportant = ruleChildNode.data.important;
-			if (propertyMap.has(property)) {
-				const existing = propertyMap.get(property);
-				if (existing.isImportant === isImportant) {
-					removedDeclarations.push(existing.node);
-					propertyMap.set(property, { node: ruleChildNode, isImportant });
-				} else if (isImportant && !existing.isImportant) {
-					removedDeclarations.push(existing.node);
-					propertyMap.set(property, { node: ruleChildNode, isImportant });
-				} else {
-					removedDeclarations.push(ruleChildNode);
-				}
-			} else {
-				propertyMap.set(property, { node: ruleChildNode, isImportant });
-			}
-		}
-	}
-	removedDeclarations.forEach(declaration => block.children.remove(declaration));
 }
 
 function removeLosingDeclarations(winningDeclarations, docContext) {
