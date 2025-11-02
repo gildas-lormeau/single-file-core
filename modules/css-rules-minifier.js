@@ -66,6 +66,7 @@ const EMPTY_STRING = "";
 const CSS_IMPORTANCE_NOT_IMPORTANT = 0;
 const CSS_IMPORTANCE_IMPORTANT = 1;
 const INVALID_CSS_ESCAPE_TEST = /\\(?![0-9a-fA-F]{1,6}\s|[^0-9a-zA-Z])/;
+const ANONYMOUS_LAYER_PLACEHOLDER = "\u0000";
 
 export {
 	process
@@ -125,12 +126,6 @@ function minifyRules(stylesheets, docContext) {
 		if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
 			if (hasChildNodes(stylesheetInfo.stylesheet)) {
 				const topConditionalStack = stylesheetInfo.mediaText ? [{ name: "media", prelude: stylesheetInfo.mediaText }] : [];
-				if (stylesheetInfo.layerName !== undefined) {
-					topConditionalStack.push({ name: "layer", prelude: stylesheetInfo.layerName });
-				}
-				if (stylesheetInfo.supportsCondition !== undefined) {
-					topConditionalStack.push({ name: "supports", prelude: stylesheetInfo.supportsCondition });
-				}
 				minifyStylesheetRules(stylesheetInfo.stylesheet.children, stylesheets, {
 					ancestorsSelectors: [],
 					layerStack: [],
@@ -192,13 +187,11 @@ function buildConditionalStack(conditionalStack, ruleData, docContext) {
 
 function registerLayerDeclaration(layerStack, layerName, conditionalStack, docContext) {
 	const fullLayerName = getFullLayerName([...layerStack, layerName]);
-	if (fullLayerName) {
-		docContext.layerDeclarations.push({
-			name: fullLayerName,
-			order: docContext.layerDeclarationCounter++,
-			conditionalStack: conditionalStack.slice()
-		});
-	}
+	docContext.layerDeclarations.push({
+		name: fullLayerName,
+		order: docContext.layerDeclarationCounter++,
+		conditionalStack: conditionalStack.slice()
+	});
 }
 
 function minifyStylesheetRules(cssRules, stylesheets, processingContext, docContext) {
@@ -422,7 +415,7 @@ function collectDeclarationItemsForElement(element, docContext) {
 			const declarations = cssRule.block.children;
 			for (let declaration = declarations.head; declaration; declaration = declaration.next) {
 				const { type, value } = declaration.data;
-				if (type === DECLARATION_TYPE && value) {
+				if (type === DECLARATION_TYPE && value && value.type !== RAW_TYPE) {
 					const isRawValue = value.type === RAW_TYPE;
 					const isVendorValue = value.type === VALUE_TYPE && hasChildNodes(value) && value.children.head.data.name && value.children.head.data.name.startsWith(VENDOR_PREFIX);
 					const isInvalidValue = value.type === VALUE_TYPE && hasChildNodes(value) && value.children.head.data.name && INVALID_CSS_ESCAPE_TEST.test(value.children.head.data.name);
@@ -636,8 +629,8 @@ function compareDeclarations(declarationA, declarationB, docContext) {
 }
 
 function compareLayers(layersA, layersB, docContext) {
-	const isUnlayeredA = layersA.length === 0 || layersA.every(layerName => layerName === EMPTY_STRING);
-	const isUnlayeredB = layersB.length === 0 || layersB.every(layerName => layerName === EMPTY_STRING);
+	const isUnlayeredA = layersA.length === 0;
+	const isUnlayeredB = layersB.length === 0;
 	if (isUnlayeredA && isUnlayeredB) {
 		return 0;
 	}
@@ -880,7 +873,7 @@ function getPreludeText(prelude, docContext) {
 }
 
 function getFullLayerName(layers) {
-	return layers.filter(layerName => layerName !== EMPTY_STRING).join(LAYER_NAME_SEPARATOR);
+	return layers.map(layerName => layerName === EMPTY_STRING ? ANONYMOUS_LAYER_PLACEHOLDER : layerName).join(LAYER_NAME_SEPARATOR);
 }
 
 function parseCss(text, context = SELECTOR_CONTEXT) {
