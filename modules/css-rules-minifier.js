@@ -415,7 +415,7 @@ function collectDeclarationItemsForElement(element, docContext) {
 			const declarations = cssRule.block.children;
 			for (let declaration = declarations.head; declaration; declaration = declaration.next) {
 				const { type, value } = declaration.data;
-				if (type === DECLARATION_TYPE && value && value.type !== RAW_TYPE) {
+				if (type === DECLARATION_TYPE && value) {
 					const isRawValue = value.type === RAW_TYPE;
 					const isVendorValue = value.type === VALUE_TYPE && hasChildNodes(value) && value.children.head.data.name && value.children.head.data.name.startsWith(VENDOR_PREFIX);
 					const isInvalidValue = value.type === VALUE_TYPE && hasChildNodes(value) && value.children.head.data.name && INVALID_CSS_ESCAPE_TEST.test(value.children.head.data.name);
