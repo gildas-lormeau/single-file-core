@@ -417,16 +417,12 @@ function collectDeclarationItemsForElement(element, docContext) {
 				const { type, value } = declaration.data;
 				if (type === DECLARATION_TYPE && value) {
 					const isRawValue = value.type === RAW_TYPE;
-					const isVendorValue = value.type === VALUE_TYPE &&
+					const isSingleValue = value.type === VALUE_TYPE &&
 						hasChildNodes(value) &&
 						value.children.length == 1 &&
-						value.children.head.data.name &&
-						value.children.head.data.name.startsWith(VENDOR_PREFIX);
-					const isInvalidValue = value.type === VALUE_TYPE &&
-						hasChildNodes(value) &&
-						value.children.length == 1 &&
-						value.children.head.data.name &&
-						INVALID_CSS_ESCAPE_TEST.test(value.children.head.data.name);
+						value.children.head.data.name;
+					const isVendorValue = isSingleValue && value.children.head.data.name.startsWith(VENDOR_PREFIX);
+					const isInvalidValue = isSingleValue && INVALID_CSS_ESCAPE_TEST.test(value.children.head.data.name);
 					if (!isRawValue && !isVendorValue && !isInvalidValue) {
 						allDeclarations.push({
 							declaration,
