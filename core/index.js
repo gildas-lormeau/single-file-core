@@ -893,7 +893,8 @@ class Processor {
 		if (!this.options.saveFavicon) {
 			this.doc.querySelectorAll("link[rel*=\"icon\"]").forEach(element => element.remove());
 		}
-		this.doc.querySelectorAll("a[ping]").forEach(element => element.removeAttribute("ping"));
+		this.doc.querySelectorAll("a[ping], area[ping]").forEach(element => element.removeAttribute("ping"));
+		this.doc.querySelectorAll("a[attributionsrc], img[attributionsrc], script[attributionsrc]").forEach(element => element.removeAttribute("attributionsrc"));
 		this.doc.querySelectorAll("link[rel=import][href]").forEach(element => element.remove());
 	}
 
