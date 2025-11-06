@@ -52,12 +52,16 @@
 	const BOOTSTRAP_EVENT = "single-file-bootstrap";
 	const FONT_STYLE_PROPERTIES = {
 		family: "font-family",
-		style: "font-style",
-		weight: "font-weight",
+		ascentOverride: "ascent-override",
+		descentOverride: "descent-override",
+		display: "font-display",
+		featureSettings: "font-feature-settings",
+		lineGapOverride: "line-gap-override",
 		stretch: "font-stretch",
+		style: "font-style",
 		unicodeRange: "unicode-range",
-		variant: "font-variant",
-		featureSettings: "font-feature-settings"
+		variationSettings: "font-variation-settings",
+		weight: "font-weight"
 	};
 
 	const fetch = globalThis.fetch.bind(globalThis);
