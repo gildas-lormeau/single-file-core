@@ -217,7 +217,7 @@ function minifyRule(ruleData, cssRule, stylesheets, processingContext, removedRu
 	}
 }
 
-function minifyImportRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext) {
+function minifyImportRule(ruleData, _cssRule, stylesheets, processingContext, _removedRules, docContext) {
 	const urlNode = ruleData.prelude.children.head.data;
 	const topConditionalStack = urlNode.importedMediaText ? [{ name: "media", prelude: urlNode.importedMediaText }] : [];
 	if (urlNode.importedLayerName !== undefined) {
@@ -594,8 +594,8 @@ function compareDeclarations(declarationA, declarationB, docContext) {
 	}
 	if (declarationA.isInline && !declarationB.isInline) return 1;
 	if (!declarationA.isInline && declarationB.isInline) return -1;
-	let selectorDataA = declarationA.selector ? docContext.selectorData.get(declarationA.selector) : null;
-	let selectorDataB = declarationB.selector ? docContext.selectorData.get(declarationB.selector) : null;
+	const selectorDataA = declarationA.selector ? docContext.selectorData.get(declarationA.selector) : null;
+	const selectorDataB = declarationB.selector ? docContext.selectorData.get(declarationB.selector) : null;
 	if (selectorDataA && selectorDataB) {
 		const layerComparison = compareLayers(selectorDataA.layerStack, selectorDataB.layerStack, docContext);
 		if (layerComparison !== 0) {
