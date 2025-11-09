@@ -439,7 +439,7 @@ function getFrames(document) {
 	document.querySelectorAll(ALL_ELEMENTS_CSS_SELECTOR).forEach(element => {
 		const shadowRoot = helper.getShadowRoot(element);
 		if (shadowRoot) {
-			frames = frames.concat(...shadowRoot.querySelectorAll(FRAMES_CSS_SELECTOR));
+			frames = frames.concat(...getFrames(shadowRoot));
 		}
 	});
 	return frames;
