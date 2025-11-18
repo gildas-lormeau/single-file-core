@@ -77,6 +77,7 @@ const EMPTY_RESOURCE = "data:,";
 const DEFAULT_REPLACED_CHARACTERS = ["~", "+", "?", "%", "*", ":", "|", "\"", "<", ">", "\\\\", "\x00-\x1f", "\x7F"];
 const DEFAULT_REPLACEMENT_CHARACTER = "_";
 const DEFAULT_REPLACEMENT_CHARACTERS = ["～", "＋", "？", "％", "＊", "：", "｜", "＂", "＜", "＞", "＼"];
+const NESTING_TRACK_ID_ATTRIBUTE_NAME = "data-sf-nesting-track-id";
 const addEventListener = (type, listener, options) => globalThis.addEventListener(type, listener, options);
 // eslint-disable-next-line no-unused-vars
 const dispatchEvent = event => { try { globalThis.dispatchEvent(event); } catch (error) {  /* ignored */ } };
@@ -87,6 +88,7 @@ const Blob = globalThis.Blob;
 const CustomEvent = globalThis.CustomEvent;
 const MutationObserver = globalThis.MutationObserver;
 const URL = globalThis.URL;
+const DOMParser = globalThis.DOMParser;
 
 export {
 	initUserScriptHandler,
@@ -103,6 +105,8 @@ export {
 	getContentSize,
 	digest,
 	getValidFilename,
+	parseDocContent,
+	fixInvalidNesting,
 	ON_BEFORE_CAPTURE_EVENT_NAME,
 	ON_AFTER_CAPTURE_EVENT_NAME,
 	WIN_ID_ATTRIBUTE_NAME,
@@ -130,7 +134,8 @@ export {
 	INFOBAR_TAGNAME,
 	WAIT_FOR_USERSCRIPT_PROPERTY_NAME,
 	MESSAGE_PREFIX,
-	NO_SCRIPT_PROPERTY_NAME
+	NO_SCRIPT_PROPERTY_NAME,
+	NESTING_TRACK_ID_ATTRIBUTE_NAME
 };
 
 function initUserScriptHandler() {
@@ -205,13 +210,7 @@ function preProcessDoc(doc, win, options) {
 	const invalidElements = new Map();
 	let elementsInfo;
 	if (win && doc.documentElement) {
-		doc.querySelectorAll("button button, a a").forEach(element => {
-			const placeHolderElement = doc.createElement("template");
-			placeHolderElement.setAttribute(INVALID_ELEMENT_ATTRIBUTE_NAME, "");
-			placeHolderElement.content.appendChild(element.cloneNode(true));
-			invalidElements.set(element, placeHolderElement);
-			element.replaceWith(placeHolderElement);
-		});
+		markInvalidNesting(doc);
 		elementsInfo = getElementsInfo(win, doc, doc.documentElement, options);
 		if (options.moveStylesInHead) {
 			doc.querySelectorAll("body style, body ~ style").forEach(element => {
@@ -258,6 +257,87 @@ function preProcessDoc(doc, win, options) {
 		scrollPosition: { x: win.scrollX, y: win.scrollY },
 		adoptedStyleSheets: getStylesheetsContent(doc.adoptedStyleSheets)
 	};
+}
+
+function markInvalidNesting(doc) {
+	addTrackIds(doc.body);
+	const verificationDoc = parseDocContent(serialize(doc));
+	const markedMap = buildTrackIdMap(doc.body);
+	const normalizedMap = buildTrackIdMap(verificationDoc.body);
+	const trackIds = new Set();
+	Object.keys(markedMap).forEach(id => {
+		if (id in normalizedMap) {
+			const markedParent = markedMap[id].parentElement?.getAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME) || null;
+			const normalizedParent = normalizedMap[id]?.parentElement?.getAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME) || null;
+			if (markedParent !== normalizedParent) {
+				let current = markedMap[id];
+				while (current && current !== doc.body) {
+					const currentId = current.getAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME);
+					if (currentId) {
+						trackIds.add(currentId);
+					}
+					current = current.parentElement;
+				}
+			}
+		}
+	});
+	cleanupTrackIds(doc.body, trackIds);
+
+	function addTrackIds(element, index = 0, parentTrackId = "") {
+		const trackId = parentTrackId ? `${parentTrackId}.${index + 1}` : `${index + 1}`;
+		element.setAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME, trackId);
+		Array.from(element.children).forEach((child, indexChild) => addTrackIds(child, indexChild, trackId));
+	}
+
+	function buildTrackIdMap(element) {
+		const trackIds = {};
+		traverse(element);
+		return trackIds;
+
+		function traverse(element) {
+			if (element.getAttribute) {
+				const id = element.getAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME);
+				if (id) {
+					trackIds[id] = element;
+				}
+				Array.from(element.children).forEach(traverse);
+			}
+		}
+	}
+
+	function cleanupTrackIds(element, toKeep) {
+		const id = element.getAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME);
+		if (id && !toKeep.has(id)) {
+			element.removeAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME);
+		}
+		Array.from(element.children).forEach(child => cleanupTrackIds(child, toKeep));
+	}
+}
+
+function fixInvalidNesting(document, NESTING_TRACK_ID_ATTRIBUTE_NAME) {
+	const trackIds = {};
+	document.currentScript.remove();
+	buildTrackIdMap(document.body);
+	Object.keys(trackIds).forEach(id => {
+		const element = trackIds[id];
+		const idParts = id.split(".");
+		if (idParts.length > 1) {
+			const parentId = idParts.slice(0, -1).join(".");
+			const expectedParent = trackIds[parentId];
+			if (expectedParent && element.parentElement !== expectedParent) {
+				expectedParent.appendChild(element);
+			}
+		}
+	});
+	Object.keys(trackIds).forEach(id => trackIds[id].removeAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME));
+
+	function buildTrackIdMap(element) {
+		const id = element.getAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME);
+		if (id) {
+			trackIds[id] = element;
+		}
+		Array.from(element.children).forEach(buildTrackIdMap);
+	}
 }
 
 function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map(), canvases: [], images: [], posters: [], videos: [], shadowRoots: [], markedElements: [] }, adoptedStyleSheetsCache = new Map(), ascendantHidden) {
@@ -746,4 +826,21 @@ function getValidFilename(filename, replacedCharacters = DEFAULT_REPLACED_CHARAC
 		.replace(/\.\//g, "." + replacementCharacter)
 		.replace(/\/\./g, "/" + replacementCharacter);
 	return filename;
+}
+
+function parseDocContent(content, baseURI) {
+	const doc = (new DOMParser()).parseFromString(content, "text/html");
+	if (!doc.head) {
+		doc.documentElement.insertBefore(doc.createElement("HEAD"), doc.body);
+	}
+	let baseElement = doc.querySelector("base");
+	if (!baseElement || !baseElement.getAttribute("href")) {
+		if (baseElement) {
+			baseElement.remove();
+		}
+		baseElement = doc.createElement("base");
+		baseElement.setAttribute("href", baseURI);
+		doc.head.insertBefore(baseElement, doc.head.firstChild);
+	}
+	return doc;
 }

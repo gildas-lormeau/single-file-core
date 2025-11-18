@@ -582,6 +582,11 @@ class Processor {
 		if (this.options.displayStats) {
 			size = util.getContentSize(this.doc.documentElement.outerHTML);
 		}
+		if (this.doc.querySelector(`[${util.NESTING_TRACK_ID_ATTRIBUTE_NAME}]`)) {
+			const scriptElement = this.doc.createElement("script");
+			scriptElement.textContent = `(${util.getFixInvalidNestingSource()})(document, "${util.NESTING_TRACK_ID_ATTRIBUTE_NAME}");`;
+			this.doc.body.appendChild(scriptElement);
+		}
 		const content = util.serialize(this.doc, this.options.compressHTML);
 		if (this.options.displayStats) {
 			const contentSize = util.getContentSize(content);

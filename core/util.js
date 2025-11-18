@@ -116,20 +116,7 @@ function getInstance(utilOptions) {
 			return helper.getValidFilename(filename, replacedCharacters, replacementCharacter, replacementCharacters);
 		},
 		parseDocContent(content, baseURI) {
-			const doc = (new DOMParser()).parseFromString(content, "text/html");
-			if (!doc.head) {
-				doc.documentElement.insertBefore(doc.createElement("HEAD"), doc.body);
-			}
-			let baseElement = doc.querySelector("base");
-			if (!baseElement || !baseElement.getAttribute("href")) {
-				if (baseElement) {
-					baseElement.remove();
-				}
-				baseElement = doc.createElement("base");
-				baseElement.setAttribute("href", baseURI);
-				doc.head.insertBefore(baseElement, doc.head.firstChild);
-			}
-			return doc;
+			return helper.parseDocContent(content, baseURI);
 		},
 		parseXMLContent(content) {
 			return (new DOMParser()).parseFromString(content, "text/xml");
@@ -141,6 +128,9 @@ function getInstance(utilOptions) {
 			} else {
 				return doc;
 			}
+		},
+		getFixInvalidNestingSource() {
+			return helper.fixInvalidNesting.toString().replace(/\s+/g, " ");
 		},
 		async digest(algo, text) {
 			return helper.digest(algo, text);
@@ -229,7 +219,8 @@ function getInstance(utilOptions) {
 		EMPTY_RESOURCE: helper.EMPTY_RESOURCE,
 		INFOBAR_TAGNAME: helper.INFOBAR_TAGNAME,
 		WAIT_FOR_USERSCRIPT_PROPERTY_NAME: helper.WAIT_FOR_USERSCRIPT_PROPERTY_NAME,
-		NO_SCRIPT_PROPERTY_NAME: helper.NO_SCRIPT_PROPERTY_NAME
+		NO_SCRIPT_PROPERTY_NAME: helper.NO_SCRIPT_PROPERTY_NAME,
+		NESTING_TRACK_ID_ATTRIBUTE_NAME: helper.NESTING_TRACK_ID_ATTRIBUTE_NAME
 	};
 
 	async function getContent(resourceURL, options) {
