@@ -896,6 +896,7 @@ class Processor {
 		this.doc.querySelectorAll("a[ping], area[ping]").forEach(element => element.removeAttribute("ping"));
 		this.doc.querySelectorAll("a[attributionsrc], img[attributionsrc], script[attributionsrc]").forEach(element => element.removeAttribute("attributionsrc"));
 		this.doc.querySelectorAll("link[rel=import][href]").forEach(element => element.remove());
+		this.doc.querySelectorAll("link[rel=compression-dictionary]").forEach(element => element.remove());
 	}
 
 	replaceInvalidElements() {
