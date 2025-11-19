@@ -98,7 +98,14 @@ function getProcessorHelperClass(utilInstance) {
 					if (options.compressCSS) {
 						this.removeSingleLineCssComments(stylesheet);
 					}
-					this.replacePseudoClassDefined(stylesheet);
+					if (element.textContent.includes(":defined")) {
+						this.replacePseudoClassDefined(stylesheet);
+						options.inlineStylesheets.forEach((content, index) => {
+							if (content === element.textContent) {
+								options.inlineStylesheets.set(index, this.generateStylesheetContent(stylesheet, options));
+							}
+						});
+					}
 					stylesheetInfo.stylesheet = stylesheet;
 				} else {
 					stylesheets.delete(element);
