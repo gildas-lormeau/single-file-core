@@ -333,10 +333,13 @@ class ProcessorHelperCommon {
 		if (stylesheet.children) {
 			for (let cssRule = stylesheet.children.head; cssRule; cssRule = cssRule.next) {
 				const ruleData = cssRule.data;
-				if (ruleData.type == "Rule" && ruleData.prelude && ruleData.prelude.children) {
+				if (ruleData.prelude && ruleData.prelude.children) {
 					for (let selector = ruleData.prelude.children.head; selector; selector = selector.next) {
 						replacePseudoDefinedSelector(selector, ruleData.prelude);
 					}
+				}
+				if (ruleData.children) {
+					this.replacePseudoClassDefined(ruleData);
 				}
 			}
 		}
