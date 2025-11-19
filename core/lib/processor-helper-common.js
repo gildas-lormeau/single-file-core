@@ -338,8 +338,8 @@ class ProcessorHelperCommon {
 						replacePseudoDefinedSelector(selector, ruleData.prelude);
 					}
 				}
-				if (ruleData.children) {
-					this.replacePseudoClassDefined(ruleData);
+				if (ruleData.block && ruleData.block.children) {
+					this.replacePseudoClassDefined(ruleData.block);
 				}
 			}
 		}
