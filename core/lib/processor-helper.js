@@ -102,7 +102,10 @@ function getProcessorHelperClass(utilInstance) {
 				linkElement.setAttribute("type", "text/css");
 				const name = "stylesheet_" + resources.stylesheets.size + ".css";
 				linkElement.setAttribute("href", name);
-				const content = options.inlineStylesheets.get(stylesheetRefIndex);
+				let content = options.inlineStylesheets.get(stylesheetRefIndex);
+				const stylesheet = cssTree.parse(content, { context: "stylesheet", parseCustomProperty: true });
+				this.replacePseudoClassDefined(stylesheet);
+				content = this.generateStylesheetContent(stylesheet, options);
 				resources.stylesheets.set(resources.stylesheets.size, { name, content });
 				linkElements.set(stylesheetRefIndex, linkElement);
 			});
