@@ -332,7 +332,7 @@ function fixInvalidNesting(document, NESTING_TRACK_ID_ATTRIBUTE_NAME, preventCle
 		}
 	});
 	if (!preventCleanup) {
-		Object.keys(trackIds).forEach(id => trackIds[id].removeAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME));
+		document.querySelectorAll("[" + NESTING_TRACK_ID_ATTRIBUTE_NAME + "]").forEach(element => element.removeAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME));
 	}
 
 	function buildTrackIdMap(element) {
