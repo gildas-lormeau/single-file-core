@@ -129,8 +129,11 @@ function getInstance(utilOptions) {
 				return doc;
 			}
 		},
-		fixInvalidNesting(doc) {
-			helper.fixInvalidNesting(doc, helper.NESTING_TRACK_ID_ATTRIBUTE_NAME, true);
+		fixInvalidNesting(doc, preventCleanup = true) {
+			helper.fixInvalidNesting(doc, helper.NESTING_TRACK_ID_ATTRIBUTE_NAME, preventCleanup);
+		},
+		markInvalidNesting(doc) {
+			helper.markInvalidNesting(doc, helper.NESTING_TRACK_ID_ATTRIBUTE_NAME);
 		},
 		getFixInvalidNestingSource() {
 			return helper.fixInvalidNesting.toString().replace(/\s+/g, " ");

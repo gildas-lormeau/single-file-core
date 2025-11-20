@@ -46,6 +46,12 @@ const helper = {
 	displayIcon(doc, useShadowRoot, options = {}) {
 		return infobar.displayIcon(doc, useShadowRoot, options);
 	},
+	fixInvalidNesting(document, preventCleanup = false) {
+		return util.fixInvalidNesting(document, preventCleanup);
+	},
+	markInvalidNesting(document) {
+		return util.markInvalidNesting(document);
+	},
 	zip,
 	extract,
 	display,

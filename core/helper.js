@@ -106,6 +106,7 @@ export {
 	digest,
 	getValidFilename,
 	parseDocContent,
+	markInvalidNesting,
 	fixInvalidNesting,
 	ON_BEFORE_CAPTURE_EVENT_NAME,
 	ON_AFTER_CAPTURE_EVENT_NAME,
