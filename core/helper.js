@@ -314,9 +314,11 @@ function markInvalidNesting(doc) {
 	}
 }
 
-function fixInvalidNesting(document, NESTING_TRACK_ID_ATTRIBUTE_NAME) {
+function fixInvalidNesting(document, NESTING_TRACK_ID_ATTRIBUTE_NAME, preventCleanup = false) {
 	const trackIds = {};
-	document.currentScript.remove();
+	if (document.currentScript) {
+		document.currentScript.remove();
+	}
 	buildTrackIdMap(document.body);
 	Object.keys(trackIds).forEach(id => {
 		const element = trackIds[id];
@@ -329,7 +331,9 @@ function fixInvalidNesting(document, NESTING_TRACK_ID_ATTRIBUTE_NAME) {
 			}
 		}
 	});
-	Object.keys(trackIds).forEach(id => trackIds[id].removeAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME));
+	if (!preventCleanup) {
+		Object.keys(trackIds).forEach(id => trackIds[id].removeAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME));
+	}
 
 	function buildTrackIdMap(element) {
 		const id = element.getAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME);

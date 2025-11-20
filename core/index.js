@@ -470,6 +470,7 @@ class Processor {
 			pageContent = content.data || "";
 		}
 		this.doc = util.parseDocContent(pageContent, this.baseURI);
+		util.fixInvalidNesting(this.doc);
 		if (this.options.saveRawPage) {
 			let charset;
 			this.doc.querySelectorAll("meta[charset]").forEach(element => {
