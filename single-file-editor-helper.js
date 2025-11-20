@@ -56,7 +56,8 @@ const helper = {
 	extract,
 	display,
 	formatFilename,
-	INFOBAR_TAGNAME: infobar.INFOBAR_TAGNAME
+	INFOBAR_TAGNAME: infobar.INFOBAR_TAGNAME,
+	NESTING_TRACK_ID_ATTRIBUTE_NAME: util.NESTING_TRACK_ID_ATTRIBUTE_NAME
 };
 
 export {
