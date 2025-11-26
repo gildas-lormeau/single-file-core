@@ -1189,8 +1189,8 @@ class Processor {
 						return new Promise(resolve => {
 							temporaryVideoElement.currentTime = videoData.currentTime;
 							temporaryVideoElement.oncanplay = () => {
-								canvasElement.width = videoData.size.pxWidth;
-								canvasElement.height = videoData.size.pxHeight;
+								canvasElement.width = videoData.size.videoWidth;
+								canvasElement.height = videoData.size.videoHeight;
 								context.drawImage(temporaryVideoElement, 0, 0, canvasElement.width, canvasElement.height);
 								try {
 									videoElement.poster = canvasElement.toDataURL("image/png", "");

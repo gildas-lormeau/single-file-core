@@ -510,7 +510,9 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 				src,
 				size: {
 					pxWidth: element.clientWidth,
-					pxHeight: element.clientHeight
+					pxHeight: element.clientHeight,
+					videoWidth: element.videoWidth,
+					videoHeight: element.videoHeight
 				},
 				currentTime: element.currentTime
 			});
@@ -519,8 +521,8 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 		if (!element.getAttribute("poster")) {
 			const canvasElement = doc.createElement("canvas");
 			const context = canvasElement.getContext("2d");
-			canvasElement.width = element.clientWidth;
-			canvasElement.height = element.clientHeight;
+			canvasElement.width = element.videoWidth;
+			canvasElement.height = element.videoHeight;
 			try {
 				context.drawImage(element, 0, 0, canvasElement.width, canvasElement.height);
 				data.posters.push(canvasElement.toDataURL("image/png", ""));
