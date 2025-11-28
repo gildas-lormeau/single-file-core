@@ -16947,6 +16947,14 @@ async function evalTemplate(template = "", options, content, doc, context = {}) 
 		"tab-id": { getter: () => String(options.tabId) },
 		"tab-index": { getter: () => String(options.tabIndex) },
 		"url-last-segment": { getter: () => decode(getLastSegment(url, options.filenameReplacementCharacter)) },
+		"url-filename": {
+			getter: () => {
+				const pathname = url.pathname;
+				const segments = pathname.split("/");
+				const lastSegment = segments[segments.length - 1] || segments[segments.length - 2] || "";
+				return decode(lastSegment);
+			}, dontReplaceSlash: dontReplaceSlashIfUndefined
+		},
 		"bookmark-pathname": { getter: () => bookmarkFolder, dontReplaceSlash: dontReplaceSlashIfUndefined },
 		"bookmark-pathname-flat": { getter: () => bookmarkFolder, dontReplaceSlash: false },
 		"profile-name": { getter: () => options.profileName },
