@@ -31,7 +31,8 @@ import {
 	preProcessDoc,
 	serialize,
 	postProcessDoc,
-	getShadowRoot
+	getShadowRoot,
+	initUserScriptHandler
 } from "./../../../core/helper.js";
 
 const helper = {
@@ -87,6 +88,7 @@ if (TOP_WINDOW) {
 	}
 }
 init();
+initUserScriptHandler();
 new MutationObserver(init).observe(document, { childList: true });
 
 export {
@@ -169,40 +171,26 @@ function getNewSessionId() {
 
 function initRequestSync(message) {
 	const sessionId = message.sessionId;
-	const waitForUserScript = globalThis[helper.WAIT_FOR_USERSCRIPT_PROPERTY_NAME];
 	delete globalThis._singleFile_cleaningUp;
 	if (!TOP_WINDOW) {
 		windowId = globalThis.frameId = message.windowId;
 	}
 	processFrames(document, message.options, windowId, sessionId);
 	if (!TOP_WINDOW) {
-		if (message.options.userScriptEnabled && waitForUserScript) {
-			waitForUserScript(helper.ON_BEFORE_CAPTURE_EVENT_NAME, message.options);
-		}
 		sendInitResponse({ frames: [getFrameData(document, globalThis, windowId, message.options, message.scrolling)], sessionId, requestedFrameId: document.documentElement.dataset.requestedFrameId && windowId });
-		if (message.options.userScriptEnabled && waitForUserScript) {
-			waitForUserScript(helper.ON_AFTER_CAPTURE_EVENT_NAME, message.options);
-		}
 		delete document.documentElement.dataset.requestedFrameId;
 	}
 }
 
 async function initRequestAsync(message) {
 	const sessionId = message.sessionId;
-	const waitForUserScript = globalThis[helper.WAIT_FOR_USERSCRIPT_PROPERTY_NAME];
 	delete globalThis._singleFile_cleaningUp;
 	if (!TOP_WINDOW) {
 		windowId = globalThis.frameId = message.windowId;
 	}
 	processFrames(document, message.options, windowId, sessionId);
 	if (!TOP_WINDOW) {
-		if (message.options.userScriptEnabled && waitForUserScript) {
-			await waitForUserScript(helper.ON_BEFORE_CAPTURE_EVENT_NAME, message.options);
-		}
 		sendInitResponse({ frames: [getFrameData(document, globalThis, windowId, message.options, message.scrolling)], sessionId, requestedFrameId: document.documentElement.dataset.requestedFrameId && windowId });
-		if (message.options.userScriptEnabled && waitForUserScript) {
-			await waitForUserScript(helper.ON_AFTER_CAPTURE_EVENT_NAME, message.options);
-		}
 		delete document.documentElement.dataset.requestedFrameId;
 	}
 }
