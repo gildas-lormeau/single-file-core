@@ -348,7 +348,7 @@
 					return origFontFace();
 				}
 				getDetailObject(family, source, ...args).then(detail => document.dispatchEvent(new CustomEvent(NEW_FONT_FACE_EVENT, { detail })));
-				return new FontFace(family, source, ...args);
+				return new origFontFace(family, source, ...args);
 			} catch (error) {
 				error.stack = error.message + "\n" + "    \n" + error.stack.trim().split("\n").slice(-1).join("\n");
 				throw error;
