@@ -336,10 +336,10 @@
 	}
 
 	if (globalThis.FontFace) {
-		const FontFace = globalThis.FontFace;
+		const origFontFace = globalThis.FontFace;
 		globalThis.FontFace = function FontFace(family, source, ...args) {
 			if (!new.target) {
-				return FontFace();
+				return origFontFace();
 			}
 			getDetailObject(family, source, ...args).then(detail => document.dispatchEvent(new CustomEvent(NEW_FONT_FACE_EVENT, { detail })));
 			return new FontFace(family, source, ...args);
