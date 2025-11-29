@@ -337,9 +337,12 @@
 
 	if (globalThis.FontFace) {
 		const FontFace = globalThis.FontFace;
-		globalThis.FontFace = function () {
-			getDetailObject(...arguments).then(detail => document.dispatchEvent(new CustomEvent(NEW_FONT_FACE_EVENT, { detail })));
-			return new FontFace(...arguments);
+		globalThis.FontFace = function FontFace(family, source, ...args) {
+			if (!new.target) {
+				return FontFace();
+			}
+			getDetailObject(family, source, ...args).then(detail => document.dispatchEvent(new CustomEvent(NEW_FONT_FACE_EVENT, { detail })));
+			return new FontFace(family, source, ...args);
 		};
 		globalThis.FontFace.prototype = FontFace.prototype;
 		globalThis.FontFace.toString = function () { return "function FontFace() { [native code] }"; };
