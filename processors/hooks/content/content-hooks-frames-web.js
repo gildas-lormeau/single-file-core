@@ -328,34 +328,54 @@
 	if (globalThis.CSS && globalThis.CSS.paintWorklet && globalThis.CSS.paintWorklet.addModule) {
 		const addModule = globalThis.CSS.paintWorklet.addModule;
 		globalThis.CSS.paintWorklet.addModule = function (moduleURL, options) {
-			const result = addModule.apply(globalThis.CSS.paintWorklet, arguments);
-			moduleURL = new URL(moduleURL, document.baseURI).href;
-			document.dispatchEvent(new CustomEvent(NEW_WORKLET_EVENT, { detail: { moduleURL, options } }));
-			return result;
+			try {
+				const result = addModule.apply(globalThis.CSS.paintWorklet, arguments);
+				moduleURL = new URL(moduleURL, document.baseURI).href;
+				document.dispatchEvent(new CustomEvent(NEW_WORKLET_EVENT, { detail: { moduleURL, options } }));
+				return result;
+			} catch (error) {
+				error.stack = error.message + "\n" + "    \n" + error.stack.trim().split("\n").slice(-1).join("\n");
+				throw error;
+			}
 		};
 	}
 
 	if (globalThis.FontFace) {
 		const origFontFace = globalThis.FontFace;
 		globalThis.FontFace = function FontFace(family, source, ...args) {
-			if (!new.target) {
-				return origFontFace();
+			try {
+				if (!new.target) {
+					return origFontFace();
+				}
+				getDetailObject(family, source, ...args).then(detail => document.dispatchEvent(new CustomEvent(NEW_FONT_FACE_EVENT, { detail })));
+				return new FontFace(family, source, ...args);
+			} catch (error) {
+				error.stack = error.message + "\n" + "    \n" + error.stack.trim().split("\n").slice(-1).join("\n");
+				throw error;
 			}
-			getDetailObject(family, source, ...args).then(detail => document.dispatchEvent(new CustomEvent(NEW_FONT_FACE_EVENT, { detail })));
-			return new FontFace(family, source, ...args);
 		};
 		globalThis.FontFace.prototype = origFontFace.prototype;
 		globalThis.FontFace.toString = function () { return "function FontFace() { [native code] }"; };
 		const deleteFont = document.fonts.delete;
 		document.fonts.delete = function (fontFace) {
-			getDetailObject(fontFace.family).then(detail => document.dispatchEvent(new CustomEvent(DELETE_FONT_EVENT, { detail })));
-			return deleteFont.call(document.fonts, fontFace);
+			try {
+				getDetailObject(fontFace.family).then(detail => document.dispatchEvent(new CustomEvent(DELETE_FONT_EVENT, { detail })));
+				return deleteFont.call(document.fonts, fontFace);
+			} catch (error) {
+				error.stack = error.message + "\n" + "    \n" + error.stack.trim().split("\n").slice(-1).join("\n");
+				throw error;
+			}
 		};
 		document.fonts.delete.toString = function () { return "function delete() { [native code] }"; };
 		const clearFonts = document.fonts.clear;
 		document.fonts.clear = function () {
-			document.dispatchEvent(new CustomEvent(CLEAR_FONTS_EVENT));
-			return clearFonts.call(document.fonts);
+			try {
+				document.dispatchEvent(new CustomEvent(CLEAR_FONTS_EVENT));
+				return clearFonts.call(document.fonts);
+			} catch (error) {
+				error.stack = error.message + "\n" + "    \n" + error.stack.trim().split("\n").slice(-1).join("\n");
+				throw error;
+			}
 		};
 		document.fonts.clear.toString = function () { return "function clear() { [native code] }"; };
 	}
@@ -363,39 +383,56 @@
 	if (globalThis.IntersectionObserver) {
 		const IntersectionObserver = globalThis.IntersectionObserver;
 		globalThis.IntersectionObserver = function () {
-			const intersectionObserver = new IntersectionObserver(...arguments);
-			const observeIntersection = IntersectionObserver.prototype.observe || intersectionObserver.observe;
-			const unobserveIntersection = IntersectionObserver.prototype.unobserve || intersectionObserver.unobserve;
-			const callback = arguments[0];
-			const options = arguments[1];
-			if (observeIntersection) {
-				intersectionObserver.observe = function (targetElement) {
-					let targetElements = observedElements.get(intersectionObserver);
-					if (!targetElements) {
-						targetElements = [];
-						observedElements.set(intersectionObserver, targetElements);
-					}
-					targetElements.push(targetElement);
-					return observeIntersection.call(intersectionObserver, targetElement);
-				};
-			}
-			if (unobserveIntersection) {
-				intersectionObserver.unobserve = function (targetElement) {
-					let targetElements = observedElements.get(intersectionObserver);
-					if (targetElements) {
-						targetElements = targetElements.filter(element => element != targetElement);
-						if (targetElements.length) {
-							observedElements.set(intersectionObserver, targetElements);
-						} else {
-							observedElements.delete(intersectionObserver);
-							observers.delete(intersectionObserver);
+			try {
+				const intersectionObserver = new IntersectionObserver(...arguments);
+				const observeIntersection = IntersectionObserver.prototype.observe || intersectionObserver.observe;
+				const unobserveIntersection = IntersectionObserver.prototype.unobserve || intersectionObserver.unobserve;
+				const callback = arguments[0];
+				const options = arguments[1];
+				if (observeIntersection) {
+					intersectionObserver.observe = function (targetElement) {
+						try {
+							let targetElements = observedElements.get(intersectionObserver);
+							if (!targetElements) {
+								targetElements = [];
+								observedElements.set(intersectionObserver, targetElements);
+							}
+							targetElements.push(targetElement);
+							return observeIntersection.call(intersectionObserver, targetElement);
+						} catch (error) {
+							error.stack = error.message + "\n" + "    \n" + error.stack.trim().split("\n").slice(-1).join("\n");
+							throw error;
 						}
-					}
-					return unobserveIntersection.call(intersectionObserver, targetElement);
-				};
+					};
+					intersectionObserver.observe.toString = function () { return "function observe() { [native code] }"; };
+				}
+				if (unobserveIntersection) {
+					intersectionObserver.unobserve = function (targetElement) {
+						try {
+							let targetElements = observedElements.get(intersectionObserver);
+							if (targetElements) {
+								targetElements = targetElements.filter(element => element != targetElement);
+								if (targetElements.length) {
+									observedElements.set(intersectionObserver, targetElements);
+								} else {
+									observedElements.delete(intersectionObserver);
+									observers.delete(intersectionObserver);
+								}
+							}
+							return unobserveIntersection.call(intersectionObserver, targetElement);
+						} catch (error) {
+							error.stack = error.message + "\n" + "    \n" + error.stack.trim().split("\n").slice(-1).join("\n");
+							throw error;
+						}
+					};
+					intersectionObserver.unobserve.toString = function () { return "function unobserve() { [native code] }"; };
+				}
+				observers.set(intersectionObserver, { callback, options });
+				return intersectionObserver;
+			} catch (error) {
+				error.stack = error.message + "\n" + "    \n" + error.stack.trim().split("\n").slice(-1).join("\n");
+				throw error;
 			}
-			observers.set(intersectionObserver, { callback, options });
-			return intersectionObserver;
 		};
 		globalThis.IntersectionObserver.prototype = IntersectionObserver.prototype;
 		globalThis.IntersectionObserver.toString = function () { return "function IntersectionObserver() { [native code] }"; };
