@@ -896,6 +896,13 @@ class Processor {
 		if (this.options.removeHiddenElements) {
 			this.doc.querySelectorAll("input[type=hidden]").forEach(element => element.remove());
 		}
+		if (this.options.removedElementsSelector) {
+			try {
+				this.doc.querySelectorAll(this.options.removedElementsSelector).forEach(element => element.remove());
+			} catch {
+				// ignored
+			}
+		}
 		if (!this.options.saveFavicon) {
 			this.doc.querySelectorAll("link[rel*=\"icon\"]").forEach(element => element.remove());
 		}
