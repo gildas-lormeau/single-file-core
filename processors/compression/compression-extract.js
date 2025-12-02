@@ -27,7 +27,7 @@ export {
 	extract
 };
 
-async function extract(content, { password, prompt = () => { }, shadowRootScriptURL, zipOptions = { useWebWorkers: false }, noBlobURL } = {}) {
+async function extract(content, { password, prompt = () => { }, zipOptions = { useWebWorkers: false }, noBlobURL } = {}) {
 	const KNOWN_MIMETYPES = {
 		"gif": "image/gif",
 		"jpg": "image/jpeg",
@@ -190,11 +190,6 @@ async function extract(content, { password, prompt = () => { }, shadowRootScript
 				}
 				resource.textContent = textContent;
 				resource.content = await getContent(resource);
-			}
-			if (filename.match(REGEXP_MATCH_INDEX)) {
-				if (shadowRootScriptURL) {
-					resource.textContent = textContent.replace(/<script data-template-shadow-root.*<\/script>/g, "<script data-template-shadow-root src=" + shadowRootScriptURL + "></" + "script>");
-				}
 			}
 			if (filename.match(REGEXP_MATCH_ROOT_INDEX)) {
 				docContent = textContent;

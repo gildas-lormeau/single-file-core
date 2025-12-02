@@ -415,7 +415,6 @@ const SHADOWROOT_ATTRIBUTE_NAME = "shadowrootmode";
 const SHADOWROOT_DELEGATES_FOCUS = "shadowrootdelegatesfocus";
 const SHADOWROOT_CLONABLE = "shadowrootclonable";
 const SHADOWROOT_SERIALIZABLE = "shadowrootserializable";
-const SCRIPT_TEMPLATE_SHADOW_ROOT = "data-template-shadow-root";
 const SCRIPT_OPTIONS = "data-single-file-options";
 const UTF8_CHARSET = "utf-8";
 
@@ -841,7 +840,7 @@ class Processor {
 				element.setAttribute("src", DISABLED_SCRIPT);
 			}
 		});
-		const scriptElements = this.doc.querySelectorAll("script:not([type=\"application/ld+json\"]):not([" + SCRIPT_TEMPLATE_SHADOW_ROOT + "]):not([" + SCRIPT_OPTIONS + "])");
+		const scriptElements = this.doc.querySelectorAll("script:not([type=\"application/ld+json\"]):not([" + SCRIPT_OPTIONS + "])");
 		this.stats.set("discarded", "scripts", scriptElements.length);
 		this.stats.set("processed", "scripts", scriptElements.length);
 		scriptElements.forEach(element => element.remove());
