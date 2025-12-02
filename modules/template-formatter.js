@@ -17025,10 +17025,19 @@ async function evalTemplate(template = "", options, content, doc, context = {}) 
 		},
 		// eslint-disable-next-line no-unused-vars
 		"stringify": value => { try { return JSON.stringify(value); } catch (error) { return value; } },
-		// eslint-disable-next-line no-unused-vars
-		"encode-base64": value => { try { return btoa(value); } catch (error) { return value; } },
-		// eslint-disable-next-line no-unused-vars
-		"decode-base64": value => { try { return atob(value); } catch (error) { return value; } },
+		"encode-base64": value => {
+			const valueInUTF8 = new TextEncoder().encode(value);
+			return valueInUTF8.toBase64();
+		},
+		"decode-base64": value => {
+			try {
+				const bytes = Uint8Array.fromBase64(value);
+				return new TextDecoder("utf-8").decode(bytes);
+				// eslint-disable-next-line no-unused-vars
+			} catch(error) {
+				return value;
+			}
+		},
 		// eslint-disable-next-line no-unused-vars
 		"encode-uri": value => { try { return encodeURI(value); } catch (error) { return value; } },
 		// eslint-disable-next-line no-unused-vars
