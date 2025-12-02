@@ -17025,10 +17025,35 @@ async function evalTemplate(template = "", options, content, doc, context = {}) 
 		},
 		// eslint-disable-next-line no-unused-vars
 		"stringify": value => { try { return JSON.stringify(value); } catch (error) { return value; } },
-		// eslint-disable-next-line no-unused-vars
-		"encode-base64": value => { try { return btoa(value); } catch (error) { return value; } },
-		// eslint-disable-next-line no-unused-vars
-		"decode-base64": value => { try { return atob(value); } catch (error) { return value; } },
+		"encode-base64": value => {
+			// can be replaced with Uint8Array.toBase64() which should already be supported by most browsers
+			// function taken from https://developer.mozilla.org/en-US/docs/Web/API/Window/btoa
+			function bytesToBase64(bytes) {
+				const binString = Array.from(bytes, (byte) =>
+					String.fromCodePoint(byte),
+				).join("");
+				return btoa(binString);
+			}
+
+			const utf8Array = new TextEncoder().encode(value);
+			return bytesToBase64(utf8Array);
+		},
+		"decode-base64": value => {
+			// can be replaced with Uint8Array.fromBase64() which should already be supported by most browsers
+			// function taken from https://developer.mozilla.org/en-US/docs/Web/API/Window/btoa
+			function base64ToBytes(base64) {
+				const binString = atob(base64);
+				return Uint8Array.from(binString, (m) => m.codePointAt(0));
+			}
+
+			try {
+				const utf8Array = base64ToBytes(value);
+				return new TextDecoder("utf-8").decode(utf8Array);
+				// eslint-disable-next-line no-unused-vars
+			} catch(error) {
+				return value;
+			}
+		},
 		// eslint-disable-next-line no-unused-vars
 		"encode-uri": value => { try { return encodeURI(value); } catch (error) { return value; } },
 		// eslint-disable-next-line no-unused-vars
