@@ -82,7 +82,7 @@
 	const observedElements = new Map();
 
 	let dispatchScrollEvent;
-	let adoptedStylesheetsData = new Map();
+	let adoptedStylesheetsData = new WeakMap();
 
 	init();
 	new MutationObserver(init).observe(document, { childList: true });
@@ -496,7 +496,6 @@
 			shadowRoot.addEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, getAdoptedStylesheetsListener, { capture: true });
 			shadowRoot.addEventListener(UNREGISTER_GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, () => {
 				shadowRoot.removeEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, getAdoptedStylesheetsListener);
-				adoptedStylesheetsData.clear();
 			}, { once: true });
 			const adoptedStyleSheets = Array.from(shadowRoot.adoptedStyleSheets).map(stylesheet => {
 				if (adoptedStylesheetsData.has(stylesheet)) {
