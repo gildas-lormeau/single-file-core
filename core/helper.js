@@ -389,9 +389,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 				data.shadowRoots.push(shadowRootInfo);
 				try {
 					if (shadowRoot.adoptedStyleSheets) {
-						if (shadowRoot.adoptedStyleSheets.length) {
-							shadowRootInfo.adoptedStyleSheets = getStylesheetsContent(shadowRoot.adoptedStyleSheets, adoptedStyleSheetsCache);
-						} else if (shadowRoot.adoptedStyleSheets.length === undefined) {
+						
 							const listener = event => shadowRootInfo.adoptedStyleSheets = event.detail.adoptedStyleSheets;
 							shadowRoot.addEventListener(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, listener);
 							shadowRoot.dispatchEvent(new CustomEvent(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, { bubbles: true }));
@@ -399,7 +397,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 								element.dispatchEvent(new CustomEvent(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, { bubbles: true }));
 							}
 							shadowRoot.removeEventListener(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, listener);
-						}
+						
 					}
 					// eslint-disable-next-line no-unused-vars
 				} catch (error) {

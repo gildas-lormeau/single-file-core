@@ -76,11 +76,13 @@
 	const JSON = globalThis.JSON;
 	const MutationObserver = globalThis.MutationObserver;
 	const URL = globalThis.URL;
+	const CSSStyleSheet = globalThis.CSSStyleSheet;
 
 	const observers = new Map();
 	const observedElements = new Map();
 
 	let dispatchScrollEvent;
+	let adoptedStylesheetsData = new Map();
 
 	init();
 	new MutationObserver(init).observe(document, { childList: true });
@@ -438,13 +440,68 @@
 		globalThis.IntersectionObserver.toString = function () { return "function IntersectionObserver() { [native code] }"; };
 	}
 
+	const originalReplaceSync = CSSStyleSheet.prototype.replaceSync;
+	CSSStyleSheet.prototype.replaceSync = function (text) {
+		try {
+			const result = originalReplaceSync.apply(this, [text]);
+			adoptedStylesheetsData.set(this, text);
+			return result;
+		} catch (error) {
+			error.stack = error.message + "\n" + "    \n" + error.stack.trim().split("\n").slice(-1).join("\n");
+			throw error;
+		}
+	};
+	CSSStyleSheet.prototype.replaceSync.toString = function () { return "function replaceSync() { [native code] }"; };
+	const orginalReplace = CSSStyleSheet.prototype.replace;
+	CSSStyleSheet.prototype.replace = async function (text) {
+		try {
+			const result = await orginalReplace.apply(this, [text]);
+			adoptedStylesheetsData.set(this, text);
+			return result;
+		} catch (error) {
+			error.stack = error.message + "\n" + "    \n" + error.stack.trim().split("\n").slice(-1).join("\n");
+			throw error;
+		}
+	};
+	CSSStyleSheet.prototype.replace.toString = function () { return "function replace() { [native code] }"; };
+	const originalInsertRule = CSSStyleSheet.prototype.insertRule;
+	CSSStyleSheet.prototype.insertRule = function (rule, index) {
+		try {
+			const result = originalInsertRule.apply(this, [rule, index]);
+			adoptedStylesheetsData.delete(this);
+			return result;
+		} catch (error) {
+			error.stack = error.message + "\n" + "    \n" + error.stack.trim().split("\n").slice(-1).join("\n");
+			throw error;
+		}
+	};
+	CSSStyleSheet.prototype.insertRule.toString = function () { return "function insertRule() { [native code] }"; };
+	const originalDeleteRule = CSSStyleSheet.prototype.deleteRule;
+	CSSStyleSheet.prototype.deleteRule = function (index) {
+		try {
+			const result = originalDeleteRule.apply(this, [index]);
+			adoptedStylesheetsData.delete(this);
+			return result;
+		} catch (error) {
+			error.stack = error.message + "\n" + "    \n" + error.stack.trim().split("\n").slice(-1).join("\n");
+			throw error;
+		}
+	};
+	CSSStyleSheet.prototype.deleteRule.toString = function () { return "function deleteRule() { [native code] }"; };
+
 	function getAdoptedStylesheetsListener(event) {
 		const shadowRoot = event.target.shadowRoot;
 		event.stopPropagation();
 		if (shadowRoot) {
 			shadowRoot.addEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, getAdoptedStylesheetsListener, { capture: true });
 			shadowRoot.addEventListener(UNREGISTER_GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, () => shadowRoot.removeEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, getAdoptedStylesheetsListener), { once: true });
-			const adoptedStyleSheets = Array.from(shadowRoot.adoptedStyleSheets).map(stylesheet => Array.from(stylesheet.cssRules).map(cssRule => cssRule.cssText).join("\n"));
+			const adoptedStyleSheets = Array.from(shadowRoot.adoptedStyleSheets).map(stylesheet => {
+				if (adoptedStylesheetsData.has(stylesheet)) {
+					return adoptedStylesheetsData.get(stylesheet);
+				} else {
+					return Array.from(stylesheet.cssRules).map(cssRule => cssRule.cssText).join("\n");
+				}
+			});
 			if (adoptedStyleSheets.length) {
 				shadowRoot.dispatchEvent(new CustomEvent(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, { detail: { adoptedStyleSheets } }));
 			}
