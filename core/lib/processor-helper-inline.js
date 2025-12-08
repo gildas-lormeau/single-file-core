@@ -59,6 +59,7 @@ import {
 	testIgnoredPath,
 	testValidPath,
 	testValidURL,
+	resizeImage,
 	toDataURI
 } from "./processor-helper-common.js";
 
@@ -376,6 +377,9 @@ function getProcessorHelperClass(utilInstance) {
 												// ignored
 											}
 										}
+									}
+									if (options.imageReductionFactor > 1) {
+										content = await resizeImage(content, options);
 									}
 									if (removeElementIfMissing && this.testEmptyResource(content)) {
 										resourceElement.remove();

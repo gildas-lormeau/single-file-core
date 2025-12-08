@@ -61,6 +61,8 @@ const FONT_STRETCHES = {
 };
 const Blob = globalThis.Blob;
 const FileReader = globalThis.FileReader;
+const Image = globalThis.Image;
+const OffscreenCanvas = globalThis.OffscreenCanvas;
 
 let util, cssTree;
 
@@ -77,6 +79,7 @@ export {
 	testIgnoredPath,
 	testValidPath,
 	testValidURL,
+	resizeImage,
 	toDataURI
 };
 
@@ -330,7 +333,7 @@ class ProcessorHelperCommon {
 
 	replacePseudoClassDefined(stylesheet) {
 		cssTree.walk(stylesheet, {
-			enter: function(node, item, list) {
+			enter: function (node, item, list) {
 				if (node.type == "PseudoClassSelector" && node.name == "defined") {
 					if (item.prev == null || item.prev.data.type == "Combinator" || item.prev.data.type == "WhiteSpace") {
 						list.replace(item, cssTree.parse("*", { context: "selector" }).children.head);
@@ -659,11 +662,43 @@ function getFontStretch(stretch) {
 	return FONT_STRETCHES[stretch] || stretch;
 }
 
+async function resizeImage(dataURI, { imageReductionFactor }) {
+	if (dataURI) {
+		const contentType = dataURI.substring(5, dataURI.indexOf(";"));
+		console.log("Resizing image of type:", contentType);
+		if (contentType == "image/jpeg" ||
+			contentType == "image/png" ||
+			contentType == "image/webp") {
+			try {
+				const image = new Image();
+				image.src = dataURI;
+				await new Promise((resolve, reject) => {
+					image.onload = resolve;
+					image.onerror = reject;
+				});
+				const width = image.naturalWidth / imageReductionFactor;
+				const height = image.naturalHeight / imageReductionFactor;
+				const canvas = new OffscreenCanvas(width, height);
+				const context = canvas.getContext("2d");
+				context.drawImage(image, 0, 0, width, height);
+				const blob = await canvas.convertToBlob({ type: contentType });
+				if (blob.type == contentType) {
+					dataURI = await toDataURI(blob, contentType);
+				}
+			} catch {
+				// ignored
+			}
+		}
+	}
+	return dataURI;
+}
+
 function toDataURI(content, contentType, charset) {
+	const blob = content instanceof Blob ? content : new Blob([content], { type: (contentType || "") + (charset ? ";charset=" + charset : "") });
 	return new Promise((resolve, reject) => {
 		const reader = new FileReader();
 		reader.onload = () => resolve(reader.result);
 		reader.onerror = () => reject(new Error(reader.error));
-		reader.readAsDataURL(new Blob([content], { type: (contentType || "") + (charset ? ";charset=" + charset : "") }));
+		reader.readAsDataURL(blob);
 	});
 }

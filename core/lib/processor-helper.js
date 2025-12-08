@@ -25,6 +25,7 @@ import * as cssTree from "./../../vendor/css-tree.js";
 
 const JSON = globalThis.JSON;
 const FontFace = globalThis.FontFace;
+const Blob = globalThis.Blob;
 
 const ABOUT_BLANK_URI = "about:blank";
 const UTF8_CHARSET = "utf-8";
@@ -49,7 +50,9 @@ import {
 	replaceOriginalURLs,
 	testIgnoredPath,
 	testValidPath,
-	testValidURL
+	testValidURL,
+	resizeImage,
+	toDataURI
 } from "./processor-helper-common.js";
 
 export {
@@ -324,7 +327,7 @@ function getProcessorHelperClass(utilInstance) {
 								}
 								if (testValidURL(resourceURL)) {
 									const declaredContentType = ["OBJECT", "EMBED"].includes(resourceElement.tagName.toUpperCase()) ? resourceElement.getAttribute("type") : "";
-									let { content, indexResource, extension, contentType } = await batchRequest.addURL(resourceURL,
+									let { content, indexResource, extension, contentType, charset } = await batchRequest.addURL(resourceURL,
 										{ asBinary: true, expectedType, contentType: declaredContentType });
 									if (originURL) {
 										if (this.testEmptyResource(content)) {
@@ -352,6 +355,10 @@ function getProcessorHelperClass(utilInstance) {
 												// ignored
 											}
 										}
+									}
+									if (options.imageReductionFactor > 1) {
+										const dataURI = await resizeImage(await toDataURI(new Blob([content], { type: contentType }), charset), options);
+										content = (await util.getContent(dataURI, { asBinary: true })).data;
 									}
 									if (removeElementIfMissing && this.testEmptyResource(content)) {
 										resourceElement.remove();
