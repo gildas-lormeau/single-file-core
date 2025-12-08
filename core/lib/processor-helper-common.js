@@ -665,7 +665,6 @@ function getFontStretch(stretch) {
 async function resizeImage(dataURI, { imageReductionFactor }) {
 	if (dataURI) {
 		const contentType = dataURI.substring(5, dataURI.indexOf(";"));
-		console.log("Resizing image of type:", contentType);
 		if (contentType == "image/jpeg" ||
 			contentType == "image/png" ||
 			contentType == "image/webp") {
