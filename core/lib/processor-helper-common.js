@@ -105,7 +105,8 @@ class ProcessorHelperCommon {
 			this.processAttribute(doc.querySelectorAll(selector), attributeName, baseURI, options, "image", resources, removeElementIfMissing, batchRequest, styles, processDuplicates)
 		);
 		resourcePromises = resourcePromises.concat([
-			this.processXLinks(doc.querySelectorAll("use"), doc, baseURI, options, batchRequest),
+			this.processXLinks(doc.querySelectorAll("use"), doc, baseURI, options, batchRequest, "xlink:href"),
+			this.processXLinks(doc.querySelectorAll("use"), doc, baseURI, options, batchRequest, "href"),
 			this.processSrcset(doc.querySelectorAll("img[srcset], source[srcset]"), baseURI, options, resources, batchRequest)
 		]);
 		resourcePromises.push(this.processAttribute(doc.querySelectorAll("object[data*=\".pdf\"]"), "data", baseURI, options, null, resources, false, batchRequest, styles));
@@ -120,8 +121,7 @@ class ProcessorHelperCommon {
 		}
 	}
 
-	async processXLinks(resourceElements, doc, baseURI, options, batchRequest) {
-		let attributeName = "xlink:href";
+	async processXLinks(resourceElements, doc, baseURI, options, batchRequest, attributeName) {
 		await Promise.all(Array.from(resourceElements).map(async resourceElement => {
 			let originalResourceURL = resourceElement.getAttribute(attributeName);
 			if (originalResourceURL == null) {
