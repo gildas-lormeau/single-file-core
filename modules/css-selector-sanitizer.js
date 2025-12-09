@@ -46,6 +46,8 @@ const UNMATCHABLE_PSEUDO_CLASSES = [
     "seeking",
     "stalled",
     "volume-locked",
+    "after",
+    "before"
 ];
 
 export {
@@ -57,7 +59,9 @@ export {
  * Optional `ancestors` array may be provided to expand nesting selectors (`&`).
  */
 function sanitizeSelector(selector, ancestors, docContext) {
-    if (!docContext.normalizedSelectorText) docContext.normalizedSelectorText = new WeakMap();
+    if (!docContext.normalizedSelectorText) {
+        docContext.normalizedSelectorText = new WeakMap();
+    }
     if (docContext.normalizedSelectorText.has(selector)) {
         return docContext.normalizedSelectorText.get(selector);
     }
