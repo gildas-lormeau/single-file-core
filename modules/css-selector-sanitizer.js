@@ -47,7 +47,8 @@ const UNMATCHABLE_PSEUDO_CLASSES = [
     "stalled",
     "volume-locked",
     "after",
-    "before"
+    "before",
+    "visited"
 ];
 
 export {
