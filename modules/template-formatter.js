@@ -21,7 +21,7 @@
  *   Source.
  */
 
-/* global btoa, atob */
+/* global btoa, atob, TextEncoder, TextDecoder */
 
 import { parse } from "./template-parser.js";
 import { getContentSize, digest, getValidFilename } from "./../core/helper.js";
