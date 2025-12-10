@@ -100,9 +100,12 @@ function getProcessorHelperClass(utilInstance) {
 						this.removeSingleLineCssComments(stylesheet);
 					}
 					this.replacePseudoClassDefined(stylesheet);
-					options.inlineStylesheets.forEach((content, index) => {
+					options.inlineStylesheets.forEach(({ content, styleElement }, index) => {
 						if (content === element.textContent) {
-							options.inlineStylesheets.set(index, this.generateStylesheetContent(stylesheet, options));
+							options.inlineStylesheets.set(index, {
+								styleElement,
+								content: this.generateStylesheetContent(stylesheet, options)
+							});
 						}
 					});
 					stylesheetInfo.stylesheet = stylesheet;
@@ -113,32 +116,39 @@ function getProcessorHelperClass(utilInstance) {
 		}
 
 		replaceStylesheets(doc, stylesheets, options) {
-			doc.querySelectorAll("style").forEach((styleElement, indexStyle) => {
-				const stylesheetInfo = stylesheets.get(styleElement);
+			doc.querySelectorAll("style").forEach(element => {
+				const stylesheetInfo = stylesheets.get(element);
 				if (stylesheetInfo) {
-					stylesheets.delete(styleElement);
-					const stylesheetRefIndex = options.inlineStylesheetsRefs.get(styleElement);
+					stylesheets.delete(element);
+					const stylesheetRefIndex = options.inlineStylesheetsRefs.get(element);
 					if (stylesheetRefIndex === undefined) {
-						styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
-						options.inlineStylesheets.set(indexStyle, styleElement.textContent);
+						element.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
+						options.inlineStylesheets.forEach(({ styleElement }, index) => {
+							if (styleElement === element) {
+								options.inlineStylesheets.set(index, {
+									styleElement,
+									content: element.textContent
+								});
+							}
+						});
 					} else if (options.groupDuplicateStylesheets) {
 						if (!doc.querySelector("style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + stylesheetRefIndex + "\"]")) {
 							const styleElement = doc.createElement("style");
-							styleElement.textContent = options.inlineStylesheets.get(stylesheetRefIndex);
+							styleElement.textContent = options.inlineStylesheets.get(stylesheetRefIndex).content;
 							styleElement.setAttribute("media", "not all");
 							styleElement.setAttribute(DUPLICATE_STYLESHEET_ATTRIBUTE_NAME, stylesheetRefIndex);
 							doc.head.appendChild(styleElement);
 						}
-						styleElement.textContent = "/* */";
-						styleElement.setAttribute("onload", "this.textContent=document.querySelector('style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + stylesheetRefIndex + "\"]').textContent;this.removeAttribute(\"onload\")");
+						element.textContent = "/* */";
+						element.setAttribute("onload", "this.textContent=document.querySelector('style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + stylesheetRefIndex + "\"]').textContent;this.removeAttribute(\"onload\")");
 					} else {
-						styleElement.textContent = options.inlineStylesheets.get(stylesheetRefIndex);
+						element.textContent = options.inlineStylesheets.get(stylesheetRefIndex).content;
 					}
 					if (stylesheetInfo.mediaText) {
-						styleElement.media = stylesheetInfo.mediaText;
+						element.media = stylesheetInfo.mediaText;
 					}
 				} else {
-					styleElement.remove();
+					element.remove();
 				}
 			});
 			if (options.groupDuplicateStylesheets && doc.querySelector("style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "]")) {

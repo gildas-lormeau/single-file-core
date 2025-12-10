@@ -1226,11 +1226,14 @@ class Processor {
 		const stylesContents = [];
 		this.options.inlineStylesheets = new Map();
 		this.options.inlineStylesheetsRefs = new Map();
-		this.doc.querySelectorAll("style").forEach((styleElement, indexStyle) => {
+		this.doc.querySelectorAll("style").forEach(styleElement => {
 			if (styleElement.textContent) {
 				const indexContent = stylesContents.indexOf(styleElement.textContent);
 				if (indexContent == -1) {
-					this.options.inlineStylesheets.set(indexStyle, styleElement.textContent);
+					this.options.inlineStylesheets.set(stylesContents.length, {
+						styleElement,
+						content: styleElement.textContent
+					});
 					stylesContents.push(styleElement.textContent);
 				} else {
 					this.options.inlineStylesheetsRefs.set(styleElement, indexContent);
