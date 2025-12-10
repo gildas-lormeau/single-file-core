@@ -23,7 +23,6 @@
  */
 
 import * as cssTree from "./../vendor/css-tree.js";
-
 const UNMATCHABLE_PSEUDO_CLASSES = [
     "active-view-transition",
     "active-view-transition-type",
@@ -48,13 +47,41 @@ const UNMATCHABLE_PSEUDO_CLASSES = [
     "volume-locked",
     "after",
     "before",
-    "visited"
+    "visited",
+    "link",
+    "any-link",
+    "local-link",
+    "target",
+    "scope",
+    "hover",
+    "active",
+    "focus",
+    "focus-within",
+    "focus-visible",
+    "target-current",
+    "enabled",
+    "disabled",
+    "read-only",
+    "read-write",
+    "placeholder-shown",
+    "autofill",
+    "default",
+    "checked",
+    "indeterminate",
+    "blank",
+    "valid",
+    "invalid",
+    "in-range",
+    "out-of-range",
+    "required",
+    "optional",
+    "user-valid",
+    "user-invalid"
 ];
 
 export {
     sanitizeSelector,
 };
-
 /**
  * Sanitize a selector AST into a QSA-safe selector string.
  * Optional `ancestors` array may be provided to expand nesting selectors (`&`).
@@ -75,7 +102,6 @@ function sanitizeSelector(selector, ancestors, docContext) {
     docContext.normalizedSelectorText.set(selector, normalized);
     return normalized;
 }
-
 function normalizeSelectorNode(selector, ancestors) {
     let current = selector.children.head;
     while (current) {
