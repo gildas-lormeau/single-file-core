@@ -113,13 +113,14 @@ function getProcessorHelperClass(utilInstance) {
 		}
 
 		replaceStylesheets(doc, stylesheets, options) {
-			doc.querySelectorAll("style").forEach(styleElement => {
+			doc.querySelectorAll("style").forEach((styleElement, indexStyle) => {
 				const stylesheetInfo = stylesheets.get(styleElement);
 				if (stylesheetInfo) {
 					stylesheets.delete(styleElement);
 					const stylesheetRefIndex = options.inlineStylesheetsRefs.get(styleElement);
 					if (stylesheetRefIndex === undefined) {
 						styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
+						options.inlineStylesheets.set(indexStyle, styleElement.textContent);
 					} else if (options.groupDuplicateStylesheets) {
 						if (!doc.querySelector("style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + stylesheetRefIndex + "\"]")) {
 							const styleElement = doc.createElement("style");
