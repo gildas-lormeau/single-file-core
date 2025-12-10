@@ -1223,17 +1223,17 @@ class Processor {
 	}
 
 	async resolveStylesheetsURLs() {
-		const scriptContents = [];
+		const stylesContents = [];
 		this.options.inlineStylesheets = new Map();
 		this.options.inlineStylesheetsRefs = new Map();
-		this.doc.querySelectorAll("style").forEach(element => {
-			if (element.textContent) {
-				const indexContent = scriptContents.indexOf(element.textContent);
+		this.doc.querySelectorAll("style").forEach((styleElement, indexStyle) => {
+			if (styleElement.textContent) {
+				const indexContent = stylesContents.indexOf(styleElement.textContent);
 				if (indexContent == -1) {
-					this.options.inlineStylesheets.set(scriptContents.length, element.textContent);
-					scriptContents.push(element.textContent);
+					this.options.inlineStylesheets.set(indexStyle, styleElement.textContent);
+					stylesContents.push(styleElement.textContent);
 				} else {
-					this.options.inlineStylesheetsRefs.set(element, indexContent);
+					this.options.inlineStylesheetsRefs.set(styleElement, indexContent);
 				}
 			}
 		});
