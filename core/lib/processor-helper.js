@@ -305,7 +305,7 @@ function getProcessorHelperClass(utilInstance) {
 			}));
 		}
 
-		async processAttribute(resourceElements, attributeName, baseURI, options, expectedType, resources, removeElementIfMissing, batchRequest) {
+		async processAttribute(doc, resourceElements, attributeName, baseURI, options, expectedType, resources, removeElementIfMissing, batchRequest) {
 			await Promise.all(Array.from(resourceElements).map(async resourceElement => {
 				let resourceURL = resourceElement.getAttribute(attributeName);
 				if (resourceURL != null) {
@@ -357,7 +357,7 @@ function getProcessorHelperClass(utilInstance) {
 										}
 									}
 									if (options.imageReductionFactor > 1) {
-										const dataURI = await resizeImage(await toDataURI(new Blob([content], { type: contentType }), charset), options);
+										const dataURI = await resizeImage(doc, await toDataURI(new Blob([content], { type: contentType }), charset), options);
 										content = (await util.getContent(dataURI, { asBinary: true })).data;
 									}
 									if (removeElementIfMissing && this.testEmptyResource(content)) {

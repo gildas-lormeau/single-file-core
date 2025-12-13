@@ -105,19 +105,19 @@ class ProcessorHelperCommon {
 			doc.querySelectorAll("svg").forEach(element => element.remove());
 		}
 		let resourcePromises = processAttributeArgs.map(([selector, attributeName, removeElementIfMissing, processDuplicates]) =>
-			this.processAttribute(doc.querySelectorAll(selector), attributeName, baseURI, options, "image", resources, removeElementIfMissing, batchRequest, styles, processDuplicates)
+			this.processAttribute(doc, doc.querySelectorAll(selector), attributeName, baseURI, options, "image", resources, removeElementIfMissing, batchRequest, styles, processDuplicates)
 		);
 		resourcePromises = resourcePromises.concat([
 			this.processXLinks(doc.querySelectorAll("use"), doc, baseURI, options, batchRequest, "xlink:href"),
 			this.processXLinks(doc.querySelectorAll("use"), doc, baseURI, options, batchRequest, "href"),
 			this.processSrcset(doc.querySelectorAll("img[srcset], source[srcset]"), baseURI, options, resources, batchRequest)
 		]);
-		resourcePromises.push(this.processAttribute(doc.querySelectorAll("object[data*=\".pdf\"]"), "data", baseURI, options, null, resources, false, batchRequest, styles));
-		resourcePromises.push(this.processAttribute(doc.querySelectorAll("embed[src*=\".pdf\"]"), "src", baseURI, options, null, resources, false, batchRequest, styles));
-		resourcePromises.push(this.processAttribute(doc.querySelectorAll("audio[src], audio > source[src]"), "src", baseURI, options, "audio", resources, false, batchRequest, styles));
-		resourcePromises.push(this.processAttribute(doc.querySelectorAll("video[src], video > source[src]"), "src", baseURI, options, "video", resources, false, batchRequest, styles));
-		resourcePromises.push(this.processAttribute(doc.querySelectorAll("audio track[src], video track[src]"), "src", baseURI, options, null, resources, false, batchRequest, styles));
-		resourcePromises.push(this.processAttribute(doc.querySelectorAll("model[src]"), "src", baseURI, options, null, resources, false, batchRequest, styles));
+		resourcePromises.push(this.processAttribute(doc, doc.querySelectorAll("object[data*=\".pdf\"]"), "data", baseURI, options, null, resources, false, batchRequest, styles));
+		resourcePromises.push(this.processAttribute(doc, doc.querySelectorAll("embed[src*=\".pdf\"]"), "src", baseURI, options, null, resources, false, batchRequest, styles));
+		resourcePromises.push(this.processAttribute(doc, doc.querySelectorAll("audio[src], audio > source[src]"), "src", baseURI, options, "audio", resources, false, batchRequest, styles));
+		resourcePromises.push(this.processAttribute(doc, doc.querySelectorAll("video[src], video > source[src]"), "src", baseURI, options, "video", resources, false, batchRequest, styles));
+		resourcePromises.push(this.processAttribute(doc, doc.querySelectorAll("audio track[src], video track[src]"), "src", baseURI, options, null, resources, false, batchRequest, styles));
+		resourcePromises.push(this.processAttribute(doc, doc.querySelectorAll("model[src]"), "src", baseURI, options, null, resources, false, batchRequest, styles));
 		await Promise.all(resourcePromises);
 		if (options.saveFavicon) {
 			this.processShortcutIcons(doc);
@@ -662,7 +662,7 @@ function getFontStretch(stretch) {
 	return FONT_STRETCHES[stretch] || stretch;
 }
 
-async function resizeImage(dataURI, { imageReductionFactor }) {
+async function resizeImage(doc, dataURI, { imageReductionFactor }) {
 	if (dataURI) {
 		const contentType = dataURI.substring(5, dataURI.indexOf(";"));
 		if (contentType == "image/jpeg" ||
@@ -677,10 +677,20 @@ async function resizeImage(dataURI, { imageReductionFactor }) {
 				});
 				const width = image.naturalWidth / imageReductionFactor;
 				const height = image.naturalHeight / imageReductionFactor;
-				const canvas = new OffscreenCanvas(width, height);
-				const context = canvas.getContext("2d");
-				context.drawImage(image, 0, 0, width, height);
-				const blob = await canvas.convertToBlob({ type: contentType });
+				let blob;
+				try {
+					const canvas = new OffscreenCanvas(width, height);
+					const context = canvas.getContext("2d");
+					context.drawImage(image, 0, 0, width, height);
+					blob = await canvas.convertToBlob({ type: contentType });
+				} catch {
+					const canvas = doc.createElement("canvas");
+					canvas.width = width;
+					canvas.height = height;
+					const context = canvas.getContext("2d");
+					context.drawImage(image, 0, 0, width, height);
+					blob = await new Promise((resolve) => canvas.toBlob(resolve, contentType));
+				}
 				if (blob.type == contentType) {
 					dataURI = await toDataURI(blob, contentType);
 				}

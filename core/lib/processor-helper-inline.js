@@ -335,7 +335,7 @@ function getProcessorHelperClass(utilInstance) {
 			}));
 		}
 
-		async processAttribute(resourceElements, attributeName, baseURI, options, expectedType, resources, removeElementIfMissing, batchRequest, styles, processDuplicates) {
+		async processAttribute(doc, resourceElements, attributeName, baseURI, options, expectedType, resources, removeElementIfMissing, batchRequest, styles, processDuplicates) {
 			await Promise.all(Array.from(resourceElements).map(async resourceElement => {
 				let resourceURL = resourceElement.getAttribute(attributeName);
 				if (resourceURL != null) {
@@ -390,7 +390,7 @@ function getProcessorHelperClass(utilInstance) {
 										}
 									}
 									if (options.imageReductionFactor > 1) {
-										content = await resizeImage(content, options);
+										content = await resizeImage(doc, content, options);
 									}
 									if (removeElementIfMissing && this.testEmptyResource(content)) {
 										resourceElement.remove();
