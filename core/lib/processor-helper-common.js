@@ -689,7 +689,13 @@ async function resizeImage(doc, dataURI, { imageReductionFactor }) {
 					canvas.height = height;
 					const context = canvas.getContext("2d");
 					context.drawImage(image, 0, 0, width, height);
-					blob = await new Promise((resolve) => canvas.toBlob(resolve, contentType));
+					blob = await new Promise(resolve => canvas.toBlob(blob => {
+						if (blob) {
+							resolve(blob);
+						} else {
+							throw new Error("Canvas toBlob failed");
+						}
+					}, contentType));
 				}
 				if (blob.type == contentType) {
 					dataURI = await toDataURI(blob, contentType);
