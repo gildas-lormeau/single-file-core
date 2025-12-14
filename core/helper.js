@@ -463,7 +463,7 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 	if (tagName == "CANVAS") {
 		try {
 			data.canvases.push({
-				dataURI: element.toDataURL("image/png", ""),
+				dataURI: element.toDataURL("image/png"),
 				backgroundColor: computedStyle.getPropertyValue("background-color")
 			});
 			element.setAttribute(CANVAS_ATTRIBUTE_NAME, data.canvases.length - 1);
@@ -523,7 +523,7 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 			canvasElement.height = element.videoHeight;
 			try {
 				context.drawImage(element, 0, 0, canvasElement.width, canvasElement.height);
-				data.posters.push(canvasElement.toDataURL("image/png", ""));
+				data.posters.push(canvasElement.toDataURL("image/png"));
 				element.setAttribute(POSTER_ATTRIBUTE_NAME, data.posters.length - 1);
 				data.markedElements.push(element);
 				// eslint-disable-next-line no-unused-vars

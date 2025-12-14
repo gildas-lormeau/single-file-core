@@ -1190,7 +1190,7 @@ class Processor {
 								canvasElement.height = videoData.size.videoHeight;
 								context.drawImage(temporaryVideoElement, 0, 0, canvasElement.width, canvasElement.height);
 								try {
-									videoElement.poster = canvasElement.toDataURL("image/png", "");
+									videoElement.poster = canvasElement.toDataURL("image/png");
 									// eslint-disable-next-line no-unused-vars
 								} catch (error) {
 									// ignored
