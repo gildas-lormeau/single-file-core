@@ -294,12 +294,11 @@ function processSelectors(ruleData, processingContext, docContext) {
 			scopeRelative
 		} = analyzeSelector(selector.data);
 		registerSelector(selector, ruleData, scopeRelative, processingContext, docContext);
-		if (!startsWithCombinator || !ancestorsSelectors || !ancestorsSelectors.length) {
+		if (!hasPseudoElement && !hasDynamicStatePseudoClass &&
+			(!startsWithCombinator || !ancestorsSelectors || !ancestorsSelectors.length)) {
 			const matchedElements = matchElements(selector, ancestorsSelectors, docContext);
 			if (matchedElements.length) {
-				if (!hasPseudoElement && !hasDynamicStatePseudoClass) {
-					updateMatchingSelectors(matchedElements, selector, docContext);
-				}
+				updateMatchingSelectors(matchedElements, selector, docContext);
 			} else {
 				removedSelectors.push(selector);
 			}
