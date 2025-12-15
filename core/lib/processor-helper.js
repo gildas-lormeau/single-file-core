@@ -356,7 +356,7 @@ function getProcessorHelperClass(utilInstance) {
 											}
 										}
 									}
-									if (options.imageReductionFactor > 1) {
+									if (options.imageReductionFactor > 1 && expectedType == "image") {
 										const dataURI = await resizeImage(doc, await toDataURI(new Blob([content], { type: contentType }), charset), options);
 										content = (await util.getContent(dataURI, { asBinary: true })).data;
 									}

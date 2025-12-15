@@ -389,9 +389,6 @@ function getProcessorHelperClass(utilInstance) {
 											}
 										}
 									}
-									if (options.imageReductionFactor > 1) {
-										content = await resizeImage(doc, content, options);
-									}
 									if (removeElementIfMissing && this.testEmptyResource(content)) {
 										resourceElement.remove();
 									} else if (!this.testEmptyResource(content)) {
@@ -415,6 +412,9 @@ function getProcessorHelperClass(utilInstance) {
 												const isSVG = content.startsWith(PREFIX_DATA_URI_IMAGE_SVG);
 												const maxSizeDuplicateImages = options.maxSizeDuplicateImages || SINGLE_FILE_VARIABLE_MAX_SIZE;
 												if (processDuplicates && duplicate && !isSVG && util.getContentSize(content) < maxSizeDuplicateImages) {
+													if (options.imageReductionFactor > 1 && expectedType == "image") {
+														content = await resizeImage(doc, content, options);
+													}
 													if (this.replaceImageSource(resourceElement, SINGLE_FILE_VARIABLE_NAME_PREFIX + indexResource, options)) {
 														resources.cssVariables.set(indexResource, { content, url: originURL });
 														const declarationList = cssTree.parse(resourceElement.getAttribute("style"), { context: "declarationList", parseCustomProperty: true });
