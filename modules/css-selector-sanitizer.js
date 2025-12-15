@@ -60,7 +60,6 @@ const UNMATCHABLE_PSEUDO_CLASSES = [
     "focus-visible",
     "target-current",
     "enabled",
-    "disabled",
     "read-only",
     "read-write",
     "placeholder-shown",
