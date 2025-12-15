@@ -1193,12 +1193,14 @@ class Processor {
 									videoElement.poster = canvasElement.toDataURL("image/png");
 									// eslint-disable-next-line no-unused-vars
 								} catch (error) {
+									videoElement.poster = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='" + videoData.size.videoWidth + "' height='" + videoData.size.videoHeight + "'%3E%3C/svg%3E";
 									// ignored
 								}
 								temporaryVideoElement.remove();
 								resolve();
 							};
 							temporaryVideoElement.onerror = () => {
+								videoElement.poster = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='" + videoData.size.videoWidth + "' height='" + videoData.size.videoHeight + "'%3E%3C/svg%3E";
 								temporaryVideoElement.remove();
 								resolve();
 							};
