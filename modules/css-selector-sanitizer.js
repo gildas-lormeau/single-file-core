@@ -94,7 +94,7 @@ function sanitizeSelector(selector, ancestors, docContext) {
     if (docContext.normalizedSelectorText.has(selector)) {
         return docContext.normalizedSelectorText.get(selector);
     }
-    const ast = cssTree.parse(cssTree.generate(selector.data), { context: "selector" });
+    const ast = cssTree.parse(cssTree.generate(selector.data), { context: "selectorList" });
     normalizeSelectorNode(ast, ancestors);
     let normalized = cssTree.generate(ast);
     if (!normalized || !normalized.trim()) {
@@ -132,6 +132,8 @@ function normalizeSelectorNode(selector, ancestors) {
             if (DYNAMIC_STATE_PSEUDO_CLASSES.includes(pseudoName)) {
                 selector.children.remove(current);
             }
+        } else if (childNode.type === "Selector") {
+            normalizeSelectorNode(childNode, ancestors);
         }
         current = next;
     }
