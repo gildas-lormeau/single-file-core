@@ -16951,8 +16951,12 @@ async function evalTemplate(template = "", options, content, doc, context = {}) 
 			getter: () => {
 				const pathname = url.pathname;
 				const segments = pathname.split("/");
-				const lastSegment = segments[segments.length - 1] || segments[segments.length - 2] || "";
-				return decode(lastSegment);
+				if (pathname.endsWith("/")) {
+					return "";
+				} else {
+					const lastSegment = segments[segments.length - 1];
+					return decode(lastSegment);
+				}
 			}, dontReplaceSlash: dontReplaceSlashIfUndefined
 		},
 		"bookmark-pathname": { getter: () => bookmarkFolder, dontReplaceSlash: dontReplaceSlashIfUndefined },
@@ -17050,7 +17054,7 @@ async function evalTemplate(template = "", options, content, doc, context = {}) 
 				const utf8Array = base64ToBytes(value);
 				return new TextDecoder("utf-8").decode(utf8Array);
 				// eslint-disable-next-line no-unused-vars
-			} catch(error) {
+			} catch (error) {
 				return value;
 			}
 		},
