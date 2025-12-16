@@ -23,7 +23,7 @@
  */
 
 import * as cssTree from "./../vendor/css-tree.js";
-const UNMATCHABLE_PSEUDO_CLASSES = [
+const DYNAMIC_STATE_PSEUDO_CLASSES = [
     "active-view-transition",
     "active-view-transition-type",
     "blank",
@@ -80,6 +80,7 @@ const UNMATCHABLE_PSEUDO_CLASSES = [
 ];
 
 export {
+    DYNAMIC_STATE_PSEUDO_CLASSES,
     sanitizeSelector,
 };
 /**
@@ -128,7 +129,7 @@ function normalizeSelectorNode(selector, ancestors) {
             selector.children.remove(current);
         } else if (childNode.type === "PseudoClassSelector") {
             const pseudoName = (childNode.name || "").toLowerCase();
-            if (UNMATCHABLE_PSEUDO_CLASSES.includes(pseudoName)) {
+            if (DYNAMIC_STATE_PSEUDO_CLASSES.includes(pseudoName)) {
                 selector.children.remove(current);
             }
         }

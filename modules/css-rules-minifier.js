@@ -24,10 +24,11 @@
 import * as cssTree from "./../vendor/css-tree.js";
 import { computeMaxSpecificity } from "./css-specificity.js";
 import { parsePrelude } from "./css-scope-prelude-parser.js";
-import { sanitizeSelector } from "./css-selector-sanitizer.js";
+import { sanitizeSelector, DYNAMIC_STATE_PSEUDO_CLASSES } from "./css-selector-sanitizer.js";
 
 const DEBUG = false;
 
+const CANONICAL_PSEUDO_ELEMENT_NAMES = new Set(["after", "before", "first-letter", "first-line", "placeholder", "selection", "part", "marker"]);
 const CONDITIONAL_AT_RULE_NAMES = new Set(["media", "supports", "container"]);
 const RULE_TYPE = "Rule";
 const AT_RULE_TYPE = "Atrule";
@@ -287,13 +288,14 @@ function processSelectors(ruleData, processingContext, docContext) {
 	for (let selector = ruleData.prelude.children.head, selectorIndex = 0; selector; selector = selector.next, selectorIndex++) {
 		const {
 			startsWithCombinator,
-			hasPseudo,
+			hasCanonicalPseudoElement,
+			hasDynamicStatePseudoClass,
 			scopeRelative
 		} = analyzeSelector(selector.data);
 		registerSelector(selector, ruleData, scopeRelative, processingContext, docContext);
 		if (!startsWithCombinator || !ancestorsSelectors || !ancestorsSelectors.length) {
 			const matchedElements = matchElements(selector, ancestorsSelectors, docContext);
-			if (matchedElements.length && !hasPseudo) {
+			if (matchedElements.length && !(hasCanonicalPseudoElement || hasDynamicStatePseudoClass)) {
 				updateMatchingSelectors(matchedElements, selector, docContext);
 			} else if (!matchedElements.length) {
 				removedSelectors.push(selector);
@@ -304,16 +306,20 @@ function processSelectors(ruleData, processingContext, docContext) {
 }
 
 function analyzeSelector(selector) {
-	let hasPseudo = false;
+	let hasCanonicalPseudoElement = false;
+	let hasDynamicStatePseudoClass = false;
 	let hasNestingOrScope = false;
 	let startsWithCombinator = false;
 	cssTree.walk(selector, {
 		enter(node) {
 			if (node.type === PSEUDO_ELEMENT_SELECTOR_TYPE) {
-				hasPseudo = true;
+				hasCanonicalPseudoElement = true;
 			} else if (node.type === PSEUDO_CLASS_SELECTOR_TYPE) {
-				hasPseudo = true;
-				if (node.name === SCOPE_NAME) {
+				if (CANONICAL_PSEUDO_ELEMENT_NAMES.has(node.name)) {
+					hasCanonicalPseudoElement = true;
+				} else if (DYNAMIC_STATE_PSEUDO_CLASSES.includes(node.name)) {
+					hasDynamicStatePseudoClass = true;
+				} else if (node.name === SCOPE_NAME) {
 					hasNestingOrScope = true;
 				}
 			} else if (node.type === NESTING_SELECTOR_TYPE) {
@@ -324,7 +330,7 @@ function analyzeSelector(selector) {
 	const firstChild = selector.children.head.data;
 	startsWithCombinator = firstChild && firstChild.type === COMBINATOR_NAME;
 	const scopeRelative = !startsWithCombinator && !hasNestingOrScope;
-	return { hasPseudo, startsWithCombinator, scopeRelative };
+	return { hasCanonicalPseudoElement, hasDynamicStatePseudoClass, startsWithCombinator, scopeRelative };
 }
 
 function updateMatchingSelectors(matchedElements, selector, docContext) {
