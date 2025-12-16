@@ -94,7 +94,7 @@ function sanitizeSelector(selector, ancestors, docContext) {
     if (docContext.normalizedSelectorText.has(selector)) {
         return docContext.normalizedSelectorText.get(selector);
     }
-    const ast = cssTree.clone(selector.data);
+    const ast = cssTree.parse(cssTree.generate(selector.data), { context: "selector" });
     normalizeSelectorNode(ast, ancestors);
     let normalized = cssTree.generate(ast);
     if (!normalized || !normalized.trim()) {
