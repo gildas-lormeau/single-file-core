@@ -130,11 +130,19 @@ function normalizeSelectorNode(selector, ancestors) {
         } else if (childNode.type === "PseudoClassSelector") {
             const pseudoName = (childNode.name || "").toLowerCase();
             if (DYNAMIC_STATE_PSEUDO_CLASSES.includes(pseudoName)) {
-                selector.children.remove(current);
+                removeNode(selector.children, current);
             }
         } else if (childNode.type === "Selector") {
             normalizeSelectorNode(childNode, ancestors);
         }
         current = next;
+    }
+}
+
+function removeNode(list, item) {
+    if (item.prev == null || item.prev.data.type == "Combinator" || item.prev.data.type == "WhiteSpace") {
+        list.replace(item, cssTree.parse("*", { context: "selector" }).children.head);
+    } else {
+        list.remove(item);
     }
 }
