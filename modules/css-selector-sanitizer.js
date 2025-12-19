@@ -77,7 +77,8 @@ const DYNAMIC_STATE_PSEUDO_CLASSES = [
     "optional",
     "user-valid",
     "user-invalid",
-    "defined"
+    "defined",
+    "fullscreen"
 ];
 
 export {
