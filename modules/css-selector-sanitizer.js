@@ -76,7 +76,8 @@ const DYNAMIC_STATE_PSEUDO_CLASSES = [
     "required",
     "optional",
     "user-valid",
-    "user-invalid"
+    "user-invalid",
+    "defined"
 ];
 
 export {
