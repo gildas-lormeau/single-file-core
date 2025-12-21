@@ -29,7 +29,9 @@ import { sanitizeSelector, matchUnqueryablePseudoClass } from "./css-selector-sa
 const DEBUG = false;
 
 const CANONICAL_PSEUDO_ELEMENT_NAMES = new Set(["after", "before", "first-letter", "first-line", "placeholder", "selection", "part", "marker"]);
-const CONDITIONAL_AT_RULE_NAMES = new Set(["media", "supports", "container"]);
+const MEDIA_AT_RULE_NAME = "media";
+const SUPPORTS_AT_RULE_NAME = "supports";
+const CONDITIONAL_AT_RULE_NAMES = new Set([MEDIA_AT_RULE_NAME, SUPPORTS_AT_RULE_NAME, "container"]);
 const RULE_TYPE = "Rule";
 const AT_RULE_TYPE = "Atrule";
 const NESTING_SELECTOR_TYPE = "NestingSelector";
@@ -124,7 +126,7 @@ function minifyRules(stylesheets, docContext) {
 	stylesheets.forEach((stylesheetInfo, key) => {
 		if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
 			if (hasChildNodes(stylesheetInfo.stylesheet)) {
-				const topConditionalStack = stylesheetInfo.mediaText ? [{ name: "media", prelude: stylesheetInfo.mediaText }] : [];
+				const topConditionalStack = stylesheetInfo.mediaText ? [{ name: MEDIA_AT_RULE_NAME, prelude: stylesheetInfo.mediaText }] : [];
 				minifyStylesheetRules(stylesheetInfo.stylesheet.children, stylesheets, {
 					ancestorsSelectors: [],
 					layerStack: [],
@@ -218,12 +220,12 @@ function minifyRule(ruleData, cssRule, stylesheets, processingContext, removedRu
 
 function minifyImportRule(ruleData, _cssRule, stylesheets, processingContext, _removedRules, docContext) {
 	const urlNode = ruleData.prelude.children.head.data;
-	const topConditionalStack = urlNode.importedMediaText ? [{ name: "media", prelude: urlNode.importedMediaText }] : [];
+	const topConditionalStack = urlNode.importedMediaText ? [{ name: MEDIA_AT_RULE_NAME, prelude: urlNode.importedMediaText }] : [];
 	if (urlNode.importedLayerName !== undefined) {
-		topConditionalStack.push({ name: "layer", prelude: urlNode.importedLayerName });
+		topConditionalStack.push({ name: LAYER_NAME, prelude: urlNode.importedLayerName });
 	}
 	if (urlNode.importedSupportsCondition !== undefined) {
-		topConditionalStack.push({ name: "supports", prelude: urlNode.importedSupportsCondition });
+		topConditionalStack.push({ name: SUPPORTS_AT_RULE_NAME, prelude: urlNode.importedSupportsCondition });
 	}
 	minifyStylesheetRules(urlNode.importedChildren, stylesheets, {
 		...processingContext,
