@@ -23,6 +23,7 @@
  */
 
 import * as cssTree from "./../vendor/css-tree.js";
+
 const TREE_STRUCTURAL_PSEUDO_CLASSES = [
     "root",
     "empty",
@@ -51,10 +52,6 @@ export {
     sanitizeSelector,
 };
 
-/**
- * Sanitize a selector AST into a QSA-safe selector string.
- * Optional `ancestors` array may be provided to expand nesting selectors (`&`).
- */
 function sanitizeSelector(selector, ancestors, docContext) {
     if (!docContext.normalizedSelectorText) {
         docContext.normalizedSelectorText = new WeakMap();
