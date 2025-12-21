@@ -68,6 +68,7 @@ function sanitizeSelector(selector, ancestors, docContext) {
     docContext.normalizedSelectorText.set(selector, normalized);
     return normalized;
 }
+
 function normalizeSelectorNode(selector, ancestors) {
     let current = selector.children.head;
     while (current) {
