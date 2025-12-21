@@ -24,7 +24,7 @@
 import * as cssTree from "./../vendor/css-tree.js";
 import { computeMaxSpecificity } from "./css-specificity.js";
 import { parsePrelude } from "./css-scope-prelude-parser.js";
-import { sanitizeSelector, matchRemovedPseudoClass } from "./css-selector-sanitizer.js";
+import { sanitizeSelector, matchUnqueryablePseudoClass } from "./css-selector-sanitizer.js";
 
 const DEBUG = false;
 
@@ -289,13 +289,13 @@ function processSelectors(ruleData, processingContext, docContext) {
 		const {
 			startsWithCombinator,
 			hasCanonicalPseudoElement,
-			hasDynamicStatePseudoClass,
+			hasUnqueryablePseudoClass,
 			scopeRelative
 		} = analyzeSelector(selector.data);
 		registerSelector(selector, ruleData, scopeRelative, processingContext, docContext);
 		if (!startsWithCombinator || !ancestorsSelectors || !ancestorsSelectors.length) {
 			const matchedElements = matchElements(selector, ancestorsSelectors, docContext);
-			if (matchedElements.length && !(hasCanonicalPseudoElement || hasDynamicStatePseudoClass)) {
+			if (matchedElements.length && !(hasCanonicalPseudoElement || hasUnqueryablePseudoClass)) {
 				updateMatchingSelectors(matchedElements, selector, docContext);
 			} else if (!matchedElements.length) {
 				removedSelectors.push(selector);
@@ -307,7 +307,7 @@ function processSelectors(ruleData, processingContext, docContext) {
 
 function analyzeSelector(selector) {
 	let hasCanonicalPseudoElement = false;
-	let hasDynamicStatePseudoClass = false;
+	let hasUnqueryablePseudoClass = false;
 	let hasNestingOrScope = false;
 	let startsWithCombinator = false;
 	cssTree.walk(selector, {
@@ -317,8 +317,8 @@ function analyzeSelector(selector) {
 			} else if (node.type === PSEUDO_CLASS_SELECTOR_TYPE) {
 				if (CANONICAL_PSEUDO_ELEMENT_NAMES.has(node.name)) {
 					hasCanonicalPseudoElement = true;
-				} else if (matchRemovedPseudoClass(node)) {
-					hasDynamicStatePseudoClass = true;
+				} else if (matchUnqueryablePseudoClass(node)) {
+					hasUnqueryablePseudoClass = true;
 				} else if (node.name === SCOPE_NAME) {
 					hasNestingOrScope = true;
 				}
@@ -330,7 +330,7 @@ function analyzeSelector(selector) {
 	const firstChild = selector.children.head.data;
 	startsWithCombinator = firstChild && firstChild.type === COMBINATOR_NAME;
 	const scopeRelative = !startsWithCombinator && !hasNestingOrScope;
-	return { hasCanonicalPseudoElement, hasDynamicStatePseudoClass, startsWithCombinator, scopeRelative };
+	return { hasCanonicalPseudoElement, hasUnqueryablePseudoClass, startsWithCombinator, scopeRelative };
 }
 
 function updateMatchingSelectors(matchedElements, selector, docContext) {

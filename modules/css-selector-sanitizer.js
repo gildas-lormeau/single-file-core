@@ -48,7 +48,7 @@ const FUNCTIONAL_PSEUDO_CLASSES = [
     "has"
 ];
 export {
-    matchRemovedPseudoClass,
+    matchUnqueryablePseudoClass,
     sanitizeSelector,
 };
 
@@ -94,7 +94,7 @@ function normalizeSelectorNode(selector, ancestors) {
         } else if (childNode.type === "PseudoElementSelector") {
             selector.children.remove(current);
         } else if (childNode.type === "PseudoClassSelector") {
-            if (matchRemovedPseudoClass(childNode)) {
+            if (matchUnqueryablePseudoClass(childNode)) {
                 removeNode(selector.children, current);
             }
         } else if (childNode.type === "Selector") {
@@ -112,7 +112,7 @@ function removeNode(list, item) {
     }
 }
 
-function matchRemovedPseudoClass(pseudoClass) {
+function matchUnqueryablePseudoClass(pseudoClass) {
     const name = pseudoClass.name.toLowerCase();
     return pseudoClass.children ? (
         !TREE_STRUCTURAL_FUNCTIONAL_PSEUDO_CLASSES.includes(name) &&
