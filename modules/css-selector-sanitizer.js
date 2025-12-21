@@ -23,68 +23,34 @@
  */
 
 import * as cssTree from "./../vendor/css-tree.js";
-const DYNAMIC_STATE_PSEUDO_CLASSES = [
-    "active-view-transition",
-    "active-view-transition-type",
-    "blank",
-    "buffering",
-    "current",
-    "first",
-    "future",
-    "has-slotted",
-    "host-context",
-    "heading",
-    "left",
-    "muted",
-    "open",
-    "past",
-    "paused",
-    "picture-in-picture",
-    "playing",
-    "right",
-    "seeking",
-    "stalled",
-    "volume-locked",
-    "after",
-    "before",
-    "visited",
-    "link",
-    "any-link",
-    "local-link",
-    "target",
-    "scope",
-    "hover",
-    "active",
-    "focus",
-    "focus-within",
-    "focus-visible",
-    "target-current",
-    "enabled",
-    "disabled",
-    "read-only",
-    "read-write",
-    "placeholder-shown",
-    "autofill",
-    "default",
-    "checked",
-    "indeterminate",
-    "blank",
-    "valid",
-    "invalid",
-    "in-range",
-    "out-of-range",
-    "required",
-    "optional",
-    "user-valid",
-    "user-invalid",
-    "defined",
-    "fullscreen"
+const TREE_STRUCTURAL_PSEUDO_CLASSES = [
+    "root",
+    "empty",
+    "first-child",
+    "last-child",
+    "only-child",
+    "first-of-type",
+    "last-of-type",
+    "only-of-type"
 ];
-
+const TREE_STRUCTURAL_FUNCTIONAL_PSEUDO_CLASSES = [
+    "nth-child",
+    "nth-last-child",
+    "heading",
+    "nth-of-type",
+    "nth-last-of-type"
+];
+const FUNCTIONAL_PSEUDO_CLASSES = [
+    "not",
+    "is",
+    "where",
+    "has"
+];
 export {
-    DYNAMIC_STATE_PSEUDO_CLASSES,
+    matchRemovedPseudoClass,
     sanitizeSelector,
 };
+
 /**
  * Sanitize a selector AST into a QSA-safe selector string.
  * Optional `ancestors` array may be provided to expand nesting selectors (`&`).
@@ -130,8 +96,7 @@ function normalizeSelectorNode(selector, ancestors) {
         } else if (childNode.type === "PseudoElementSelector") {
             selector.children.remove(current);
         } else if (childNode.type === "PseudoClassSelector") {
-            const pseudoName = (childNode.name || "").toLowerCase();
-            if (DYNAMIC_STATE_PSEUDO_CLASSES.includes(pseudoName)) {
+            if (matchRemovedPseudoClass(childNode)) {
                 removeNode(selector.children, current);
             }
         } else if (childNode.type === "Selector") {
@@ -147,4 +112,13 @@ function removeNode(list, item) {
     } else {
         list.remove(item);
     }
+}
+
+function matchRemovedPseudoClass(pseudoClass) {
+    const name = pseudoClass.name.toLowerCase();
+    const isFunctional = Boolean(pseudoClass.children);
+    return isFunctional ? (
+        !TREE_STRUCTURAL_FUNCTIONAL_PSEUDO_CLASSES.includes(name) &&
+        !FUNCTIONAL_PSEUDO_CLASSES.includes(name)
+    ) : !TREE_STRUCTURAL_PSEUDO_CLASSES.includes(name);
 }

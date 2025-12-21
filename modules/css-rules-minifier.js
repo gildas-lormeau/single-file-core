@@ -24,7 +24,7 @@
 import * as cssTree from "./../vendor/css-tree.js";
 import { computeMaxSpecificity } from "./css-specificity.js";
 import { parsePrelude } from "./css-scope-prelude-parser.js";
-import { sanitizeSelector, DYNAMIC_STATE_PSEUDO_CLASSES } from "./css-selector-sanitizer.js";
+import { sanitizeSelector, matchRemovedPseudoClass } from "./css-selector-sanitizer.js";
 
 const DEBUG = false;
 
@@ -317,7 +317,7 @@ function analyzeSelector(selector) {
 			} else if (node.type === PSEUDO_CLASS_SELECTOR_TYPE) {
 				if (CANONICAL_PSEUDO_ELEMENT_NAMES.has(node.name)) {
 					hasCanonicalPseudoElement = true;
-				} else if (DYNAMIC_STATE_PSEUDO_CLASSES.includes(node.name)) {
+				} else if (matchRemovedPseudoClass(node)) {
 					hasDynamicStatePseudoClass = true;
 				} else if (node.name === SCOPE_NAME) {
 					hasNestingOrScope = true;
