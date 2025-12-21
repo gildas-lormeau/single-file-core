@@ -416,35 +416,37 @@ function collectDeclarationItemsForElement(element, docContext) {
 			for (let declaration = declarations.head; declaration; declaration = declaration.next) {
 				const { type, value } = declaration.data;
 				if (type === DECLARATION_TYPE && value) {
-					const isRawValue = value.type === RAW_TYPE;
-					const isSingleValue = value.type === VALUE_TYPE &&
-						hasChildNodes(value) &&
-						value.children.length == 1 &&
-						value.children.head.data.name;
-					const isVendorValue = isSingleValue && value.children.head.data.name.startsWith(VENDOR_PREFIX);
-					const isInvalidValue = isSingleValue && INVALID_CSS_ESCAPE_TEST.test(value.children.head.data.name);
-					if (!isRawValue && !isVendorValue && !isInvalidValue) {
-						allDeclarations.push({
-							declaration,
-							selector,
-							effectiveSpecificity: computeEffectiveSpecificity(
-								docContext.selectorData.get(selector), element, docContext),
-							isInline: false
-						});
-					}
+					const effectiveSpecificity = computeEffectiveSpecificity(docContext.selectorData.get(selector), element, docContext);
+					addDeclaration(declaration, effectiveSpecificity, false, selector);
 				}
 			}
 		}
 	});
 	const inlineDeclarations = getInlineStyleDeclarations(element);
 	for (const declaration of inlineDeclarations) {
-		allDeclarations.push({
-			declaration: declaration.declaration,
-			effectiveSpecificity: declaration.effectiveSpecificity,
-			isInline: true
-		});
+		addDeclaration(declaration.declaration, declaration.effectiveSpecificity, true);
 	}
 	return allDeclarations;
+
+	function addDeclaration(declaration, effectiveSpecificity, isInline, selector) {
+		const { value } = declaration.data;
+		const isRawValue = value.type === RAW_TYPE;
+		const hasValueChildNodes = hasChildNodes(value) || value.type === RAW_TYPE;
+		const isSingleValue = value.type === VALUE_TYPE &&
+			hasValueChildNodes &&
+			value.children.length == 1 &&
+			value.children.head.data.name;
+		const isVendorValue = isSingleValue && value.children.head.data.name.startsWith(VENDOR_PREFIX);
+		const isInvalidValue = isSingleValue && INVALID_CSS_ESCAPE_TEST.test(value.children.head.data.name);
+		if (hasValueChildNodes && !isRawValue && !isVendorValue && !isInvalidValue) {
+			allDeclarations.push({
+				declaration,
+				selector,
+				effectiveSpecificity,
+				isInline
+			});
+		}
+	}
 }
 
 function getConditionalStackForSelector(selector, docContext) {
