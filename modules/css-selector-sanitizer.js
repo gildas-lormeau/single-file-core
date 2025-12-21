@@ -114,8 +114,7 @@ function removeNode(list, item) {
 
 function matchRemovedPseudoClass(pseudoClass) {
     const name = pseudoClass.name.toLowerCase();
-    const isFunctional = Boolean(pseudoClass.children);
-    return isFunctional ? (
+    return pseudoClass.children ? (
         !TREE_STRUCTURAL_FUNCTIONAL_PSEUDO_CLASSES.includes(name) &&
         !FUNCTIONAL_PSEUDO_CLASSES.includes(name)
     ) : !TREE_STRUCTURAL_PSEUDO_CLASSES.includes(name);
