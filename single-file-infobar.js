@@ -29,17 +29,21 @@ import { appendInfobar, refreshInfobarInfo, extractInfobarData } from "./core/in
 
 	const browser = globalThis.browser;
 	const MutationObserver = globalThis.MutationObserver;
+	let mutationObserver;
 	init();
 
 	function init() {
 		if (globalThis.window == globalThis.top) {
-			if (document.readyState == "loading") {
-				document.addEventListener("DOMContentLoaded", displayIcon, false);
-			} else {
-				displayIcon();
-			}
 			document.addEventListener("single-file-display-infobar", displayIcon, false);
-			new MutationObserver(init).observe(document, { childList: true });
+			if (document.documentElement.getAttribute("data-sfz") == "" && !mutationObserver) {
+				mutationObserver = new MutationObserver(init).observe(document, { childList: true });
+			} else {
+				if (document.readyState == "loading") {
+					document.addEventListener("DOMContentLoaded", displayIcon, false);
+				} else {
+					displayIcon();
+				}
+			}
 		}
 		if (globalThis.singlefile) {
 			globalThis.singlefile.infobar = {
