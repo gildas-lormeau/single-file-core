@@ -410,13 +410,14 @@ function collectDeclarationItemsForElement(element, docContext) {
 	const matchingSelectors = docContext.matchingSelectors.get(element);
 	const allDeclarations = [];
 	matchingSelectors.forEach(selector => {
-		const { rule, specificity } = docContext.selectorData.get(selector);
-		if (hasChildNodes(rule.block)) {
-			const declarations = rule.block.children;
+		const cssRule = docContext.selectorData.get(selector).rule;
+		if (hasChildNodes(cssRule.block)) {
+			const declarations = cssRule.block.children;
 			for (let declaration = declarations.head; declaration; declaration = declaration.next) {
 				const { type, value } = declaration.data;
 				if (type === DECLARATION_TYPE && value) {
-					addDeclaration(declaration, specificity, false, selector);
+					const effectiveSpecificity = computeEffectiveSpecificity(docContext.selectorData.get(selector), element, docContext);
+					addDeclaration(declaration, effectiveSpecificity, false, selector);
 				}
 			}
 		}
@@ -509,50 +510,31 @@ function createMatchCacheKey(hasScope, selectorData, selectorText) {
 
 function collectScopedMatches(cacheKey, selector, docContext) {
 	const selectorData = docContext.selectorData.get(selector);
-	const includeStack = selectorData.scopeIncludeLists || [];
-	const excludeStack = selectorData.scopeExclusionLists || [];
+	const includeLists = selectorData.scopeIncludeLists && selectorData.scopeIncludeLists.length ? selectorData.scopeIncludeLists[selectorData.scopeIncludeLists.length - 1] : [];
+	const excludeLists = selectorData.scopeExclusionLists && selectorData.scopeExclusionLists.length ? selectorData.scopeExclusionLists[selectorData.scopeExclusionLists.length - 1] : [];
 	const matchedSet = new Set();
-	const scopedRoots = resolveScopedRoots(includeStack, excludeStack, docContext);
-	const normalizedSelector = normalizeForRoot(selector);
-	for (const root of scopedRoots) {
-		const roots = querySelectorForRoot(root, normalizedSelector, docContext.scopeRoots);
-		roots.forEach(node => matchedSet.add(node));
+	const includes = includeLists.length ? includeLists : [ROOT_PSEUDO_CLASS];
+	for (const includeSelector of includes) {
+		collectMatchesForInclude(includeSelector, selector, excludeLists, docContext, matchedSet);
 	}
 	const matchedElements = Array.from(matchedSet);
 	docContext.matchedSelectors.set(cacheKey, matchedElements);
 	return matchedElements;
 }
 
-function resolveScopedRoots(includeStack, excludeStack, docContext) {
-	let currentRoots = new Set([docContext.doc]);
-	includeStack.forEach(includeList => {
-		const selectors = includeList && includeList.length ? includeList : [ROOT_PSEUDO_CLASS];
-		const nextRoots = new Set();
-		selectors.forEach(includeSelector => {
-			const rootsForInclude = getScopeRoots(includeSelector, docContext);
-			rootsForInclude.forEach(root => {
-				for (const parentRoot of currentRoots) {
-					if (parentRoot === root || parentRoot.contains(root)) {
-						nextRoots.add(root);
-						break;
-					}
-				}
-			});
-		});
-		currentRoots = nextRoots;
-	});
-
-	excludeStack.forEach(excludeList => {
-		if (excludeList && excludeList.length) {
-			const excludeRoots = new Set();
-			excludeList.forEach(excludeSelector => {
-				getScopeRoots(excludeSelector, docContext).forEach(root => excludeRoots.add(root));
-			});
-			currentRoots = new Set(Array.from(currentRoots).filter(root => !Array.from(excludeRoots).some(excludeRoot => excludeRoot.contains(root))));
+function collectMatchesForInclude(includeSelector, selector, excludeLists, docContext, matchedSet) {
+	const rootsForInclude = getScopeRoots(includeSelector, docContext);
+	for (const rootForInclude of rootsForInclude) {
+		const roots = querySelectorForRoot(rootForInclude, normalizeForRoot(selector), docContext.scopeRoots);
+		if (roots.length) {
+			if (excludeLists && excludeLists.length) {
+				const filteredRoots = filterExcludedRoots(roots, excludeLists, docContext);
+				filteredRoots.forEach(root => matchedSet.add(root));
+			} else {
+				roots.forEach(root => matchedSet.add(root));
+			}
 		}
-	});
-
-	return currentRoots;
+	}
 }
 
 function querySelectorForRoot(root, selector, cache) {
@@ -596,6 +578,16 @@ function getScopeRoots(selector, docContext) {
 	}
 	return roots;
 }
+
+function filterExcludedRoots(roots, excludeLists, docContext) {
+	const excludeRoots = new Set();
+	for (const excludeSelector of excludeLists) {
+		const rootsForExclude = getScopeRoots(excludeSelector, docContext);
+		rootsForExclude.forEach(root => excludeRoots.add(root));
+	}
+	return roots.filter(node => !Array.from(excludeRoots).some(excludedRoot => excludedRoot.contains(node)));
+}
+
 function compareDeclarations(declarationA, declarationB, docContext) {
 	const importantA = declarationA.declaration.data.important ? CSS_IMPORTANCE_IMPORTANT : CSS_IMPORTANCE_NOT_IMPORTANT;
 	const importantB = declarationB.declaration.data.important ? CSS_IMPORTANCE_IMPORTANT : CSS_IMPORTANCE_NOT_IMPORTANT;
@@ -832,6 +824,36 @@ function combineSelectors(parentSelectorText, childSelectorText) {
 	}
 	const combinedSelector = parseCss(`${parentSelectorText} ${childSelectorText}`);
 	return cssTree.generate(combinedSelector);
+}
+
+function computeEffectiveSpecificity(selectorData, element, docContext) {
+	const baseSpecificity = selectorData.specificity;
+	let effectiveSpecificity = { a: baseSpecificity.a, b: baseSpecificity.b, c: baseSpecificity.c };
+	const includeLists = selectorData && selectorData.scopeIncludeLists && selectorData.scopeIncludeLists.length ? selectorData.scopeIncludeLists[selectorData.scopeIncludeLists.length - 1] : [];
+	if (includeLists && includeLists.length) {
+		for (const includeSelector of includeLists) {
+			const roots = getScopeRoots(includeSelector, docContext);
+			if (roots.some(root => root.contains(element))) {
+				const includeSpecificity = getIncludeSpecificity(includeSelector, docContext);
+				effectiveSpecificity = {
+					a: effectiveSpecificity.a + includeSpecificity.a,
+					b: effectiveSpecificity.b + includeSpecificity.b,
+					c: effectiveSpecificity.c + includeSpecificity.c
+				};
+			}
+		}
+	}
+	return effectiveSpecificity;
+}
+
+function getIncludeSpecificity(includeSelector, docContext) {
+	let specificity = docContext.scopeSpecificities.get(includeSelector);
+	if (!specificity) {
+		const selector = parseCss(includeSelector);
+		specificity = computeMaxSpecificity(selector, []);
+		docContext.scopeSpecificities.set(includeSelector, specificity);
+	}
+	return specificity;
 }
 
 function hasChildNodes(node) {
