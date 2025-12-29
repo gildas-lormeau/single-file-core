@@ -557,6 +557,10 @@ function matchSelectorWithinRoot(root, selectorText) {
 	try {
 		nodes = root.querySelectorAll(selectorText);
 	} catch {
+		if (DEBUG) {
+			// eslint-disable-next-line no-console
+			console.error(QSA_ERROR_MESSAGE, { root, selectorText });
+		}
 		nodes = matchByTraversal([root], selectorText, true);
 	}
 	for (const node of nodes) {
