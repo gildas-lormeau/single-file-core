@@ -244,8 +244,16 @@ function minifyLayerRule(ruleData, cssRule, stylesheets, processingContext, remo
 }
 
 function minifyScopeRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext) {
-	const parsedPrelude = parsePrelude(ruleData.prelude);
-	const scopeContext = buildScopeContext(parsedPrelude, processingContext, docContext);
+	let scopeContext;
+	try {
+		const parsedPrelude = parsePrelude(ruleData.prelude);
+		scopeContext = buildScopeContext(parsedPrelude, processingContext, docContext);
+	} catch (error) {
+		if (DEBUG) {
+			// eslint-disable-next-line no-console
+			console.error(PARSE_CSS_ERROR_MESSAGE, { ruleData, error });
+		}
+	}
 	if (!scopeContext) {
 		docContext.stats.discarded++;
 		removedRules.add(cssRule);
