@@ -290,8 +290,8 @@ function collectScopeRootElements(includeSelectors, scopeStack, docContext) {
 	const roots = new Set();
 	includeSelectors.forEach(selectorInfo => {
 		const selectorText = sanitizeSelector(selectorInfo, null, docContext);
-		const matches = querySelectorAll(docContext.doc, selectorText);
-		filterElementsByScopes(matches, scopeStack).forEach(match => roots.add(match));
+		const matchedNodes = querySelectorAll(docContext.doc, selectorText);
+		filterElementsByScopes(matchedNodes, scopeStack).forEach(match => roots.add(match));
 	});
 	return Array.from(roots);
 }
@@ -538,20 +538,20 @@ function matchElementsInScope(selectorText, scopeStack) {
 	if (!roots.length) {
 		return [];
 	}
-	const matches = new Set();
+	const matchedNodes = new Set();
 	roots.forEach(root => {
-		matchSelectorWithinRoot(root, selectorText).forEach(node => matches.add(node));
+		matchSelectorWithinRoot(root, selectorText).forEach(node => matchedNodes.add(node));
 	});
-	return Array.from(matches);
+	return Array.from(matchedNodes);
 }
 
 function matchSelectorWithinRoot(root, selectorText) {
-	const matches = new Set();
+	const matchedNodes = new Set();
 	if (!root || root.nodeType !== 1) {
-		return matches;
+		return matchedNodes;
 	}
 	if (matches(root, selectorText)) {
-		matches.add(root);
+		matchedNodes.add(root);
 	}
 	let nodes;
 	try {
@@ -560,9 +560,9 @@ function matchSelectorWithinRoot(root, selectorText) {
 		nodes = matchByTraversal([root], selectorText, true);
 	}
 	for (const node of nodes) {
-		matches.add(node);
+		matchedNodes.add(node);
 	}
-	return Array.from(matches);
+	return Array.from(matchedNodes);
 }
 
 function matches(element, selectorText) {
