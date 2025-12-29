@@ -20,7 +20,6 @@
  *   notice and a URL through which recipients can access the Corresponding 
  *   Source.
  */
-
 import * as cssTree from "../vendor/css-tree.js";
 
 const CANONICAL_PSEUDO_ELEMENT_NAMES = new Set(["after", "before", "first-letter", "first-line", "placeholder", "selection", "part", "marker"]);
@@ -34,52 +33,13 @@ function parsePrelude(prelude) {
     return { include: [], exclude: [] };
   }
 
-  // Normalize prelude to a string then split on a top-level `to` keyword.
-  // Using generated string is pragmatic: `to` as an at-rule keyword is expected
-  // to appear at top-level with surrounding whitespace. We split on whitespace+to+whitespace.
-  const preludeText = cssTree.generate(prelude).trim();
-  if (!preludeText) return { include: [], exclude: [] };
-
-  // Split on top-level ' to ' (case-insensitive) — join remaining parts if multiple 'to' appear
-  const parts = preludeText.split(/\s+to\s+/i);
-  const includeText = parts[0].trim();
-  const excludeText = parts.length > 1 ? parts.slice(1).join(" to ").trim() : "";
-
-  function parseSelectorList(text) {
-    if (!text) return [];
-    // Strip balanced outer parentheses that css-tree may produce in generated preludes
-    function stripOuterParens(s) {
-      let str = s.trim();
-      while (str.length >= 2 && str[0] === "(" && str[str.length - 1] === ")") {
-        // ensure they are balanced pairs for the whole string
-        let depth = 0;
-        let balanced = true;
-        for (let i = 0; i < str.length; i++) {
-          if (str[i] === "(") depth++;
-          else if (str[i] === ")") depth--;
-          if (depth === 0 && i < str.length - 1) { balanced = false; break; }
-        }
-        if (!balanced) break;
-        str = str.substring(1, str.length - 1).trim();
-      }
-      return str;
-    }
-
-    const cleaned = stripOuterParens(text);
-    // css-tree expects a selectorList context
-    const ast = cssTree.parse(cleaned, { context: "selectorList" });
-    const selectors = [];
-    if (ast && ast.children) {
-      for (let node = ast.children.head; node; node = node.next) {
-        const selector = node.data;
-        selectors.push({ data: selector, text: cssTree.generate(selector) });
-      }
-    }
-    return selectors;
+  const scopeNode = findScopeNode(prelude);
+  if (!scopeNode) {
+    return { include: [], exclude: [] };
   }
 
-  const include = parseSelectorList(includeText);
-  const exclude = parseSelectorList(excludeText);
+  const include = extractSelectorList(scopeNode.root);
+  const exclude = extractSelectorList(scopeNode.limit);
 
   // Validate: pseudo-elements are not allowed in scope start/end selectors
   function containsPseudoElement(selectorAst) {
@@ -116,4 +76,28 @@ function parsePrelude(prelude) {
   }
 
   return { include, exclude };
+}
+
+function findScopeNode(prelude) {
+  if (!prelude || !prelude.children) {
+    return null;
+  }
+  for (let node = prelude.children.head; node; node = node.next) {
+    if (node.data && node.data.type === "Scope") {
+      return node.data;
+    }
+  }
+  return null;
+}
+
+function extractSelectorList(selectorList) {
+  if (!selectorList || !selectorList.children) {
+    return [];
+  }
+  const selectors = [];
+  for (let node = selectorList.children.head; node; node = node.next) {
+    const selector = node.data;
+    selectors.push({ data: selector, text: cssTree.generate(selector) });
+  }
+  return selectors;
 }
