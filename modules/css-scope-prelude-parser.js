@@ -21,7 +21,7 @@
  *   Source.
  */
 
-import * as cssTree from "./../vendor/css-tree.js";
+import * as cssTree from "../vendor/css-tree.js";
 
 const CANONICAL_PSEUDO_ELEMENT_NAMES = new Set(["after", "before", "first-letter", "first-line", "placeholder", "selection", "part", "marker"]);
 
@@ -71,8 +71,8 @@ function parsePrelude(prelude) {
     const selectors = [];
     if (ast && ast.children) {
       for (let node = ast.children.head; node; node = node.next) {
-        const sel = node.data;
-        selectors.push({ ast: sel, text: cssTree.generate(sel) });
+        const selector = node.data;
+        selectors.push({ data: selector, text: cssTree.generate(selector) });
       }
     }
     return selectors;
@@ -105,12 +105,12 @@ function parsePrelude(prelude) {
   }
 
   for (const s of include) {
-    if (containsPseudoElement(s.ast)) {
+    if (containsPseudoElement(s.data)) {
       throw new Error("Pseudo-elements are not allowed in @scope prelude (scope-start)");
     }
   }
   for (const s of exclude) {
-    if (containsPseudoElement(s.ast)) {
+    if (containsPseudoElement(s.data)) {
       throw new Error("Pseudo-elements are not allowed in @scope prelude (scope-end)");
     }
   }

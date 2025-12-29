@@ -139,7 +139,7 @@ function getMaxSpecificityFromList(selectorList) {
     return maxSpec;
 }
 
-function computeMaxSpecificity(selector, ancestorsSelectors) {
+function computeMaxSpecificity(selector, ancestorsSelectors, scopeStack) {
     // If no ancestors provided, keep existing behavior
     if (!ancestorsSelectors || !ancestorsSelectors.length) {
         let maxSpecificity = { a: 0, b: 0, c: 0 };
@@ -162,6 +162,9 @@ function computeMaxSpecificity(selector, ancestorsSelectors) {
                 stack.pop();
             }
         });
+        if (scopeStack && scopeStack.length) {
+            maxSpecificity.b++;
+        }
         return maxSpecificity;
     }
 

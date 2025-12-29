@@ -53,7 +53,6 @@ const SELECTOR_CONTEXT = "selector";
 const DECLARATION_LIST_CONTEXT = "declarationList";
 const PARSE_CSS_ERROR_MESSAGE = "Failed to parse CSS";
 const QSA_ERROR_MESSAGE = "Failed to match selector";
-const ROOT_PSEUDO_CLASS = ":root";
 const PRELUDE_SEPARATOR = ",";
 const NESTING_SELECTOR = "&";
 const VENDOR_PREFIX = "-";
@@ -86,9 +85,8 @@ function process(doc, stylesheets) {
 		selectorData: new Map(),
 		selectorTexts: new Map(),
 		preludeTexts: new Map(),
-		scopeRoots: new Map(),
-		scopeSpecificities: new Map(),
 		rulesCounter: 0,
+		scopeIdCounter: 0
 	};
 	collectLayerOrder(stylesheets, docContext);
 	buildEffectiveLayerOrder(docContext);
@@ -130,6 +128,7 @@ function minifyRules(stylesheets, docContext) {
 				minifyStylesheetRules(stylesheetInfo.stylesheet.children, stylesheets, {
 					ancestorsSelectors: [],
 					layerStack: [],
+					scopeStack: [],
 					conditionalStack: topConditionalStack
 				}, docContext);
 			}
@@ -246,15 +245,15 @@ function minifyLayerRule(ruleData, cssRule, stylesheets, processingContext, remo
 
 function minifyScopeRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext) {
 	const parsedPrelude = parsePrelude(ruleData.prelude);
-	const includeLists = parsedPrelude.include.map(item => item.text);
-	const excludeLists = parsedPrelude.exclude.map(item => item.text);
-	const newConditionalStack = buildConditionalStack(processingContext.conditionalStack, ruleData, docContext);
+	const scopeContext = buildScopeContext(parsedPrelude, processingContext, docContext);
+	if (!scopeContext) {
+		docContext.stats.discarded++;
+		removedRules.add(cssRule);
+		return;
+	}
 	const newProcessingContext = {
 		...processingContext,
-		conditionalStack: newConditionalStack,
-		scopeIncludeLists: [...(processingContext.scopeIncludeLists || []), includeLists],
-		scopeExclusionLists: [...(processingContext.scopeExclusionLists || []), excludeLists],
-		scopeNestingLevel: (processingContext.scopeNestingLevel || 0) + 1
+		scopeStack: [...(processingContext.scopeStack || []), scopeContext]
 	};
 	expandRawCssRules(ruleData);
 	minifyStylesheetRules(ruleData.block.children, stylesheets, newProcessingContext, docContext);
@@ -262,6 +261,67 @@ function minifyScopeRule(ruleData, cssRule, stylesheets, processingContext, remo
 		docContext.stats.discarded++;
 		removedRules.add(cssRule);
 	}
+}
+
+function buildScopeContext(parsedPrelude, processingContext, docContext) {
+	const scopeStack = processingContext.scopeStack || [];
+	const includeSelectors = parsedPrelude && parsedPrelude.include ? parsedPrelude.include : [];
+	let rootElements = [];
+	if (includeSelectors.length) {
+		rootElements = collectScopeRootElements(includeSelectors, scopeStack, docContext);
+	} else if (scopeStack.length) {
+		rootElements = Array.from(scopeStack[scopeStack.length - 1].rootElements);
+	} else {
+		rootElements = getDefaultScopeRoots(docContext);
+	}
+	const uniqueRoots = Array.from(new Set(rootElements.filter(Boolean)));
+	if (!uniqueRoots.length) {
+		return null;
+	}
+	const boundaryElements = collectScopeBoundaryElements(parsedPrelude.exclude || [], uniqueRoots, docContext);
+	return {
+		id: docContext.scopeIdCounter++,
+		rootElements: new Set(uniqueRoots),
+		stopElements: boundaryElements,
+	};
+}
+
+function collectScopeRootElements(includeSelectors, scopeStack, docContext) {
+	const roots = new Set();
+	includeSelectors.forEach(selectorInfo => {
+		const selectorText = sanitizeSelector(selectorInfo, null, docContext);
+		const matches = querySelectorAll(docContext.doc, selectorText);
+		filterElementsByScopes(matches, scopeStack).forEach(match => roots.add(match));
+	});
+	return Array.from(roots);
+}
+
+function collectScopeBoundaryElements(excludeSelectors, rootElements, docContext) {
+	const boundaries = new Set();
+	if (!excludeSelectors.length || !rootElements.length) {
+		return boundaries;
+	}
+	excludeSelectors.forEach(selectorInfo => {
+		const selectorText = sanitizeSelector(selectorInfo, null, docContext);
+		rootElements.forEach(root => {
+			matchSelectorWithinRoot(root, selectorText).forEach(node => boundaries.add(node));
+		});
+	});
+	return boundaries;
+}
+
+function getDefaultScopeRoots(docContext) {
+	const roots = [];
+	if (docContext.doc && docContext.doc.documentElement) {
+		roots.push(docContext.doc.documentElement);
+	}
+	if (!roots.length && docContext.doc && docContext.doc.body) {
+		roots.push(docContext.doc.body);
+	}
+	if (!roots.length && docContext.doc && docContext.doc.children) {
+		roots.push(...Array.from(docContext.doc.children).filter(node => node.nodeType === 1));
+	}
+	return roots;
 }
 
 function minifyAtRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext) {
@@ -291,12 +351,11 @@ function processSelectors(ruleData, processingContext, docContext) {
 		const {
 			startsWithCombinator,
 			hasCanonicalPseudoElement,
-			hasUnqueryablePseudoClass,
-			scopeRelative
+			hasUnqueryablePseudoClass
 		} = analyzeSelector(selector.data);
-		registerSelector(selector, ruleData, scopeRelative, processingContext, docContext);
+		registerSelector(selector, ruleData, processingContext, docContext);
 		if (!startsWithCombinator || !ancestorsSelectors || !ancestorsSelectors.length) {
-			const matchedElements = matchElements(selector, ancestorsSelectors, docContext);
+			const matchedElements = matchElements(selector, ancestorsSelectors, processingContext.scopeStack, docContext);
 			if (matchedElements.length && !(hasCanonicalPseudoElement || hasUnqueryablePseudoClass)) {
 				updateMatchingSelectors(matchedElements, selector, docContext);
 			} else if (!matchedElements.length) {
@@ -310,7 +369,6 @@ function processSelectors(ruleData, processingContext, docContext) {
 function analyzeSelector(selector) {
 	let hasCanonicalPseudoElement = false;
 	let hasUnqueryablePseudoClass = false;
-	let hasNestingOrScope = false;
 	let startsWithCombinator = false;
 	cssTree.walk(selector, {
 		enter(node) {
@@ -321,18 +379,13 @@ function analyzeSelector(selector) {
 					hasCanonicalPseudoElement = true;
 				} else if (matchUnqueryablePseudoClass(node)) {
 					hasUnqueryablePseudoClass = true;
-				} else if (node.name === SCOPE_NAME) {
-					hasNestingOrScope = true;
 				}
-			} else if (node.type === NESTING_SELECTOR_TYPE) {
-				hasNestingOrScope = true;
 			}
 		}
 	});
 	const firstChild = selector.children.head.data;
 	startsWithCombinator = firstChild && firstChild.type === COMBINATOR_NAME;
-	const scopeRelative = !startsWithCombinator && !hasNestingOrScope;
-	return { hasCanonicalPseudoElement, hasUnqueryablePseudoClass, startsWithCombinator, scopeRelative };
+	return { hasCanonicalPseudoElement, hasUnqueryablePseudoClass, startsWithCombinator };
 }
 
 function updateMatchingSelectors(matchedElements, selector, docContext) {
@@ -354,24 +407,18 @@ function processNestedRules(ruleData, stylesheets, processingContext, docContext
 	minifyStylesheetRules(ruleData.block.children, stylesheets, newProcessingContext, docContext);
 }
 
-function registerSelector(selector, ruleData, scopeRelative, processingContext, docContext) {
+function registerSelector(selector, ruleData, processingContext, docContext) {
 	const {
 		ancestorsSelectors,
 		layerStack,
-		conditionalStack,
-		scopeIncludeLists,
-		scopeExclusionLists,
-		scopeNestingLevel
+		scopeStack,
+		conditionalStack
 	} = processingContext;
 	docContext.selectorData.set(selector, {
-		specificity: computeMaxSpecificity(selector.data, ancestorsSelectors),
+		specificity: computeMaxSpecificity(selector.data, ancestorsSelectors, scopeStack),
 		rule: ruleData,
 		layerStack,
-		conditionalStack,
-		scopeIncludeLists,
-		scopeExclusionLists,
-		scopeNestingLevel,
-		scopeRelative
+		conditionalStack
 	});
 }
 
@@ -416,19 +463,18 @@ function collectDeclarationItemsForElement(element, docContext) {
 			for (let declaration = declarations.head; declaration; declaration = declaration.next) {
 				const { type, value } = declaration.data;
 				if (type === DECLARATION_TYPE && value) {
-					const effectiveSpecificity = computeEffectiveSpecificity(docContext.selectorData.get(selector), element, docContext);
-					addDeclaration(declaration, effectiveSpecificity, false, selector);
+					addDeclaration(declaration, docContext.selectorData.get(selector).specificity, false, selector);
 				}
 			}
 		}
 	});
 	const inlineDeclarations = getInlineStyleDeclarations(element);
 	for (const declaration of inlineDeclarations) {
-		addDeclaration(declaration.declaration, declaration.effectiveSpecificity, true);
+		addDeclaration(declaration.declaration, declaration.specificity, true);
 	}
 	return allDeclarations;
 
-	function addDeclaration(declaration, effectiveSpecificity, isInline, selector) {
+	function addDeclaration(declaration, specificity, isInline, selector) {
 		const { value } = declaration.data;
 		const isRawValue = value.type === RAW_TYPE;
 		const hasValueChildNodes = hasChildNodes(value) || value.type === RAW_TYPE;
@@ -442,7 +488,7 @@ function collectDeclarationItemsForElement(element, docContext) {
 			allDeclarations.push({
 				declaration,
 				selector,
-				effectiveSpecificity,
+				specificity,
 				isInline
 			});
 		}
@@ -460,23 +506,152 @@ function getConditionalStackForSelector(selector, docContext) {
 	return conditionalStack;
 }
 
-function matchElements(selector, ancestorsSelectors, docContext) {
+function matchElements(selector, ancestorsSelectors, scopeStack, docContext) {
 	const selectorText = createSelectorText(selector, ancestorsSelectors, docContext);
-	const selectorData = docContext.selectorData.get(selector);
-	const hasScope = selectorData && ((selectorData.scopeIncludeLists && selectorData.scopeIncludeLists.length) || selectorData.scopeNestingLevel > 0);
-	const cacheKey = createMatchCacheKey(hasScope, selectorData, selectorText);
-	const cached = docContext.matchedSelectors.get(cacheKey);
-	if (cached) {
-		return cached;
+	const cacheKey = createScopeCacheKey(selectorText, scopeStack);
+	const cachedNodes = docContext.matchedSelectors.get(cacheKey);
+	if (cachedNodes) {
+		return cachedNodes;
+	}
+	let nodes;
+	if (scopeStack && scopeStack.length) {
+		nodes = matchElementsInScope(selectorText, scopeStack);
+		nodes = filterElementsByScopes(nodes, scopeStack);
 	} else {
-		if (hasScope) {
-			return collectScopedMatches(cacheKey, selector, docContext);
-		} else {
-			const nodes = querySelectorAll(docContext.doc, selectorText, docContext.scopeRoots);
-			docContext.matchedSelectors.set(cacheKey, nodes);
-			return nodes;
+		nodes = querySelectorAll(docContext.doc, selectorText);
+	}
+	docContext.matchedSelectors.set(cacheKey, nodes);
+	return nodes;
+}
+
+function createScopeCacheKey(selectorText, scopeStack) {
+	if (!scopeStack || !scopeStack.length) {
+		return selectorText;
+	}
+	const signature = scopeStack.map(scope => scope.id).join(CONTEXT_KEY_SEPARATOR);
+	return `${selectorText}${CONTEXT_KEY_SEPARATOR}${signature}`;
+}
+
+function matchElementsInScope(selectorText, scopeStack) {
+	const currentScope = scopeStack[scopeStack.length - 1];
+	const roots = Array.from(currentScope.rootElements);
+	if (!roots.length) {
+		return [];
+	}
+	const matches = new Set();
+	roots.forEach(root => {
+		matchSelectorWithinRoot(root, selectorText).forEach(node => matches.add(node));
+	});
+	return Array.from(matches);
+}
+
+function matchSelectorWithinRoot(root, selectorText) {
+	const matches = new Set();
+	if (!root || root.nodeType !== 1) {
+		return matches;
+	}
+	if (matches(root, selectorText)) {
+		matches.add(root);
+	}
+	let nodes;
+	try {
+		nodes = root.querySelectorAll(selectorText);
+	} catch {
+		nodes = matchByTraversal([root], selectorText, true);
+	}
+	for (const node of nodes) {
+		matches.add(node);
+	}
+	return Array.from(matches);
+}
+
+function matches(element, selectorText) {
+	if (!element || element.nodeType !== 1) {
+		return false;
+	}
+	try {
+		return element.matches(selectorText);
+	} catch {
+		return false;
+	}
+}
+
+function matchByTraversal(roots, selectorText, skipFirst) {
+	const results = [];
+	const visited = new Set();
+	const stack = [];
+	roots.forEach(root => {
+		if (root && root.nodeType === 1) {
+			stack.push({ node: root, include: !skipFirst });
+		}
+	});
+	while (stack.length) {
+		const { node, include } = stack.pop();
+		if (!node || visited.has(node)) {
+			continue;
+		}
+		visited.add(node);
+		if (include && matches(node, selectorText)) {
+			results.push(node);
+		}
+		for (let child = node.firstElementChild; child; child = child.nextElementSibling) {
+			stack.push({ node: child, include: true });
 		}
 	}
+	return results;
+}
+
+function getTraversalRoots(root) {
+	if (!root) {
+		return [];
+	}
+	if (root.nodeType === 9 || root.nodeType === 11) {
+		const roots = [];
+		if (root.documentElement) {
+			roots.push(root.documentElement);
+		}
+		if (root.body && (!roots.length || root.body !== roots[0])) {
+			roots.push(root.body);
+		}
+		if (!roots.length && root.children) {
+			roots.push(...Array.from(root.children).filter(node => node.nodeType === 1));
+		}
+		return roots;
+	}
+	return [root];
+}
+
+function filterElementsByScopes(elements, scopeStack) {
+	if (!scopeStack || !scopeStack.length) {
+		return elements;
+	}
+	return elements.filter(element => isElementWithinScopes(element, scopeStack));
+}
+
+function isElementWithinScopes(element, scopeStack) {
+	if (!element) {
+		return false;
+	}
+	for (let index = 0; index < scopeStack.length; index++) {
+		if (!isElementWithinScope(element, scopeStack[index])) {
+			return false;
+		}
+	}
+	return true;
+}
+
+function isElementWithinScope(element, scopeContext) {
+	let current = element;
+	while (current && current.nodeType === 1) {
+		if (scopeContext.stopElements && scopeContext.stopElements.has(current)) {
+			return false;
+		}
+		if (scopeContext.rootElements.has(current)) {
+			return true;
+		}
+		current = current.parentElement;
+	}
+	return false;
 }
 
 function createSelectorText(selector, ancestorsSelectors, docContext) {
@@ -490,102 +665,6 @@ function createSelectorText(selector, ancestorsSelectors, docContext) {
 		selectorText = sanitizeSelector(selector, ancestorsSelectors, docContext);
 	}
 	return selectorText;
-}
-
-function createMatchCacheKey(hasScope, selectorData, selectorText) {
-	if (hasScope) {
-		const include = selectorData.scopeIncludeLists || [];
-		const exclude = selectorData.scopeExclusionLists || [];
-		const relative = selectorData.scopeRelative ? 1 : 0;
-		const nesting = selectorData.scopeNestingLevel || 0;
-		return [
-			selectorText,
-			JSON.stringify(include),
-			JSON.stringify(exclude), String(relative), String(nesting)
-		].join(CONTEXT_KEY_SEPARATOR);
-	} else {
-		return selectorText;
-	}
-}
-
-function collectScopedMatches(cacheKey, selector, docContext) {
-	const selectorData = docContext.selectorData.get(selector);
-	const includeLists = selectorData.scopeIncludeLists && selectorData.scopeIncludeLists.length ? selectorData.scopeIncludeLists[selectorData.scopeIncludeLists.length - 1] : [];
-	const excludeLists = selectorData.scopeExclusionLists && selectorData.scopeExclusionLists.length ? selectorData.scopeExclusionLists[selectorData.scopeExclusionLists.length - 1] : [];
-	const matchedSet = new Set();
-	const includes = includeLists.length ? includeLists : [ROOT_PSEUDO_CLASS];
-	for (const includeSelector of includes) {
-		collectMatchesForInclude(includeSelector, selector, excludeLists, docContext, matchedSet);
-	}
-	const matchedElements = Array.from(matchedSet);
-	docContext.matchedSelectors.set(cacheKey, matchedElements);
-	return matchedElements;
-}
-
-function collectMatchesForInclude(includeSelector, selector, excludeLists, docContext, matchedSet) {
-	const rootsForInclude = getScopeRoots(includeSelector, docContext);
-	for (const rootForInclude of rootsForInclude) {
-		const roots = querySelectorForRoot(rootForInclude, normalizeForRoot(selector), docContext.scopeRoots);
-		if (roots.length) {
-			if (excludeLists && excludeLists.length) {
-				const filteredRoots = filterExcludedRoots(roots, excludeLists, docContext);
-				filteredRoots.forEach(root => matchedSet.add(root));
-			} else {
-				roots.forEach(root => matchedSet.add(root));
-			}
-		}
-	}
-}
-
-function querySelectorForRoot(root, selector, cache) {
-	const nodes = querySelectorAll(root, selector, cache);
-	if (root.matches && root.matches(selector)) {
-		if (nodes.indexOf(root) === -1) {
-			nodes.unshift(root);
-		}
-	}
-	return nodes;
-}
-
-function normalizeForRoot(selector) {
-	const selectorData = cssTree.clone(selector.data);
-	cssTree.walk(selectorData, {
-		visit: NESTING_SELECTOR_TYPE,
-		enter(_node, item, list) {
-			const scope = { type: PSEUDO_CLASS_SELECTOR_TYPE, name: SCOPE_NAME };
-			list.insertData(scope, item);
-			list.remove(item);
-		}
-	});
-	for (let selectorChild = selectorData.children.head; selectorChild; selectorChild = selectorChild.next) {
-		const childData = selectorChild.data;
-		if (hasChildNodes(childData)) {
-			const head = childData.children.head;
-			const headData = head.data;
-			if (headData && headData.type === COMBINATOR_NAME) {
-				const scope = { type: PSEUDO_CLASS_SELECTOR_TYPE, name: SCOPE_NAME };
-				childData.children.insertData(scope, head);
-			}
-		}
-	}
-	return cssTree.generate(selectorData);
-}
-
-function getScopeRoots(selector, docContext) {
-	let roots = docContext.scopeRoots.get(selector);
-	if (!roots) {
-		roots = querySelectorAll(docContext.doc, selector, docContext.scopeRoots);
-	}
-	return roots;
-}
-
-function filterExcludedRoots(roots, excludeLists, docContext) {
-	const excludeRoots = new Set();
-	for (const excludeSelector of excludeLists) {
-		const rootsForExclude = getScopeRoots(excludeSelector, docContext);
-		rootsForExclude.forEach(root => excludeRoots.add(root));
-	}
-	return roots.filter(node => !Array.from(excludeRoots).some(excludedRoot => excludedRoot.contains(node)));
 }
 
 function compareDeclarations(declarationA, declarationB, docContext) {
@@ -603,8 +682,8 @@ function compareDeclarations(declarationA, declarationB, docContext) {
 		if (layerComparison !== 0) {
 			return importantA ? -layerComparison : layerComparison;
 		}
-		const specificityA = declarationA.effectiveSpecificity;
-		const specificityB = declarationB.effectiveSpecificity;
+		const specificityA = declarationA.specificity;
+		const specificityB = declarationB.specificity;
 		if (specificityA.a !== specificityB.a) {
 			return specificityA.a - specificityB.a;
 		}
@@ -619,8 +698,8 @@ function compareDeclarations(declarationA, declarationB, docContext) {
 		}
 		return 0;
 	} else {
-		const specificityA = declarationA.effectiveSpecificity;
-		const specificityB = declarationB.effectiveSpecificity;
+		const specificityA = declarationA.specificity;
+		const specificityB = declarationB.specificity;
 		if (specificityA.a !== specificityB.a) {
 			return specificityA.a - specificityB.a;
 		}
@@ -826,36 +905,6 @@ function combineSelectors(parentSelectorText, childSelectorText) {
 	return cssTree.generate(combinedSelector);
 }
 
-function computeEffectiveSpecificity(selectorData, element, docContext) {
-	const baseSpecificity = selectorData.specificity;
-	let effectiveSpecificity = { a: baseSpecificity.a, b: baseSpecificity.b, c: baseSpecificity.c };
-	const includeLists = selectorData && selectorData.scopeIncludeLists && selectorData.scopeIncludeLists.length ? selectorData.scopeIncludeLists[selectorData.scopeIncludeLists.length - 1] : [];
-	if (includeLists && includeLists.length) {
-		for (const includeSelector of includeLists) {
-			const roots = getScopeRoots(includeSelector, docContext);
-			if (roots.some(root => root.contains(element))) {
-				const includeSpecificity = getIncludeSpecificity(includeSelector, docContext);
-				effectiveSpecificity = {
-					a: effectiveSpecificity.a + includeSpecificity.a,
-					b: effectiveSpecificity.b + includeSpecificity.b,
-					c: effectiveSpecificity.c + includeSpecificity.c
-				};
-			}
-		}
-	}
-	return effectiveSpecificity;
-}
-
-function getIncludeSpecificity(includeSelector, docContext) {
-	let specificity = docContext.scopeSpecificities.get(includeSelector);
-	if (!specificity) {
-		const selector = parseCss(includeSelector);
-		specificity = computeMaxSpecificity(selector, []);
-		docContext.scopeSpecificities.set(includeSelector, specificity);
-	}
-	return specificity;
-}
-
 function hasChildNodes(node) {
 	return Boolean(node && node.children && node.children.head);
 }
@@ -887,40 +936,37 @@ function parseCss(text, context = SELECTOR_CONTEXT) {
 	return cssTree.parse(text, options);
 }
 
-function querySelectorAll(root, selector, cache) {
-	if (cache && cache !== root) {
-		let rootCache = cache.get(root);
-		if (!rootCache) {
-			rootCache = new Map();
-			cache.set(root, rootCache);
-		}
-		if (rootCache.has(selector)) {
-			return rootCache.get(selector);
-		} else {
-			try {
-				const nodes = Array.from(root.querySelectorAll(selector));
-				rootCache.set(selector, nodes);
-				return nodes;
-			} catch {
-				if (DEBUG) {
-					// eslint-disable-next-line no-console
-					console.warn(QSA_ERROR_MESSAGE, selector, root.tagName ? root.tagName : EMPTY_STRING);
-				}
-				rootCache.set(selector, []);
-				return [];
-			}
-		}
-	} else {
-		try {
-			return Array.from(root.querySelectorAll(selector));
-		} catch {
-			if (DEBUG) {
-				// eslint-disable-next-line no-console
-				console.warn(QSA_ERROR_MESSAGE, selector);
-			}
-			return [];
-		}
+function querySelectorAll(root, selectorText) {
+	if (!root) {
+		return [];
 	}
+	const isDocumentNode = root.nodeType === 9 || root.nodeType === 11;
+	const hasScopePseudo = Boolean(selectorText && selectorText.indexOf(":scope") !== -1);
+	if (isDocumentNode && hasScopePseudo) {
+		return matchDocumentScopeSelector(root, selectorText);
+	}
+	try {
+		return Array.from(root.querySelectorAll(selectorText));
+	} catch {
+		if (DEBUG) {
+			// eslint-disable-next-line no-console
+			console.warn(QSA_ERROR_MESSAGE, selectorText, root.nodeType === 1 && root.tagName ? root.tagName : EMPTY_STRING);
+		}
+		const traversalRoots = getTraversalRoots(root);
+		return matchByTraversal(traversalRoots, selectorText, false);
+	}
+}
+
+function matchDocumentScopeSelector(root, selectorText) {
+	const traversalRoots = getTraversalRoots(root);
+	if (!traversalRoots.length) {
+		return [];
+	}
+	const matches = new Set();
+	traversalRoots.forEach(scopeRoot => {
+		matchSelectorWithinRoot(scopeRoot, selectorText).forEach(node => matches.add(node));
+	});
+	return Array.from(matches);
 }
 
 function getInlineStyleDeclarations(element) {
@@ -937,7 +983,7 @@ function getInlineStyleDeclarations(element) {
 			if (node.data.type === DECLARATION_TYPE) {
 				declarations.push({
 					declaration: node,
-					effectiveSpecificity: { a: 1, b: 0, c: 0 },
+					specificity: { a: 1, b: 0, c: 0 },
 					isInline: true
 				});
 			}
