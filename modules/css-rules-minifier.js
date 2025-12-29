@@ -962,11 +962,11 @@ function matchDocumentScopeSelector(root, selectorText) {
 	if (!traversalRoots.length) {
 		return [];
 	}
-	const matches = new Set();
+	const matchedNodes = new Set();
 	traversalRoots.forEach(scopeRoot => {
-		matchSelectorWithinRoot(scopeRoot, selectorText).forEach(node => matches.add(node));
+		matchSelectorWithinRoot(scopeRoot, selectorText).forEach(node => matchedNodes.add(node));
 	});
-	return Array.from(matches);
+	return Array.from(matchedNodes);
 }
 
 function getInlineStyleDeclarations(element) {
