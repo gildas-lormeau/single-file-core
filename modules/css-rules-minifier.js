@@ -28,7 +28,7 @@ import { sanitizeSelector, matchUnqueryablePseudoClass } from "./css-selector-sa
 
 const DEBUG = false;
 
-const CANONICAL_PSEUDO_ELEMENT_NAMES = new Set(["after", "before", "first-letter", "first-line", "placeholder", "selection", "part", "marker"]);
+const PSEUDO_ELEMENT_SYNONYMS = new Set(["after", "before", "first-letter", "first-line"]);
 const MEDIA_AT_RULE_NAME = "media";
 const SUPPORTS_AT_RULE_NAME = "supports";
 const CONDITIONAL_AT_RULE_NAMES = new Set([MEDIA_AT_RULE_NAME, SUPPORTS_AT_RULE_NAME, "container"]);
@@ -358,15 +358,17 @@ function processSelectors(ruleData, processingContext, docContext) {
 	for (let selector = ruleData.prelude.children.head, selectorIndex = 0; selector; selector = selector.next, selectorIndex++) {
 		const {
 			startsWithCombinator,
-			hasCanonicalPseudoElement,
-			hasUnqueryablePseudoClass
+			hasUnqueryableSelector
 		} = analyzeSelector(selector.data);
+		if (hasUnqueryableSelector) {
+			ruleData.hasUnqueryableSelector = true;
+		}
 		registerSelector(selector, ruleData, processingContext, docContext);
-		if (!startsWithCombinator || !ancestorsSelectors || !ancestorsSelectors.length) {
+		if (!hasUnqueryableSelector && (!startsWithCombinator || !ancestorsSelectors || !ancestorsSelectors.length)) {
 			const matchedElements = matchElements(selector, ancestorsSelectors, processingContext.scopeStack, docContext);
-			if (matchedElements.length && !(hasCanonicalPseudoElement || hasUnqueryablePseudoClass)) {
+			if (matchedElements.length) {
 				updateMatchingSelectors(matchedElements, selector, docContext);
-			} else if (!matchedElements.length) {
+			} else {
 				removedSelectors.push(selector);
 			}
 		}
@@ -375,25 +377,22 @@ function processSelectors(ruleData, processingContext, docContext) {
 }
 
 function analyzeSelector(selector) {
-	let hasCanonicalPseudoElement = false;
-	let hasUnqueryablePseudoClass = false;
+	let hasUnqueryableSelector = false;
 	let startsWithCombinator = false;
 	cssTree.walk(selector, {
 		enter(node) {
 			if (node.type === PSEUDO_ELEMENT_SELECTOR_TYPE) {
-				hasCanonicalPseudoElement = true;
+				hasUnqueryableSelector = true;
 			} else if (node.type === PSEUDO_CLASS_SELECTOR_TYPE) {
-				if (CANONICAL_PSEUDO_ELEMENT_NAMES.has(node.name)) {
-					hasCanonicalPseudoElement = true;
-				} else if (matchUnqueryablePseudoClass(node)) {
-					hasUnqueryablePseudoClass = true;
+				if (PSEUDO_ELEMENT_SYNONYMS.has(node.name) || matchUnqueryablePseudoClass(node)) {
+					hasUnqueryableSelector = true;
 				}
 			}
 		}
 	});
 	const firstChild = selector.children.head.data;
 	startsWithCombinator = firstChild && firstChild.type === COMBINATOR_NAME;
-	return { hasCanonicalPseudoElement, hasUnqueryablePseudoClass, startsWithCombinator };
+	return { hasUnqueryableSelector, startsWithCombinator };
 }
 
 function updateMatchingSelectors(matchedElements, selector, docContext) {
@@ -813,7 +812,7 @@ function removeLosingDeclarations(winningDeclarations, docContext) {
 						if (declaration.data.type === DECLARATION_TYPE) {
 							allDeclarations.set(declaration, declarations);
 							const { property, value } = declaration.data;
-							if (property && property.startsWith(CUSTOM_PROPERTY_PREFIX) || (value && value.type === RAW_TYPE)) {
+							if (property && property.startsWith(CUSTOM_PROPERTY_PREFIX) || (value && value.type === RAW_TYPE) || cssRule.hasUnqueryableSelector) {
 								protectedDeclarations.add(declaration);
 							}
 						}
