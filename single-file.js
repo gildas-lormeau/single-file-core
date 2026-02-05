@@ -116,6 +116,7 @@ async function getPageData(options = {}, initOptions, doc, win) {
 			url: options.url,
 			createRootDirectory: options.createRootDirectory,
 			selfExtractingArchive: options.selfExtractingArchive,
+			disableCompression: options.disableCompression,
 			extractDataFromPage: options.extractDataFromPage,
 			preventAppendedData: options.preventAppendedData,
 			insertCanonicalLink: options.insertCanonicalLink,

@@ -678,6 +678,7 @@ class Processor {
 				replaceEmojisInFilename: this.options.replaceEmojisInFilename,
 				compressContent: this.options.compressContent,
 				selfExtractingArchive: this.options.selfExtractingArchive,
+				disableCompression: this.options.disableCompression,
 				extractDataFromPage: this.options.extractDataFromPage,
 				referrer: this.options.referrer,
 				title: this.options.title,

@@ -133,7 +133,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 	const startOffset = zipDataWriter.offset;
 	pageData.url = options.url;
 	pageData.archiveTime = (new Date()).toISOString();
-	await addPageResources(zipWriter, pageData, { password: options.password }, options.createRootDirectory ? String(Date.now()) + "_" + (options.tabId || 0) + "/" : "", options.url);
+	await addPageResources(zipWriter, pageData, { password: options.password, disableCompression: options.disableCompression }, options.createRootDirectory ? String(Date.now()) + "_" + (options.tabId || 0) + "/" : "", options.url);
 	const data = await zipWriter.close(null, { preventClose: true });
 	if (options.selfExtractingArchive) {
 		const insertionsCRLF = [];
@@ -393,25 +393,25 @@ async function addPageResources(zipWriter, pageData, options, prefixName, url) {
 	}, null, 2);
 	await Promise.all([
 		Promise.all([
-			addFile(zipWriter, prefixName, { name: "index.html", extension: ".html", content: pageData.content, url, password: options.password }),
-			addFile(zipWriter, prefixName, { name: "manifest.json", extension: ".json", content: jsonContent, password: options.password })
+			addFile(zipWriter, prefixName, { name: "index.html", extension: ".html", content: pageData.content, url, password: options.password }, options.disableCompression),
+			addFile(zipWriter, prefixName, { name: "manifest.json", extension: ".json", content: jsonContent, password: options.password }, options.disableCompression)
 		]),
 		Promise.all(Object.keys(pageData.resources).map(async resourceType =>
 			Promise.all(pageData.resources[resourceType].map(data => {
 				if (resourceType == "frames") {
 					return addPageResources(zipWriter, data, options, prefixName + data.name, data.url);
 				} else {
-					return addFile(zipWriter, prefixName, data, true);
+					return addFile(zipWriter, prefixName, data, options.disableCompression);
 				}
 			}))
 		))
 	]);
 }
 
-async function addFile(zipWriter, prefixName, data) {
+async function addFile(zipWriter, prefixName, data, disableCompresson) {
 	const dataReader = typeof data.content == "string" ? new TextReader(data.content) : new BlobReader(new Blob([new Uint8Array(data.content)]));
 	const options = { comment: data.url && data.url.startsWith("data:") ? "data:" : data.url, password: data.password, bufferedWrite: true };
-	if (NO_COMPRESSION_EXTENSIONS.includes(data.extension)) {
+	if (NO_COMPRESSION_EXTENSIONS.includes(data.extension) || disableCompresson) {
 		options.level = 0;
 	}
 	await zipWriter.add(prefixName + data.name, dataReader, options);
