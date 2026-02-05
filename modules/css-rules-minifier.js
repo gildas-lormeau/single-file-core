@@ -482,16 +482,24 @@ function collectDeclarationItemsForElement(element, docContext) {
 	return allDeclarations;
 
 	function addDeclaration(declaration, specificity, isInline, selector) {
-		const { value } = declaration.data;
+		const { property, value } = declaration.data;
 		const isRawValue = value.type === RAW_TYPE;
 		const hasValueChildNodes = hasChildNodes(value) || value.type === RAW_TYPE;
-		const isSingleValue = value.type === VALUE_TYPE &&
+		let isInvalidValue;
+		if (value.type === VALUE_TYPE &&
 			hasValueChildNodes &&
-			value.children.size == 1 &&
-			value.children.head.data.name;
-		const isVendorValue = isSingleValue && value.children.head.data.name.startsWith(VENDOR_PREFIX);
-		const isInvalidValue = isSingleValue && INVALID_CSS_ESCAPE_TEST.test(value.children.head.data.name);
-		if (hasValueChildNodes && !isRawValue && !isVendorValue && !isInvalidValue) {
+			value.children.size == 1) {
+			if (value.children.head.data.name) {
+				isInvalidValue = value.children.head.data.name.startsWith(VENDOR_PREFIX) || INVALID_CSS_ESCAPE_TEST.test(value.children.head.data.name);
+			} if (!property.startsWith(VENDOR_PREFIX) && value.children.head.data.value) {
+				try {
+					isInvalidValue = !cssTree.lexer.matchProperty(property, value).matched;
+				} catch {
+					// ignored
+				}
+			}
+		}
+		if (hasValueChildNodes && !isRawValue && !isInvalidValue) {
 			allDeclarations.push({
 				declaration,
 				selector,
