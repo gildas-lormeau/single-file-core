@@ -487,7 +487,7 @@ function collectDeclarationItemsForElement(element, docContext) {
 		const hasValueChildNodes = hasChildNodes(value) || value.type === RAW_TYPE;
 		const isSingleValue = value.type === VALUE_TYPE &&
 			hasValueChildNodes &&
-			value.children.length == 1 &&
+			value.children.size == 1 &&
 			value.children.head.data.name;
 		const isVendorValue = isSingleValue && value.children.head.data.name.startsWith(VENDOR_PREFIX);
 		const isInvalidValue = isSingleValue && INVALID_CSS_ESCAPE_TEST.test(value.children.head.data.name);
