@@ -98,8 +98,8 @@ class ProcessorHelperCommon {
 			["embed[src*=\".svg\"]", "src"],
 			["video[poster]", "poster"],
 			["*[background]", "background"],
-			["image", "xlink:href"],
-			["image", "href"]
+			["image, feImage", "xlink:href"],
+			["image, feImage", "href"]
 		];
 		if (options.blockImages) {
 			doc.querySelectorAll("svg").forEach(element => element.remove());
