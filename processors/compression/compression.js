@@ -439,9 +439,13 @@ async function getContent() {
 				reject();
 			}
 		};
+		xhr.onreadystatechange = () => {
+			if (xhr.readyState === 2 && xhr.status === 200) {
+				stop();
+			}
+		};
 		xhr.send();
 		xhr.onload = () => {
-			stop();
 			displayMessage("sfz-wait-message", 2);
 			resolve(xhr.response);
 		};
