@@ -442,11 +442,11 @@ async function getContent() {
 		xhr.onreadystatechange = () => {
 			if (xhr.readyState === 2 && xhr.status === 200) {
 				stop();
+				displayMessage("sfz-wait-message", 2);
 			}
 		};
 		xhr.send();
 		xhr.onload = () => {
-			displayMessage("sfz-wait-message", 2);
 			resolve(xhr.response);
 		};
 	});
