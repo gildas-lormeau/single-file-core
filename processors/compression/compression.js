@@ -436,12 +436,16 @@ async function getContent() {
 			xhr.open("GET", "");
 
 			xhr.onerror = () => {
-				try {
-					resolve(extractPageData());
-				} catch {
-					displayMessage("sfz-error-message", 2);
+				if (aborted) {
 					reject();
-				};
+				} else {
+					try {
+						resolve(extractPageData());
+					} catch {
+						displayMessage("sfz-error-message", 2);
+						reject();
+					};
+				}
 			};
 			xhr.send();
 			xhr.onreadystatechange = () => {
