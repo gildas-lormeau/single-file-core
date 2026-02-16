@@ -451,6 +451,7 @@ async function getContent() {
 			xhr.onreadystatechange = () => {
 				if (xhr.readyState === 2 && xhr.status === 200 && !aborted) {
 					aborted = true;
+					xhr.abort();
 					stop();
 					displayMessage("sfz-wait-message", 2);
 					getPageData();
