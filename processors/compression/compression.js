@@ -423,8 +423,6 @@ async function getContent() {
 		[352, 138], [8249, 139], [338, 140], [381, 142], [8216, 145], [8217, 146], [8220, 147], [8221, 148], [8226, 149], [8211, 150],
 		[8212, 151], [732, 152], [8482, 153], [353, 154], [8250, 155], [339, 156], [382, 158], [376, 159]
 	]);
-	await waitForDocumentReady(document);
-	document.body.querySelectorAll("meta, style").forEach(element => document.head.appendChild(element));
 	return new Promise((resolve, reject) => {
 		let aborted = false;
 		getPageData();
@@ -433,12 +431,14 @@ async function getContent() {
 			const xhr = new XMLHttpRequest();
 			xhr.responseType = "blob";
 			xhr.open("GET", "");
-			xhr.onerror = () => {
+			xhr.onerror = async () => {
 				if (aborted) {
 					displayMessage("sfz-error-message", 2);
 					reject();
 				} else {
 					try {
+						await waitForDocumentReady(document);
+						document.body.querySelectorAll("meta, style").forEach(element => document.head.appendChild(element));
 						const pageData = extractPageData();
 						displayMessage("sfz-wait-message", 2);
 						resolve(pageData);
