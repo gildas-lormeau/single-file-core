@@ -425,25 +425,35 @@ async function getContent() {
 		[352, 138], [8249, 139], [338, 140], [381, 142], [8216, 145], [8217, 146], [8220, 147], [8221, 148], [8226, 149], [8211, 150],
 		[8212, 151], [732, 152], [8482, 153], [353, 154], [8250, 155], [339, 156], [382, 158], [376, 159]
 	]);
-	const xhr = new XMLHttpRequest();
 	document.body.querySelectorAll("meta, style").forEach(element => document.head.appendChild(element));
-	xhr.responseType = "blob";
-	xhr.open("GET", "");
 	return new Promise((resolve, reject) => {
-		xhr.onerror = () => {
-			try {
-				resolve(extractPageData());
-			} catch {
-				displayMessage("sfz-error-message", 2);
-				reject();
+		let aborted = false;
+		getPageData();
+
+		function getPageData() {
+			const xhr = new XMLHttpRequest();
+			xhr.responseType = "blob";
+			xhr.open("GET", "");
+
+			xhr.onerror = () => {
+				try {
+					resolve(extractPageData());
+				} catch {
+					displayMessage("sfz-error-message", 2);
+					reject();
+				};
 			};
-		};
-		xhr.send();
-		xhr.onload = () => {
-			stop();
-			displayMessage("sfz-wait-message", 2);
-			resolve(xhr.response);
-		};
+			xhr.send();
+			xhr.onreadystatechange = () => {
+				if (xhr.readyState === 2 && xhr.status === 200 && !aborted) {
+					aborted = true;
+					stop();
+					displayMessage("sfz-wait-message", 2);
+					getPageData();
+				}
+			};
+			xhr.onload = () => resolve(xhr.response);
+		}
 	});
 
 	function displayMessage(elementId, delay = 0) {
