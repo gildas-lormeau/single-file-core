@@ -275,12 +275,10 @@ async function prependHTMLData(pageData, zipDataWriter, script, options) {
 	script = "<script>" +
 		script +
 		"document.currentScript.remove();" +
-		"globalThis.addEventListener('load', () => {" +
 		"globalThis.bootstrap=(()=>{let bootstrapStarted;return async content=>{if (bootstrapStarted) return bootstrapStarted; bootstrapStarted = (" +
 		extract.toString().replace(/\n|\t/g, "") + ")(content,{prompt}).then(({docContent}) => " +
 		display.toString().replace(/\n|\t/g, "") + "(document,docContent," + JSON.stringify(displayOptions) + "));return bootstrapStarted;}})();(" +
 		getContent.toString().replace(/\n|\t/g, "") + ")().then(globalThis.bootstrap).then(() => document.dispatchEvent(new CustomEvent(\"single-file-display-infobar\"))).catch(()=>{});" +
-		"});" +
 		"</script>";
 	pageContent += script;
 	let extraData = "";
@@ -425,6 +423,7 @@ async function getContent() {
 		[352, 138], [8249, 139], [338, 140], [381, 142], [8216, 145], [8217, 146], [8220, 147], [8221, 148], [8226, 149], [8211, 150],
 		[8212, 151], [732, 152], [8482, 153], [353, 154], [8250, 155], [339, 156], [382, 158], [376, 159]
 	]);
+	await waitForDocumentReady(document);
 	document.body.querySelectorAll("meta, style").forEach(element => document.head.appendChild(element));
 	return new Promise((resolve, reject) => {
 		let aborted = false;
@@ -462,6 +461,16 @@ async function getContent() {
 			xhr.onload = () => resolve(xhr.response);
 		}
 	});
+
+	function waitForDocumentReady(document) {
+		return new Promise(resolve => {
+			if (document.readyState === "complete") {
+				resolve();
+			} else {
+				document.addEventListener("DOMContentLoaded", () => resolve());
+			}
+		});
+	}
 
 	function displayMessage(elementId, delay = 0) {
 		const element = document.getElementById(elementId);
