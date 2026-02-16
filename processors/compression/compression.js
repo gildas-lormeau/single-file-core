@@ -439,7 +439,9 @@ async function getContent() {
 					reject();
 				} else {
 					try {
-						resolve(extractPageData());
+						const pageData = extractPageData();
+						displayMessage("sfz-wait-message", 2);
+						resolve(pageData);
 					} catch {
 						displayMessage("sfz-error-message", 2);
 						reject();
@@ -488,7 +490,6 @@ async function getContent() {
 			}
 			const zipData = [];
 			let { textContent } = dataNode;
-			displayMessage("sfz-wait-message", 2);
 			for (let index = 0; index < textContent.length; index++) {
 				const charCode = textContent.charCodeAt(index);
 				zipData.push(charCode > 255 ? characterMap.get(charCode) : charCode);
