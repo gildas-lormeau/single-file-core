@@ -431,22 +431,15 @@ async function getContent() {
 	xhr.open("GET", "");
 	return new Promise((resolve, reject) => {
 		xhr.onerror = () => {
-			try {
-				extractPageData();
-				resolve();
-			} catch {
+			extractPageData().then(resolve).catch(() => {
 				displayMessage("sfz-error-message", 2);
 				reject();
-			}
-		};
-		xhr.onreadystatechange = () => {
-			if (xhr.readyState === 2 && xhr.status === 200) {
-				stop();
-				displayMessage("sfz-wait-message", 2);
-			}
+			});
 		};
 		xhr.send();
 		xhr.onload = () => {
+			stop();
+			displayMessage("sfz-wait-message", 2);
 			resolve(xhr.response);
 		};
 	});
@@ -464,7 +457,7 @@ async function getContent() {
 		}
 	}
 
-	function extractPageData() {
+	async function extractPageData() {
 		const zipDataElement = document.querySelector("sfz-extra-data");
 		if (zipDataElement) {
 			let dataNode = zipDataElement.nextSibling;
