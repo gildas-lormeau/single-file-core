@@ -417,7 +417,7 @@ async function addFile(zipWriter, prefixName, data, disableCompresson) {
 
 async function getContent() {
 	const BASE64_TABLE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-	const { Blob, XMLHttpRequest, document, stop } = globalThis;
+	const { Blob, XMLHttpRequest, document, stop, zip, location } = globalThis;
 	const characterMap = new Map([
 		[65533, 0], [8364, 128], [8218, 130], [402, 131], [8222, 132], [8230, 133], [8224, 134], [8225, 135], [710, 136], [8240, 137],
 		[352, 138], [8249, 139], [338, 140], [381, 142], [8216, 145], [8217, 146], [8220, 147], [8221, 148], [8226, 149], [8211, 150],
@@ -427,7 +427,7 @@ async function getContent() {
 		let aborted = false;
 		getPageData();
 
-		function getPageData() {
+		function getPageData(fullXHR) {
 			const xhr = new XMLHttpRequest();
 			xhr.responseType = "blob";
 			xhr.open("GET", "");
@@ -452,13 +452,23 @@ async function getContent() {
 			xhr.onreadystatechange = () => {
 				if (xhr.readyState === 2 && xhr.status === 200 && !aborted) {
 					aborted = true;
+					const httpRangeSupport = xhr.getResponseHeader("Accept-Ranges") === "bytes";
 					xhr.abort();
 					stop();
 					displayMessage("sfz-wait-message", 2);
-					getPageData();
+					if (httpRangeSupport) {
+						resolve(new zip.HttpRangeReader(location.href, {
+							useXHR: true,
+							combineSizeEocd: true
+						}));
+					} else {
+						getPageData(true);
+					}
 				}
 			};
-			xhr.onload = () => resolve(xhr.response);
+			if (fullXHR) {
+				xhr.onload = () => resolve(xhr.response);
+			}
 		}
 	});
 

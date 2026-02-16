@@ -74,13 +74,17 @@ async function extract(content, { password, prompt = () => { }, zipOptions = { u
 	const REGEXP_MATCH_MANIFEST = /manifest\.json$/;
 	const CHARSET_UTF8 = ";charset=utf-8";
 	const REGEXP_ESCAPE = /([{}()^$&.*?/+|[\\\\]|\]|-)/g;
-
-	if (Array.isArray(content)) {
-		content = new Blob([new Uint8Array(content)]);
-	}
+	let reader;
 	zip.configure(zipOptions);
-	const blobReader = new zip.BlobReader(content);
-	const zipReader = new zip.ZipReader(blobReader);
+	if (content.readUint8Array) {
+		reader = content;
+	} else {
+		if (Array.isArray(content)) {
+			content = new Blob([new Uint8Array(content)]);
+		}
+		reader = new zip.BlobReader(content);
+	}
+	const zipReader = new zip.ZipReader(reader);
 	const entries = await zipReader.getEntries();
 	const options = { password };
 	let docContent, origDocContent, url, resources = [], indexPages = [], textResources = [];
