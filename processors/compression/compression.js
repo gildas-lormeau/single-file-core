@@ -431,10 +431,12 @@ async function getContent() {
 	xhr.open("GET", "");
 	return new Promise((resolve, reject) => {
 		xhr.onerror = () => {
-			extractPageData().then(resolve).catch(() => {
+			try {
+				resolve(extractPageData());
+			} catch {
 				displayMessage("sfz-error-message", 2);
 				reject();
-			});
+			};
 		};
 		xhr.send();
 		xhr.onload = () => {
@@ -457,7 +459,7 @@ async function getContent() {
 		}
 	}
 
-	async function extractPageData() {
+	function extractPageData() {
 		const zipDataElement = document.querySelector("sfz-extra-data");
 		if (zipDataElement) {
 			let dataNode = zipDataElement.nextSibling;
