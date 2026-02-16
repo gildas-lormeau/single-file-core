@@ -436,6 +436,7 @@ async function getContent() {
 			xhr.open("GET", "");
 			xhr.onerror = () => {
 				if (aborted) {
+					displayMessage("sfz-error-message", 2);
 					reject();
 				} else {
 					try {
