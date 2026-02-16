@@ -434,7 +434,6 @@ async function getContent() {
 			const xhr = new XMLHttpRequest();
 			xhr.responseType = "blob";
 			xhr.open("GET", "");
-
 			xhr.onerror = () => {
 				if (aborted) {
 					reject();
