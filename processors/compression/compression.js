@@ -129,7 +129,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 	} else if (!options.embeddedImage && options.embeddedPdf) {
 		await writeData(zipDataWriter.writable, new Uint8Array(options.embeddedPdf));
 	}
-	const zipWriter = new ZipWriter(zipDataWriter, { bufferedWrite: true, keepOrder: false, lastModDate });
+	const zipWriter = new ZipWriter(zipDataWriter, { bufferedWrite: true, keepOrder: true, lastModDate });
 	const startOffset = zipDataWriter.offset;
 	pageData.url = options.url;
 	pageData.archiveTime = (new Date()).toISOString();
@@ -388,17 +388,21 @@ async function addPageResources(zipWriter, pageData, options, prefixName, url) {
 		indexFilename: "index.html",
 		resources
 	}, null, 2);
-	await addFile(zipWriter, prefixName, { name: "index.html", extension: ".html", content: pageData.content, url, password: options.password }, options.disableCompression);
-	await addFile(zipWriter, prefixName, { name: "manifest.json", extension: ".json", content: jsonContent, password: options.password }, options.disableCompression);
-	await Promise.all(Object.keys(pageData.resources).map(resourceType =>
-		pageData.resources[resourceType].map(data => {
-			if (resourceType == "frames") {
-				return addPageResources(zipWriter, data, options, prefixName + data.name, data.url);
-			} else {
-				return addFile(zipWriter, prefixName, data, options.disableCompression);
-			}
-		})
-	));
+	await Promise.all([
+		Promise.all([
+			addFile(zipWriter, prefixName, { name: "index.html", extension: ".html", content: pageData.content, url, password: options.password }, options.disableCompression),
+			addFile(zipWriter, prefixName, { name: "manifest.json", extension: ".json", content: jsonContent, password: options.password }, options.disableCompression)
+		]),
+		Promise.all(Object.keys(pageData.resources).map(async resourceType =>
+			Promise.all(pageData.resources[resourceType].map(data => {
+				if (resourceType == "frames") {
+					return addPageResources(zipWriter, data, options, prefixName + data.name, data.url);
+				} else {
+					return addFile(zipWriter, prefixName, data, options.disableCompression);
+				}
+			}))
+		))
+	]);
 }
 
 async function addFile(zipWriter, prefixName, data, disableCompresson) {
