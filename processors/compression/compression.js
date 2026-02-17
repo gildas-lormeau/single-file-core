@@ -470,7 +470,7 @@ async function getContent() {
 
 	function waitForDocumentReady(document) {
 		return new Promise(resolve => {
-			if (document.readyState === "complete") {
+			if (document.readyState === "complete" || document.readyState === "interactive") {
 				resolve();
 			} else {
 				document.addEventListener("DOMContentLoaded", () => resolve());
