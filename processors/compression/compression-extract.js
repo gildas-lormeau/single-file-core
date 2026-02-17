@@ -27,7 +27,7 @@ export {
 	extract
 };
 
-async function extract(content, { password, prompt = () => { }, zipOptions = { useWebWorkers: false }, noBlobURL } = {}) {
+async function extract(content, { password, prompt = () => { }, zipOptions = { useWebWorkers: true }, noBlobURL } = {}) {
 	const KNOWN_MIMETYPES = {
 		"gif": "image/gif",
 		"jpg": "image/jpeg",
