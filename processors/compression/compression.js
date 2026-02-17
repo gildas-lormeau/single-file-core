@@ -422,7 +422,7 @@ async function getContent() {
 		let aborted = false;
 		getPageData();
 
-		function getPageData(fullXHR) {
+		function getPageData() {
 			const xhr = new XMLHttpRequest();
 			xhr.responseType = "blob";
 			xhr.open("GET", "");
@@ -456,11 +456,11 @@ async function getContent() {
 							combineSizeEocd: true
 						}));
 					} else {
-						getPageData(true);
+						getPageData();
 					}
 				}
 			};
-			if (fullXHR) {
+			if (aborted) {
 				xhr.onload = () => resolve(xhr.response);
 			}
 		}
