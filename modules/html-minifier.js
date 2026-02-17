@@ -113,7 +113,8 @@ const redundantAttributes = {
 };
 
 const REGEXP_WHITESPACE = /[ \t\f\r]+/g;
-const REGEXP_NEWLINE = /[\n]+/g;
+const REGEXP_WHITESPACE_COLLAPSE = /[ \t\f\r]{2,}|[\t\f\r]/g;
+const REGEXP_NEWLINE = /\n{2,}/g;
 const REGEXP_ENDS_WHITESPACE = /^\s+$/;
 const NodeFilter_SHOW_ALL = 4294967295;
 const Node_ELEMENT_NODE = 1;
@@ -179,7 +180,17 @@ function collapseWhitespace(node, options) {
 				noWhitespace = element && noWhitespaceCollapse(element);
 			}
 			if ((!element || noWhitespace) && textContent.length > 1) {
-				node.textContent = textContent.replace(REGEXP_WHITESPACE, getWhiteSpace(node)).replace(REGEXP_NEWLINE, "\n");
+				const whitespace = getWhiteSpace(node);
+				let newTextContent;
+				if (whitespace == " ") {
+					newTextContent = textContent.replace(REGEXP_WHITESPACE_COLLAPSE, " ");
+				} else {
+					newTextContent = textContent.replace(REGEXP_WHITESPACE, whitespace);
+				}
+				newTextContent = newTextContent.replace(REGEXP_NEWLINE, "\n");
+				if (newTextContent != textContent) {
+					node.textContent = newTextContent;
+				}
 			}
 		}
 	}
