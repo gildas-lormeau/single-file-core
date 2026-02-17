@@ -21,7 +21,7 @@
  *   Source.
  */
 
-/* global zip, Blob, FileReader, URL, stop */
+/* global zip, Blob, FileReader, URL */
 
 export {
 	extract
@@ -149,7 +149,6 @@ async function extract(content, { password, prompt = () => { }, zipOptions = { u
 		});
 	}));
 	await zipReader.close();
-	stop();
 	indexPages.sort(sortByFilenameLengthDec);
 	textResources.sort(sortByFilenameLengthInc);
 	resources = resources.sort(sortByFilenameLengthDec).concat(...textResources).concat(...indexPages);
