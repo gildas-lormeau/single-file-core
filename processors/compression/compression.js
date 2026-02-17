@@ -389,21 +389,17 @@ async function addPageResources(zipWriter, pageData, options, prefixName, url) {
 		indexFilename: "index.html",
 		resources
 	}, null, 2);
-	await Promise.all([
-		Promise.all([
-			addFile(zipWriter, prefixName, { name: "index.html", extension: ".html", content: pageData.content, url, password: options.password }, options.disableCompression),
-			addFile(zipWriter, prefixName, { name: "manifest.json", extension: ".json", content: jsonContent, password: options.password }, options.disableCompression)
-		]),
-		Promise.all(Object.keys(pageData.resources).map(async resourceType =>
-			Promise.all(pageData.resources[resourceType].map(data => {
-				if (resourceType == "frames") {
-					return addPageResources(zipWriter, data, options, prefixName + data.name, data.url);
-				} else {
-					return addFile(zipWriter, prefixName, data, options.disableCompression);
-				}
-			}))
-		))
-	]);
+	await addFile(zipWriter, prefixName, { name: "index.html", extension: ".html", content: pageData.content, url, password: options.password }, options.disableCompression);
+	await addFile(zipWriter, prefixName, { name: "manifest.json", extension: ".json", content: jsonContent, password: options.password }, options.disableCompression);
+	await Promise.all(Object.keys(pageData.resources).map(resourceType =>
+		pageData.resources[resourceType].map(data => {
+			if (resourceType == "frames") {
+				return addPageResources(zipWriter, data, options, prefixName + data.name, data.url);
+			} else {
+				return addFile(zipWriter, prefixName, data, options.disableCompression);
+			}
+		})
+	));
 }
 
 async function addFile(zipWriter, prefixName, data, disableCompresson) {
