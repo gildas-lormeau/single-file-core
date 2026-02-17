@@ -102,7 +102,11 @@ async function extract(content, { password, prompt = () => { }, zipOptions = { u
 				textResources.push(resourceInfo);
 			}
 			dataWriter = new zip.TextWriter();
-			textContent = await entry.getData(dataWriter, options);
+			if (entry.uncompressedSize > 0) {
+				textContent = await entry.getData(dataWriter, options);
+			} else {
+				textContent = "";
+			}
 			if (filename.match(REGEXP_MATCH_INDEX)) {
 				mimeType = "text/html" + CHARSET_UTF8;
 			} else {
