@@ -339,7 +339,7 @@ function getHTMLHeadData(pageData, options) {
 		const cspContent = "default-src 'none';connect-src 'self' data: blob:;font-src 'self' data: blob:;img-src 'self' data: blob:;style-src 'self' 'unsafe-inline' data: blob:;frame-src 'self' data: blob:;media-src 'self' data: blob:;script-src 'self' 'unsafe-inline' data: blob:;object-src 'self' data: blob:";
 		pageContent += `<meta http-equiv=content-security-policy content=${JSON.stringify(cspContent)}>`;
 	}
-	pageContent += "<style>@keyframes display-wait-message{0%{opacity:0}100%{opacity:1}};body{color:transparent};div{color:initial}</style>";
+	pageContent += "<style>@keyframes display-wait-message{0%{opacity:0}100%{opacity:1}};body{color:transparent};div{color:initial}body :not(#sfz-wait-message,#sfz-error-message){display:none}</style>";
 	pageContent += "<body hidden>";
 	return pageContent;
 }
@@ -413,7 +413,7 @@ async function addFile(zipWriter, prefixName, data, disableCompresson) {
 
 async function getContent() {
 	const BASE64_TABLE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-	const { Blob, XMLHttpRequest, document, stop, zip, location } = globalThis;
+	const { Blob, XMLHttpRequest, document, zip, location } = globalThis;
 	const characterMap = new Map([
 		[65533, 0], [8364, 128], [8218, 130], [402, 131], [8222, 132], [8230, 133], [8224, 134], [8225, 135], [710, 136], [8240, 137],
 		[352, 138], [8249, 139], [338, 140], [381, 142], [8216, 145], [8217, 146], [8220, 147], [8221, 148], [8226, 149], [8211, 150],
@@ -450,7 +450,6 @@ async function getContent() {
 					aborted = true;
 					const httpRangeSupport = xhr.getResponseHeader("Accept-Ranges") === "bytes";
 					xhr.abort();
-					stop();
 					displayMessage("sfz-wait-message", 2);
 					if (httpRangeSupport) {
 						resolve(new zip.HttpRangeReader(location.href, {
