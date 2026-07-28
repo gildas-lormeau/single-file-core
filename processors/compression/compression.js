@@ -38,7 +38,10 @@ import {
 	display
 } from "./compression-display.js";
 
-const { Blob, fetch, TextEncoder, DOMParser } = globalThis;
+const { Blob, fetch, TextEncoder, TextDecoder, DOMParser } = globalThis;
+
+// windows-1252 never decodes bytes >= 0x80 into the ASCII range, the scanned patterns are all ASCII
+const TEXT_DECODER = new TextDecoder("windows-1252");
 
 const NO_COMPRESSION_EXTENSIONS = [".jpg", ".jpeg", ".png", ".avi", ".apng", ".pdf", ".woff2", ".mp4", ".mp3", ".ogg", ".webp", ".webm", ".avi", ".mpeg", ".ts", ".ogv", ".heif", ".heic"];
 const SCRIPT_PATH = "/lib/single-file-zip.min.js";
@@ -104,7 +107,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 		const embeddedImageData = options.embeddedImage.slice(PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH, options.embeddedImage.length - PNG_IEND_LENGTH);
 		await writeData(zipDataWriter.writable, options.embeddedImage.slice(0, PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH));
 		if (options.selfExtractingArchive) {
-			const embeddedImageText = embeddedImageData.reduce((text, charCode) => text + String.fromCharCode(charCode), "");
+			const embeddedImageText = TEXT_DECODER.decode(new Uint8Array(embeddedImageData));
 			const tagIndex = EMBEDDED_DATA_REGEXPS.slice(0, -1).findIndex(tests => !embeddedImageText.match(tests[1]));
 			let startTag;
 			[startTag, endTag] = tagIndex == -1 ? ["", ""] : EMBEDDED_DATA_TAGS[tagIndex];
@@ -141,8 +144,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 		let crc32 = -1;
 		if (options.extractDataFromPage) {
 			if (!options.extractDataFromPageTags || options.extractDataFromPageTags[0] != "<plaintext>") {
-				let textContent = "";
-				data.slice(startOffset).forEach(charCode => textContent += String.fromCharCode(charCode));
+				const textContent = TEXT_DECODER.decode(data.subarray(startOffset));
 				if (options.extractDataFromPageTags) {
 					const tagIndex = EXTRA_DATA_TAGS.indexOf(options.extractDataFromPageTags);
 					const regExpsTag = EXTRA_DATA_REGEXPS[tagIndex];
@@ -211,7 +213,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 	const pageContent = await zipDataWriter.getData();
 	if (options.extractDataFromPage && options.extraDataSize !== undefined) {
 		if (options.extraDataSize >= extraData.length) {
-			pageContent.set(Array.from(extraData).map(character => character.charCodeAt(0)), startOffset - extraDataOffset);
+			pageContent.set(new TextEncoder().encode(extraData), startOffset - extraDataOffset);
 		} else {
 			options.extraData = extraData;
 			options.extraDataSize = Math.floor(extraData.length * 1.001);
@@ -327,7 +329,7 @@ function getStartHTMLArray(pageData, options, startTag = "") {
 	const htmlHeadData = getHTMLHeadData(pageData, options);
 	let htmlArray;
 	if (options.embeddedPdf) {
-		const embeddedPdfText = options.embeddedPdf.reduce((text, charCode) => text + String.fromCharCode(charCode), "");
+		const embeddedPdfText = TEXT_DECODER.decode(new Uint8Array(options.embeddedPdf));
 		const pdfTagIndex = EMBEDDED_DATA_REGEXPS.slice(0, -1).findIndex(tests => !embeddedPdfText.match(tests[1]));
 		const [pdfStartTag, pdfEndTag] = pdfTagIndex == -1 ? ["", ""] : EMBEDDED_DATA_TAGS[pdfTagIndex];
 		const htmlArray1 = new TextEncoder().encode(html + pdfStartTag);
