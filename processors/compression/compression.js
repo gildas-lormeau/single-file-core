@@ -56,14 +56,14 @@ const EMBEDDED_DATA_TAGS = [
 	...EXTRA_DATA_TAGS,
 ];
 const EXTRA_DATA_REGEXPS = [
-	[/<noscript/i, /<\/noscript>/i],
-	[/<noframes/i, /<\/noframes>/i],
-	[/<noembed/i, /<\/noembed>/i],
-	[/<script/i, /<\/script>/i],
-	[/<style/i, /<\/style>/i],
-	[/<iframe/i, /<\/iframe>/i],
-	[/<xmp/i, /<\/xmp>/i],
-	[/<plaintext/i, /<\/plaintext>/i]
+	[/<noscript/i, /<\/noscript[\t\n\f\r />]/i],
+	[/<noframes/i, /<\/noframes[\t\n\f\r />]/i],
+	[/<noembed/i, /<\/noembed[\t\n\f\r />]/i],
+	[/<script/i, /<\/script[\t\n\f\r />]/i],
+	[/<style/i, /<\/style[\t\n\f\r />]/i],
+	[/<iframe/i, /<\/iframe[\t\n\f\r />]/i],
+	[/<xmp/i, /<\/xmp[\t\n\f\r />]/i],
+	[/<plaintext/i, /<\/plaintext[\t\n\f\r />]/i]
 ];
 const EMBEDDED_DATA_REGEXPS = [
 	[/<!--/i, /--!?>/i],
