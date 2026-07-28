@@ -2527,6 +2527,8 @@ async function terminateWorkers() {
 
 const ERR_HTTP_STATUS = "HTTP error ";
 const ERR_HTTP_RANGE = "HTTP Range not supported";
+const ERR_HTTP_RESOURCE_CHANGED = "HTTP resource changed";
+const EMPTY_UINT8_ARRAY = new Uint8Array();
 const ERR_ITERATOR_COMPLETED_TOO_SOON = "Writer iterator completed too soon";
 
 const CONTENT_TYPE_TEXT_PLAIN = "text/plain";
@@ -2535,6 +2537,8 @@ const HTTP_HEADER_CONTENT_RANGE = "Content-Range";
 const HTTP_HEADER_ACCEPT_RANGES = "Accept-Ranges";
 const HTTP_HEADER_RANGE = "Range";
 const HTTP_HEADER_CONTENT_TYPE = "Content-Type";
+const HTTP_HEADER_ETAG = "Etag";
+const HTTP_HEADER_LAST_MODIFIED = "Last-Modified";
 const HTTP_METHOD_HEAD = "HEAD";
 const HTTP_METHOD_GET = "GET";
 const HTTP_RANGE_UNIT = "bytes";
@@ -2787,13 +2791,15 @@ function createHttpReader(httpReader, url, options) {
 		preventHeadRequest,
 		useRangeHeader,
 		forceRangeRequests,
-		combineSizeEocd
+		combineSizeEocd,
+		checkResourceChanges = true
 	} = options;
 	options = Object.assign({}, options);
 	delete options.preventHeadRequest;
 	delete options.useRangeHeader;
 	delete options.forceRangeRequests;
 	delete options.combineSizeEocd;
+	delete options.checkResourceChanges;
 	delete options.useXHR;
 	Object.assign(httpReader, {
 		url,
@@ -2801,7 +2807,8 @@ function createHttpReader(httpReader, url, options) {
 		preventHeadRequest,
 		useRangeHeader,
 		forceRangeRequests,
-		combineSizeEocd
+		combineSizeEocd,
+		checkResourceChanges
 	});
 }
 
@@ -2821,17 +2828,8 @@ async function initHttpReader(httpReader, sendRequest, getRequestData) {
 			if (combineSizeEocd) {
 				httpReader.eocdCache = new Uint8Array(await response.arrayBuffer());
 			}
-			let contentSize;
-			const contentRangeHeader = response.headers.get(HTTP_HEADER_CONTENT_RANGE);
-			if (contentRangeHeader) {
-				const splitHeader = contentRangeHeader.trim().split(/\s*\/\s*/);
-				if (splitHeader.length) {
-					const headerValue = splitHeader[1];
-					if (headerValue && headerValue != "*") {
-						contentSize = Number(headerValue);
-					}
-				}
-			}
+			setResourceValidators(httpReader, response);
+			const contentSize = getContentRangeSize(response);
 			if (contentSize === UNDEFINED_VALUE) {
 				await getContentLength(httpReader, sendRequest, getRequestData);
 			} else {
@@ -2855,17 +2853,82 @@ async function readUint8ArrayHttpReader(httpReader, index, length, sendRequest, 
 		if (eocdCache && index == size - END_OF_CENTRAL_DIR_LENGTH && length == END_OF_CENTRAL_DIR_LENGTH) {
 			return eocdCache;
 		}
-		const response = await sendRequest(HTTP_METHOD_GET, httpReader, getRangeHeaders(httpReader, index, length));
-		if (response.status != 206) {
-			throw new Error(ERR_HTTP_RANGE);
+		if (index >= size || length === 0) {
+			return EMPTY_UINT8_ARRAY;
+		} else {
+			if (index + length > size) {
+				length = size - index;
+			}
+			const response = await sendRequest(HTTP_METHOD_GET, httpReader, getRangeHeaders(httpReader, index, length));
+			if (response.status != 206) {
+				throw new Error(ERR_HTTP_RANGE);
+			}
+			const contentRangeHeader = response.headers.get(HTTP_HEADER_CONTENT_RANGE);
+			if (contentRangeHeader) {
+				const rangeStart = Number(contentRangeHeader.trim().split(/[\s-]+/)[1]);
+				if (!Number.isNaN(rangeStart) && rangeStart != index) {
+					throw new Error(ERR_HTTP_RANGE);
+				}
+			}
+			checkResourceValidators(httpReader, response);
+			setResourceValidators(httpReader, response);
+			const data = new Uint8Array(await response.arrayBuffer());
+			if (data.length != length) {
+				throw new Error(ERR_HTTP_RANGE);
+			}
+			return data;
 		}
-		return new Uint8Array(await response.arrayBuffer());
 	} else {
 		const { data } = httpReader;
 		if (!data) {
 			await getRequestData(httpReader, options);
 		}
 		return new Uint8Array(httpReader.data.subarray(index, index + length));
+	}
+}
+
+function getContentRangeSize(response) {
+	const contentRangeHeader = response.headers.get(HTTP_HEADER_CONTENT_RANGE);
+	if (contentRangeHeader) {
+		const headerValue = contentRangeHeader.trim().split(/\s*\/\s*/)[1];
+		if (headerValue && headerValue != "*") {
+			const contentSize = Number(headerValue);
+			if (!Number.isNaN(contentSize)) {
+				return contentSize;
+			}
+		}
+	}
+}
+
+function getResourceValidators({ headers }) {
+	return {
+		etag: headers.get(HTTP_HEADER_ETAG) || UNDEFINED_VALUE,
+		lastModified: headers.get(HTTP_HEADER_LAST_MODIFIED) || UNDEFINED_VALUE
+	};
+}
+
+function setResourceValidators(httpReader, response) {
+	const { checkResourceChanges, resourceValidators } = httpReader;
+	if (checkResourceChanges && !resourceValidators && response.status == 206) {
+		httpReader.resourceValidators = getResourceValidators(response);
+	}
+}
+
+function checkResourceValidators(httpReader, response) {
+	const { checkResourceChanges, resourceValidators, size } = httpReader;
+	if (checkResourceChanges) {
+		const contentRangeSize = getContentRangeSize(response);
+		if (contentRangeSize !== UNDEFINED_VALUE && size !== UNDEFINED_VALUE && contentRangeSize != size) {
+			throw new Error(ERR_HTTP_RESOURCE_CHANGED);
+		}
+		if (resourceValidators) {
+			const validators = getResourceValidators(response);
+			const changed = Object.entries(resourceValidators).some(([name, value]) =>
+				value !== UNDEFINED_VALUE && validators[name] !== UNDEFINED_VALUE && value != validators[name]);
+			if (changed) {
+				throw new Error(ERR_HTTP_RESOURCE_CHANGED);
+			}
+		}
 	}
 }
 
@@ -5923,4 +5986,4 @@ try {
 }
 catch (e) { }
 
-export { BlobReader, BlobWriter, Data64URIReader, Data64URIWriter, ERR_BAD_FORMAT, ERR_CENTRAL_DIRECTORY_NOT_FOUND, ERR_DUPLICATED_NAME, ERR_ENCRYPTED, ERR_EOCDR_LOCATOR_ZIP64_NOT_FOUND, ERR_EOCDR_NOT_FOUND, ERR_EXTRAFIELD_ZIP64_NOT_FOUND, ERR_HTTP_RANGE, ERR_INVALID_COMMENT, ERR_INVALID_ENCRYPTION_STRENGTH, ERR_INVALID_ENTRY_COMMENT, ERR_INVALID_ENTRY_NAME, ERR_INVALID_EXTRAFIELD_DATA, ERR_INVALID_EXTRAFIELD_TYPE, ERR_INVALID_PASSWORD, ERR_INVALID_SIGNATURE, ERR_INVALID_VERSION, ERR_ITERATOR_COMPLETED_TOO_SOON, ERR_LOCAL_FILE_HEADER_NOT_FOUND, ERR_SPLIT_ZIP_FILE, ERR_UNSUPPORTED_COMPRESSION, ERR_UNSUPPORTED_ENCRYPTION, ERR_UNSUPPORTED_FORMAT, HttpRangeReader, HttpReader, Reader, SplitDataReader, SplitDataWriter, SplitZipReader, SplitZipWriter, TextReader, TextWriter, Uint8ArrayReader, Uint8ArrayWriter, Writer, ZipReader, ZipReaderStream, ZipWriter, ZipWriterStream, configure, deflateSync as deflateRaw, getMimeType, inflateSync as inflateRaw, initReader, initShimAsyncCodec, initStream, initWriter, readUint8Array, terminateWorkers };
+export { BlobReader, BlobWriter, Data64URIReader, Data64URIWriter, ERR_BAD_FORMAT, ERR_CENTRAL_DIRECTORY_NOT_FOUND, ERR_DUPLICATED_NAME, ERR_ENCRYPTED, ERR_EOCDR_LOCATOR_ZIP64_NOT_FOUND, ERR_EOCDR_NOT_FOUND, ERR_EXTRAFIELD_ZIP64_NOT_FOUND, ERR_HTTP_RANGE, ERR_HTTP_RESOURCE_CHANGED, ERR_INVALID_COMMENT, ERR_INVALID_ENCRYPTION_STRENGTH, ERR_INVALID_ENTRY_COMMENT, ERR_INVALID_ENTRY_NAME, ERR_INVALID_EXTRAFIELD_DATA, ERR_INVALID_EXTRAFIELD_TYPE, ERR_INVALID_PASSWORD, ERR_INVALID_SIGNATURE, ERR_INVALID_VERSION, ERR_ITERATOR_COMPLETED_TOO_SOON, ERR_LOCAL_FILE_HEADER_NOT_FOUND, ERR_SPLIT_ZIP_FILE, ERR_UNSUPPORTED_COMPRESSION, ERR_UNSUPPORTED_ENCRYPTION, ERR_UNSUPPORTED_FORMAT, HttpRangeReader, HttpReader, Reader, SplitDataReader, SplitDataWriter, SplitZipReader, SplitZipWriter, TextReader, TextWriter, Uint8ArrayReader, Uint8ArrayWriter, Writer, ZipReader, ZipReaderStream, ZipWriter, ZipWriterStream, configure, deflateSync as deflateRaw, getMimeType, inflateSync as inflateRaw, initReader, initShimAsyncCodec, initStream, initWriter, readUint8Array, terminateWorkers };

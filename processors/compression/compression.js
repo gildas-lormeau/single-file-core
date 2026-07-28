@@ -299,7 +299,13 @@ async function prependHTMLData(pageData, zipDataWriter, script, options) {
 		"globalThis.bootstrap=(()=>{let bootstrapStarted;return async content=>{if (bootstrapStarted) return bootstrapStarted; bootstrapStarted = (" +
 		extract.toString().replace(/\n|\t/g, "") + ")(content,{prompt}).then(({docContent}) => " +
 		display.toString().replace(/\n|\t/g, "") + "(document,docContent," + JSON.stringify(displayOptions) + "));return bootstrapStarted;}})();(" +
-		getContent.toString().replace(/\n|\t/g, "") + ")().then(globalThis.bootstrap).then(() => document.dispatchEvent(new CustomEvent(\"single-file-display-infobar\"))).catch(()=>{});" +
+		getContent.toString().replace(/\n|\t/g, "") + ")().then(globalThis.bootstrap).then(() => document.dispatchEvent(new CustomEvent(\"single-file-display-infobar\"))).catch(error => {" +
+		"console.error(error);" +
+		"const waitMessage = document.getElementById(\"sfz-wait-message\");" +
+		"if (waitMessage) { waitMessage.remove(); }" +
+		"const errorMessage = document.getElementById(\"sfz-error-message\");" +
+		"if (errorMessage) { errorMessage.hidden = false; document.body.hidden = false; }" +
+		"});" +
 		"</script>";
 	pageContent += script;
 	let extraData = "";
@@ -459,28 +465,36 @@ async function getContent() {
 	});
 	return new Promise((resolve, reject) => {
 		let aborted = false;
-		getPageData();
+		if (location.protocol == "file:") {
+			extractDataFromDocument();
+		} else {
+			getPageData();
+		}
+
+		async function extractDataFromDocument() {
+			try {
+				await waitForDocumentReady(document);
+				document.body.querySelectorAll("meta, style").forEach(element => document.head.appendChild(element));
+				const pageData = extractPageData();
+				displayMessage("sfz-wait-message", 2);
+				resolve(pageData);
+			} catch (error) {
+				console.error(error);
+				displayMessage("sfz-error-message", 2);
+				reject(error);
+			}
+		}
 
 		function getPageData() {
 			const xhr = new XMLHttpRequest();
 			xhr.responseType = "blob";
 			xhr.open("GET", "");
-			xhr.onerror = async () => {
+			xhr.onerror = () => {
 				if (aborted) {
 					displayMessage("sfz-error-message", 2);
 					reject();
 				} else {
-					try {
-						await waitForDocumentReady(document);
-						document.body.querySelectorAll("meta, style").forEach(element => document.head.appendChild(element));
-						const pageData = extractPageData();
-						displayMessage("sfz-wait-message", 2);
-						resolve(pageData);
-					} catch (error) {
-						console.error(error);
-						displayMessage("sfz-error-message", 2);
-						reject(error);
-					};
+					extractDataFromDocument();
 				}
 			};
 			xhr.send();
@@ -521,9 +535,14 @@ async function getContent() {
 		if (element) {
 			Array.from(document.body.childNodes).forEach(node => {
 				if (node.id != elementId) {
-					node.remove();
+					if (node.id == "sfz-wait-message" || node.id == "sfz-error-message") {
+						node.hidden = true;
+					} else {
+						node.remove();
+					}
 				}
 			});
+			element.hidden = false;
 			document.body.hidden = false;
 			element.style = "opacity: 0; animation: 0s linear " + delay + "s display-wait-message 1 normal forwards";
 		}
