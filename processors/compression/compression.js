@@ -255,7 +255,10 @@ async function prependHTMLData(pageData, zipDataWriter, script, options) {
 		await writeData(zipDataWriter.writable, getStartHTMLArray(pageData, options));
 	}
 	pageContent += "<div id=sfz-wait-message>Please wait...</div>";
-	if (!options.extractDataFromPage) {
+	if (options.extractDataFromPage) {
+		pageContent += "<div id=sfz-error-message><strong>Error</strong>: Cannot extract the data of the page.";
+		pageContent += " The file is still a valid ZIP file, you can rename it with a \"zip\" extension and unzip it to display the page and its resources.</div>";
+	} else {
 		pageContent += "<div id=sfz-error-message><strong>Error</strong>: Cannot open the page from the filesystem.";
 		pageContent += "<ul style='line-height:20px;'>";
 		pageContent += "<li style='margin-bottom:10px'><strong>Chrome/Edge/Brave</strong>: Install <a href='https://www.getsinglefile.com'>SingleFile</a> and enable the option \"Allow access to file URLs\" in the details page of the extension.</li>";
@@ -466,9 +469,10 @@ async function getContent() {
 						const pageData = extractPageData();
 						displayMessage("sfz-wait-message", 2);
 						resolve(pageData);
-					} catch {
+					} catch (error) {
+						console.error(error);
 						displayMessage("sfz-error-message", 2);
-						reject();
+						reject(error);
 					};
 				}
 			};
