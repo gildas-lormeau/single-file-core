@@ -138,6 +138,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 	if (options.selfExtractingArchive) {
 		const insertionsCRLF = [];
 		const substitutionsLF = [];
+		let crc32 = -1;
 		if (options.extractDataFromPage) {
 			if (!options.extractDataFromPageTags || options.extractDataFromPageTags[0] != "<plaintext>") {
 				let textContent = "";
@@ -156,6 +157,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 				}
 			}
 			for (let index = startOffset; index < data.length; index++) {
+				crc32 = (crc32 >>> 8) ^ CRC32_TABLE[(crc32 ^ data[index]) & 0xff];
 				if (data[index] == 13) {
 					if (data[index + 1] == 10) {
 						insertionsCRLF.push(index - startOffset);
@@ -164,6 +166,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 					}
 				}
 			}
+			crc32 = (crc32 ^ -1) >>> 0;
 		}
 		let pageContent = "";
 		if (!options.preventAppendedData) {
@@ -175,11 +178,12 @@ async function process(pageData, options, lastModDate = new Date()) {
 		}
 		const endTags = options.preventAppendedData || options.embeddedImage ? "" : "</body></html>";
 		if (options.extractDataFromPage) {
-			const payload = new Uint32Array(insertionsCRLF.length + substitutionsLF.length + 2);
-			payload.set(new Uint32Array([insertionsCRLF.length]), 0);
-			payload.set(new Uint32Array(insertionsCRLF), 1);
-			payload.set(new Uint32Array([substitutionsLF.length]), insertionsCRLF.length + 1);
-			payload.set(new Uint32Array(substitutionsLF), insertionsCRLF.length + 2);
+			const payload = new Uint32Array(insertionsCRLF.length + substitutionsLF.length + 3);
+			payload.set(new Uint32Array([crc32]), 0);
+			payload.set(new Uint32Array([insertionsCRLF.length]), 1);
+			payload.set(new Uint32Array(insertionsCRLF), 2);
+			payload.set(new Uint32Array([substitutionsLF.length]), insertionsCRLF.length + 2);
+			payload.set(new Uint32Array(substitutionsLF), insertionsCRLF.length + 3);
 			extraData = "<sfz-extra-data>" + compress(payload.buffer) + "</sfz-extra-data>";
 			if (options.preventAppendedData || extraData.length > 65535 - endTags.length - (options.embeddedImage ? PNG_IEND_LENGTH : 0)) {
 				if (!options.extraDataSize) {
@@ -436,6 +440,13 @@ async function getContent() {
 		[352, 138], [8249, 139], [338, 140], [381, 142], [8216, 145], [8217, 146], [8220, 147], [8221, 148], [8226, 149], [8211, 150],
 		[8212, 151], [732, 152], [8482, 153], [353, 154], [8250, 155], [339, 156], [382, 158], [376, 159]
 	]);
+	const crc32Table = new Uint32Array(256).map((_, indexTable) => {
+		let crc = indexTable;
+		for (let indexBits = 0; indexBits < 8; indexBits++) {
+			crc = crc & 1 ? 0xEDB88320 ^ (crc >>> 1) : crc >>> 1;
+		}
+		return crc;
+	});
 	return new Promise((resolve, reject) => {
 		let aborted = false;
 		getPageData();
@@ -527,13 +538,23 @@ async function getContent() {
 				zipData.push(charCode > 255 ? characterMap.get(charCode) : charCode);
 			}
 			const payload = new Uint32Array(decompress(zipDataElement.textContent).buffer);
-			const insertionsCRLFLength = payload[0];
-			const insertionsCRLF = payload.slice(1, 1 + insertionsCRLFLength);
-			const substitutionsLFLength = payload[1 + insertionsCRLFLength];
-			const substitutionsLF = payload.slice(2 + insertionsCRLFLength, 2 + insertionsCRLFLength + substitutionsLFLength);
+			const expectedCRC32 = payload[0];
+			const insertionsCRLFLength = payload[1];
+			const insertionsCRLF = payload.slice(2, 2 + insertionsCRLFLength);
+			const substitutionsLFLength = payload[2 + insertionsCRLFLength];
+			const substitutionsLF = payload.slice(3 + insertionsCRLFLength, 3 + insertionsCRLFLength + substitutionsLFLength);
 			insertionsCRLF.forEach(index => zipData.splice(index, 1, 13, 10));
 			substitutionsLF.forEach(index => zipData[index] = 13);
-			return new Blob([new Uint8Array(zipData)], { type: "application/octet-stream" });
+			const zipDataArray = new Uint8Array(zipData);
+			let crc32 = -1;
+			for (let index = 0; index < zipDataArray.length; index++) {
+				crc32 = (crc32 >>> 8) ^ crc32Table[(crc32 ^ zipDataArray[index]) & 0xff];
+			}
+			crc32 = (crc32 ^ -1) >>> 0;
+			if (crc32 != expectedCRC32) {
+				throw new Error("Invalid checksum of the extracted zip data");
+			}
+			return new Blob([zipDataArray], { type: "application/octet-stream" });
 		}
 		throw new Error("Extra zip data data not found");
 	}
