@@ -104,7 +104,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 		await writeData(zipDataWriter.writable, options.embeddedImage.slice(0, PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH));
 		if (options.selfExtractingArchive) {
 			const embeddedImageText = embeddedImageData.reduce((text, charCode) => text + String.fromCharCode(charCode), "");
-			const tagIndex = EMBEDDED_DATA_REGEXPS.findIndex(tests => !embeddedImageText.match(tests[1]));
+			const tagIndex = EMBEDDED_DATA_REGEXPS.slice(0, -1).findIndex(tests => !embeddedImageText.match(tests[1]));
 			let startTag;
 			[startTag, endTag] = tagIndex == -1 ? ["", ""] : EMBEDDED_DATA_TAGS[tagIndex];
 			const htmlArray = getStartHTMLArray(pageData, options, startTag);
@@ -287,8 +287,9 @@ async function prependHTMLData(pageData, zipDataWriter, script, options) {
 	}
 	pageContent += extraData;
 	const startTag = options.extractDataFromPageTags ? options.extractDataFromPageTags[0] : "<!--";
-	pageContent += startTag;
-	const extraDataOffset = startTag.length + extraData.length;
+	// the space guarantees a text node between <sfz-extra-data> and the start tag
+	pageContent += (extraData ? " " : "") + startTag;
+	const extraDataOffset = startTag.length + extraData.length + (extraData ? 1 : 0);
 	await writeData(zipDataWriter.writable, (new TextEncoder()).encode(pageContent));
 	return extraDataOffset;
 }
@@ -307,7 +308,7 @@ function getStartHTMLArray(pageData, options, startTag = "") {
 	let htmlArray;
 	if (options.embeddedPdf) {
 		const embeddedPdfText = options.embeddedPdf.reduce((text, charCode) => text + String.fromCharCode(charCode), "");
-		const pdfTagIndex = EMBEDDED_DATA_REGEXPS.findIndex(tests => !embeddedPdfText.match(tests[1]));
+		const pdfTagIndex = EMBEDDED_DATA_REGEXPS.slice(0, -1).findIndex(tests => !embeddedPdfText.match(tests[1]));
 		const [pdfStartTag, pdfEndTag] = pdfTagIndex == -1 ? ["", ""] : EMBEDDED_DATA_TAGS[pdfTagIndex];
 		const htmlArray1 = new TextEncoder().encode(html + pdfStartTag);
 		const htmlArray2 = new TextEncoder().encode(pdfEndTag + htmlHeadData + startTag);
@@ -359,6 +360,10 @@ function findExtraDataTags(textContent, pageData, options, lastModDate, indexExt
 		}
 	} else {
 		options.extractDataFromPageTags = EXTRA_DATA_TAGS[indexExtractDataFromPageTags];
+		if (options.extractDataFromPageTags[0] == "<plaintext>") {
+			// <plaintext> cannot be closed, the file must end with the zip data
+			options.preventAppendedData = true;
+		}
 		return process(pageData, options, lastModDate);
 	}
 }
