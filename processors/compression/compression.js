@@ -136,8 +136,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 	await addPageResources(zipWriter, pageData, { password: options.password, disableCompression: options.disableCompression }, options.createRootDirectory ? String(Date.now()) + "_" + (options.tabId || 0) + "/" : "", options.url);
 	const data = await zipWriter.close(null, { preventClose: true });
 	if (options.selfExtractingArchive) {
-		const insertionsCRLF = [];
-		const substitutionsLF = [];
+		const lfCodes = [];
 		let crc32 = -1;
 		if (options.extractDataFromPage) {
 			if (!options.extractDataFromPageTags || options.extractDataFromPageTags[0] != "<plaintext>") {
@@ -157,12 +156,17 @@ async function process(pageData, options, lastModDate = new Date()) {
 				}
 			}
 			for (let index = startOffset; index < data.length; index++) {
-				crc32 = (crc32 >>> 8) ^ CRC32_TABLE[(crc32 ^ data[index]) & 0xff];
-				if (data[index] == 13) {
+				const byte = data[index];
+				crc32 = (crc32 >>> 8) ^ CRC32_TABLE[(crc32 ^ byte) & 0xff];
+				if (byte == 10) {
+					lfCodes.push(0);
+				} else if (byte == 13) {
 					if (data[index + 1] == 10) {
-						insertionsCRLF.push(index - startOffset);
+						index++;
+						crc32 = (crc32 >>> 8) ^ CRC32_TABLE[(crc32 ^ 10) & 0xff];
+						lfCodes.push(2);
 					} else {
-						substitutionsLF.push(index - startOffset);
+						lfCodes.push(1);
 					}
 				}
 			}
@@ -178,12 +182,12 @@ async function process(pageData, options, lastModDate = new Date()) {
 		}
 		const endTags = options.preventAppendedData || options.embeddedImage ? "" : "</body></html>";
 		if (options.extractDataFromPage) {
-			const payload = new Uint32Array(insertionsCRLF.length + substitutionsLF.length + 3);
-			payload.set(new Uint32Array([crc32]), 0);
-			payload.set(new Uint32Array([insertionsCRLF.length]), 1);
-			payload.set(new Uint32Array(insertionsCRLF), 2);
-			payload.set(new Uint32Array([substitutionsLF.length]), insertionsCRLF.length + 2);
-			payload.set(new Uint32Array(substitutionsLF), insertionsCRLF.length + 3);
+			// payload layout: [crc32, zip data length, LF codes count, 2-bit codes (0=LF, 1=CR, 2=CRLF) packed LSB-first]
+			const payload = new Uint32Array(3 + Math.ceil(lfCodes.length / 16));
+			payload[0] = crc32;
+			payload[1] = data.length - startOffset;
+			payload[2] = lfCodes.length;
+			lfCodes.forEach((lfCode, indexLFCode) => payload[3 + (indexLFCode >> 4)] |= lfCode << ((indexLFCode & 15) * 2));
 			extraData = "<sfz-extra-data>" + compress(payload.buffer) + "</sfz-extra-data>";
 			if (options.preventAppendedData || extraData.length > 65535 - endTags.length - (options.embeddedImage ? PNG_IEND_LENGTH : 0)) {
 				if (!options.extraDataSize) {
@@ -535,30 +539,43 @@ async function getContent() {
 			} else {
 				dataNode = zipDataElement.previousSibling;
 			}
-			const zipData = [];
-			let { textContent } = dataNode;
-			for (let index = 0; index < textContent.length; index++) {
-				const charCode = textContent.charCodeAt(index);
-				zipData.push(charCode > 255 ? characterMap.get(charCode) : charCode);
-			}
 			const payload = new Uint32Array(decompress(zipDataElement.textContent).buffer);
 			const expectedCRC32 = payload[0];
-			const insertionsCRLFLength = payload[1];
-			const insertionsCRLF = payload.slice(2, 2 + insertionsCRLFLength);
-			const substitutionsLFLength = payload[2 + insertionsCRLFLength];
-			const substitutionsLF = payload.slice(3 + insertionsCRLFLength, 3 + insertionsCRLFLength + substitutionsLFLength);
-			insertionsCRLF.forEach(index => zipData.splice(index, 1, 13, 10));
-			substitutionsLF.forEach(index => zipData[index] = 13);
-			const zipDataArray = new Uint8Array(zipData);
+			const zipDataLength = payload[1];
+			const lfCodesLength = payload[2];
+			const zipData = new Uint8Array(zipDataLength);
+			const { textContent } = dataNode;
+			let offset = 0;
+			let indexLFCode = 0;
 			let crc32 = -1;
-			for (let index = 0; index < zipDataArray.length; index++) {
-				crc32 = (crc32 >>> 8) ^ crc32Table[(crc32 ^ zipDataArray[index]) & 0xff];
+			for (let index = 0; index < textContent.length; index++) {
+				const charCode = textContent.charCodeAt(index);
+				if (charCode == 10) {
+					const lfCode = (payload[3 + (indexLFCode >> 4)] >>> ((indexLFCode & 15) * 2)) & 3;
+					indexLFCode++;
+					if (lfCode == 0) {
+						writeByte(10);
+					} else {
+						writeByte(13);
+						if (lfCode == 2) {
+							writeByte(10);
+						}
+					}
+				} else {
+					writeByte(charCode > 255 ? characterMap.get(charCode) : charCode);
+				}
 			}
 			crc32 = (crc32 ^ -1) >>> 0;
-			if (crc32 != expectedCRC32) {
+			if (offset != zipDataLength || indexLFCode != lfCodesLength || crc32 != expectedCRC32) {
 				throw new Error("Invalid checksum of the extracted zip data");
 			}
-			return new Blob([zipDataArray], { type: "application/octet-stream" });
+			return new Blob([zipData], { type: "application/octet-stream" });
+
+			function writeByte(byte) {
+				zipData[offset] = byte;
+				crc32 = (crc32 >>> 8) ^ crc32Table[(crc32 ^ byte) & 0xff];
+				offset++;
+			}
 		}
 		throw new Error("Extra zip data data not found");
 	}
