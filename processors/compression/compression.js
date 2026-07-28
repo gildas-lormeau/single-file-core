@@ -350,7 +350,8 @@ function getPageTitle(pageData) {
 
 function findExtraDataTags(textContent, pageData, options, lastModDate, indexExtractDataFromPageTags = 0) {
 	const regExpsTag = EXTRA_DATA_REGEXPS[indexExtractDataFromPageTags];
-	const matchTag = textContent.match(regExpsTag[0]) || textContent.match(regExpsTag[1]);
+	const plaintextTag = EXTRA_DATA_TAGS[indexExtractDataFromPageTags][0] == "<plaintext>";
+	const matchTag = !plaintextTag && (textContent.match(regExpsTag[0]) || textContent.match(regExpsTag[1]));
 	if (matchTag) {
 		if (indexExtractDataFromPageTags < EXTRA_DATA_TAGS.length - 1) {
 			return findExtraDataTags(textContent, pageData, options, lastModDate, indexExtractDataFromPageTags + 1);
