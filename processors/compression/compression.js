@@ -66,7 +66,7 @@ const EXTRA_DATA_REGEXPS = [
 	[/<plaintext/i, /<\/plaintext>/i]
 ];
 const EMBEDDED_DATA_REGEXPS = [
-	[/<!--/i, /-->/i],
+	[/<!--/i, /--!?>/i],
 	...EXTRA_DATA_REGEXPS,
 ];
 const CRC32_TABLE = new Uint32Array(256).map((_, indexTable) => {
@@ -142,7 +142,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 			if (!options.extractDataFromPageTags) {
 				let textContent = "";
 				data.slice(startOffset).forEach(charCode => textContent += String.fromCharCode(charCode));
-				const matchCommentTags = textContent.match(/<!--/i) || textContent.match(/-->/i);
+				const matchCommentTags = textContent.match(/<!--/i) || textContent.match(/--!?>/i);
 				if (matchCommentTags) {
 					return findExtraDataTags(textContent, pageData, options, lastModDate);
 				}
