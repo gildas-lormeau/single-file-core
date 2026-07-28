@@ -139,12 +139,20 @@ async function process(pageData, options, lastModDate = new Date()) {
 		const insertionsCRLF = [];
 		const substitutionsLF = [];
 		if (options.extractDataFromPage) {
-			if (!options.extractDataFromPageTags) {
+			if (!options.extractDataFromPageTags || options.extractDataFromPageTags[0] != "<plaintext>") {
 				let textContent = "";
 				data.slice(startOffset).forEach(charCode => textContent += String.fromCharCode(charCode));
-				const matchCommentTags = textContent.match(/<!--/i) || textContent.match(/--!?>/i);
-				if (matchCommentTags) {
-					return findExtraDataTags(textContent, pageData, options, lastModDate);
+				if (options.extractDataFromPageTags) {
+					const tagIndex = EXTRA_DATA_TAGS.indexOf(options.extractDataFromPageTags);
+					const regExpsTag = EXTRA_DATA_REGEXPS[tagIndex];
+					if (textContent.match(regExpsTag[0]) || textContent.match(regExpsTag[1])) {
+						return findExtraDataTags(textContent, pageData, options, lastModDate, tagIndex + 1);
+					}
+				} else {
+					const matchCommentTags = textContent.match(/<!--/i) || textContent.match(/--!?>/i);
+					if (matchCommentTags) {
+						return findExtraDataTags(textContent, pageData, options, lastModDate);
+					}
 				}
 			}
 			for (let index = startOffset; index < data.length; index++) {
