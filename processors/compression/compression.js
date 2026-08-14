@@ -133,7 +133,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 	} else if (!options.embeddedImage && options.embeddedPdf) {
 		await writeData(zipDataWriter.writable, new Uint8Array(options.embeddedPdf));
 	}
-	const zipWriter = new ZipWriter(zipDataWriter, { bufferedWrite: true, keepOrder: true, lastModDate });
+	const zipWriter = new ZipWriter(zipDataWriter, { bufferedWrite: true, keepOrder: true, lastModDate, useCompressionStream: true });
 	const startOffset = zipDataWriter.offset;
 	pageData.url = options.url;
 	pageData.archiveTime = (new Date()).toISOString();
