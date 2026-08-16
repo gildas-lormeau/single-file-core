@@ -29,12 +29,14 @@ async function router(content, { extract, display }) {
 	const PAGES_PREFIX = "pages/";
 	const PAGES_FILENAME = "sfz-pages.json";
 	const ROUTE_PREFIX = "#sfz/";
+	const TARGET_ATTRIBUTE = "data-sfz-target";
+	const TARGET_PSEUDO_CLASS = /:target(?![\w-])/g;
 	const { zip, document, location, history, CSS } = globalThis;
 	const cache = new Map();
 	const urlToPath = new Map();
 	const scrollStates = new Map();
 	const sessionKey = Math.random().toString(36).substring(2);
-	let currentPath, currentEntryId, pendingFragment;
+	let currentPath, currentEntryId, pendingFragment, targetStyleElement;
 	let nextEntryId = 0;
 	try {
 		history.scrollRestoration = "manual";
@@ -66,6 +68,7 @@ async function router(content, { extract, display }) {
 	// re-attaching identical function references is idempotent
 	function attachListeners() {
 		globalThis.addEventListener("click", interceptClick, true);
+		globalThis.addEventListener("auxclick", interceptClick, true);
 		globalThis.addEventListener("hashchange", onHashChange);
 	}
 
@@ -74,6 +77,9 @@ async function router(content, { extract, display }) {
 	}
 
 	function interceptClick(event) {
+		if (event.type == "auxclick" && event.button != 1) {
+			return;
+		}
 		let node = event.target;
 		while (node && node.tagName != "A") {
 			node = node.parentNode;
@@ -82,24 +88,34 @@ async function router(content, { extract, display }) {
 			const path = urlToPath.get(stripFragment(node.href));
 			if (path !== undefined) {
 				event.preventDefault();
-				const fragment = getFragment(node.href);
-				if (path == currentPath) {
-					if (fragment) {
-						location.hash = fragment;
-					}
+				// modified and middle clicks open the archive deep link in a new
+				// tab instead of letting the browser open the live site URL
+				if (event.type == "auxclick" || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+					globalThis.open(stripFragment(location.href) + ROUTE_PREFIX + path);
 				} else {
-					pendingFragment = fragment;
-					location.hash = ROUTE_PREFIX + path;
+					const fragment = getFragment(node.href);
+					if (path == currentPath) {
+						if (fragment) {
+							location.hash = fragment;
+						}
+					} else {
+						pendingFragment = fragment;
+						location.hash = ROUTE_PREFIX + path;
+					}
 				}
 			}
 		}
 	}
 
 	async function navigate() {
+		clearTarget();
 		scrollStates.set(currentEntryId, captureScrollState());
 		const continuityScrolls = captureElementScrolls();
 		const entryId = getEntryId();
 		const rendered = await renderRoute();
+		if (rendered) {
+			focusContent();
+		}
 		if (entryId !== null) {
 			currentEntryId = entryId;
 			const scrollState = scrollStates.get(entryId);
@@ -216,6 +232,9 @@ async function router(content, { extract, display }) {
 		return segments.join(">");
 	}
 
+	// the fragment is scrolled to from script because the real fragment is the
+	// route hash, which also means :target never matches in rendered pages; the
+	// :target rules of the page are cloned against a marker attribute instead
 	function scrollToFragment(fragment) {
 		const name = decodeURIComponent(fragment.substring(1));
 		let target = document.getElementById(name);
@@ -223,7 +242,67 @@ async function router(content, { extract, display }) {
 			target = document.querySelector("a[name=" + CSS.escape(name) + "]");
 		}
 		if (target) {
+			markTarget(target);
 			target.scrollIntoView();
+		}
+	}
+
+	function markTarget(element) {
+		const cssText = getTargetRules();
+		if (cssText) {
+			element.setAttribute(TARGET_ATTRIBUTE, "");
+			targetStyleElement = document.createElement("style");
+			targetStyleElement.textContent = cssText;
+			document.head.appendChild(targetStyleElement);
+		}
+	}
+
+	function clearTarget() {
+		if (targetStyleElement) {
+			const markedElement = document.querySelector("[" + TARGET_ATTRIBUTE + "]");
+			if (markedElement) {
+				markedElement.removeAttribute(TARGET_ATTRIBUTE);
+			}
+			targetStyleElement.remove();
+			targetStyleElement = undefined;
+		}
+	}
+
+	function getTargetRules() {
+		let cssText = "";
+		Array.from(document.styleSheets).forEach(styleSheet => {
+			try {
+				cssText += getTargetRulesText(styleSheet.cssRules);
+			} catch {
+				// ignored
+			}
+		});
+		return cssText;
+	}
+
+	function getTargetRulesText(cssRules) {
+		let cssText = "";
+		Array.from(cssRules).forEach(cssRule => {
+			if (cssRule.cssRules && cssRule.cssRules.length) {
+				const innerCssText = getTargetRulesText(cssRule.cssRules);
+				if (innerCssText) {
+					cssText += cssRule.cssText.substring(0, cssRule.cssText.indexOf("{") + 1) + innerCssText + "}";
+				}
+			} else if (cssRule.selectorText) {
+				const selectorText = cssRule.selectorText.replace(TARGET_PSEUDO_CLASS, "[" + TARGET_ATTRIBUTE + "]");
+				if (selectorText != cssRule.selectorText) {
+					cssText += selectorText + "{" + cssRule.style.cssText + "}";
+				}
+			}
+		});
+		return cssText;
+	}
+
+	function focusContent() {
+		const headingElement = document.querySelector("h1") || document.body;
+		if (headingElement) {
+			headingElement.setAttribute("tabindex", "-1");
+			headingElement.focus({ preventScroll: true });
 		}
 	}
 
