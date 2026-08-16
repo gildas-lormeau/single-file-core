@@ -31,12 +31,17 @@ async function router(content, { extract, display }) {
 	const ROUTE_PREFIX = "#sfz/";
 	const TARGET_ATTRIBUTE = "data-sfz-target";
 	const TARGET_PSEUDO_CLASS = /:target(?![\w-])/g;
-	const { zip, document, location, history, CSS } = globalThis;
+	const VISITED_ATTRIBUTE = "data-sfz-visited";
+	const VISITED_PSEUDO_CLASS = /:visited(?![\w-])/g;
+	const VISITED_DEFAULT_COLOR = "#551a8b";
+	const PREFETCH_DELAY = 100;
+	const { zip, document, location, history, CSS, setTimeout, clearTimeout } = globalThis;
 	const cache = new Map();
 	const urlToPath = new Map();
 	const scrollStates = new Map();
+	const visitedPaths = new Set();
 	const sessionKey = Math.random().toString(36).substring(2);
-	let currentPath, currentEntryId, targetStyleElement;
+	let currentPath, currentEntryId, targetStyleElement, prefetchTimeout;
 	let nextEntryId = 0;
 	try {
 		history.scrollRestoration = "manual";
@@ -69,6 +74,7 @@ async function router(content, { extract, display }) {
 	function attachListeners() {
 		globalThis.addEventListener("click", interceptClick, true);
 		globalThis.addEventListener("auxclick", interceptClick, true);
+		globalThis.addEventListener("mouseover", prefetchOnHover, true);
 		globalThis.addEventListener("hashchange", onHashChange);
 	}
 
@@ -80,10 +86,7 @@ async function router(content, { extract, display }) {
 		if (event.type == "auxclick" && event.button != 1) {
 			return;
 		}
-		let node = event.target;
-		while (node && node.tagName != "A") {
-			node = node.parentNode;
-		}
+		const node = findAnchor(event.target);
 		if (node && node.href) {
 			const fragment = getFragment(node.href);
 			let path = urlToPath.get(stripFragment(node.href));
@@ -115,33 +118,48 @@ async function router(content, { extract, display }) {
 		scrollStates.set(currentEntryId, captureScrollState());
 		const continuityScrolls = captureElementScrolls();
 		const entryId = getEntryId();
-		const rendered = await renderRoute();
-		if (rendered) {
-			focusContent();
-		}
-		const { fragment } = parseRoute();
-		if (entryId !== null) {
-			currentEntryId = entryId;
-			const scrollState = scrollStates.get(entryId);
-			if (scrollState) {
-				applyElementScrolls(scrollState.elements);
-				globalThis.scrollTo(scrollState.x, scrollState.y);
-			}
-			if (fragment) {
-				const target = findFragmentTarget(fragment);
-				if (target) {
-					markTarget(target);
-				}
-			}
+		const { routed, path, fragment } = parseRoute();
+		const willRender = routed && path != currentPath && Boolean(pages.find(page => page.path == path));
+		// the whole render and scroll sequence runs inside the view transition
+		// so that the crossfade ends on the final scroll position
+		if (willRender && document.startViewTransition && !prefersReducedMotion()) {
+			await document.startViewTransition(update).updateCallbackDone;
 		} else {
-			currentEntryId = assignEntryId();
+			await update();
+		}
+
+		async function update() {
+			const rendered = await renderRoute();
 			if (rendered) {
-				applyElementScrolls(continuityScrolls);
+				focusContent();
 			}
-			if (fragment) {
-				scrollToFragment(fragment);
-			} else if (rendered) {
-				globalThis.scrollTo(0, 0);
+			applyScrollState(rendered);
+		}
+
+		function applyScrollState(rendered) {
+			if (entryId !== null) {
+				currentEntryId = entryId;
+				const scrollState = scrollStates.get(entryId);
+				if (scrollState) {
+					applyElementScrolls(scrollState.elements);
+					globalThis.scrollTo(scrollState.x, scrollState.y);
+				}
+				if (fragment) {
+					const target = findFragmentTarget(fragment);
+					if (target) {
+						markTarget(target);
+					}
+				}
+			} else {
+				currentEntryId = assignEntryId();
+				if (rendered) {
+					applyElementScrolls(continuityScrolls);
+				}
+				if (fragment) {
+					scrollToFragment(fragment);
+				} else if (rendered) {
+					globalThis.scrollTo(0, 0);
+				}
 			}
 		}
 	}
@@ -158,6 +176,8 @@ async function router(content, { extract, display }) {
 		currentPath = path;
 		await display(document, docContent, { inPlace: true });
 		attachListeners();
+		visitedPaths.add(path);
+		markVisitedLinks();
 		if (initial) {
 			if (fragment) {
 				scrollToFragment(fragment);
@@ -182,15 +202,45 @@ async function router(content, { extract, display }) {
 		return { routed, path, fragment };
 	}
 
-	async function getPageContent(path) {
+	// the cache stores promises so that a click during a hover prefetch awaits
+	// the extraction in flight instead of starting a second one
+	function getPageContent(path) {
 		if (!cache.has(path)) {
-			const pageEntries = entries.filter(entry => path == "" ?
-				!entry.filename.startsWith(PAGES_PREFIX) && entry.filename != PAGES_FILENAME :
-				entry.filename.startsWith(path));
-			const { docContent } = await extract(null, { entries: pageEntries, pagePath: path });
-			cache.set(path, docContent);
+			const contentPromise = extractPageContent(path);
+			contentPromise.catch(() => cache.delete(path));
+			cache.set(path, contentPromise);
 		}
 		return cache.get(path);
+	}
+
+	async function extractPageContent(path) {
+		const pageEntries = entries.filter(entry => path == "" ?
+			!entry.filename.startsWith(PAGES_PREFIX) && entry.filename != PAGES_FILENAME :
+			entry.filename.startsWith(path));
+		const { docContent } = await extract(null, { entries: pageEntries, pagePath: path });
+		return docContent;
+	}
+
+	function prefetchOnHover(event) {
+		const node = findAnchor(event.target);
+		if (node && node.href) {
+			const path = urlToPath.get(stripFragment(node.href));
+			if (path !== undefined && path != currentPath && !cache.has(path)) {
+				clearTimeout(prefetchTimeout);
+				prefetchTimeout = setTimeout(() => getPageContent(path).catch(() => { }), PREFETCH_DELAY);
+			}
+		}
+	}
+
+	function findAnchor(node) {
+		while (node && node.tagName != "A") {
+			node = node.parentNode;
+		}
+		return node;
+	}
+
+	function prefersReducedMotion() {
+		return Boolean(globalThis.matchMedia && globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches);
 	}
 
 	function getEntryId() {
@@ -278,13 +328,28 @@ async function router(content, { extract, display }) {
 	}
 
 	function markTarget(element) {
-		const cssText = getTargetRules();
+		const cssText = getPseudoRules(TARGET_PSEUDO_CLASS, TARGET_ATTRIBUTE);
 		if (cssText) {
 			element.setAttribute(TARGET_ATTRIBUTE, "");
 			targetStyleElement = document.createElement("style");
 			targetStyleElement.textContent = cssText;
 			document.head.appendChild(targetStyleElement);
 		}
+	}
+
+	// :visited itself is privacy-gated, so visited routes are stamped with an
+	// attribute styled by the page's own :visited rules over a default color
+	function markVisitedLinks() {
+		const styleElement = document.createElement("style");
+		styleElement.textContent = "a[" + VISITED_ATTRIBUTE + "]{color:" + VISITED_DEFAULT_COLOR + "}" +
+			getPseudoRules(VISITED_PSEUDO_CLASS, VISITED_ATTRIBUTE);
+		document.head.appendChild(styleElement);
+		document.querySelectorAll("a[href]").forEach(anchorElement => {
+			const path = urlToPath.get(stripFragment(anchorElement.href));
+			if (path !== undefined && visitedPaths.has(path)) {
+				anchorElement.setAttribute(VISITED_ATTRIBUTE, "");
+			}
+		});
 	}
 
 	function clearTarget() {
@@ -298,11 +363,11 @@ async function router(content, { extract, display }) {
 		}
 	}
 
-	function getTargetRules() {
+	function getPseudoRules(pseudoRegExp, attributeName) {
 		let cssText = "";
 		Array.from(document.styleSheets).forEach(styleSheet => {
 			try {
-				cssText += getTargetRulesText(styleSheet.cssRules);
+				cssText += getPseudoRulesText(styleSheet.cssRules, pseudoRegExp, attributeName);
 			} catch {
 				// ignored
 			}
@@ -310,16 +375,16 @@ async function router(content, { extract, display }) {
 		return cssText;
 	}
 
-	function getTargetRulesText(cssRules) {
+	function getPseudoRulesText(cssRules, pseudoRegExp, attributeName) {
 		let cssText = "";
 		Array.from(cssRules).forEach(cssRule => {
 			if (cssRule.cssRules && cssRule.cssRules.length) {
-				const innerCssText = getTargetRulesText(cssRule.cssRules);
+				const innerCssText = getPseudoRulesText(cssRule.cssRules, pseudoRegExp, attributeName);
 				if (innerCssText) {
 					cssText += cssRule.cssText.substring(0, cssRule.cssText.indexOf("{") + 1) + innerCssText + "}";
 				}
 			} else if (cssRule.selectorText) {
-				const selectorText = cssRule.selectorText.replace(TARGET_PSEUDO_CLASS, "[" + TARGET_ATTRIBUTE + "]");
+				const selectorText = cssRule.selectorText.replace(pseudoRegExp, "[" + attributeName + "]");
 				if (selectorText != cssRule.selectorText) {
 					cssText += selectorText + "{" + cssRule.style.cssText + "}";
 				}
