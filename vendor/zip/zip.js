@@ -110,6 +110,8 @@ const INFINITY_VALUE = Infinity;
 const UNDEFINED_TYPE = "undefined";
 const FUNCTION_TYPE = "function";
 const OBJECT_TYPE = "object";
+const STRING_TYPE = "string";
+const NUMBER_TYPE = "number";
 
 const EMPTY_UINT8_ARRAY = new Uint8Array();
 
@@ -1866,7 +1868,6 @@ const ERR_INVALID_CODEC_DEFINITION = "Invalid codec definition";
 const ERR_RESERVED_COMPRESSION_METHOD = "Reserved compression method";
 const ERR_INVALID_CODEC_MODULE = "Invalid codec module";
 
-const STRING_TYPE = "string";
 const RESERVED_COMPRESSION_METHODS = [
 	COMPRESSION_METHOD_STORE,
 	COMPRESSION_METHOD_DEFLATE,
@@ -3653,7 +3654,7 @@ async function initHttpReader(httpReader, sendRequest, getRequestData) {
 		forceRangeRequests,
 		combineSizeEocd
 	} = httpReader;
-	if (isHttpFamily(url) && (useRangeHeader || forceRangeRequests) && (typeof preventHeadRequest == "undefined" || preventHeadRequest)) {
+	if (isHttpFamily(url) && (useRangeHeader || forceRangeRequests) && (typeof preventHeadRequest == UNDEFINED_TYPE || preventHeadRequest)) {
 		const response = await sendRequest(HTTP_METHOD_GET, httpReader, getRangeHeaders(httpReader, combineSizeEocd ? -END_OF_CENTRAL_DIR_LENGTH : undefined));
 		const acceptRanges = response.headers.get(HTTP_HEADER_ACCEPT_RANGES);
 		if (!forceRangeRequests && (!acceptRanges || acceptRanges.toLowerCase() != HTTP_RANGE_UNIT)) {
@@ -4506,9 +4507,13 @@ const OPTION_USDZ = "usdz";
 const OPTION_UNIX_EXTRA_FIELD_TYPE = "unixExtraFieldType";
 const OPTION_LOCAL_EXTRA_FIELD = "localExtraField";
 const OPTION_STRICTNESS = "strictness";
+const OPTION_FILENAME_VALIDATION = "filenameValidation";
+const OPTION_NORMALIZE_FILENAME = "normalizeFilename";
 const OPTION_MAX_APPENDED_DATA_SIZE = "maxAppendedDataSize";
 const OPTION_DECRYPT_CENTRAL_DIRECTORY = "decryptCentralDirectory";
 const OPTION_SIGN_CENTRAL_DIRECTORY = "signCentralDirectory";
+const TEXT_TYPE_FILENAME = "filename";
+const TEXT_TYPE_COMMENT = "comment";
 const STRICTNESS_STRICT = "strict";
 const STRICTNESS_BALANCED = "balanced";
 const STRICTNESS_TOLERANT = "tolerant";
@@ -4555,6 +4560,11 @@ const ERR_SPLIT_ZIP_FILE = "Split zip file";
 const ERR_OVERLAPPING_ENTRY = "Overlapping entry found";
 const ERR_AMBIGUOUS_ARCHIVE = "Ambiguous archive";
 const ERR_ENCRYPTED_CENTRAL_DIRECTORY = "Encrypted central directory is not supported";
+const ERR_UNSAFE_FILENAME = "Unsafe filename";
+const ERR_INVALID_STRICTNESS = "Invalid strictness (must be 'strict', 'balanced' or 'tolerant')";
+const ERR_INVALID_FILENAME_VALIDATION = "Invalid filenameValidation (must be 'strict', 'balanced' or 'tolerant')";
+const ERR_INVALID_MAX_APPENDED_DATA_SIZE = "Invalid maxAppendedDataSize (must be a number greater than or equal to 0)";
+const DRIVE_LETTER_REGEXP = /^[a-zA-Z]:/;
 const CHARSET_UTF8 = "utf-8";
 const PROPERTY_NAME_UTF8_SUFFIX = "UTF8";
 const CHARSET_CP437 = "cp437";
@@ -4576,6 +4586,10 @@ const ZIP64_EXTRACTION = {
 		bytes: 8
 	}
 };
+const MAX_END_OF_CENTRAL_DIR_PROBES = 64;
+const CENTRAL_DIRECTORY_UNREACHABLE = 0;
+const CENTRAL_DIRECTORY_PLAUSIBLE = 1;
+const CENTRAL_DIRECTORY_REACHABLE = 2;
 
 class ZipReader {
 
@@ -4604,6 +4618,8 @@ class ZipReader {
 		const checkAmbiguity = strictness == STRICTNESS_STRICT;
 		const rejectAmbiguousEndOfDirectory = strictness != STRICTNESS_TOLERANT;
 		const maxAppendedDataSize = getMaxAppendedDataSize(getOptionValue$1(zipReader, options, OPTION_MAX_APPENDED_DATA_SIZE), strictness);
+		const filenameValidation = getFilenameValidation(getOptionValue$1(zipReader, options, OPTION_FILENAME_VALIDATION), strictness);
+		const normalizeFilename = getOptionValue$1(zipReader, options, OPTION_NORMALIZE_FILENAME);
 		const { endOfDirectoryInfo, endOfDirectoryReachingEndCount } = await findEndOfCentralDirectory(reader, rejectAmbiguousEndOfDirectory, maxAppendedDataSize);
 		if (!endOfDirectoryInfo) {
 			const signatureArray = await readUint8Array(reader, 0, 4);
@@ -4797,11 +4813,22 @@ class ZipReader {
 			const decode = getOptionValue$1(zipReader, options, OPTION_DECODE_TEXT) || decodeText;
 			const rawFilenameEncoding = filenameUTF8 ? CHARSET_UTF8 : filenameEncoding || CHARSET_CP437;
 			const rawCommentEncoding = commentUTF8 ? CHARSET_UTF8 : commentEncoding || CHARSET_CP437;
-			let filename = decode(rawFilename, rawFilenameEncoding);
+			let filename = decode(rawFilename, rawFilenameEncoding, TEXT_TYPE_FILENAME);
 			if (filename === UNDEFINED_VALUE) {
 				filename = decodeText(rawFilename, rawFilenameEncoding);
 			}
-			let comment = decode(rawComment, rawCommentEncoding);
+			if (normalizeFilename) {
+				const normalizedFilename = normalizeFilename(filename);
+				if (normalizedFilename !== UNDEFINED_VALUE) {
+					filename = normalizedFilename;
+				}
+			}
+			if (isUnsafeFilename(filename, filenameValidation)) {
+				const error = new Error(ERR_UNSAFE_FILENAME);
+				error.filename = filename;
+				throw error;
+			}
+			let comment = decode(rawComment, rawCommentEncoding, TEXT_TYPE_COMMENT);
 			if (comment === UNDEFINED_VALUE) {
 				comment = decodeText(rawComment, rawCommentEncoding);
 			}
@@ -4862,10 +4889,10 @@ class ZipReader {
 			entry.getData = (writer, options) => fileEntry.getData(writer, entry, zipReader.readRanges, options);
 			entry.arrayBuffer = async options => {
 				const writer = new TransformStream();
-				const [arrayBuffer] = await Promise.all([
-					streamToBlob(writer.readable).then(blob => blob.arrayBuffer()),
-					fileEntry.getData(writer, entry, zipReader.readRanges, options)]);
-				return arrayBuffer;
+				const arrayBufferPromise = streamToBlob(writer.readable).then(blob => blob.arrayBuffer());
+				arrayBufferPromise.catch(() => { });
+				await fileEntry.getData(writer, entry, zipReader.readRanges, options);
+				return arrayBufferPromise;
 			};
 			offset = endOffset;
 			const { onprogress } = options;
@@ -5116,7 +5143,7 @@ class ZipEntry {
 				readRanges
 			});
 		}
-		let writable;
+		let writable, abortError;
 		try {
 			if (!checkOverlappingEntryOnly) {
 				if (checkPasswordOnly) {
@@ -5136,12 +5163,22 @@ class ZipEntry {
 				writer.size += error.outputSize;
 			}
 			if (!checkPasswordOnly || error.message != ERR_ABORT_CHECK_PASSWORD) {
+				abortError = error;
 				throw error;
 			}
 		} finally {
 			const preventClose = getOptionValue$1(zipEntry, options, OPTION_PREVENT_CLOSE);
 			if (!preventClose && writable && !writable.locked) {
-				await writable.getWriter().close();
+				const writableWriter = writable.getWriter();
+				if (abortError) {
+					try {
+						await writableWriter.abort(abortError);
+					} catch {
+						// the error being propagated is more relevant; ignored
+					}
+				} else {
+					await writableWriter.close();
+				}
 			}
 		}
 		return checkPasswordOnly || checkOverlappingEntryOnly ? UNDEFINED_VALUE : writer.getData ? writer.getData() : writable;
@@ -5521,16 +5558,51 @@ function getDiskOffset$1(reader, diskNumber) {
 	return reader.getDiskOffset ? reader.getDiskOffset(diskNumber) : 0;
 }
 
+function isStrictnessValue(value) {
+	return value === STRICTNESS_STRICT || value === STRICTNESS_BALANCED || value === STRICTNESS_TOLERANT;
+}
+
 function getStrictness(strictness, checkAmbiguity) {
 	if (strictness === UNDEFINED_VALUE) {
 		return checkAmbiguity ? STRICTNESS_STRICT : STRICTNESS_BALANCED;
 	}
+	if (!isStrictnessValue(strictness)) {
+		throw new Error(ERR_INVALID_STRICTNESS);
+	}
 	return strictness;
+}
+
+function getFilenameValidation(filenameValidation, strictness) {
+	if (filenameValidation === UNDEFINED_VALUE) {
+		return strictness;
+	}
+	if (!isStrictnessValue(filenameValidation)) {
+		throw new Error(ERR_INVALID_FILENAME_VALIDATION);
+	}
+	return filenameValidation;
+}
+
+function isUnsafeFilename(filename, filenameValidation) {
+	if (filenameValidation == STRICTNESS_TOLERANT) {
+		return false;
+	}
+	const pathParts = filename.split("/");
+	if (pathParts.length > 1 && pathParts[pathParts.length - 1] === "") {
+		pathParts.pop();
+	}
+	if (pathParts.includes("..") || filename.startsWith("/") || filename.startsWith("\\\\") || DRIVE_LETTER_REGEXP.test(filename)) {
+		return true;
+	}
+	return filenameValidation == STRICTNESS_STRICT && (pathParts.includes(".") || pathParts.includes(""));
 }
 
 function getMaxAppendedDataSize(maxAppendedDataSize, strictness) {
 	if (maxAppendedDataSize !== UNDEFINED_VALUE) {
-		return maxAppendedDataSize;
+		const size = toNumber$1(maxAppendedDataSize);
+		if (typeof size != NUMBER_TYPE || Number.isNaN(size) || size < 0) {
+			throw new Error(ERR_INVALID_MAX_APPENDED_DATA_SIZE);
+		}
+		return size;
 	}
 	if (strictness == STRICTNESS_STRICT) {
 		return 0;
@@ -5540,12 +5612,6 @@ function getMaxAppendedDataSize(maxAppendedDataSize, strictness) {
 	}
 	return MAX_16_BITS;
 }
-
-const MAX_END_OF_CENTRAL_DIR_PROBES = 64;
-
-const CENTRAL_DIRECTORY_UNREACHABLE = 0;
-const CENTRAL_DIRECTORY_PLAUSIBLE = 1;
-const CENTRAL_DIRECTORY_REACHABLE = 2;
 
 async function findEndOfCentralDirectory(reader, rejectAmbiguous, maxAppendedDataSize) {
 	const { size } = reader;
@@ -5682,6 +5748,10 @@ function getOptionValue$1(zipReader, options, name) {
 	return options[name] === UNDEFINED_VALUE ? zipReader.options[name] : options[name];
 }
 
+function toNumber$1(value) {
+	return typeof value == STRING_TYPE && value.trim() ? Number(value) : value;
+}
+
 function getDate(timeRaw) {
 	const date = (timeRaw & 0xffff0000) >> 16, time = timeRaw & MAX_16_BITS;
 	return new Date(1980 + ((date & 0xFE00) >> 9), ((date & 0x01E0) >> 5) - 1, date & 0x001F, (time & 0xF800) >> 11, (time & 0x07E0) >> 5, (time & 0x001F) * 2, 0);
@@ -5720,12 +5790,16 @@ var zipReader = /*#__PURE__*/Object.freeze({
 	ERR_INVALID_AUTHENTICATION_CODE: ERR_INVALID_AUTHENTICATION_CODE,
 	ERR_INVALID_COMPRESSED_DATA: ERR_INVALID_COMPRESSED_DATA,
 	ERR_INVALID_CRC32: ERR_INVALID_CRC32,
+	ERR_INVALID_FILENAME_VALIDATION: ERR_INVALID_FILENAME_VALIDATION,
+	ERR_INVALID_MAX_APPENDED_DATA_SIZE: ERR_INVALID_MAX_APPENDED_DATA_SIZE,
 	ERR_INVALID_PASSWORD: ERR_INVALID_PASSWORD,
 	ERR_INVALID_SIGNATURE: ERR_INVALID_SIGNATURE,
+	ERR_INVALID_STRICTNESS: ERR_INVALID_STRICTNESS,
 	ERR_INVALID_UNCOMPRESSED_SIZE: ERR_INVALID_UNCOMPRESSED_SIZE,
 	ERR_LOCAL_FILE_HEADER_NOT_FOUND: ERR_LOCAL_FILE_HEADER_NOT_FOUND,
 	ERR_OVERLAPPING_ENTRY: ERR_OVERLAPPING_ENTRY,
 	ERR_SPLIT_ZIP_FILE: ERR_SPLIT_ZIP_FILE,
+	ERR_UNSAFE_FILENAME: ERR_UNSAFE_FILENAME,
 	ERR_UNSUPPORTED_COMPRESSION: ERR_UNSUPPORTED_COMPRESSION$1,
 	ERR_UNSUPPORTED_ENCRYPTION: ERR_UNSUPPORTED_ENCRYPTION,
 	ERR_WORKER_STARTUP_TIMEOUT: ERR_WORKER_STARTUP_TIMEOUT,
@@ -5787,6 +5861,8 @@ const ERR_INVALID_UNIX_EXTRA_FIELD_TYPE = "Invalid unixExtraFieldType (must be '
 const ERR_INVALID_UNIX_ID_SIZE = "uid/gid must be 0..65535 for unixExtraFieldType 'unix' (use 'infozip' for larger ids)";
 const ERR_INVALID_MSDOS_ATTRIBUTES = "Invalid msdosAttributesRaw (must be integer 0..255)";
 const ERR_INVALID_MSDOS_DATA = "Invalid msdosAttributes (must be an object with boolean flags)";
+const ERR_INVALID_LEVEL = "Invalid level (must be integer 0..9)";
+const ERR_INVALID_PASSWORD_TYPE = "Invalid password (password must be a string, rawPassword must be a Uint8Array)";
 const ERR_INVALID_SIGNATURE_DATA = "Signature data exceeds 64KB";
 
 const EXTRAFIELD_DATA_AES = new Uint8Array([0x07, 0x00, 0x02, 0x00, 0x41, 0x45, 0x03, 0x00, 0x00]);
@@ -5794,6 +5870,7 @@ const EXTRAFIELD_OFFSET_AES_VENDOR_VERSION = 4;
 const VENDOR_VERSION_AE_1 = 1;
 const INFOZIP_EXTRA_FIELD_TYPE = "infozip";
 const UNIX_EXTRA_FIELD_TYPE = "unix";
+const MAX_LEVEL = 9;
 
 let workers = 0;
 const pendingEntries = [];
@@ -5956,7 +6033,8 @@ class ZipWriter {
 
 	remove(entry) {
 		const { filenames, files } = this;
-		if (typeof entry == "string") {
+		// deno-lint-ignore valid-typeof
+		if (typeof entry == STRING_TYPE) {
 			entry = files.get(entry);
 		}
 		if (entry && entry.filename !== UNDEFINED_VALUE) {
@@ -6094,20 +6172,20 @@ function resolveAttributes(zipWriter, name, options) {
 	let msDosCompatible = getOptionValue(zipWriter, options, PROPERTY_NAME_MS_DOS_COMPATIBLE);
 	let versionMadeBy = getOptionValue(zipWriter, options, PROPERTY_NAME_VERSION_MADE_BY, msDosCompatible ? 20 : 768);
 	const executable = getOptionValue(zipWriter, options, PROPERTY_NAME_EXECUTABLE);
-	const uid = getOptionValue(zipWriter, options, PROPERTY_NAME_UID);
-	const gid = getOptionValue(zipWriter, options, PROPERTY_NAME_GID);
-	let unixMode = getOptionValue(zipWriter, options, PROPERTY_NAME_UNIX_MODE);
+	const uid = getNumberOptionValue(zipWriter, options, PROPERTY_NAME_UID);
+	const gid = getNumberOptionValue(zipWriter, options, PROPERTY_NAME_GID);
+	let unixMode = getNumberOptionValue(zipWriter, options, PROPERTY_NAME_UNIX_MODE);
 	let unixExtraFieldType = getOptionValue(zipWriter, options, OPTION_UNIX_EXTRA_FIELD_TYPE);
 	let setuid = getOptionValue(zipWriter, options, PROPERTY_NAME_SETUID);
 	let setgid = getOptionValue(zipWriter, options, PROPERTY_NAME_SETGID);
 	let sticky = getOptionValue(zipWriter, options, PROPERTY_NAME_STICKY);
-	if (uid !== UNDEFINED_VALUE && (uid < 0 || uid > MAX_32_BITS)) {
+	if (uid !== UNDEFINED_VALUE && (!Number.isInteger(uid) || uid < 0 || uid > MAX_32_BITS)) {
 		throw new Error(ERR_INVALID_UID);
 	}
-	if (gid !== UNDEFINED_VALUE && (gid < 0 || gid > MAX_32_BITS)) {
+	if (gid !== UNDEFINED_VALUE && (!Number.isInteger(gid) || gid < 0 || gid > MAX_32_BITS)) {
 		throw new Error(ERR_INVALID_GID);
 	}
-	if (unixMode !== UNDEFINED_VALUE && (unixMode < 0 || unixMode > MAX_16_BITS)) {
+	if (unixMode !== UNDEFINED_VALUE && (!Number.isInteger(unixMode) || unixMode < 0 || unixMode > MAX_16_BITS)) {
 		throw new Error(ERR_INVALID_UNIX_MODE);
 	}
 	if (unixExtraFieldType !== UNDEFINED_VALUE && unixExtraFieldType !== INFOZIP_EXTRA_FIELD_TYPE && unixExtraFieldType !== UNIX_EXTRA_FIELD_TYPE) {
@@ -6219,7 +6297,7 @@ function resolveAttributes(zipWriter, name, options) {
 
 function resolveMetadata(zipWriter, name, options) {
 	const encode = getOptionValue(zipWriter, options, OPTION_ENCODE_TEXT, encodeText);
-	let rawFilename = encode(name);
+	let rawFilename = encode(name, TEXT_TYPE_FILENAME);
 	if (rawFilename === UNDEFINED_VALUE) {
 		rawFilename = encodeText(name);
 	}
@@ -6227,7 +6305,7 @@ function resolveMetadata(zipWriter, name, options) {
 		throw new Error(ERR_INVALID_ENTRY_NAME);
 	}
 	const comment = options[PROPERTY_NAME_COMMENT] || "";
-	let rawComment = encode(comment);
+	let rawComment = encode(comment, TEXT_TYPE_COMMENT);
 	if (rawComment === UNDEFINED_VALUE) {
 		rawComment = encodeText(comment);
 	}
@@ -6247,8 +6325,11 @@ function resolveMetadata(zipWriter, name, options) {
 	if (!passThrough) {
 		password = getOptionValue(zipWriter, options, OPTION_PASSWORD);
 		rawPassword = getOptionValue(zipWriter, options, OPTION_RAW_PASSWORD);
+		if ((password && typeof password != STRING_TYPE) || (rawPassword && !(rawPassword instanceof Uint8Array))) {
+			throw new Error(ERR_INVALID_PASSWORD_TYPE);
+		}
 	}
-	const encryptionStrength = getOptionValue(zipWriter, options, OPTION_ENCRYPTION_STRENGTH, 3);
+	const encryptionStrength = getNumberOptionValue(zipWriter, options, OPTION_ENCRYPTION_STRENGTH, 3);
 	const zipCrypto = getOptionValue(zipWriter, options, PROPERTY_NAME_ZIPCRYPTO);
 	const extendedTimestamp = getOptionValue(zipWriter, options, OPTION_EXTENDED_TIMESTAMP, true);
 	const ntfsTimestamp = getOptionValue(zipWriter, options, OPTION_NTFS_TIMESTAMP);
@@ -6266,7 +6347,10 @@ function resolveMetadata(zipWriter, name, options) {
 		compressionMethod !== COMPRESSION_METHOD_STORE && compressionMethod !== COMPRESSION_METHOD_DEFLATE && !registeredCodec) {
 		throw new Error(ERR_UNSUPPORTED_COMPRESSION);
 	}
-	let level = getOptionValue(zipWriter, options, OPTION_LEVEL);
+	let level = getNumberOptionValue(zipWriter, options, OPTION_LEVEL);
+	if (level !== UNDEFINED_VALUE && (!Number.isInteger(level) || level < 0 || level > MAX_LEVEL)) {
+		throw new Error(ERR_INVALID_LEVEL);
+	}
 	if (zipWriter.options[OPTION_USDZ]) {
 		if (password !== UNDEFINED_VALUE || rawPassword !== UNDEFINED_VALUE) {
 			throw new Error(ERR_UNSUPPORTED_ENCRYPTION_USDZ);
@@ -6287,7 +6371,7 @@ function resolveMetadata(zipWriter, name, options) {
 		useCompressionStream = false;
 	}
 	const zip64 = getOptionValue(zipWriter, options, PROPERTY_NAME_ZIP64);
-	if (!zipCrypto && (password !== UNDEFINED_VALUE || rawPassword !== UNDEFINED_VALUE) && !(encryptionStrength >= 1 && encryptionStrength <= 3)) {
+	if (!zipCrypto && (password !== UNDEFINED_VALUE || rawPassword !== UNDEFINED_VALUE) && !(Number.isInteger(encryptionStrength) && encryptionStrength >= 1 && encryptionStrength <= 3)) {
 		throw new Error(ERR_INVALID_ENCRYPTION_STRENGTH);
 	}
 	const rawExtraField = serializeExtraField(options[PROPERTY_NAME_EXTRA_FIELD]);
@@ -7479,6 +7563,14 @@ function clampUnixTime(timeUnix) {
 function getOptionValue(zipWriter, options, name, defaultValue) {
 	const result = options[name] === UNDEFINED_VALUE ? zipWriter.options[name] : options[name];
 	return result === UNDEFINED_VALUE ? defaultValue : result;
+}
+
+function getNumberOptionValue(zipWriter, options, name, defaultValue) {
+	return toNumber(getOptionValue(zipWriter, options, name, defaultValue));
+}
+
+function toNumber(value) {
+	return typeof value == STRING_TYPE && value.trim() ? Number(value) : value;
 }
 
 function getMaximumCompressedSize(uncompressedSize) {
@@ -8809,4 +8901,4 @@ try {
 }
 catch (e) { }
 
-export { BlobReader, BlobWriter, Data64URIReader, Data64URIWriter, ERR_AMBIGUOUS_ARCHIVE, ERR_BAD_FORMAT, ERR_CENTRAL_DIRECTORY_NOT_FOUND, ERR_DUPLICATED_NAME, ERR_ENCRYPTED, ERR_ENCRYPTED_CENTRAL_DIRECTORY, ERR_EOCDR_LOCATOR_ZIP64_NOT_FOUND, ERR_EOCDR_NOT_FOUND, ERR_EXTRAFIELD_ZIP64_NOT_FOUND, ERR_HTTP_RANGE, ERR_HTTP_RESOURCE_CHANGED, ERR_INVALID_AUTHENTICATION_CODE, ERR_INVALID_CODEC_DEFINITION, ERR_INVALID_CODEC_MODULE, ERR_INVALID_COMMENT, ERR_INVALID_COMPRESSED_DATA, ERR_INVALID_CRC32, ERR_INVALID_ENCRYPTION_STRENGTH, ERR_INVALID_ENTRY_COMMENT, ERR_INVALID_ENTRY_NAME, ERR_INVALID_EXTRAFIELD_DATA, ERR_INVALID_EXTRAFIELD_TYPE, ERR_INVALID_GID, ERR_INVALID_MSDOS_ATTRIBUTES, ERR_INVALID_MSDOS_DATA, ERR_INVALID_PASSWORD, ERR_INVALID_SIGNATURE, ERR_INVALID_SIGNATURE_DATA, ERR_INVALID_UID, ERR_INVALID_UNCOMPRESSED_SIZE, ERR_INVALID_UNIX_EXTRA_FIELD_TYPE, ERR_INVALID_UNIX_ID_SIZE, ERR_INVALID_UNIX_MODE, ERR_INVALID_VERSION, ERR_ITERATOR_COMPLETED_TOO_SOON, ERR_LOCAL_FILE_HEADER_NOT_FOUND, ERR_OVERLAPPING_ENTRY, ERR_RESERVED_COMPRESSION_METHOD, ERR_SPLIT_ZIP_FILE, ERR_UNDEFINED_READER, ERR_UNDEFINED_UNCOMPRESSED_SIZE, ERR_UNSUPPORTED_COMPRESSION$1 as ERR_UNSUPPORTED_COMPRESSION, ERR_UNSUPPORTED_CONTEXT, ERR_UNSUPPORTED_CRYPTO_API, ERR_UNSUPPORTED_ENCRYPTION, ERR_UNSUPPORTED_ENCRYPTION_USDZ, ERR_UNSUPPORTED_FORMAT, ERR_WORKER_STARTUP_TIMEOUT, ERR_WRITER_NOT_INITIALIZED, ERR_ZIP_NOT_EMPTY, HttpRangeReader, HttpReader, Reader, SplitDataReader, SplitDataWriter, TextReader, TextWriter, Uint8ArrayReader, Uint8ArrayWriter, Writer, ZipReader, ZipReaderStream, ZipWriter, ZipWriterStream, configure, createBlobTempStream, createOPFSTempStream, createSyncAccessHandleTempStream, deflateSync as deflateRaw, getMimeType, inflateSync as inflateRaw, initStream, readUint8Array, registerCodec, resetConfiguration, terminateWorkers, unregisterCodec };
+export { BlobReader, BlobWriter, Data64URIReader, Data64URIWriter, ERR_AMBIGUOUS_ARCHIVE, ERR_BAD_FORMAT, ERR_CENTRAL_DIRECTORY_NOT_FOUND, ERR_DUPLICATED_NAME, ERR_ENCRYPTED, ERR_ENCRYPTED_CENTRAL_DIRECTORY, ERR_EOCDR_LOCATOR_ZIP64_NOT_FOUND, ERR_EOCDR_NOT_FOUND, ERR_EXTRAFIELD_ZIP64_NOT_FOUND, ERR_HTTP_RANGE, ERR_HTTP_RESOURCE_CHANGED, ERR_INVALID_AUTHENTICATION_CODE, ERR_INVALID_CODEC_DEFINITION, ERR_INVALID_CODEC_MODULE, ERR_INVALID_COMMENT, ERR_INVALID_COMPRESSED_DATA, ERR_INVALID_CRC32, ERR_INVALID_ENCRYPTION_STRENGTH, ERR_INVALID_ENTRY_COMMENT, ERR_INVALID_ENTRY_NAME, ERR_INVALID_EXTRAFIELD_DATA, ERR_INVALID_EXTRAFIELD_TYPE, ERR_INVALID_FILENAME_VALIDATION, ERR_INVALID_GID, ERR_INVALID_LEVEL, ERR_INVALID_MAX_APPENDED_DATA_SIZE, ERR_INVALID_MSDOS_ATTRIBUTES, ERR_INVALID_MSDOS_DATA, ERR_INVALID_PASSWORD, ERR_INVALID_PASSWORD_TYPE, ERR_INVALID_SIGNATURE, ERR_INVALID_SIGNATURE_DATA, ERR_INVALID_STRICTNESS, ERR_INVALID_UID, ERR_INVALID_UNCOMPRESSED_SIZE, ERR_INVALID_UNIX_EXTRA_FIELD_TYPE, ERR_INVALID_UNIX_ID_SIZE, ERR_INVALID_UNIX_MODE, ERR_INVALID_VERSION, ERR_ITERATOR_COMPLETED_TOO_SOON, ERR_LOCAL_FILE_HEADER_NOT_FOUND, ERR_OVERLAPPING_ENTRY, ERR_RESERVED_COMPRESSION_METHOD, ERR_SPLIT_ZIP_FILE, ERR_UNDEFINED_READER, ERR_UNDEFINED_UNCOMPRESSED_SIZE, ERR_UNSAFE_FILENAME, ERR_UNSUPPORTED_COMPRESSION$1 as ERR_UNSUPPORTED_COMPRESSION, ERR_UNSUPPORTED_CONTEXT, ERR_UNSUPPORTED_CRYPTO_API, ERR_UNSUPPORTED_ENCRYPTION, ERR_UNSUPPORTED_ENCRYPTION_USDZ, ERR_UNSUPPORTED_FORMAT, ERR_WORKER_STARTUP_TIMEOUT, ERR_WRITER_NOT_INITIALIZED, ERR_ZIP_NOT_EMPTY, HttpRangeReader, HttpReader, Reader, SplitDataReader, SplitDataWriter, TextReader, TextWriter, Uint8ArrayReader, Uint8ArrayWriter, Writer, ZipReader, ZipReaderStream, ZipWriter, ZipWriterStream, configure, createBlobTempStream, createOPFSTempStream, createSyncAccessHandleTempStream, deflateSync as deflateRaw, getMimeType, inflateSync as inflateRaw, initStream, readUint8Array, registerCodec, resetConfiguration, terminateWorkers, unregisterCodec };
