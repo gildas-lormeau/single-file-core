@@ -34,6 +34,12 @@ async function router(content, { extract, display }) {
 	const VISITED_ATTRIBUTE = "data-sfz-visited";
 	const VISITED_PSEUDO_CLASS = /:visited(?![\w-])/g;
 	const VISITED_DEFAULT_COLOR = "#551a8b";
+	const UNARCHIVED_ATTRIBUTE = "data-sfz-unarchived";
+	// relative units, currentColor and opacity keep the marker legible on any
+	// page theme, and \2197 stays ASCII in the windows-1252 prelude
+	const UNARCHIVED_STYLE = "a[" + UNARCHIVED_ATTRIBUTE + "]::after{content:\" \\2197\";font-size:.75em;opacity:.7}";
+	const UNARCHIVED_TITLE = "Not saved in this archive";
+	const UNARCHIVED_PROTOCOLS = ["http:", "https:"];
 	const PREFETCH_DELAY = 100;
 	const { zip, document, location, history, CSS, setTimeout, clearTimeout } = globalThis;
 	const cache = new Map();
@@ -180,6 +186,9 @@ async function router(content, { extract, display }) {
 		attachListeners();
 		visitedPaths.add(path);
 		markVisitedLinks();
+		if (manifest.markUnarchivedLinks) {
+			markUnarchivedLinks();
+		}
 		if (initial) {
 			if (fragment) {
 				scrollToFragment(fragment);
@@ -374,6 +383,24 @@ async function router(content, { extract, display }) {
 			const path = urlToPath.get(stripFragment(anchorElement.href));
 			if (path !== undefined && visitedPaths.has(path)) {
 				anchorElement.setAttribute(VISITED_ATTRIBUTE, "");
+			}
+		});
+	}
+
+	// links that leave the archive are stamped so that the reader knows before
+	// clicking; opt-in at packaging time because the marker alters the rendering
+	function markUnarchivedLinks() {
+		const styleElement = document.createElement("style");
+		styleElement.textContent = UNARCHIVED_STYLE;
+		document.head.appendChild(styleElement);
+		document.querySelectorAll("a[href]").forEach(anchorElement => {
+			if (UNARCHIVED_PROTOCOLS.includes(anchorElement.protocol) &&
+				urlToPath.get(stripFragment(anchorElement.href)) === undefined &&
+				stripFragment(anchorElement.href) != stripFragment(location.href)) {
+				anchorElement.setAttribute(UNARCHIVED_ATTRIBUTE, "");
+				if (!anchorElement.hasAttribute("title")) {
+					anchorElement.setAttribute("title", UNARCHIVED_TITLE);
+				}
 			}
 		});
 	}
