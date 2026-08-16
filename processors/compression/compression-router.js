@@ -21,8 +21,6 @@
  *   Source.
  */
 
-/* global globalThis */
-
 export {
 	router
 };
@@ -31,10 +29,18 @@ async function router(content, { extract, display }) {
 	const PAGES_PREFIX = "pages/";
 	const PAGES_FILENAME = "sfz-pages.json";
 	const ROUTE_PREFIX = "#sfz/";
-	const { zip, document, location } = globalThis;
+	const { zip, document, location, history, CSS } = globalThis;
 	const cache = new Map();
 	const urlToPath = new Map();
-	let currentPath;
+	const scrollStates = new Map();
+	const sessionKey = Math.random().toString(36).substring(2);
+	let currentPath, currentEntryId, pendingFragment;
+	let nextEntryId = 0;
+	try {
+		history.scrollRestoration = "manual";
+	} catch {
+		// ignored
+	}
 	zip.configure({ useWebWorkers: true });
 	const zipReader = new zip.ZipReader(content.readUint8Array ? content : new zip.BlobReader(content));
 	const entries = await zipReader.getEntries();
@@ -50,7 +56,11 @@ async function router(content, { extract, display }) {
 		}
 	});
 	attachListeners();
-	return renderRoute();
+	currentEntryId = getEntryId();
+	if (currentEntryId === null) {
+		currentEntryId = assignEntryId();
+	}
+	return renderRoute(true);
 
 	// document.open() removes the listeners of the document and of its window,
 	// re-attaching identical function references is idempotent
@@ -60,9 +70,7 @@ async function router(content, { extract, display }) {
 	}
 
 	function onHashChange() {
-		if (location.hash.startsWith(ROUTE_PREFIX) || !location.hash) {
-			renderRoute().catch(error => globalThis.console.error(error));
-		}
+		navigate().catch(error => globalThis.console.error(error));
 	}
 
 	function interceptClick(event) {
@@ -74,21 +82,63 @@ async function router(content, { extract, display }) {
 			const path = urlToPath.get(stripFragment(node.href));
 			if (path !== undefined) {
 				event.preventDefault();
-				location.hash = ROUTE_PREFIX + path;
+				const fragment = getFragment(node.href);
+				if (path == currentPath) {
+					if (fragment) {
+						location.hash = fragment;
+					}
+				} else {
+					pendingFragment = fragment;
+					location.hash = ROUTE_PREFIX + path;
+				}
 			}
 		}
 	}
 
-	async function renderRoute() {
+	async function navigate() {
+		scrollStates.set(currentEntryId, captureScrollState());
+		const continuityScrolls = captureElementScrolls();
+		const entryId = getEntryId();
+		const rendered = await renderRoute();
+		if (entryId !== null) {
+			currentEntryId = entryId;
+			const scrollState = scrollStates.get(entryId);
+			if (scrollState) {
+				applyElementScrolls(scrollState.elements);
+				globalThis.scrollTo(scrollState.x, scrollState.y);
+			}
+		} else {
+			currentEntryId = assignEntryId();
+			if (rendered) {
+				applyElementScrolls(continuityScrolls);
+				if (pendingFragment) {
+					scrollToFragment(pendingFragment);
+				} else {
+					globalThis.scrollTo(0, 0);
+				}
+			}
+		}
+		pendingFragment = undefined;
+	}
+
+	async function renderRoute(initial) {
 		const hash = decodeURIComponent(location.hash);
-		const path = hash.startsWith(ROUTE_PREFIX) ? hash.substring(ROUTE_PREFIX.length) : pages[0].path;
+		const routed = !hash || hash.startsWith(ROUTE_PREFIX);
+		if (!routed && !initial) {
+			return false;
+		}
+		const path = routed && hash ? hash.substring(ROUTE_PREFIX.length) : pages[0].path;
 		if (path == currentPath || !pages.find(page => page.path == path)) {
-			return;
+			return false;
 		}
 		const docContent = await getPageContent(path);
 		currentPath = path;
 		await display(document, docContent, { inPlace: true });
 		attachListeners();
+		if (initial && !routed) {
+			scrollToFragment(hash);
+		}
+		return true;
 	}
 
 	async function getPageContent(path) {
@@ -102,8 +152,88 @@ async function router(content, { extract, display }) {
 		return cache.get(path);
 	}
 
+	function getEntryId() {
+		const state = history.state;
+		if (state && state.sfzSession == sessionKey && typeof state.sfzEntry == "number") {
+			return state.sfzEntry;
+		}
+		return null;
+	}
+
+	function assignEntryId() {
+		const entryId = nextEntryId++;
+		try {
+			history.replaceState({ sfzSession: sessionKey, sfzEntry: entryId }, "");
+		} catch {
+			// ignored
+		}
+		return entryId;
+	}
+
+	function captureScrollState() {
+		return { x: globalThis.scrollX, y: globalThis.scrollY, elements: captureElementScrolls() };
+	}
+
+	function captureElementScrolls() {
+		const elementScrolls = [];
+		document.querySelectorAll("*").forEach(element => {
+			if (element.scrollTop || element.scrollLeft) {
+				const path = getElementPath(element);
+				if (path) {
+					elementScrolls.push({ path, top: element.scrollTop, left: element.scrollLeft });
+				}
+			}
+		});
+		return elementScrolls;
+	}
+
+	function applyElementScrolls(elementScrolls) {
+		elementScrolls.forEach(({ path, top, left }) => {
+			let element;
+			try {
+				element = document.querySelector(path);
+			} catch {
+				// ignored
+			}
+			if (element) {
+				element.scrollTop = top;
+				element.scrollLeft = left;
+			}
+		});
+	}
+
+	function getElementPath(element) {
+		const segments = [];
+		while (element && element.parentElement) {
+			if (element.id && CSS) {
+				segments.unshift("#" + CSS.escape(element.id));
+				return segments.join(">");
+			}
+			const parent = element.parentElement;
+			segments.unshift(element.tagName + ":nth-child(" + (Array.from(parent.children).indexOf(element) + 1) + ")");
+			element = parent;
+		}
+		return segments.join(">");
+	}
+
+	function scrollToFragment(fragment) {
+		const name = decodeURIComponent(fragment.substring(1));
+		let target = document.getElementById(name);
+		if (!target && CSS) {
+			target = document.querySelector("a[name=" + CSS.escape(name) + "]");
+		}
+		if (target) {
+			target.scrollIntoView();
+		}
+	}
+
 	function stripFragment(url) {
 		const indexFragment = url.indexOf("#");
 		return indexFragment == -1 ? url : url.substring(0, indexFragment);
+	}
+
+	function getFragment(url) {
+		const indexFragment = url.indexOf("#");
+		return indexFragment == -1 ? undefined : url.substring(indexFragment);
 	}
 }
