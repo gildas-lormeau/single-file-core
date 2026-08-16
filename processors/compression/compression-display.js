@@ -21,7 +21,7 @@
  *   Source.
  */
 
-/* global DOMParser */
+/* global DOMParser, setTimeout */
 
 export {
 	display
@@ -44,6 +44,19 @@ async function display(document, docContent, { disableFramePointerEvents, inPlac
 	// observers (e.g. extension content scripts watching for document.open())
 	// do not fire on every rendered page
 	if (inPlace && doc.compatMode == document.compatMode && !doc.querySelector("script")) {
+		// stylesheet links inserted from script are not render-blocking; preload
+		// them while the previous page is still displayed and keep the new page
+		// hidden until they are applied to avoid a flash of unstyled content
+		await Promise.all(Array.from(doc.querySelectorAll("link[rel~=stylesheet][href]")).map(linkElement => new Promise(resolve => {
+			const preloadElement = document.createElement("link");
+			preloadElement.rel = "preload";
+			preloadElement.as = "style";
+			preloadElement.href = linkElement.getAttribute("href");
+			preloadElement.onload = resolve;
+			preloadElement.onerror = resolve;
+			document.head.appendChild(preloadElement);
+			setTimeout(resolve, 500);
+		})));
 		const documentElement = document.documentElement;
 		const newDocumentElement = document.adoptNode(doc.documentElement);
 		while (documentElement.attributes.length) {
@@ -51,6 +64,16 @@ async function display(document, docContent, { disableFramePointerEvents, inPlac
 		}
 		Array.from(newDocumentElement.attributes).forEach(attribute => documentElement.setAttribute(attribute.name, attribute.value));
 		documentElement.replaceChildren(...newDocumentElement.childNodes);
+		if (document.querySelector("link[rel~=stylesheet][href]")) {
+			const hideStyleElement = document.createElement("style");
+			hideStyleElement.textContent = "html{visibility:hidden}";
+			document.head.appendChild(hideStyleElement);
+			const start = Date.now();
+			while (Date.now() - start < 500 && Array.from(document.querySelectorAll("link[rel~=stylesheet][href]")).some(linkElement => !linkElement.sheet)) {
+				await new Promise(resolve => setTimeout(resolve, 10));
+			}
+			hideStyleElement.remove();
+		}
 	} else {
 		document.open();
 		document.write(getDoctypeString(doc));
