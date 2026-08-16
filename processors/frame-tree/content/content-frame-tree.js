@@ -100,33 +100,35 @@ export {
 };
 
 function init() {
-	globalThis.addEventListener("message", async event => {
-		if (typeof event.data == "string" && event.data.startsWith(MESSAGE_PREFIX)) {
-			event.preventDefault();
-			event.stopPropagation();
-			const message = JSON.parse(event.data.substring(MESSAGE_PREFIX.length));
-			if (message.method == INIT_REQUEST_MESSAGE) {
-				if (event.source) {
-					sendMessage(event.source, { method: ACK_INIT_REQUEST_MESSAGE, windowId: message.windowId, sessionId: message.sessionId });
-				}
-				if (!TOP_WINDOW) {
-					globalThis.stop();
-					if (message.options.loadDeferredImages) {
-						lazy.process(message.options);
-					}
-					await initRequestAsync(message);
-				}
-			} else if (message.method == ACK_INIT_REQUEST_MESSAGE) {
-				clearFrameTimeout("requestTimeouts", message.sessionId, message.windowId);
-				createFrameResponseTimeout(message.sessionId, message.windowId);
-			} else if (message.method == CLEANUP_REQUEST_MESSAGE) {
-				cleanupRequest(message);
-			} else if (message.method == INIT_RESPONSE_MESSAGE && sessions.get(message.sessionId)) {
-				const port = event.ports[0];
-				port.onmessage = event => initResponse(event.data);
+	globalThis.addEventListener("message", onMessage, true);
+}
+
+async function onMessage(event) {
+	if (typeof event.data == "string" && event.data.startsWith(MESSAGE_PREFIX)) {
+		event.preventDefault();
+		event.stopPropagation();
+		const message = JSON.parse(event.data.substring(MESSAGE_PREFIX.length));
+		if (message.method == INIT_REQUEST_MESSAGE) {
+			if (event.source) {
+				sendMessage(event.source, { method: ACK_INIT_REQUEST_MESSAGE, windowId: message.windowId, sessionId: message.sessionId });
 			}
+			if (!TOP_WINDOW) {
+				globalThis.stop();
+				if (message.options.loadDeferredImages) {
+					lazy.process(message.options);
+				}
+				await initRequestAsync(message);
+			}
+		} else if (message.method == ACK_INIT_REQUEST_MESSAGE) {
+			clearFrameTimeout("requestTimeouts", message.sessionId, message.windowId);
+			createFrameResponseTimeout(message.sessionId, message.windowId);
+		} else if (message.method == CLEANUP_REQUEST_MESSAGE) {
+			cleanupRequest(message);
+		} else if (message.method == INIT_RESPONSE_MESSAGE && sessions.get(message.sessionId)) {
+			const port = event.ports[0];
+			port.onmessage = event => initResponse(event.data);
 		}
-	}, true);
+	}
 }
 
 function getAsync(options) {

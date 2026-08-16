@@ -139,8 +139,18 @@ export {
 	NESTING_TRACK_ID_ATTRIBUTE_NAME
 };
 
+let userScriptHandlerObserver;
+
 function initUserScriptHandler() {
-	addEventListener(ON_INIT_USERSCRIPT_EVENT, ({ detail }) => globalThis[WAIT_FOR_USERSCRIPT_PROPERTY_NAME] = async (eventPrefixName, options) => {
+	addEventListener(ON_INIT_USERSCRIPT_EVENT, onInitUserScript);
+	if (!userScriptHandlerObserver) {
+		userScriptHandlerObserver = new MutationObserver(initUserScriptHandler);
+		userScriptHandlerObserver.observe(globalThis.document, { childList: true });
+	}
+}
+
+function onInitUserScript({ detail }) {
+	globalThis[WAIT_FOR_USERSCRIPT_PROPERTY_NAME] = async (eventPrefixName, options) => {
 		const userScriptOptions = Object.assign({}, options);
 		delete userScriptOptions.win;
 		delete userScriptOptions.doc;
@@ -181,8 +191,7 @@ function initUserScriptHandler() {
 		} else {
 			resolvePromiseResponse();
 		}
-	});
-	new MutationObserver(initUserScriptHandler).observe(globalThis.document, { childList: true });
+	};
 }
 
 function initDoc(doc) {
