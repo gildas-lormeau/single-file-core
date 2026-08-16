@@ -87,7 +87,8 @@ const PNG_IHDR_LENGTH = 25;
 const browser = globalThis.browser;
 
 export {
-	process
+	process,
+	createArchive
 };
 
 async function process(pageData, options, lastModDate = new Date()) {
@@ -98,6 +99,14 @@ async function process(pageData, options, lastModDate = new Date()) {
 		configure({ workerURI: "/lib/single-file-z-worker.js" });
 		script = await (await fetch(browser.runtime.getURL(SCRIPT_PATH))).text();
 	}
+	return createArchive(pageData, options, script, zipWriter => {
+		pageData.url = options.url;
+		pageData.archiveTime = (new Date()).toISOString();
+		return addPageResources(zipWriter, pageData, { password: options.password, disableCompression: options.disableCompression }, options.createRootDirectory ? String(Date.now()) + "_" + (options.tabId || 0) + "/" : "", options.url);
+	}, lastModDate);
+}
+
+async function createArchive(pageData, options, script, writeEntries, lastModDate = new Date()) {
 	const zipDataWriter = new Uint8ArrayWriter();
 	zipDataWriter.init();
 	zipDataWriter.writable.size = 0;
@@ -135,9 +144,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 	}
 	const zipWriter = new ZipWriter(zipDataWriter, { bufferedWrite: true, keepOrder: true, lastModDate, useCompressionStream: true });
 	const startOffset = zipDataWriter.offset;
-	pageData.url = options.url;
-	pageData.archiveTime = (new Date()).toISOString();
-	await addPageResources(zipWriter, pageData, { password: options.password, disableCompression: options.disableCompression }, options.createRootDirectory ? String(Date.now()) + "_" + (options.tabId || 0) + "/" : "", options.url);
+	await writeEntries(zipWriter);
 	const data = await zipWriter.close(null, { preventClose: true });
 	if (options.selfExtractingArchive) {
 		const lfCodes = [];
@@ -149,12 +156,12 @@ async function process(pageData, options, lastModDate = new Date()) {
 					const tagIndex = EXTRA_DATA_TAGS.indexOf(options.extractDataFromPageTags);
 					const regExpsTag = EXTRA_DATA_REGEXPS[tagIndex];
 					if (textContent.match(regExpsTag[0]) || textContent.match(regExpsTag[1])) {
-						return findExtraDataTags(textContent, pageData, options, lastModDate, tagIndex + 1);
+						return findExtraDataTags(textContent, pageData, options, script, writeEntries, lastModDate, tagIndex + 1);
 					}
 				} else {
 					const matchCommentTags = textContent.match(/<!--/i) || textContent.match(/--!?>/i);
 					if (matchCommentTags) {
-						return findExtraDataTags(textContent, pageData, options, lastModDate);
+						return findExtraDataTags(textContent, pageData, options, script, writeEntries, lastModDate);
 					}
 				}
 			}
@@ -195,12 +202,12 @@ async function process(pageData, options, lastModDate = new Date()) {
 			if (options.preventAppendedData || extraData.length > 65535 - endTags.length - (options.embeddedImage ? PNG_IEND_LENGTH : 0)) {
 				if (!options.extraDataSize) {
 					options.extraDataSize = Math.floor(extraData.length * 1.001);
-					return process(pageData, options, lastModDate);
+					return createArchive(pageData, options, script, writeEntries, lastModDate);
 				}
 			} else {
 				if (options.extraDataSize) {
 					options.extraDataSize = undefined;
-					return process(pageData, options, lastModDate);
+					return createArchive(pageData, options, script, writeEntries, lastModDate);
 				} else {
 					pageContent += extraData;
 				}
@@ -217,7 +224,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 		} else {
 			options.extraData = extraData;
 			options.extraDataSize = Math.floor(extraData.length * 1.001);
-			return process(pageData, options, lastModDate);
+			return createArchive(pageData, options, script, writeEntries, lastModDate);
 		}
 	}
 	if (options.embeddedImage) {
@@ -376,16 +383,16 @@ function getPageTitle(pageData) {
 	return pageData.title.replace(/</g, "&lt;").replace(/>/g, "&gt;") || "";
 }
 
-function findExtraDataTags(textContent, pageData, options, lastModDate, indexExtractDataFromPageTags = 0) {
+function findExtraDataTags(textContent, pageData, options, script, writeEntries, lastModDate, indexExtractDataFromPageTags = 0) {
 	const regExpsTag = EXTRA_DATA_REGEXPS[indexExtractDataFromPageTags];
 	const plaintextTag = EXTRA_DATA_TAGS[indexExtractDataFromPageTags][0] == "<plaintext>";
 	const matchTag = !plaintextTag && (textContent.match(regExpsTag[0]) || textContent.match(regExpsTag[1]));
 	if (matchTag) {
 		if (indexExtractDataFromPageTags < EXTRA_DATA_TAGS.length - 1) {
-			return findExtraDataTags(textContent, pageData, options, lastModDate, indexExtractDataFromPageTags + 1);
+			return findExtraDataTags(textContent, pageData, options, script, writeEntries, lastModDate, indexExtractDataFromPageTags + 1);
 		} else {
 			options.extractDataFromPage = false;
-			return process(pageData, options, lastModDate);
+			return createArchive(pageData, options, script, writeEntries, lastModDate);
 		}
 	} else {
 		options.extractDataFromPageTags = EXTRA_DATA_TAGS[indexExtractDataFromPageTags];
@@ -393,7 +400,7 @@ function findExtraDataTags(textContent, pageData, options, lastModDate, indexExt
 			// <plaintext> cannot be closed, the file must end with the zip data
 			options.preventAppendedData = true;
 		}
-		return process(pageData, options, lastModDate);
+		return createArchive(pageData, options, script, writeEntries, lastModDate);
 	}
 }
 
