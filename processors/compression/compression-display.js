@@ -39,9 +39,18 @@ async function display(document, docContent, { disableFramePointerEvents, inPlac
 		});
 	}
 	// the in-place swap avoids the document churn of document.open() but cannot
-	// change the compat mode and does not execute script elements
+	// change the compat mode and does not execute script elements; it morphs
+	// documentElement instead of replacing it so that document-level childList
+	// observers (e.g. extension content scripts watching for document.open())
+	// do not fire on every rendered page
 	if (inPlace && doc.compatMode == document.compatMode && !doc.querySelector("script")) {
-		document.replaceChild(document.adoptNode(doc.documentElement), document.documentElement);
+		const documentElement = document.documentElement;
+		const newDocumentElement = document.adoptNode(doc.documentElement);
+		while (documentElement.attributes.length) {
+			documentElement.removeAttribute(documentElement.attributes[0].name);
+		}
+		Array.from(newDocumentElement.attributes).forEach(attribute => documentElement.setAttribute(attribute.name, attribute.value));
+		documentElement.replaceChildren(...newDocumentElement.childNodes);
 	} else {
 		document.open();
 		document.write(getDoctypeString(doc));
