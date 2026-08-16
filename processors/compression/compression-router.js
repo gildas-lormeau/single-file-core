@@ -36,7 +36,7 @@ async function router(content, { extract, display }) {
 	const urlToPath = new Map();
 	const scrollStates = new Map();
 	const sessionKey = Math.random().toString(36).substring(2);
-	let currentPath, currentEntryId, pendingFragment, targetStyleElement;
+	let currentPath, currentEntryId, targetStyleElement;
 	let nextEntryId = 0;
 	try {
 		history.scrollRestoration = "manual";
@@ -85,22 +85,25 @@ async function router(content, { extract, display }) {
 			node = node.parentNode;
 		}
 		if (node && node.href) {
-			const path = urlToPath.get(stripFragment(node.href));
+			const fragment = getFragment(node.href);
+			let path = urlToPath.get(stripFragment(node.href));
+			if (path === undefined && fragment && stripFragment(node.href) == stripFragment(location.href)) {
+				path = currentPath;
+			}
 			if (path !== undefined) {
 				event.preventDefault();
 				// modified and middle clicks open the archive deep link in a new
 				// tab instead of letting the browser open the live site URL
 				if (event.type == "auxclick" || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
-					globalThis.open(stripFragment(location.href) + ROUTE_PREFIX + path);
+					globalThis.open(stripFragment(location.href) + ROUTE_PREFIX + path + (fragment || ""));
 				} else {
-					const fragment = getFragment(node.href);
-					if (path == currentPath) {
-						if (fragment) {
-							location.hash = fragment;
-						}
-					} else {
-						pendingFragment = fragment;
-						location.hash = ROUTE_PREFIX + path;
+					// the fragment stays encoded inside the route hash so that
+					// reloading or sharing the URL comes back to the same page
+					const previousHash = location.hash;
+					location.hash = ROUTE_PREFIX + path + (fragment || "");
+					if (location.hash == previousHash && fragment) {
+						clearTarget();
+						scrollToFragment(fragment);
 					}
 				}
 			}
@@ -116,6 +119,7 @@ async function router(content, { extract, display }) {
 		if (rendered) {
 			focusContent();
 		}
+		const { fragment } = parseRoute();
 		if (entryId !== null) {
 			currentEntryId = entryId;
 			const scrollState = scrollStates.get(entryId);
@@ -123,27 +127,30 @@ async function router(content, { extract, display }) {
 				applyElementScrolls(scrollState.elements);
 				globalThis.scrollTo(scrollState.x, scrollState.y);
 			}
+			if (fragment) {
+				const target = findFragmentTarget(fragment);
+				if (target) {
+					markTarget(target);
+				}
+			}
 		} else {
 			currentEntryId = assignEntryId();
 			if (rendered) {
 				applyElementScrolls(continuityScrolls);
-				if (pendingFragment) {
-					scrollToFragment(pendingFragment);
-				} else {
-					globalThis.scrollTo(0, 0);
-				}
+			}
+			if (fragment) {
+				scrollToFragment(fragment);
+			} else if (rendered) {
+				globalThis.scrollTo(0, 0);
 			}
 		}
-		pendingFragment = undefined;
 	}
 
 	async function renderRoute(initial) {
-		const hash = decodeURIComponent(location.hash);
-		const routed = !hash || hash.startsWith(ROUTE_PREFIX);
+		const { routed, path, fragment } = parseRoute();
 		if (!routed && !initial) {
 			return false;
 		}
-		const path = routed && hash ? hash.substring(ROUTE_PREFIX.length) : pages[0].path;
 		if (path == currentPath || !pages.find(page => page.path == path)) {
 			return false;
 		}
@@ -151,10 +158,28 @@ async function router(content, { extract, display }) {
 		currentPath = path;
 		await display(document, docContent, { inPlace: true });
 		attachListeners();
-		if (initial && !routed) {
-			scrollToFragment(hash);
+		if (initial) {
+			if (fragment) {
+				scrollToFragment(fragment);
+			} else if (!routed && location.hash) {
+				scrollToFragment(location.hash);
+			}
 		}
 		return true;
+	}
+
+	function parseRoute() {
+		const hash = location.hash;
+		const routed = !hash || hash.startsWith(ROUTE_PREFIX);
+		let path = pages[0].path;
+		let fragment;
+		if (routed && hash) {
+			const route = hash.substring(ROUTE_PREFIX.length);
+			const indexFragment = route.indexOf("#");
+			path = decodeURIComponent(indexFragment == -1 ? route : route.substring(0, indexFragment));
+			fragment = indexFragment == -1 ? undefined : route.substring(indexFragment);
+		}
+		return { routed, path, fragment };
 	}
 
 	async function getPageContent(path) {
@@ -236,15 +261,20 @@ async function router(content, { extract, display }) {
 	// route hash, which also means :target never matches in rendered pages; the
 	// :target rules of the page are cloned against a marker attribute instead
 	function scrollToFragment(fragment) {
+		const target = findFragmentTarget(fragment);
+		if (target) {
+			markTarget(target);
+			target.scrollIntoView();
+		}
+	}
+
+	function findFragmentTarget(fragment) {
 		const name = decodeURIComponent(fragment.substring(1));
 		let target = document.getElementById(name);
 		if (!target && CSS) {
 			target = document.querySelector("a[name=" + CSS.escape(name) + "]");
 		}
-		if (target) {
-			markTarget(target);
-			target.scrollIntoView();
-		}
+		return target;
 	}
 
 	function markTarget(element) {
