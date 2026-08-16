@@ -95,7 +95,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 	if (options.zipScript) {
 		script = options.zipScript;
 	} else if (browser && browser.runtime && browser.runtime.getURL) {
-		configure({ workerScripts: { deflate: ["/lib/single-file-z-worker.js"] } });
+		configure({ workerURI: "/lib/single-file-z-worker.js" });
 		script = await (await fetch(browser.runtime.getURL(SCRIPT_PATH))).text();
 	}
 	const zipDataWriter = new Uint8ArrayWriter();
