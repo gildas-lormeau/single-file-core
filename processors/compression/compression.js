@@ -112,11 +112,11 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 	zipDataWriter.writable.size = 0;
 	let extraDataOffset, extraData, embeddedImageDataOffset, endTag;
 	if (options.embeddedImage) {
-		options.embeddedImage = Array.from(options.embeddedImage);
+		options.embeddedImage = new Uint8Array(options.embeddedImage);
 		const embeddedImageData = options.embeddedImage.slice(PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH, options.embeddedImage.length - PNG_IEND_LENGTH);
 		await writeData(zipDataWriter.writable, options.embeddedImage.slice(0, PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH));
 		if (options.selfExtractingArchive) {
-			const embeddedImageText = TEXT_DECODER.decode(new Uint8Array(embeddedImageData));
+			const embeddedImageText = TEXT_DECODER.decode(embeddedImageData);
 			const tagIndex = EMBEDDED_DATA_REGEXPS.slice(0, -1).findIndex(tests => !embeddedImageText.match(tests[1]));
 			let startTag;
 			[startTag, endTag] = tagIndex == -1 ? ["", ""] : EMBEDDED_DATA_TAGS[tagIndex];
@@ -232,7 +232,7 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 		return new Blob([
 			pageContent,
 			getCRC32(pageContent, embeddedImageDataOffset),
-			new Uint8Array(options.embeddedImage.slice(options.embeddedImage.length - PNG_IEND_LENGTH))
+			options.embeddedImage.slice(options.embeddedImage.length - PNG_IEND_LENGTH)
 		], { type: "application/octet-stream" });
 	} else {
 		return new Blob([pageContent], { type: "application/octet-stream" });
