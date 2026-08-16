@@ -55,7 +55,9 @@ async function router(content, { extract, display }) {
 	if (!pagesEntry) {
 		throw new Error("Pages data not found");
 	}
-	const { pages } = JSON.parse(await pagesEntry.getData(new zip.TextWriter()));
+	const manifest = JSON.parse(await pagesEntry.getData(new zip.TextWriter()));
+	const { pages } = manifest;
+	const aliases = new Map(Object.entries(manifest.aliases || {}));
 	pages.forEach(page => {
 		urlToPath.set(stripFragment(page.url), page.path);
 		if (page.originalUrls) {
@@ -214,11 +216,35 @@ async function router(content, { extract, display }) {
 	}
 
 	async function extractPageContent(path) {
-		const pageEntries = entries.filter(entry => path == "" ?
-			!entry.filename.startsWith(PAGES_PREFIX) && entry.filename != PAGES_FILENAME :
-			entry.filename.startsWith(path));
+		const pageEntries = entries
+			.filter(entry => belongsToPage(entry.filename, path) && !aliases.has(entry.filename))
+			.concat(getAliasEntries(path));
 		const { docContent } = await extract(null, { entries: pageEntries, pagePath: path });
 		return docContent;
+	}
+
+	// deduplicated resources exist in the zip as symlink stand-ins for external
+	// extractors, they are resolved from the manifest alias map when extracting
+	function getAliasEntries(path) {
+		return Array.from(aliases)
+			.filter(([filename]) => belongsToPage(filename, path))
+			.map(([filename, canonicalFilename]) => {
+				const entry = entries.find(entry => entry.filename == canonicalFilename);
+				return entry && {
+					filename,
+					comment: entry.comment,
+					encrypted: entry.encrypted,
+					uncompressedSize: entry.uncompressedSize,
+					getData: (writer, options) => entry.getData(writer, options)
+				};
+			})
+			.filter(Boolean);
+	}
+
+	function belongsToPage(filename, path) {
+		return path == "" ?
+			!filename.startsWith(PAGES_PREFIX) && filename != PAGES_FILENAME :
+			filename.startsWith(path);
 	}
 
 	function prefetchOnHover(event) {
