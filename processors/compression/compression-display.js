@@ -27,7 +27,7 @@ export {
 	display
 };
 
-async function display(document, docContent, { disableFramePointerEvents } = {}) {
+async function display(document, docContent, { disableFramePointerEvents, inPlace } = {}) {
 	docContent = docContent.replace(/<noscript/gi, "<template disabled-noscript");
 	docContent = docContent.replace(/<\/noscript/gi, "</template");
 	const doc = (new DOMParser()).parseFromString(docContent, "text/html");
@@ -38,10 +38,16 @@ async function display(document, docContent, { disableFramePointerEvents } = {})
 			element.style.setProperty(pointerEvents, "none", "important");
 		});
 	}
-	document.open();
-	document.write(getDoctypeString(doc));
-	document.write(doc.documentElement.outerHTML);
-	document.close();
+	// the in-place swap avoids the document churn of document.open() but cannot
+	// change the compat mode and does not execute script elements
+	if (inPlace && doc.compatMode == document.compatMode && !doc.querySelector("script")) {
+		document.replaceChild(document.adoptNode(doc.documentElement), document.documentElement);
+	} else {
+		document.open();
+		document.write(getDoctypeString(doc));
+		document.write(doc.documentElement.outerHTML);
+		document.close();
+	}
 	document.querySelectorAll("template[disabled-noscript]").forEach(element => {
 		const noscriptElement = document.createElement("noscript");
 		element.removeAttribute("disabled-noscript");

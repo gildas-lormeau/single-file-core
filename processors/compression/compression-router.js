@@ -87,7 +87,7 @@ async function router(content, { extract, display }) {
 		}
 		const docContent = await getPageContent(path);
 		currentPath = path;
-		await display(document, docContent);
+		await display(document, docContent, { inPlace: true });
 		attachListeners();
 	}
 
