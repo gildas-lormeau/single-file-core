@@ -27,7 +27,7 @@ export {
 	extract
 };
 
-async function extract(content, { password, prompt = () => { }, zipOptions = { useWebWorkers: true }, noBlobURL } = {}) {
+async function extract(content, { password, prompt = () => { }, zipOptions = { useWebWorkers: true }, noBlobURL, entries, pagePath = "" } = {}) {
 	const KNOWN_MIMETYPES = {
 		"gif": "image/gif",
 		"jpg": "image/jpeg",
@@ -74,22 +74,28 @@ async function extract(content, { password, prompt = () => { }, zipOptions = { u
 	const REGEXP_MATCH_MANIFEST = /manifest\.json$/;
 	const CHARSET_UTF8 = ";charset=utf-8";
 	const REGEXP_ESCAPE = /([{}()^$&.*?/+|[\\\\]|\]|-)/g;
-	let reader;
+	let zipReader;
 	zip.configure(zipOptions);
-	if (content.readUint8Array) {
-		reader = content;
-	} else {
-		if (Array.isArray(content)) {
-			content = new Blob([new Uint8Array(content)]);
+	if (!entries) {
+		let reader;
+		if (content.readUint8Array) {
+			reader = content;
+		} else {
+			if (Array.isArray(content)) {
+				content = new Blob([new Uint8Array(content)]);
+			}
+			reader = new zip.BlobReader(content);
 		}
-		reader = new zip.BlobReader(content);
+		zipReader = new zip.ZipReader(reader);
+		entries = await zipReader.getEntries();
 	}
-	const zipReader = new zip.ZipReader(reader);
-	const entries = await zipReader.getEntries();
+	if (pagePath) {
+		entries = entries.filter(entry => entry.filename.startsWith(pagePath));
+	}
 	const options = { password };
 	let docContent, origDocContent, url, resources = [], indexPages = [], textResources = [];
 	await Promise.all(entries.map(async entry => {
-		const { filename } = entry;
+		const filename = entry.filename.substring(pagePath.length);
 		let dataWriter, content, textContent, mimeType;
 		const resourceInfo = {};
 		if (!options.password && entry.encrypted) {
@@ -131,7 +137,7 @@ async function extract(content, { password, prompt = () => { }, zipOptions = { u
 				content = URL.createObjectURL(blob);
 			}
 		}
-		const name = entry.filename.match(/^([0-9_]+\/)?(.*)$/)[2];
+		const name = filename.match(/^([0-9_]+\/)?(.*)$/)[2];
 		let prefixPath = "";
 		const prefixPathMatch = filename.match(/(.*\/)[^/]+$/);
 		if (prefixPathMatch && prefixPathMatch[1]) {
@@ -139,7 +145,7 @@ async function extract(content, { password, prompt = () => { }, zipOptions = { u
 		}
 		Object.assign(resourceInfo, {
 			prefixPath,
-			filename: entry.filename,
+			filename,
 			name,
 			url: entry.comment,
 			content,
@@ -148,7 +154,9 @@ async function extract(content, { password, prompt = () => { }, zipOptions = { u
 			parentResources: []
 		});
 	}));
-	await zipReader.close();
+	if (zipReader) {
+		await zipReader.close();
+	}
 	indexPages.sort(sortByFilenameLengthDec);
 	textResources.sort(sortByFilenameLengthInc);
 	resources = resources.sort(sortByFilenameLengthDec).concat(...textResources).concat(...indexPages);

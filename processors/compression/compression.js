@@ -37,6 +37,9 @@ import {
 import {
 	display
 } from "./compression-display.js";
+import {
+	router
+} from "./compression-router.js";
 
 const { Blob, fetch, TextEncoder, TextDecoder, DOMParser } = globalThis;
 
@@ -278,6 +281,9 @@ async function prependHTMLData(pageData, zipDataWriter, script, options) {
 		pageContent += "<li style='margin-bottom:10px'><strong>Chrome/Edge/Brave</strong>: Install <a href='https://www.getsinglefile.com'>SingleFile</a> and enable the option \"Allow access to file URLs\" in the details page of the extension.</li>";
 		pageContent += "<li><strong>Safari</strong>: Select \"Security > Disable Local File Restrictions\" in the \"Develop > Developer settings\" menu.</li></ul></div>";
 	}
+	if (pageData.tocContent) {
+		pageContent += pageData.tocContent;
+	}
 	if (options.insertTextBody) {
 		const doc = (new DOMParser()).parseFromString(pageData.content, "text/html");
 		doc.body.querySelectorAll("style, script, noscript").forEach(element => element.remove());
@@ -300,12 +306,17 @@ async function prependHTMLData(pageData, zipDataWriter, script, options) {
 		insertEmbeddedImage: Boolean(options.embeddedImage),
 		insertEmbeddedScreenshotImage: Boolean(options.embeddedScreenshotImage)
 	};
+	const bootstrapBody = options.multiPageArchive ?
+		"(" + router.toString().replace(/\n|\t/g, "") + ")(content,{extract:" +
+		extract.toString().replace(/\n|\t/g, "") + ",display:" +
+		display.toString().replace(/\n|\t/g, "") + "})" :
+		"(" + extract.toString().replace(/\n|\t/g, "") + ")(content,{prompt}).then(({docContent}) => " +
+		display.toString().replace(/\n|\t/g, "") + "(document,docContent," + JSON.stringify(displayOptions) + "))";
 	script = "<script>" +
 		script +
 		"document.currentScript.remove();" +
-		"globalThis.bootstrap=(()=>{let bootstrapStarted;return async content=>{if (bootstrapStarted) return bootstrapStarted; bootstrapStarted = (" +
-		extract.toString().replace(/\n|\t/g, "") + ")(content,{prompt}).then(({docContent}) => " +
-		display.toString().replace(/\n|\t/g, "") + "(document,docContent," + JSON.stringify(displayOptions) + "));return bootstrapStarted;}})();(" +
+		"globalThis.bootstrap=(()=>{let bootstrapStarted;return async content=>{if (bootstrapStarted) return bootstrapStarted; bootstrapStarted = " +
+		bootstrapBody + ";return bootstrapStarted;}})();(" +
 		getContent.toString().replace(/\n|\t/g, "") + ")().then(globalThis.bootstrap).then(() => document.dispatchEvent(new CustomEvent(\"single-file-display-infobar\"))).catch(error => {" +
 		"console.error(error);" +
 		"const waitMessage = document.getElementById(\"sfz-wait-message\");" +
