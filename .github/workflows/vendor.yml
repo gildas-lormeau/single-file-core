@@ -1,0 +1,21 @@
+# .github/workflows/vendor.yml
+
+name: Vendor
+
+on: [push, pull_request]
+
+jobs:
+  rebuild:
+    name: 'Rebuild vendor/zip'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - run: npm ci
+        working-directory: zip-build
+      - run: npm run build
+        working-directory: zip-build
+      # the checked-in files in vendor/zip must be exactly what the sources in zip-build produce
+      - run: git diff --exit-code vendor/zip

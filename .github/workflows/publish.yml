@@ -1,0 +1,88 @@
+# .github/workflows/publish.yml
+
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  # nothing else guarantees that the released commit was verified: the vendor workflow runs on push,
+  # so this waits for its run on that exact commit and refuses to publish unless it succeeded
+  check_vendor:
+    name: 'Check vendor rebuild'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      # only used to resolve the tag to a commit, so it runs no code from the repository and keeps no
+      # git credentials behind
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+      # the tag is typed in the release UI, so nothing ties it to the version that is about to be
+      # published: a mistyped tag, or a bump that was never pushed, publishes a version nobody asked for
+      - name: Verify the tag matches the declared version
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          version=$(jq -r .version package.json)
+          if [ "$TAG_NAME" != "v$version" ]; then
+            echo "::error::release $TAG_NAME but package.json declares $version"
+            exit 1
+          fi
+      - name: Wait for the vendor rebuild check of the released commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          echo "released commit: $sha"
+          missing=0
+          for attempt in $(seq 1 60); do
+            run=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/vendor.yml/runs?head_sha=$sha&per_page=1" \
+              --jq 'if (.workflow_runs | length) == 0 then "none none none"
+                    else (.workflow_runs[0] | "\(.status) \(.conclusion) \(.html_url)") end')
+            run_status=$(echo "$run" | cut -d' ' -f1)
+            conclusion=$(echo "$run" | cut -d' ' -f2)
+            url=$(echo "$run" | cut -d' ' -f3)
+            if [ "$run_status" = "none" ]; then
+              missing=$((missing + 1))
+              if [ "$missing" -ge 10 ]; then
+                echo "::error::no vendor run for $sha, run the vendor workflow on this commit and publish again"
+                exit 1
+              fi
+              echo "no vendor run found yet for $sha"
+            else
+              echo "vendor run: status=$run_status conclusion=$conclusion $url"
+              if [ "$run_status" = "completed" ]; then
+                if [ "$conclusion" = "success" ]; then
+                  exit 0
+                fi
+                echo "::error::the vendor rebuild concluded $conclusion for $sha, see $url"
+                exit 1
+              fi
+            fi
+            sleep 30
+          done
+          echo "::error::timed out waiting for the vendor rebuild of $sha"
+          exit 1
+
+  publish_npm:
+    needs: check_vendor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      # Setup .npmrc file to publish to npm
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm publish
