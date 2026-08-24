@@ -112,7 +112,6 @@ async function process(pageData, options, lastModDate = new Date()) {
 async function createArchive(pageData, options, script, writeEntries, lastModDate = new Date()) {
 	const zipDataWriter = new Uint8ArrayWriter();
 	zipDataWriter.init();
-	zipDataWriter.writable.size = 0;
 	let extraDataOffset, extraData, embeddedImageDataOffset, endTag;
 	if (options.embeddedImage) {
 		options.embeddedImage = new Uint8Array(options.embeddedImage);
@@ -145,11 +144,12 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 	} else if (!options.embeddedImage && options.embeddedPdf) {
 		await writeData(zipDataWriter.writable, new Uint8Array(options.embeddedPdf));
 	}
-	// the writable is passed instead of the writer so that the ZipWriter never
-	// takes ownership of the stream: preventClose is only honored when the
-	// caller owns the writable, and the HTML suffix still gets written after it
-	const zipWriter = new ZipWriter(zipDataWriter.writable, { bufferedWrite: true, keepOrder: true, lastModDate, useCompressionStream: true });
+	// a WritableWriter object is passed instead of the writer so that the ZipWriter
+	// never takes ownership of the stream: preventClose is only honored when the
+	// caller owns the writable, and the HTML suffix still gets written after it;
+	// its size property tells the ZipWriter the offset of the data written so far
 	const startOffset = zipDataWriter.offset;
+	const zipWriter = new ZipWriter({ writable: zipDataWriter.writable, size: startOffset }, { bufferedWrite: true, keepOrder: true, lastModDate, useCompressionStream: true });
 	await writeEntries(zipWriter);
 	await zipWriter.close(undefined, { preventClose: true });
 	const data = zipDataWriter.getData();
@@ -422,7 +422,6 @@ function findExtraDataTags(textContent, pageData, options, script, writeEntries,
 async function writeData(writable, array) {
 	const streamWriter = writable.getWriter();
 	await streamWriter.ready;
-	writable.size += array.length;
 	await streamWriter.write(array);
 	streamWriter.releaseLock();
 }
