@@ -27,8 +27,13 @@ export {
 
 async function router(content, { extract, display }) {
 	const PAGES_PREFIX = "pages/";
+	const RESERVED_PREFIX = "sfz-";
 	const PAGES_FILENAME = "sfz-pages.json";
+	const TOC_FILENAME = "sfz-toc.html";
 	const ROUTE_PREFIX = "#sfz/";
+	// "?" cannot start a zip entry path written by the packager, so reserved
+	// routes never collide with page paths
+	const TOC_ROUTE = "?toc";
 	const TARGET_ATTRIBUTE = "data-sfz-target";
 	const TARGET_PSEUDO_CLASS = /:target(?![\w-])/g;
 	const VISITED_ATTRIBUTE = "data-sfz-visited";
@@ -41,7 +46,7 @@ async function router(content, { extract, display }) {
 	const UNARCHIVED_TITLE = "Not saved in this archive";
 	const UNARCHIVED_PROTOCOLS = ["http:", "https:"];
 	const PREFETCH_DELAY = 100;
-	const { zip, document, location, history, CSS, setTimeout, clearTimeout } = globalThis;
+	const { zip, document, location, history, CSS, URL, setTimeout, clearTimeout } = globalThis;
 	const cache = new Map();
 	const urlToPath = new Map();
 	const scrollStates = new Map();
@@ -62,6 +67,7 @@ async function router(content, { extract, display }) {
 		throw new Error("Pages data not found");
 	}
 	const manifest = JSON.parse(await pagesEntry.getData(new zip.TextWriter()));
+	const tocEntry = entries.find(entry => entry.filename == TOC_FILENAME);
 	const { pages } = manifest;
 	const aliases = new Map(Object.entries(manifest.aliases || {}));
 	pages.forEach(page => {
@@ -97,6 +103,11 @@ async function router(content, { extract, display }) {
 		const node = findAnchor(event.target);
 		if (node && node.href) {
 			const fragment = getFragment(node.href);
+			// rewritten TOC links are already hash routes, default navigation
+			// triggers hashchange and modified clicks open the deep link natively
+			if (fragment && fragment.startsWith(ROUTE_PREFIX) && stripFragment(node.href) == stripFragment(location.href)) {
+				return;
+			}
 			let path = urlToPath.get(stripFragment(node.href));
 			if (path === undefined && fragment && stripFragment(node.href) == stripFragment(location.href)) {
 				path = currentPath;
@@ -127,7 +138,7 @@ async function router(content, { extract, display }) {
 		const continuityScrolls = captureElementScrolls();
 		const entryId = getEntryId();
 		const { routed, path, fragment } = parseRoute();
-		const willRender = routed && path != currentPath && Boolean(pages.find(page => page.path == path));
+		const willRender = routed && path != currentPath && isRenderablePath(path);
 		// the whole render and scroll sequence runs inside the view transition
 		// so that the crossfade ends on the final scroll position
 		if (willRender && document.startViewTransition && !prefersReducedMotion()) {
@@ -177,13 +188,16 @@ async function router(content, { extract, display }) {
 		if (!routed && !initial) {
 			return false;
 		}
-		if (path == currentPath || !pages.find(page => page.path == path)) {
+		if (path == currentPath || !isRenderablePath(path)) {
 			return false;
 		}
 		const docContent = await getPageContent(path);
 		currentPath = path;
 		await display(document, docContent, { inPlace: true });
 		attachListeners();
+		if (path == TOC_ROUTE) {
+			rewriteTocLinks();
+		}
 		visitedPaths.add(path);
 		markVisitedLinks();
 		if (manifest.markUnarchivedLinks) {
@@ -205,12 +219,22 @@ async function router(content, { extract, display }) {
 		let path = pages[0].path;
 		let fragment;
 		if (routed && hash) {
-			const route = hash.substring(ROUTE_PREFIX.length);
-			const indexFragment = route.indexOf("#");
-			path = decodeURIComponent(indexFragment == -1 ? route : route.substring(0, indexFragment));
-			fragment = indexFragment == -1 ? undefined : route.substring(indexFragment);
+			({ path, fragment } = parseRouteHash(hash));
 		}
 		return { routed, path, fragment };
+	}
+
+	function parseRouteHash(hash) {
+		const route = hash.substring(ROUTE_PREFIX.length);
+		const indexFragment = route.indexOf("#");
+		return {
+			path: decodeURIComponent(indexFragment == -1 ? route : route.substring(0, indexFragment)),
+			fragment: indexFragment == -1 ? undefined : route.substring(indexFragment)
+		};
+	}
+
+	function isRenderablePath(path) {
+		return path == TOC_ROUTE ? Boolean(tocEntry) : Boolean(pages.find(page => page.path == path));
 	}
 
 	// the cache stores promises so that a click during a hover prefetch awaits
@@ -225,6 +249,9 @@ async function router(content, { extract, display }) {
 	}
 
 	async function extractPageContent(path) {
+		if (path == TOC_ROUTE) {
+			return tocEntry.getData(new zip.TextWriter());
+		}
 		const pageEntries = entries
 			.filter(entry => belongsToPage(entry.filename, path) && !aliases.has(entry.filename))
 			.concat(getAliasEntries(path));
@@ -252,14 +279,37 @@ async function router(content, { extract, display }) {
 
 	function belongsToPage(filename, path) {
 		return path == "" ?
-			!filename.startsWith(PAGES_PREFIX) && filename != PAGES_FILENAME :
+			!filename.startsWith(PAGES_PREFIX) && !filename.startsWith(RESERVED_PREFIX) :
 			filename.startsWith(path);
+	}
+
+	// the stored TOC links relative page paths so that it works once unzipped,
+	// in the archive they are rewritten to hash routes: unrewritten links would
+	// resolve against the archive URL and get stamped as unarchived
+	function rewriteTocLinks() {
+		const pathsByUrl = new Map();
+		pages.forEach(page => pathsByUrl.set(new URL(page.path + "index.html", stripFragment(location.href)).href, page.path));
+		document.querySelectorAll("a[href]").forEach(anchorElement => {
+			const fragment = getFragment(anchorElement.href);
+			const path = pathsByUrl.get(stripFragment(anchorElement.href));
+			if (path !== undefined) {
+				anchorElement.setAttribute("href", ROUTE_PREFIX + path + (fragment || ""));
+			}
+		});
+	}
+
+	function getLinkPath(href) {
+		const fragment = getFragment(href);
+		if (fragment && fragment.startsWith(ROUTE_PREFIX) && stripFragment(href) == stripFragment(location.href)) {
+			return parseRouteHash(fragment).path;
+		}
+		return urlToPath.get(stripFragment(href));
 	}
 
 	function prefetchOnHover(event) {
 		const node = findAnchor(event.target);
 		if (node && node.href) {
-			const path = urlToPath.get(stripFragment(node.href));
+			const path = getLinkPath(node.href);
 			if (path !== undefined && path != currentPath && !cache.has(path)) {
 				clearTimeout(prefetchTimeout);
 				prefetchTimeout = setTimeout(() => getPageContent(path).catch(() => { }), PREFETCH_DELAY);
@@ -380,7 +430,7 @@ async function router(content, { extract, display }) {
 			getPseudoRules(VISITED_PSEUDO_CLASS, VISITED_ATTRIBUTE);
 		document.head.appendChild(styleElement);
 		document.querySelectorAll("a[href]").forEach(anchorElement => {
-			const path = urlToPath.get(stripFragment(anchorElement.href));
+			const path = getLinkPath(anchorElement.href);
 			if (path !== undefined && visitedPaths.has(path)) {
 				anchorElement.setAttribute(VISITED_ATTRIBUTE, "");
 			}
