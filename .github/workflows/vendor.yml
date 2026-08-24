@@ -2,7 +2,11 @@
 
 name: Vendor
 
-on: [push, pull_request]
+# tag pushes are excluded: creating a release would otherwise re-run the check already done on the branch
+on:
+  push:
+    branches: ['**']
+  pull_request:
 
 jobs:
   rebuild:
