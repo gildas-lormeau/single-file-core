@@ -145,10 +145,14 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 	} else if (!options.embeddedImage && options.embeddedPdf) {
 		await writeData(zipDataWriter.writable, new Uint8Array(options.embeddedPdf));
 	}
-	const zipWriter = new ZipWriter(zipDataWriter, { bufferedWrite: true, keepOrder: true, lastModDate, useCompressionStream: true });
+	// the writable is passed instead of the writer so that the ZipWriter never
+	// takes ownership of the stream: preventClose is only honored when the
+	// caller owns the writable, and the HTML suffix still gets written after it
+	const zipWriter = new ZipWriter(zipDataWriter.writable, { bufferedWrite: true, keepOrder: true, lastModDate, useCompressionStream: true });
 	const startOffset = zipDataWriter.offset;
 	await writeEntries(zipWriter);
-	const data = await zipWriter.close(null, { preventClose: true });
+	await zipWriter.close(undefined, { preventClose: true });
+	const data = zipDataWriter.getData();
 	if (options.selfExtractingArchive) {
 		const lfCodes = [];
 		let crc32 = -1;
