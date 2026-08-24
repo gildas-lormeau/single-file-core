@@ -5,7 +5,11 @@
   "author": "Gildas Lormeau",
   "license": "AGPL-3.0-or-later",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "bump-patch": "npm version patch --no-git-tag-version && npm run bump-commit",
+    "bump-minor": "npm version minor --no-git-tag-version && npm run bump-commit",
+    "bump-major": "npm version major --no-git-tag-version && npm run bump-commit",
+    "bump-commit": "git commit -m \"bump up version\" package.json package-lock.json"
   },
   "repository": {
     "type": "git",
