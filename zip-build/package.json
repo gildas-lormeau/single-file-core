@@ -1,0 +1,15 @@
+{
+	"name": "single-file-core-zip-build",
+	"private": true,
+	"type": "module",
+	"description": "Rebuilds the files in ../vendor/zip byte-for-byte from their sources",
+	"scripts": {
+		"build": "rollup -c rollup.config.js"
+	},
+	"devDependencies": {
+		"@rollup/plugin-terser": "1.0.0",
+		"@zip.js/zip.js": "2.8.59",
+		"rollup": "4.62.4",
+		"terser": "5.50.0"
+	}
+}
