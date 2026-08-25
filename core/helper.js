@@ -22,6 +22,7 @@
  */
 
 import * as cssUnescape from "./../vendor/css-unescape.js";
+import * as sha from "./lib/sha.js";
 import * as hooksFrames from "./../processors/hooks/content/content-hooks-frames.js";
 import * as infobar from "./infobar.js";
 import {
@@ -793,7 +794,8 @@ function getContentSize(content) {
 
 async function digest(algo, text) {
 	try {
-		const hash = await crypto.subtle.digest(algo, new TextEncoder("utf-8").encode(text));
+		const data = new TextEncoder("utf-8").encode(text);
+		const hash = globalThis.crypto && crypto.subtle ? await crypto.subtle.digest(algo, data) : sha.digest(algo, data);
 		return hex(hash);
 		// eslint-disable-next-line no-unused-vars
 	} catch (error) {
