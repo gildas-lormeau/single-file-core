@@ -17187,6 +17187,10 @@ async function evalTemplate(template = "", options, content, doc, context = {}) 
 		variables[prefix + "minutes-utc"] = { getter: () => String(date.getUTCMinutes()).padStart(2, "0") };
 		variables[prefix + "seconds-utc"] = { getter: () => String(date.getUTCSeconds()).padStart(2, "0") };
 		variables[prefix + "time-ms"] = { getter: () => String(date.getTime()) };
+		variables[prefix + "weekday-locale"] = { getter: () => date.toLocaleDateString(undefined, { weekday: "long" }) };
+		variables[prefix + "weekday-short-locale"] = { getter: () => date.toLocaleDateString(undefined, { weekday: "short" }) };
+		variables[prefix + "weekday-utc"] = { getter: () => date.toLocaleDateString(undefined, { weekday: "long", timeZone: "UTC" }) };
+		variables[prefix + "weekday-short-utc"] = { getter: () => date.toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" }) };
 	}
 }
 
