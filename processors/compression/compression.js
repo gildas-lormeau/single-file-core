@@ -86,6 +86,12 @@ const CRC32_TABLE = new Uint32Array(256).map((_, indexTable) => {
 const PNG_IEND_LENGTH = 12;
 const PNG_SIGNATURE_LENGTH = 8;
 const PNG_IHDR_LENGTH = 25;
+const PDF_ENTRY_FILENAME = "page.pdf";
+const LOCAL_FILE_HEADER_SIGNATURE = 0x04034b50;
+const CENTRAL_FILE_HEADER_SIGNATURE = 0x02014b50;
+const END_OF_CENTRAL_DIR_SIGNATURE = 0x06054b50;
+const ZIP64_END_OF_CENTRAL_DIR_SIGNATURE = 0x06064b50;
+const ZIP64_END_OF_CENTRAL_DIR_LOCATOR_SIGNATURE = 0x07064b50;
 
 const browser = globalThis.browser;
 
@@ -112,7 +118,7 @@ async function process(pageData, options, lastModDate = new Date()) {
 async function createArchive(pageData, options, script, writeEntries, lastModDate = new Date()) {
 	const zipDataWriter = new Uint8ArrayWriter();
 	zipDataWriter.init();
-	let extraDataOffset, extraData, embeddedImageDataOffset, endTag;
+	let extraDataOffset, extraData, embeddedImageDataOffset, endTag, pdfEntry;
 	if (options.embeddedImage) {
 		options.embeddedImage = new Uint8Array(options.embeddedImage);
 		const embeddedImageData = options.embeddedImage.slice(PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH, options.embeddedImage.length - PNG_IEND_LENGTH);
@@ -122,7 +128,13 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 			const tagIndex = EMBEDDED_DATA_REGEXPS.slice(0, -1).findIndex(tests => !embeddedImageText.match(tests[1]));
 			let startTag;
 			[startTag, endTag] = tagIndex == -1 ? ["", ""] : EMBEDDED_DATA_TAGS[tagIndex];
-			const htmlArray = getStartHTMLArray(pageData, options, startTag);
+			const startHTMLData = getStartHTMLArray(pageData, options, lastModDate, startTag);
+			const htmlArray = startHTMLData.htmlArray;
+			if (startHTMLData.pdfEntry) {
+				pdfEntry = startHTMLData.pdfEntry;
+				// the htmlArray starts after the 4-byte length and the 8-byte type of the tEXt chunk
+				pdfEntry.offset += zipDataWriter.offset + 12;
+			}
 			const hmtlData = new Uint8Array([...getLength(htmlArray.length + 4), ...[0x74, 0x45, 0x58, 0x74, 0x50, 0x4e, 0x47, 0], ...htmlArray]);
 			await writeData(zipDataWriter.writable, hmtlData);
 			await writeData(zipDataWriter.writable, getCRC32(hmtlData, 4));
@@ -140,7 +152,9 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 		}
 	}
 	if (options.selfExtractingArchive) {
-		extraDataOffset = await prependHTMLData(pageData, zipDataWriter, script, options);
+		const prependedData = await prependHTMLData(pageData, zipDataWriter, script, options, lastModDate);
+		extraDataOffset = prependedData.extraDataOffset;
+		pdfEntry = pdfEntry || prependedData.pdfEntry;
 	} else if (!options.embeddedImage && options.embeddedPdf) {
 		await writeData(zipDataWriter.writable, new Uint8Array(options.embeddedPdf));
 	}
@@ -151,7 +165,17 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 	const startOffset = zipDataWriter.offset;
 	const zipWriter = new ZipWriter({ writable: zipDataWriter.writable, size: startOffset }, { bufferedWrite: true, keepOrder: true, lastModDate, useCompressionStream: true });
 	await writeEntries(zipWriter);
+	if (pdfEntry) {
+		// the record is written where the central directory will start so that the PDF is listed
+		// first; the ZipWriter is unaware of these bytes, so the central directory offset it
+		// stores in the end of central directory record points here
+		new DataView(pdfEntry.centralRecord.buffer).setUint32(42, pdfEntry.offset, true);
+		await writeData(zipDataWriter.writable, pdfEntry.centralRecord);
+	}
 	await zipWriter.close(undefined, { preventClose: true });
+	if (pdfEntry) {
+		patchEndOfCentralDirectory(zipDataWriter, pdfEntry.centralRecord.length);
+	}
 	const data = zipDataWriter.getData();
 	if (options.selfExtractingArchive) {
 		const lfCodes = [];
@@ -248,13 +272,85 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 
 function getCRC32(data, indexData = 0) {
 	const crcArray = new Uint8Array(4);
+	setUint32(crcArray, getCRC32Value(data, indexData));
+	return crcArray;
+}
+
+function getCRC32Value(data, indexData = 0) {
 	let crc = -1;
 	for (; indexData < data.length; indexData++) {
 		crc = (crc >>> 8) ^ CRC32_TABLE[(crc ^ data[indexData]) & 0xff];
 	}
-	crc ^= -1;
-	setUint32(crcArray, crc);
-	return crcArray;
+	return (crc ^ -1) >>> 0;
+}
+
+function getPDFEntry(embeddedPdf, lastModDate = new Date()) {
+	const filename = new TextEncoder().encode(PDF_ENTRY_FILENAME);
+	const crc32 = getCRC32Value(embeddedPdf);
+	const dosTime = (lastModDate.getHours() << 11) | (lastModDate.getMinutes() << 5) | (lastModDate.getSeconds() >> 1);
+	const dosDate = (Math.max(0, lastModDate.getFullYear() - 1980) << 9) | ((lastModDate.getMonth() + 1) << 5) | lastModDate.getDate();
+	const localHeader = new Uint8Array(30 + filename.length);
+	const localHeaderView = new DataView(localHeader.buffer);
+	localHeaderView.setUint32(0, LOCAL_FILE_HEADER_SIGNATURE, true);
+	localHeaderView.setUint16(4, 20, true);
+	localHeaderView.setUint16(10, dosTime, true);
+	localHeaderView.setUint16(12, dosDate, true);
+	localHeaderView.setUint32(14, crc32, true);
+	localHeaderView.setUint32(18, embeddedPdf.length, true);
+	localHeaderView.setUint32(22, embeddedPdf.length, true);
+	localHeaderView.setUint16(26, filename.length, true);
+	localHeader.set(filename, 30);
+	const centralRecord = new Uint8Array(46 + filename.length);
+	const centralRecordView = new DataView(centralRecord.buffer);
+	centralRecordView.setUint32(0, CENTRAL_FILE_HEADER_SIGNATURE, true);
+	centralRecordView.setUint16(4, 0x0300, true);
+	centralRecordView.setUint16(6, 20, true);
+	centralRecordView.setUint16(12, dosTime, true);
+	centralRecordView.setUint16(14, dosDate, true);
+	centralRecordView.setUint32(16, crc32, true);
+	centralRecordView.setUint32(20, embeddedPdf.length, true);
+	centralRecordView.setUint32(24, embeddedPdf.length, true);
+	centralRecordView.setUint16(28, filename.length, true);
+	centralRecordView.setUint32(38, 0o100644 << 16, true);
+	centralRecord.set(filename, 46);
+	return { localHeader, centralRecord };
+}
+
+function patchEndOfCentralDirectory(zipDataWriter, centralRecordLength) {
+	const view = new DataView(zipDataWriter.array.buffer);
+	const offsetEOCD = zipDataWriter.offset - 22;
+	if (view.getUint32(offsetEOCD, true) != END_OF_CENTRAL_DIR_SIGNATURE) {
+		return;
+	}
+	const entriesOnDisk = view.getUint16(offsetEOCD + 8, true);
+	const totalEntries = view.getUint16(offsetEOCD + 10, true);
+	const centralDirectorySize = view.getUint32(offsetEOCD + 12, true);
+	const offsetLocator = offsetEOCD - 20;
+	let offsetZip64EOCD;
+	if (offsetLocator >= 0 && view.getUint32(offsetLocator, true) == ZIP64_END_OF_CENTRAL_DIR_LOCATOR_SIGNATURE) {
+		// the offset stored in the locator does not account for the PDF record either
+		offsetZip64EOCD = Number(view.getBigUint64(offsetLocator + 8, true)) + centralRecordLength;
+		if (view.getUint32(offsetZip64EOCD, true) != ZIP64_END_OF_CENTRAL_DIR_SIGNATURE) {
+			return;
+		}
+	} else if (entriesOnDisk + 1 >= 0xFFFF || totalEntries + 1 >= 0xFFFF || centralDirectorySize + centralRecordLength >= 0xFFFFFFFF) {
+		return;
+	}
+	if (entriesOnDisk != 0xFFFF) {
+		view.setUint16(offsetEOCD + 8, entriesOnDisk + 1, true);
+	}
+	if (totalEntries != 0xFFFF) {
+		view.setUint16(offsetEOCD + 10, totalEntries + 1, true);
+	}
+	if (centralDirectorySize != 0xFFFFFFFF) {
+		view.setUint32(offsetEOCD + 12, centralDirectorySize + centralRecordLength, true);
+	}
+	if (offsetZip64EOCD !== undefined) {
+		view.setBigUint64(offsetLocator + 8, BigInt(offsetZip64EOCD), true);
+		view.setBigUint64(offsetZip64EOCD + 24, view.getBigUint64(offsetZip64EOCD + 24, true) + 1n, true);
+		view.setBigUint64(offsetZip64EOCD + 32, view.getBigUint64(offsetZip64EOCD + 32, true) + 1n, true);
+		view.setBigUint64(offsetZip64EOCD + 40, view.getBigUint64(offsetZip64EOCD + 40, true) + BigInt(centralRecordLength), true);
+	}
 }
 
 function getLength(length) {
@@ -270,10 +366,16 @@ function setUint32(data, value) {
 	data[3] = value;
 }
 
-async function prependHTMLData(pageData, zipDataWriter, script, options) {
+async function prependHTMLData(pageData, zipDataWriter, script, options, lastModDate) {
 	let pageContent = "";
+	let pdfEntry;
 	if (!options.embeddedImage) {
-		await writeData(zipDataWriter.writable, getStartHTMLArray(pageData, options));
+		const startHTMLData = getStartHTMLArray(pageData, options, lastModDate);
+		if (startHTMLData.pdfEntry) {
+			pdfEntry = startHTMLData.pdfEntry;
+			pdfEntry.offset += zipDataWriter.offset;
+		}
+		await writeData(zipDataWriter.writable, startHTMLData.htmlArray);
 	}
 	pageContent += "<div id=sfz-wait-message>Please wait...</div>";
 	if (options.extractDataFromPage) {
@@ -341,10 +443,10 @@ async function prependHTMLData(pageData, zipDataWriter, script, options) {
 	pageContent += (extraData ? " " : "") + startTag;
 	const extraDataOffset = startTag.length + extraData.length + (extraData ? 1 : 0);
 	await writeData(zipDataWriter.writable, (new TextEncoder()).encode(pageContent));
-	return extraDataOffset;
+	return { extraDataOffset, pdfEntry };
 }
 
-function getStartHTMLArray(pageData, options, startTag = "") {
+function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
 	let html = "";
 	if (options.includeBOM && !options.extractDataFromPage && !options.embeddedImage) {
 		html += "\ufeff";
@@ -355,21 +457,25 @@ function getStartHTMLArray(pageData, options, startTag = "") {
 	const charset = options.extractDataFromPage ? "windows-1252" : "utf-8";
 	html += "<meta charset=" + charset + ">";
 	const htmlHeadData = getHTMLHeadData(pageData, options);
-	let htmlArray;
+	let htmlArray, pdfEntry;
 	if (options.embeddedPdf) {
-		const embeddedPdfText = TEXT_DECODER.decode(new Uint8Array(options.embeddedPdf));
+		const embeddedPdf = new Uint8Array(options.embeddedPdf);
+		pdfEntry = getPDFEntry(embeddedPdf, lastModDate);
+		const embeddedPdfText = TEXT_DECODER.decode(pdfEntry.localHeader) + TEXT_DECODER.decode(embeddedPdf);
 		const pdfTagIndex = EMBEDDED_DATA_REGEXPS.slice(0, -1).findIndex(tests => !embeddedPdfText.match(tests[1]));
 		const [pdfStartTag, pdfEndTag] = pdfTagIndex == -1 ? ["", ""] : EMBEDDED_DATA_TAGS[pdfTagIndex];
 		const htmlArray1 = new TextEncoder().encode(html + pdfStartTag);
 		const htmlArray2 = new TextEncoder().encode(pdfEndTag + htmlHeadData + startTag);
-		htmlArray = new Uint8Array(htmlArray1.length + htmlArray2.length + options.embeddedPdf.length);
+		htmlArray = new Uint8Array(htmlArray1.length + pdfEntry.localHeader.length + embeddedPdf.length + htmlArray2.length);
 		htmlArray.set(htmlArray1);
-		htmlArray.set(options.embeddedPdf, htmlArray1.length);
-		htmlArray.set(htmlArray2, htmlArray1.length + options.embeddedPdf.length);
+		htmlArray.set(pdfEntry.localHeader, htmlArray1.length);
+		htmlArray.set(embeddedPdf, htmlArray1.length + pdfEntry.localHeader.length);
+		htmlArray.set(htmlArray2, htmlArray1.length + pdfEntry.localHeader.length + embeddedPdf.length);
+		pdfEntry.offset = htmlArray1.length;
 	} else {
 		htmlArray = new TextEncoder().encode(html + htmlHeadData + startTag);
 	}
-	return htmlArray;
+	return { htmlArray, pdfEntry };
 }
 
 function getHTMLHeadData(pageData, options) {
