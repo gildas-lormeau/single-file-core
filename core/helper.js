@@ -78,6 +78,7 @@ const EMPTY_RESOURCE = "data:,";
 const DEFAULT_REPLACED_CHARACTERS = ["~", "+", "?", "%", "*", ":", "|", "\"", "<", ">", "\\\\", "\x00-\x1f", "\x7F"];
 const DEFAULT_REPLACEMENT_CHARACTER = "_";
 const DEFAULT_REPLACEMENT_CHARACTERS = ["～", "＋", "？", "％", "＊", "：", "｜", "＂", "＜", "＞", "＼"];
+const CHARACTER_CLASS_SPECIAL_CHARACTERS = ["[", "]", "^", "-", "\\"];
 const NESTING_TRACK_ID_ATTRIBUTE_NAME = "data-sf-nesting-track-id";
 const addEventListener = (type, listener, options) => globalThis.addEventListener(type, listener, options);
 // eslint-disable-next-line no-unused-vars
@@ -831,8 +832,16 @@ function getComputedStyle(win, element, pseudoElement) {
 }
 
 function getValidFilename(filename, replacedCharacters = DEFAULT_REPLACED_CHARACTERS, replacementCharacter = DEFAULT_REPLACEMENT_CHARACTER, replacementCharacters = DEFAULT_REPLACEMENT_CHARACTERS) {
-	replacementCharacters.forEach((_, index) => filename = filename.replace(new RegExp("[" + replacedCharacters[index] + "]+", "g"), replacementCharacters[index]));
-	replacedCharacters.forEach(replacedCharacter => filename = filename.replace(new RegExp("[" + replacedCharacter + "]+", "g"), replacementCharacter));
+	replacementCharacters.forEach((indexReplacementCharacter, index) => {
+		if (replacedCharacters[index] !== undefined && indexReplacementCharacter != replacedCharacters[index]) {
+			filename = filename.replace(new RegExp("[" + getCharacterClassContent(replacedCharacters[index]) + "]+", "g"), indexReplacementCharacter);
+		}
+	});
+	replacedCharacters.forEach((replacedCharacter, index) => {
+		if (replacementCharacters[index] === undefined) {
+			filename = filename.replace(new RegExp("[" + getCharacterClassContent(replacedCharacter) + "]+", "g"), replacementCharacter);
+		}
+	});
 	filename = filename
 		.replace(/\.\.\//g, "")
 		.replace(/^\/+/, "")
@@ -842,6 +851,10 @@ function getValidFilename(filename, replacedCharacters = DEFAULT_REPLACED_CHARAC
 		.replace(/\.\//g, "." + replacementCharacter)
 		.replace(/\/\./g, "/" + replacementCharacter);
 	return filename;
+}
+
+function getCharacterClassContent(characters) {
+	return characters.length == 1 && CHARACTER_CLASS_SPECIAL_CHARACTERS.includes(characters) ? "\\" + characters : characters;
 }
 
 function parseDocContent(content, baseURI) {
