@@ -1,0 +1,13 @@
+{
+	"name": "single-file-core-css-tree-build",
+	"private": true,
+	"type": "module",
+	"description": "Rebuilds ../vendor/css-tree.js from the css-tree sources with the 16MB token-offset fix",
+	"scripts": {
+		"build": "node build.js"
+	},
+	"devDependencies": {
+		"css-tree": "3.1.0",
+		"esbuild": "0.25.4"
+	}
+}
