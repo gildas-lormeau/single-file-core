@@ -116,6 +116,7 @@ function getProcessorHelperClass(utilInstance) {
 				if (key.urlNode) {
 					const name = "stylesheet_" + resources.stylesheets.size + ".css";
 					if (!isDataURL(stylesheetInfo.url) && options.saveOriginalURLs) {
+						key.urlNode.type = "Url";
 						key.urlNode.value = "-sf-url-original(" + JSON.stringify(stylesheetInfo.url) + ") " + name;
 					} else {
 						key.urlNode.value = name;
