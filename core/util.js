@@ -66,7 +66,6 @@ const CONTENT_TYPE_OCTET_STREAM = "application/octet-stream";
 const URL = globalThis.URL;
 const DOMParser = globalThis.DOMParser;
 const Blob = globalThis.Blob;
-const FileReader = globalThis.FileReader;
 const fetch = (url, options) => {
 	options.cache = "force-cache";
 	options.referrerPolicy = "strict-origin-when-cross-origin";
@@ -351,12 +350,7 @@ async function getFetchResponse(resourceURL, options, data, charset, contentType
 	if (data) {
 		if (options.asBinary) {
 			if (options.inline) {
-				const reader = new FileReader();
-				reader.readAsDataURL(new Blob([data], { type: contentType + (options.charset ? ";charset=" + options.charset : "") }));
-				data = await new Promise((resolve, reject) => {
-					reader.addEventListener("load", () => resolve(reader.result), false);
-					reader.addEventListener("error", reject, false);
-				});
+				data = await helper.getDataURI(new Blob([data], { type: contentType + (options.charset ? ";charset=" + options.charset : "") }));
 			} else {
 				data = new Uint8Array(data);
 			}

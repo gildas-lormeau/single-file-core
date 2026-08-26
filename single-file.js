@@ -128,13 +128,7 @@ async function getPageData(options = {}, initOptions, doc, win) {
 			embeddedPdf: options.embeddedPdf
 		});
 		delete pageData.resources;
-		const reader = new globalThis.FileReader();
-		reader.readAsArrayBuffer(blob);
-		const arrayBuffer = await new Promise((resolve, reject) => {
-			reader.addEventListener("load", () => resolve(reader.result), false);
-			reader.addEventListener("error", event => reject(event.detail.error), false);
-		});
-		pageData.content = Array.from(new Uint8Array(arrayBuffer));
+		pageData.content = Array.from(new Uint8Array(await blob.arrayBuffer()));
 	}
 	return pageData;
 }

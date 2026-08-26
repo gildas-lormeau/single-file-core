@@ -23,7 +23,8 @@
 
 import {
 	normalizeFontFamily,
-	getFontWeight
+	getFontWeight,
+	getDataURI
 } from "./../helper.js";
 
 const DATA_URI_PREFIX = "data:";
@@ -60,7 +61,6 @@ const FONT_STRETCHES = {
 	"ultra-expanded": "200%"
 };
 const Blob = globalThis.Blob;
-const FileReader = globalThis.FileReader;
 const Image = globalThis.Image;
 const OffscreenCanvas = globalThis.OffscreenCanvas;
 
@@ -710,10 +710,5 @@ async function resizeImage(doc, dataURI, { imageReductionFactor }) {
 
 function toDataURI(content, contentType, charset) {
 	const blob = content instanceof Blob ? content : new Blob([content], { type: (contentType || "") + (charset ? ";charset=" + charset : "") });
-	return new Promise((resolve, reject) => {
-		const reader = new FileReader();
-		reader.onload = () => resolve(reader.result);
-		reader.onerror = () => reject(new Error(reader.error));
-		reader.readAsDataURL(blob);
-	});
+	return getDataURI(blob);
 }

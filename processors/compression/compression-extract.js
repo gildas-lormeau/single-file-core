@@ -21,7 +21,7 @@
  *   Source.
  */
 
-/* global zip, Blob, FileReader, URL */
+/* global zip, Blob, btoa, URL */
 
 export {
 	extract
@@ -220,12 +220,13 @@ async function extract(content, { password, prompt = () => { }, zipOptions = { u
 	}
 
 	async function getDataURI(textContent, mimeType) {
-		const reader = new FileReader();
-		reader.readAsDataURL(new Blob([textContent], { type: mimeType }));
-		return new Promise((resolve, reject) => {
-			reader.onload = () => resolve(reader.result.replace(CHARSET_UTF8, ""));
-			reader.onerror = reject;
-		});
+		const blob = new Blob([textContent], { type: mimeType });
+		const bytes = new Uint8Array(await blob.arrayBuffer());
+		let content = "";
+		for (let offset = 0; offset < bytes.length; offset += 8192) {
+			content += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
+		}
+		return ("data:" + (blob.type || "application/octet-stream") + ";base64," + btoa(content)).replace(CHARSET_UTF8, "");
 	}
 
 	function replaceAll(string, search, replacement) {

@@ -27,7 +27,6 @@ import { parse } from "./template-parser.js";
 import { getContentSize, digest, getValidFilename } from "./../core/helper.js";
 
 const Blob = globalThis.Blob;
-const FileReader = globalThis.FileReader;
 const URL = globalThis.URL;
 const Intl = globalThis.Intl;
 const URLSearchParams = globalThis.URLSearchParams;
@@ -17263,26 +17262,14 @@ function getLastSegment(url, replacementCharacter) {
 	return lastSegment;
 }
 
-function truncateText(content, maxSize) {
+async function truncateText(content, maxSize) {
 	const blob = new Blob([content]);
-	const reader = new FileReader();
-	reader.readAsText(blob.slice(0, maxSize));
-	return new Promise((resolve, reject) => {
-		reader.addEventListener(
-			"load",
-			() => {
-				if (content.startsWith(reader.result)) {
-					resolve(reader.result);
-				} else {
-					truncateText(content, maxSize - 1)
-						.then(resolve)
-						.catch(reject);
-				}
-			},
-			false
-		);
-		reader.addEventListener("error", reject, false);
-	});
+	const result = await blob.slice(0, maxSize).text();
+	if (content.startsWith(result)) {
+		return result;
+	} else {
+		return truncateText(content, maxSize - 1);
+	}
 }
 
 function getFilenameExtension(options) {

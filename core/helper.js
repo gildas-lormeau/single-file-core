@@ -91,6 +91,8 @@ const CustomEvent = globalThis.CustomEvent;
 const MutationObserver = globalThis.MutationObserver;
 const URL = globalThis.URL;
 const DOMParser = globalThis.DOMParser;
+const Uint8Array = globalThis.Uint8Array;
+const btoa = globalThis.btoa;
 
 export {
 	initUserScriptHandler,
@@ -105,6 +107,7 @@ export {
 	getShadowRoot,
 	appendInfobar,
 	getContentSize,
+	getDataURI,
 	digest,
 	getValidFilename,
 	parseDocContent,
@@ -794,6 +797,15 @@ function getFontWeight(weight) {
 
 function getContentSize(content) {
 	return new Blob([content]).size;
+}
+
+async function getDataURI(blob) {
+	const bytes = new Uint8Array(await blob.arrayBuffer());
+	let content = "";
+	for (let offset = 0; offset < bytes.length; offset += 8192) {
+		content += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
+	}
+	return "data:" + (blob.type || "application/octet-stream") + ";base64," + btoa(content);
 }
 
 async function digest(algo, text) {

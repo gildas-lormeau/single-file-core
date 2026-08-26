@@ -71,8 +71,8 @@
 	const Element = globalThis.Element;
 	const UIEvent = globalThis.UIEvent;
 	const Event = globalThis.Event;
-	const FileReader = globalThis.FileReader;
-	const Blob = globalThis.Blob;
+	const Uint8Array = globalThis.Uint8Array;
+	const btoa = globalThis.btoa;
 	const JSON = globalThis.JSON;
 	const MutationObserver = globalThis.MutationObserver;
 	const URL = globalThis.URL;
@@ -564,18 +564,15 @@
 				}
 			});
 		}
-		return new Promise(resolve => {
-			if (detail.src instanceof ArrayBuffer) {
-				const reader = new FileReader();
-				reader.readAsDataURL(new Blob([detail.src]));
-				reader.addEventListener("load", () => {
-					detail.src = "url(" + reader.result + ")";
-					resolve(detail);
-				});
-			} else {
-				resolve(detail);
+		if (detail.src instanceof ArrayBuffer) {
+			const bytes = new Uint8Array(detail.src);
+			let content = "";
+			for (let offset = 0; offset < bytes.length; offset += 8192) {
+				content += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
 			}
-		});
+			detail.src = "url(data:application/octet-stream;base64," + btoa(content) + ")";
+		}
+		return detail;
 	}
 
 	function dispatchResizeEvent() {
