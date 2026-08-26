@@ -297,7 +297,10 @@ function markInvalidNesting(doc) {
 
 	function addTrackIds(element, index = 0, parentTrackId = "") {
 		const trackId = parentTrackId ? `${parentTrackId}.${index + 1}` : `${index + 1}`;
-		element.setAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME, trackId);
+		const tagName = element.tagName.toUpperCase();
+		if (!(parentTrackId && (tagName == "BODY" || tagName == "HEAD" || tagName == "HTML"))) {
+			element.setAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME, trackId);
+		}
 		Array.from(element.children).forEach((child, indexChild) => addTrackIds(child, indexChild, trackId));
 	}
 
@@ -338,7 +341,7 @@ function fixInvalidNesting(document, NESTING_TRACK_ID_ATTRIBUTE_NAME, preventCle
 		if (idParts.length > 1) {
 			const parentId = idParts.slice(0, -1).join(".");
 			const expectedParent = trackIds[parentId];
-			if (expectedParent && element.parentElement !== expectedParent) {
+			if (expectedParent && element.parentElement !== expectedParent && !element.contains(expectedParent)) {
 				expectedParent.appendChild(element);
 			}
 		}
