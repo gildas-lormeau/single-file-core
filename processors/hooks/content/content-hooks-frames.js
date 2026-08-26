@@ -65,24 +65,34 @@ new MutationObserver(init).observe(document, { childList: true });
 
 function init() {
 	if (document instanceof Document) {
-		document.addEventListener(NEW_FONT_FACE_EVENT, event => {
-			const detail = event.detail;
-			const key = Object.assign({}, detail);
-			delete key.src;
-			fontFaces.set(JSON.stringify(key), detail);
-		});
-		document.addEventListener(DELETE_FONT_EVENT, event => {
-			const detail = event.detail;
-			const key = Object.assign({}, detail);
-			delete key.src;
-			fontFaces.delete(JSON.stringify(key));
-		});
-		document.addEventListener(CLEAR_FONTS_EVENT, () => fontFaces = new Map());
-		document.addEventListener(NEW_WORKLET_EVENT, event => {
-			const detail = event.detail;
-			worklets.set(detail.moduleURL, detail);
-		});
+		document.addEventListener(NEW_FONT_FACE_EVENT, onNewFontFace);
+		document.addEventListener(DELETE_FONT_EVENT, onDeleteFont);
+		document.addEventListener(CLEAR_FONTS_EVENT, onClearFonts);
+		document.addEventListener(NEW_WORKLET_EVENT, onNewWorklet);
 	}
+}
+
+function onNewFontFace(event) {
+	const detail = event.detail;
+	const key = Object.assign({}, detail);
+	delete key.src;
+	fontFaces.set(JSON.stringify(key), detail);
+}
+
+function onDeleteFont(event) {
+	const detail = event.detail;
+	const key = Object.assign({}, detail);
+	delete key.src;
+	fontFaces.delete(JSON.stringify(key));
+}
+
+function onClearFonts() {
+	fontFaces = new Map();
+}
+
+function onNewWorklet(event) {
+	const detail = event.detail;
+	worklets.set(detail.moduleURL, detail);
 }
 
 export {

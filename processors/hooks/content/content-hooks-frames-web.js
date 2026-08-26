@@ -88,83 +88,126 @@
 	new MutationObserver(init).observe(document, { childList: true });
 
 	function init() {
-		document.addEventListener(LOAD_DEFERRED_IMAGES_START_EVENT, () => loadDeferredImagesStart());
-		document.addEventListener(LOAD_DEFERRED_IMAGES_KEEP_ZOOM_LEVEL_START_EVENT, () => loadDeferredImagesStart(true));
-		document.addEventListener(LOAD_DEFERRED_IMAGES_END_EVENT, () => loadDeferredImagesEnd());
-		document.addEventListener(LOAD_DEFERRED_IMAGES_KEEP_ZOOM_LEVEL_END_EVENT, () => loadDeferredImagesEnd(true));
+		document.addEventListener(LOAD_DEFERRED_IMAGES_START_EVENT, onLoadDeferredImagesStart);
+		document.addEventListener(LOAD_DEFERRED_IMAGES_KEEP_ZOOM_LEVEL_START_EVENT, onLoadDeferredImagesKeepZoomLevelStart);
+		document.addEventListener(LOAD_DEFERRED_IMAGES_END_EVENT, onLoadDeferredImagesEnd);
+		document.addEventListener(LOAD_DEFERRED_IMAGES_KEEP_ZOOM_LEVEL_END_EVENT, onLoadDeferredImagesKeepZoomLevelEnd);
 		document.addEventListener(LOAD_DEFERRED_IMAGES_RESET_EVENT, resetScreenSize);
-		document.addEventListener(LOAD_DEFERRED_IMAGES_RESET_ZOOM_LEVEL_EVENT, () => {
-			const transform = document.documentElement.style.getPropertyValue("-sf-transform");
-			const transformPriority = document.documentElement.style.getPropertyPriority("-sf-transform");
-			const transformOrigin = document.documentElement.style.getPropertyValue("-sf-transform-origin");
-			const transformOriginPriority = document.documentElement.style.getPropertyPriority("-sf-transform-origin");
-			const minHeight = document.documentElement.style.getPropertyValue("-sf-min-height");
-			const minHeightPriority = document.documentElement.style.getPropertyPriority("-sf-min-height");
-			document.documentElement.style.setProperty("transform", transform, transformPriority);
-			document.documentElement.style.setProperty("transform-origin", transformOrigin, transformOriginPriority);
-			document.documentElement.style.setProperty("min-height", minHeight, minHeightPriority);
-			document.documentElement.style.removeProperty("-sf-transform");
-			document.documentElement.style.removeProperty("-sf-transform-origin");
-			document.documentElement.style.removeProperty("-sf-min-height");
-			resetScreenSize();
-		});
-		document.addEventListener(DISPATCH_SCROLL_START_EVENT, () => { dispatchScrollEvent = true; });
-		document.addEventListener(DISPATCH_SCROLL_END_EVENT, () => { dispatchScrollEvent = false; });
-		document.addEventListener(BLOCK_COOKIES_START_EVENT, () => {
-			try {
-				document.__defineGetter__("cookie", () => { throw new Error("document.cookie temporary blocked by SingleFile"); });
-				// eslint-disable-next-line no-unused-vars
-			} catch (error) {
-				// ignored
-			}
-		});
-		document.addEventListener(BLOCK_COOKIES_END_EVENT, () => { delete document.cookie; });
-		document.addEventListener(BLOCK_STORAGE_START_EVENT, () => {
-			if (!globalThis._singleFile_localStorage) {
-				globalThis._singleFile_localStorage = globalThis.localStorage;
-				globalThis.__defineGetter__("localStorage", () => { throw new Error("localStorage temporary blocked by SingleFile"); });
-			}
-			if (!globalThis._singleFile_indexedDB) {
-				globalThis._singleFile_indexedDB = globalThis.indexedDB;
-				globalThis.__defineGetter__("indexedDB", () => { throw new Error("indexedDB temporary blocked by SingleFile"); });
-			}
-		});
-		document.addEventListener(BLOCK_STORAGE_END_EVENT, () => {
-			if (globalThis._singleFile_localStorage) {
-				delete globalThis.localStorage;
-				globalThis.localStorage = globalThis._singleFile_localStorage;
-				delete globalThis._singleFile_localStorage;
-			}
-			if (!globalThis._singleFile_indexedDB) {
-				delete globalThis.indexedDB;
-				globalThis.indexedDB = globalThis._singleFile_indexedDB;
-				delete globalThis._singleFile_indexedDB;
-			}
-		});
-		document.addEventListener(FETCH_SUPPORTED_REQUEST_EVENT, () =>
-			document.dispatchEvent(new CustomEvent(FETCH_SUPPORTED_RESPONSE_EVENT)));
-		document.addEventListener(FETCH_REQUEST_EVENT, async event => {
-			const { url, options } = JSON.parse(event.detail);
-			let detail;
-			try {
-				const response = await fetch(url, options);
-				detail = { url, response: await response.arrayBuffer(), headers: [...response.headers], status: response.status };
-			} catch (error) {
-				detail = { url, error: error && (error.message || error.toString()) };
-			}
-			document.dispatchEvent(new CustomEvent(FETCH_RESPONSE_EVENT, { detail }));
-		});
+		document.addEventListener(LOAD_DEFERRED_IMAGES_RESET_ZOOM_LEVEL_EVENT, onLoadDeferredImagesResetZoomLevel);
+		document.addEventListener(DISPATCH_SCROLL_START_EVENT, onDispatchScrollStart);
+		document.addEventListener(DISPATCH_SCROLL_END_EVENT, onDispatchScrollEnd);
+		document.addEventListener(BLOCK_COOKIES_START_EVENT, onBlockCookiesStart);
+		document.addEventListener(BLOCK_COOKIES_END_EVENT, onBlockCookiesEnd);
+		document.addEventListener(BLOCK_STORAGE_START_EVENT, onBlockStorageStart);
+		document.addEventListener(BLOCK_STORAGE_END_EVENT, onBlockStorageEnd);
+		document.addEventListener(FETCH_SUPPORTED_REQUEST_EVENT, onFetchSupportedRequest);
+		document.addEventListener(FETCH_REQUEST_EVENT, onFetchRequest);
 		document.addEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, getAdoptedStylesheetsListener);
-		document.addEventListener(BOOTSTRAP_EVENT, event => {
-			try {
-				if (globalThis.bootstrap && event.detail.data) {
-					globalThis.bootstrap(event.detail.data);
-				}
-				// eslint-disable-next-line no-unused-vars
-			} catch (error) {
-				// ignored
+		document.addEventListener(BOOTSTRAP_EVENT, onBootstrap);
+	}
+
+	function onLoadDeferredImagesStart() {
+		loadDeferredImagesStart();
+	}
+
+	function onLoadDeferredImagesKeepZoomLevelStart() {
+		loadDeferredImagesStart(true);
+	}
+
+	function onLoadDeferredImagesEnd() {
+		loadDeferredImagesEnd();
+	}
+
+	function onLoadDeferredImagesKeepZoomLevelEnd() {
+		loadDeferredImagesEnd(true);
+	}
+
+	function onLoadDeferredImagesResetZoomLevel() {
+		const transform = document.documentElement.style.getPropertyValue("-sf-transform");
+		const transformPriority = document.documentElement.style.getPropertyPriority("-sf-transform");
+		const transformOrigin = document.documentElement.style.getPropertyValue("-sf-transform-origin");
+		const transformOriginPriority = document.documentElement.style.getPropertyPriority("-sf-transform-origin");
+		const minHeight = document.documentElement.style.getPropertyValue("-sf-min-height");
+		const minHeightPriority = document.documentElement.style.getPropertyPriority("-sf-min-height");
+		document.documentElement.style.setProperty("transform", transform, transformPriority);
+		document.documentElement.style.setProperty("transform-origin", transformOrigin, transformOriginPriority);
+		document.documentElement.style.setProperty("min-height", minHeight, minHeightPriority);
+		document.documentElement.style.removeProperty("-sf-transform");
+		document.documentElement.style.removeProperty("-sf-transform-origin");
+		document.documentElement.style.removeProperty("-sf-min-height");
+		resetScreenSize();
+	}
+
+	function onDispatchScrollStart() {
+		dispatchScrollEvent = true;
+	}
+
+	function onDispatchScrollEnd() {
+		dispatchScrollEvent = false;
+	}
+
+	function onBlockCookiesStart() {
+		try {
+			document.__defineGetter__("cookie", () => { throw new Error("document.cookie temporary blocked by SingleFile"); });
+			// eslint-disable-next-line no-unused-vars
+		} catch (error) {
+			// ignored
+		}
+	}
+
+	function onBlockCookiesEnd() {
+		delete document.cookie;
+	}
+
+	function onBlockStorageStart() {
+		if (!globalThis._singleFile_localStorage) {
+			globalThis._singleFile_localStorage = globalThis.localStorage;
+			globalThis.__defineGetter__("localStorage", () => { throw new Error("localStorage temporary blocked by SingleFile"); });
+		}
+		if (!globalThis._singleFile_indexedDB) {
+			globalThis._singleFile_indexedDB = globalThis.indexedDB;
+			globalThis.__defineGetter__("indexedDB", () => { throw new Error("indexedDB temporary blocked by SingleFile"); });
+		}
+	}
+
+	function onBlockStorageEnd() {
+		if (globalThis._singleFile_localStorage) {
+			delete globalThis.localStorage;
+			globalThis.localStorage = globalThis._singleFile_localStorage;
+			delete globalThis._singleFile_localStorage;
+		}
+		if (!globalThis._singleFile_indexedDB) {
+			delete globalThis.indexedDB;
+			globalThis.indexedDB = globalThis._singleFile_indexedDB;
+			delete globalThis._singleFile_indexedDB;
+		}
+	}
+
+	function onFetchSupportedRequest() {
+		document.dispatchEvent(new CustomEvent(FETCH_SUPPORTED_RESPONSE_EVENT));
+	}
+
+	async function onFetchRequest(event) {
+		const { url, options } = JSON.parse(event.detail);
+		let detail;
+		try {
+			const response = await fetch(url, options);
+			detail = { url, response: await response.arrayBuffer(), headers: [...response.headers], status: response.status };
+		} catch (error) {
+			detail = { url, error: error && (error.message || error.toString()) };
+		}
+		document.dispatchEvent(new CustomEvent(FETCH_RESPONSE_EVENT, { detail }));
+	}
+
+	function onBootstrap(event) {
+		try {
+			if (globalThis.bootstrap && event.detail.data) {
+				globalThis.bootstrap(event.detail.data);
 			}
-		});
+			// eslint-disable-next-line no-unused-vars
+		} catch (error) {
+			// ignored
+		}
 	}
 
 	function loadDeferredImagesStart(keepZoomLevel) {
