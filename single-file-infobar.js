@@ -36,7 +36,8 @@ import { appendInfobar, refreshInfobarInfo, extractInfobarData } from "./core/in
 		if (globalThis.window == globalThis.top) {
 			document.addEventListener("single-file-display-infobar", displayIcon, false);
 			if (document.documentElement.getAttribute("data-sfz") == "" && !mutationObserver) {
-				mutationObserver = new MutationObserver(init).observe(document, { childList: true });
+				mutationObserver = new MutationObserver(init);
+				mutationObserver.observe(document, { childList: true });
 			} else {
 				if (document.readyState == "loading") {
 					document.addEventListener("DOMContentLoaded", displayIcon, false);
