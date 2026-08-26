@@ -152,12 +152,15 @@ class ProcessorHelperCommon {
 							const response = await batchRequest.addURL(resourceURL, { expectedType: "image" });
 							const svgDoc = util.parseSVGContent(response.content);
 							if (hashMatch && hashMatch[0]) {
-								let symbolElement;
-								try {
-									symbolElement = svgDoc.querySelector(hashMatch[0]);
-									// eslint-disable-next-line no-unused-vars
-								} catch (error) {
-									// ignored
+								const symbolId = hashMatch[0].substring(1);
+								let symbolElement = svgDoc.getElementById(symbolId);
+								if (!symbolElement) {
+									try {
+										symbolElement = svgDoc.getElementById(decodeURIComponent(symbolId));
+										// eslint-disable-next-line no-unused-vars
+									} catch (error) {
+										// ignored
+									}
 								}
 								if (symbolElement) {
 									resourceElement.setAttribute(attributeName, hashMatch[0]);
