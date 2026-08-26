@@ -93,6 +93,7 @@ const URL = globalThis.URL;
 const DOMParser = globalThis.DOMParser;
 const Uint8Array = globalThis.Uint8Array;
 const btoa = globalThis.btoa;
+const FileReader = globalThis.FileReader;
 
 export {
 	initUserScriptHandler,
@@ -800,12 +801,21 @@ function getContentSize(content) {
 }
 
 async function getDataURI(blob) {
-	const bytes = new Uint8Array(await blob.arrayBuffer());
-	let content = "";
-	for (let offset = 0; offset < bytes.length; offset += 8192) {
-		content += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
+	if (FileReader) {
+		const reader = new FileReader();
+		reader.readAsDataURL(blob);
+		return new Promise((resolve, reject) => {
+			reader.addEventListener("load", () => resolve(reader.result), false);
+			reader.addEventListener("error", reject, false);
+		});
+	} else {
+		const bytes = new Uint8Array(await blob.arrayBuffer());
+		let content = "";
+		for (let offset = 0; offset < bytes.length; offset += 8192) {
+			content += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
+		}
+		return "data:" + (blob.type || "application/octet-stream") + ";base64," + btoa(content);
 	}
-	return "data:" + (blob.type || "application/octet-stream") + ";base64," + btoa(content);
 }
 
 async function digest(algo, text) {

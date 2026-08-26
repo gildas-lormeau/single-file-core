@@ -17264,7 +17264,18 @@ function getLastSegment(url, replacementCharacter) {
 
 async function truncateText(content, maxSize) {
 	const blob = new Blob([content]);
-	const result = await blob.slice(0, maxSize).text();
+	const truncatedBlob = blob.slice(0, maxSize);
+	let result;
+	if (globalThis.FileReader) {
+		const reader = new globalThis.FileReader();
+		reader.readAsText(truncatedBlob);
+		result = await new Promise((resolve, reject) => {
+			reader.addEventListener("load", () => resolve(reader.result), false);
+			reader.addEventListener("error", reject, false);
+		});
+	} else {
+		result = await truncatedBlob.text();
+	}
 	if (content.startsWith(result)) {
 		return result;
 	} else {
