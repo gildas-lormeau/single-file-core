@@ -401,6 +401,7 @@
 		};
 		globalThis.FontFace.prototype = origFontFace.prototype;
 		globalThis.FontFace.toString = function () { return "function FontFace() { [native code] }"; };
+		setFunctionName(globalThis.FontFace, "FontFace");
 		const deleteFont = document.fonts.delete;
 		document.fonts.delete = function (fontFace) {
 			try {
@@ -426,12 +427,12 @@
 	}
 
 	if (globalThis.IntersectionObserver) {
-		const IntersectionObserver = globalThis.IntersectionObserver;
-		globalThis.IntersectionObserver = function () {
+		const origIntersectionObserver = globalThis.IntersectionObserver;
+		globalThis.IntersectionObserver = function IntersectionObserver() {
 			try {
-				const intersectionObserver = new IntersectionObserver(...arguments);
-				const observeIntersection = IntersectionObserver.prototype.observe || intersectionObserver.observe;
-				const unobserveIntersection = IntersectionObserver.prototype.unobserve || intersectionObserver.unobserve;
+				const intersectionObserver = new origIntersectionObserver(...arguments);
+				const observeIntersection = origIntersectionObserver.prototype.observe || intersectionObserver.observe;
+				const unobserveIntersection = origIntersectionObserver.prototype.unobserve || intersectionObserver.unobserve;
 				const callback = arguments[0];
 				const options = arguments[1];
 				if (observeIntersection) {
@@ -479,8 +480,9 @@
 				throw error;
 			}
 		};
-		globalThis.IntersectionObserver.prototype = IntersectionObserver.prototype;
+		globalThis.IntersectionObserver.prototype = origIntersectionObserver.prototype;
 		globalThis.IntersectionObserver.toString = function () { return "function IntersectionObserver() { [native code] }"; };
+		setFunctionName(globalThis.IntersectionObserver, "IntersectionObserver");
 	}
 
 	const originalReplaceSync = CSSStyleSheet.prototype.replaceSync;
@@ -573,6 +575,10 @@
 			detail.src = "url(data:application/octet-stream;base64," + btoa(content) + ")";
 		}
 		return detail;
+	}
+
+	function setFunctionName(fn, name) {
+		Object.defineProperty(fn, "name", { value: name, configurable: true });
 	}
 
 	function dispatchResizeEvent() {
