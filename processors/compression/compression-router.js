@@ -69,6 +69,7 @@ async function router(content, { extract, display }) {
 	const manifest = JSON.parse(await pagesEntry.getData(new zip.TextWriter()));
 	const tocEntry = entries.find(entry => entry.filename == TOC_FILENAME);
 	const { pages } = manifest;
+	const pageTransitions = manifest.pageTransitions || "auto";
 	const aliases = new Map(Object.entries(manifest.aliases || {}));
 	pages.forEach(page => {
 		urlToPath.set(stripFragment(page.url), page.path);
@@ -141,7 +142,7 @@ async function router(content, { extract, display }) {
 		const willRender = routed && path != currentPath && isRenderablePath(path);
 		// the whole render and scroll sequence runs inside the view transition
 		// so that the crossfade ends on the final scroll position
-		if (willRender && document.startViewTransition && !prefersReducedMotion()) {
+		if (willRender && document.startViewTransition && pageTransitionEnabled() && !prefersReducedMotion()) {
 			await document.startViewTransition(update).updateCallbackDone;
 		} else {
 			await update();
@@ -322,6 +323,30 @@ async function router(content, { extract, display }) {
 			node = node.parentNode;
 		}
 		return node;
+	}
+
+	// "auto" approximates the cross-document opt-in of live sites: the transition
+	// runs when the displayed page itself contains an @view-transition rule set
+	// to navigation: auto, so pages without transitions stay instant
+	function pageTransitionEnabled() {
+		if (pageTransitions == "fade") {
+			return true;
+		}
+		if (pageTransitions == "none") {
+			return false;
+		}
+		return Array.from(document.styleSheets).some(styleSheet => {
+			try {
+				return containsViewTransitionRule(styleSheet.cssRules);
+			} catch {
+				return false;
+			}
+		});
+	}
+
+	function containsViewTransitionRule(cssRules) {
+		return Array.from(cssRules).some(cssRule => cssRule.navigation == "auto" ||
+			(cssRule.cssRules && cssRule.cssRules.length && containsViewTransitionRule(cssRule.cssRules)));
 	}
 
 	function prefersReducedMotion() {
