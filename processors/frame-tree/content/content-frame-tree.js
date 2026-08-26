@@ -397,8 +397,8 @@ function sendMessage(targetWindow, message, useChannel) {
 	}
 }
 
-function getFrameData(document, globalThis, windowId, options, scrolling) {
-	const docData = helper.preProcessDoc(document, globalThis, options);
+function getFrameData(document, win, windowId, options, scrolling) {
+	const docData = helper.preProcessDoc(document, win, options);
 	const content = helper.serialize(document);
 	helper.postProcessDoc(document, docData.markedElements, docData.invalidElements);
 	const baseURI = document.baseURI.split("#")[0];

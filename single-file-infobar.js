@@ -21,11 +21,11 @@
  *   Source.
  */
 
-/* global window, document */
+/* global document */
 
 import { appendInfobar, refreshInfobarInfo, extractInfobarData } from "./core/infobar.js";
 
-(globalThis => {
+(() => {
 
 	const browser = globalThis.browser;
 	const MutationObserver = globalThis.MutationObserver;
@@ -77,4 +77,4 @@ import { appendInfobar, refreshInfobarInfo, extractInfobarData } from "./core/in
 		}
 	}
 
-})(typeof globalThis == "object" ? globalThis : window);
+})();

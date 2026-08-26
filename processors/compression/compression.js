@@ -606,6 +606,7 @@ async function getContent() {
 				displayMessage("sfz-wait-message", 2);
 				resolve(pageData);
 			} catch (error) {
+				// eslint-disable-next-line no-console
 				console.error(error);
 				displayMessage("sfz-error-message", 2);
 				reject(error);

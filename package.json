@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/gildas-lormeau/single-file-core#readme",
   "devDependencies": {
-    "eslint": "^9.39.1"
+    "@eslint/js": "^9.39.5",
+    "eslint": "^10.9.1"
   }
 }

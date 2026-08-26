@@ -4,7 +4,6 @@ import { build } from "esbuild";
 
 const require = createRequire(import.meta.url);
 const packagePath = require.resolve("css-tree/package.json");
-const tokenStreamPath = packagePath.replace(/package\.json$/, "lib/tokenizer/TokenStream.js");
 const licensePath = packagePath.replace(/package\.json$/, "LICENSE");
 const { version } = JSON.parse(readFileSync(packagePath));
 
