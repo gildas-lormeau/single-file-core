@@ -87,7 +87,7 @@ function onDeleteFont(event) {
 }
 
 function onClearFonts() {
-	fontFaces = new Map();
+	fontFaces.clear();
 }
 
 function onNewWorklet(event) {
