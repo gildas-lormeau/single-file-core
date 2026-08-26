@@ -81,6 +81,7 @@ const DEFAULT_REPLACEMENT_CHARACTERS = ["～", "＋", "？", "％", "＊", "："
 const CHARACTER_CLASS_SPECIAL_CHARACTERS = ["[", "]", "^", "-", "\\"];
 const NESTING_TRACK_ID_ATTRIBUTE_NAME = "data-sf-nesting-track-id";
 const addEventListener = (type, listener, options) => globalThis.addEventListener(type, listener, options);
+const removeEventListener = (type, listener, options) => globalThis.removeEventListener(type, listener, options);
 // eslint-disable-next-line no-unused-vars
 const dispatchEvent = event => { try { globalThis.dispatchEvent(event); } catch (error) {  /* ignored */ } };
 const JSON = globalThis.JSON;
@@ -173,30 +174,29 @@ function onInitUserScript({ detail }) {
 			// ignored
 		}
 		const event = new CustomEvent(eventPrefixName + "-request", { cancelable: true, detail: detailUserScript });
+		const responseEventName = eventPrefixName + "-response";
 		let resolvePromiseResponse;
-		const promiseResponse = new Promise(resolve => {
-			resolvePromiseResponse = resolve;
-			addEventListener(eventPrefixName + "-response", event => {
-				if (event.detail) {
-					try {
-						const detail = typeof event.detail == "string" ? JSON.parse(event.detail) : event.detail;
-						if (detail.options) {
-							Object.assign(options, detail.options);
-						}
-						// eslint-disable-next-line no-unused-vars
-					} catch (error) {
-						// ignored
+		const promiseResponse = new Promise(resolve => (resolvePromiseResponse = resolve));
+		const onResponse = event => {
+			if (event.detail) {
+				try {
+					const detail = typeof event.detail == "string" ? JSON.parse(event.detail) : event.detail;
+					if (detail.options) {
+						Object.assign(options, detail.options);
 					}
+					// eslint-disable-next-line no-unused-vars
+				} catch (error) {
+					// ignored
 				}
-				resolve();
-			});
-		});
+			}
+			resolvePromiseResponse();
+		};
+		addEventListener(responseEventName, onResponse);
 		dispatchEvent(event);
 		if (event.defaultPrevented) {
 			await promiseResponse;
-		} else {
-			resolvePromiseResponse();
 		}
+		removeEventListener(responseEventName, onResponse);
 	};
 }
 
