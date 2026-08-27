@@ -16890,7 +16890,12 @@ async function formatFilename(content, doc, options) {
 		filename = "Unnamed page";
 	}
 	if (filename.startsWith(".")) {
-		filename = "Unnamed page" + filename;
+		const nameWithoutExtension = filename.replace(/\.[^.]{3,4}$/, "");
+		if (/^\.*$/.test(nameWithoutExtension)) {
+			filename = "Unnamed page" + filename;
+		} else {
+			filename = filenameReplacementCharacter + filename;
+		}
 	}
 	return filename.trim();
 }
