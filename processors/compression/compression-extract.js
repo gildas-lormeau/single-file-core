@@ -27,7 +27,7 @@ export {
 	extract
 };
 
-async function extract(content, { password, prompt = () => { }, zipOptions = { useWebWorkers: true }, noBlobURL, entries, pagePath = "" } = {}) {
+async function extract(content, { password, prompt = () => { }, zipOptions = { useWebWorkers: true }, noBlobURL, entries, pagePath = "", excludedPaths } = {}) {
 	const KNOWN_MIMETYPES = {
 		"gif": "image/gif",
 		"jpg": "image/jpeg",
@@ -91,6 +91,8 @@ async function extract(content, { password, prompt = () => { }, zipOptions = { u
 	}
 	if (pagePath) {
 		entries = entries.filter(entry => entry.filename.startsWith(pagePath));
+	} else if (excludedPaths) {
+		entries = entries.filter(entry => !excludedPaths.some(excludedPath => entry.filename.startsWith(excludedPath)));
 	}
 	const options = { password };
 	let docContent, origDocContent, url, resources = [], indexPages = [], textResources = [];
