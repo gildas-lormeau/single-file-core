@@ -22,6 +22,7 @@
  */
 
 import * as cssTree from "./../../vendor/css-tree.js";
+import { serialize as serializeSrcset } from "./../../vendor/html-srcset-parser.js";
 
 const JSON = globalThis.JSON;
 const FontFace = globalThis.FontFace;
@@ -454,9 +455,7 @@ function getProcessorHelperClass(utilInstance) {
 			if (forbiddenPrefixFound) {
 				return "";
 			}
-			return content + (srcsetValue.w ? " " + srcsetValue.w + "w" :
-				srcsetValue.h ? " " + srcsetValue.h + "h" :
-					srcsetValue.d ? " " + srcsetValue.d + "x" : "");
+			return serializeSrcset([Object.assign({}, srcsetValue, { url: content })]);
 		}
 
 		testEmptyResource(resource) {

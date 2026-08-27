@@ -26,6 +26,7 @@ import {
 	getFontWeight,
 	getDataURI
 } from "./../helper.js";
+import { serialize as serializeSrcset } from "./../../vendor/html-srcset-parser.js";
 
 const DATA_URI_PREFIX = "data:";
 const ABOUT_BLANK_URI = "about:blank";
@@ -244,7 +245,7 @@ class ProcessorHelperCommon {
 							return "";
 						}
 					} else {
-						return resourceURL + (srcsetValue.w ? " " + srcsetValue.w + "w" : srcsetValue.d ? " " + srcsetValue.d + "x" : "");
+						return serializeSrcset([Object.assign({}, srcsetValue, { url: resourceURL })]);
 					}
 				}));
 				resourceElement.setAttribute("srcset", srcsetValues.join(", "));

@@ -22,6 +22,7 @@
  */
 
 import * as cssTree from "./../../vendor/css-tree.js";
+import { serialize as serializeSrcset } from "./../../vendor/html-srcset-parser.js";
 
 const JSON = globalThis.JSON;
 const FontFace = globalThis.FontFace;
@@ -390,9 +391,7 @@ function getProcessorHelperClass(utilInstance) {
 			const { content, indexResource, extension, contentType } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "image" });
 			const name = "images/" + indexResource + extension;
 			resources.images.set(indexResource, { name, content, extension, contentType, url: resourceURL });
-			return name + (srcsetValue.w ? " " + srcsetValue.w + "w" :
-				srcsetValue.h ? " " + srcsetValue.h + "h" :
-					srcsetValue.d ? " " + srcsetValue.d + "x" : "");
+			return serializeSrcset([Object.assign({}, srcsetValue, { url: name })]);
 		}
 
 		testEmptyResource(resource) {

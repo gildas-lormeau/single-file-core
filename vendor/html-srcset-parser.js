@@ -41,7 +41,8 @@
  */
 
 export {
-	process
+	process,
+	serialize
 };
 
 // 1. Let input be the value passed to this algorithm.
@@ -286,7 +287,7 @@ function process(input) {
 			if (regexNonNegativeInteger.test(value) && (lastChar === "w")) {
 
 				// If width and density are not both absent, then let error be yes.
-				if (w || d) { pError = true; }
+				if (w || d !== undefined) { pError = true; }
 
 				// Apply the rules for parsing non-negative integers to the descriptor.
 				// If the result is zero, let error be yes.
@@ -298,8 +299,8 @@ function process(input) {
 			} else if (regexFloatingPoint.test(value) && (lastChar === "x")) {
 
 				// If width, density and future-compat-h are not all absent, then let error
-				// be yes.
-				if (w || d || h) { pError = true; }
+				// be yes. (d is compared with undefined: the spec allows a density of zero.)
+				if (w || d !== undefined || h) { pError = true; }
 
 				// Apply the rules for parsing floating-point number values to the descriptor.
 				// If the result is less than zero, let error be yes. Otherwise, let density
@@ -311,7 +312,7 @@ function process(input) {
 			} else if (regexNonNegativeInteger.test(value) && (lastChar === "h")) {
 
 				// If height and density are not both absent, then let error be yes.
-				if (h || d) { pError = true; }
+				if (h || d !== undefined) { pError = true; }
 
 				// Apply the rules for parsing non-negative integers to the descriptor.
 				// If the result is zero, let error be yes. Otherwise, let future-compat-h
@@ -325,15 +326,34 @@ function process(input) {
 		// 15. If error is still no, then append a new image source to candidates whose
 		// URL is url, associated with a width width if not absent and a pixel
 		// density density if not absent. Otherwise, there is a parse error.
-		if (!pError) {
-			candidate.url = url;
+		candidate.url = url;
+		if (pError) {
+			// (The spec drops the candidate on a parse error. This parser is used to rewrite srcset
+			// attributes rather than to select an image, so the descriptors are kept verbatim
+			// instead: dropping the candidate would lose the URL from the rewritten attribute.)
+			candidate.descriptors = descriptors.slice();
+		} else {
 			if (w) { candidate.w = w; }
-			if (d) { candidate.d = d; }
+			if (d !== undefined) { candidate.d = d; }
 			if (h) { candidate.h = h; }
-			candidates.push(candidate);
-		} else if (console && console.log) {  // eslint-disable-line no-console
-			console.log("Invalid srcset descriptor found in \"" + input + "\" at \"" + desc + "\"."); // eslint-disable-line no-console
 		}
+		candidates.push(candidate);
 	} // (close parseDescriptors fn)
 
+}
+
+function serialize(srcset) {
+	return srcset.map(function (candidate) {
+		const descriptors = candidate.descriptors ? candidate.descriptors.slice() : [];
+		if (candidate.w) {
+			descriptors.push(candidate.w + "w");
+		}
+		if (candidate.h) {
+			descriptors.push(candidate.h + "h");
+		}
+		if (candidate.d !== undefined) {
+			descriptors.push(candidate.d + "x");
+		}
+		return [candidate.url].concat(descriptors).join(" ");
+	}).join(", ");
 }
