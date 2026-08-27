@@ -248,7 +248,7 @@ class ProcessorHelperCommon {
 						return serializeSrcset([Object.assign({}, srcsetValue, { url: resourceURL })]);
 					}
 				}));
-				resourceElement.setAttribute("srcset", srcsetValues.join(", "));
+				resourceElement.setAttribute("srcset", srcsetValues.filter(srcsetValue => srcsetValue).join(", "));
 			} else {
 				resourceElement.setAttribute("srcset", "");
 			}
