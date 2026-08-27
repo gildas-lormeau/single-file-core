@@ -27,7 +27,7 @@ export {
 	extract
 };
 
-async function extract(content, { password, prompt = () => { }, zipOptions = { useWebWorkers: true }, noBlobURL, entries, pagePath = "", excludedPaths } = {}) {
+async function extract(content, { password, prompt = () => { }, zipOptions = { useWebWorkers: true }, noBlobURL, entries, pagePath = "", excludedPaths, aliases } = {}) {
 	const KNOWN_MIMETYPES = {
 		"gif": "image/gif",
 		"jpg": "image/jpeg",
@@ -88,6 +88,20 @@ async function extract(content, { password, prompt = () => { }, zipOptions = { u
 		}
 		zipReader = new zip.ZipReader(reader);
 		entries = await zipReader.getEntries();
+	}
+	if (aliases) {
+		const allEntries = entries;
+		entries = entries.map(entry => {
+			const canonicalFilename = aliases[entry.filename];
+			const canonicalEntry = canonicalFilename && allEntries.find(otherEntry => otherEntry.filename == canonicalFilename);
+			return canonicalEntry ? {
+				filename: entry.filename,
+				comment: canonicalEntry.comment,
+				encrypted: canonicalEntry.encrypted,
+				uncompressedSize: canonicalEntry.uncompressedSize,
+				getData: (writer, options) => canonicalEntry.getData(writer, options)
+			} : entry;
+		});
 	}
 	if (pagePath) {
 		entries = entries.filter(entry => entry.filename.startsWith(pagePath));
