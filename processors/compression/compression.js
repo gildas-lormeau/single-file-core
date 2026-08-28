@@ -135,9 +135,9 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 				// the htmlArray starts after the 4-byte length and the 8-byte type of the tEXt chunk
 				pdfEntry.offset += zipDataWriter.offset + 12;
 			}
-			const hmtlData = new Uint8Array([...getLength(htmlArray.length + 4), ...[0x74, 0x45, 0x58, 0x74, 0x50, 0x4e, 0x47, 0], ...htmlArray]);
-			await writeData(zipDataWriter.writable, hmtlData);
-			await writeData(zipDataWriter.writable, getCRC32(hmtlData, 4));
+			const htmlData = new Uint8Array([...getLength(htmlArray.length + 4), ...[0x74, 0x45, 0x58, 0x74, 0x50, 0x4e, 0x47, 0], ...htmlArray]);
+			await writeData(zipDataWriter.writable, htmlData);
+			await writeData(zipDataWriter.writable, getCRC32(htmlData, 4));
 		} else if (options.embeddedPdf) {
 			const data = new Uint8Array([...getLength(options.embeddedPdf.length + 4), ...[0x74, 0x45, 0x58, 0x74, 0x50, 0x44, 0x46, 0], ...new Uint8Array(options.embeddedPdf)]);
 			await writeData(zipDataWriter.writable, data);
