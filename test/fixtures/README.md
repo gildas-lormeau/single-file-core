@@ -9,6 +9,9 @@ Frozen sample archives used by the test suites of the projects consuming
   stylesheet and an image: the manifest has an `aliases` map and the
   `pages/N/` copies are symlink entries
 - `single-page.zip.html` — regular single-page self-extracting archive
+- `classic-digest.html` — hand-written classic (uncompressed) saved page with
+  embedded filename template data and a `{digest-sha-256}` filename template,
+  used to verify the editor recomputes the filename digest when saving
 
 The fixtures are intentionally frozen. When the archive format evolves, add
 new fixtures (see `generate-fixtures.sh`) instead of regenerating these ones,
