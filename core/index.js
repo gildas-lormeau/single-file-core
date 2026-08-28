@@ -183,6 +183,7 @@ class Runner {
 		this.options.fontTests = new Map();
 		if (root && !this.options.saveFilenameTemplateData && (this.options.openEditor || /{digest-sha-\d/.test(this.options.filenameTemplate))) {
 			this.options.saveFilenameTemplateData = true;
+			this.options.omitReferrerInTemplateData = !/{url-referrer/.test(this.options.filenameTemplate);
 		}
 		this.batchRequest = new BatchRequest();
 		this.processor = new Processor(options, processorHelper, this.batchRequest);
@@ -683,7 +684,7 @@ class Processor {
 				selfExtractingArchive: this.options.selfExtractingArchive,
 				disableCompression: this.options.disableCompression,
 				extractDataFromPage: this.options.extractDataFromPage,
-				referrer: this.options.referrer,
+				referrer: this.options.omitReferrerInTemplateData ? undefined : this.options.referrer,
 				title: this.options.title,
 				info: this.options.info
 			});
