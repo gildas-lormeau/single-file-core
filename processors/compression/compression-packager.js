@@ -34,6 +34,8 @@ import {
 	createArchive
 } from "./compression.js";
 
+const browser = globalThis.browser;
+
 const PAGES_PREFIX = "pages/";
 const PAGES_FILENAME = "sfz-pages.json";
 const TOC_FILENAME = "sfz-toc.html";
@@ -49,7 +51,11 @@ const SYMLINK_UNIX_MODE = 0o120777;
 export { createPagesArchive };
 
 async function createPagesArchive(pages, options) {
-	configure({ useWebWorkers: false });
+	if (browser && browser.runtime && browser.runtime.getURL) {
+		configure({ workerURI: "/lib/single-file-z-worker.js", workerStartupTimeout: 2000 });
+	} else {
+		configure({ useWebWorkers: false });
+	}
 	const manifest = {
 		pages: pages.map((page, pageIndex) => ({
 			path: getPagePath(pageIndex),
