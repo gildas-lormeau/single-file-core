@@ -84,6 +84,7 @@ const CRC32_TABLE = new Uint32Array(256).map((_, indexTable) => {
 	return crc;
 });
 const PNG_IEND_LENGTH = 12;
+const PNG_CHUNK_CRC_LENGTH = 4;
 const PNG_SIGNATURE_LENGTH = 8;
 const PNG_IHDR_LENGTH = 25;
 const PDF_ENTRY_FILENAME = "page.pdf";
@@ -230,7 +231,10 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 			payload[2] = lfCodes.length;
 			lfCodes.forEach((lfCode, indexLFCode) => payload[3 + (indexLFCode >> 4)] |= lfCode << ((indexLFCode & 15) * 2));
 			extraData = "<sfz-extra-data>" + base64Encode(deflateRaw(new Uint8Array(payload.buffer))) + "</sfz-extra-data>";
-			if (options.preventAppendedData || extraData.length > 65535 - endTags.length - (options.embeddedImage ? PNG_IEND_LENGTH : 0)) {
+			// the bytes appended after the EOCD record (wrapper end tag, extra data, end tags
+			// and, with an embedded image, the tEXt CRC and IEND chunk) must fit the 65535-byte
+			// window readers scan backward to find the EOCD record
+			if (options.preventAppendedData || extraData.length > 65535 - pageContent.length - endTags.length - (options.embeddedImage ? PNG_IEND_LENGTH + PNG_CHUNK_CRC_LENGTH : 0)) {
 				if (!options.extraDataSize) {
 					options.extraDataSize = Math.floor(extraData.length * 1.001);
 					return createArchive(pageData, options, script, writeEntries, lastModDate);
