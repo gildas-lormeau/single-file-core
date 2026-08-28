@@ -89,6 +89,9 @@ async function extract(content, { password, prompt = () => { }, zipOptions = { u
 		zipReader = new zip.ZipReader(reader);
 		entries = await zipReader.getEntries();
 	}
+	// page.pdf data lies in the HTML head, outside the zip region recovered in
+	// universal mode, and is never referenced by the displayed page
+	entries = entries.filter(entry => entry.filename != "page.pdf");
 	if (aliases) {
 		const allEntries = entries;
 		entries = entries.map(entry => {
