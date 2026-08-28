@@ -728,7 +728,7 @@ async function getContent() {
 				offset++;
 			}
 		}
-		throw new Error("Extra zip data data not found");
+		throw new Error("Extra zip data not found");
 	}
 
 	function base64Decode(b64) {
