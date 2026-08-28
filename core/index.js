@@ -668,7 +668,7 @@ class Processor {
 			optionsElement.textContent = JSON.stringify({
 				saveUrl: this.options.url,
 				saveDate: this.options.saveDate.getTime(),
-				visitDate: this.options.visitDate.getTime(),
+				visitDate: (this.options.visitDate || this.options.saveDate).getTime(),
 				filenameTemplate: this.options.filenameTemplate,
 				filenameReplacedCharacters: this.options.filenameReplacedCharacters,
 				filenameReplacementCharacter: this.options.filenameReplacementCharacter,
