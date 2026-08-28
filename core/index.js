@@ -181,6 +181,9 @@ class Runner {
 		this.options.rootDocument = root;
 		this.options.updatedResources = this.options.updatedResources || {};
 		this.options.fontTests = new Map();
+		if (root && !this.options.saveFilenameTemplateData && (this.options.openEditor || /{digest-sha-\d/.test(this.options.filenameTemplate))) {
+			this.options.saveFilenameTemplateData = true;
+		}
 		this.batchRequest = new BatchRequest();
 		this.processor = new Processor(options, processorHelper, this.batchRequest);
 		if (rootDocDefined) {
