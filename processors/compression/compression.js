@@ -631,18 +631,24 @@ async function getContent() {
 			};
 			xhr.send();
 			xhr.onreadystatechange = () => {
-				if (xhr.readyState === 2 && xhr.status === 200 && !aborted) {
-					aborted = true;
-					const httpRangeSupport = xhr.getResponseHeader("Accept-Ranges") === "bytes";
-					xhr.abort();
-					displayMessage("sfz-wait-message", 2);
-					if (httpRangeSupport) {
-						resolve(new zip.HttpRangeReader(location.href, {
-							useXHR: true,
-							combineSizeEocd: true
-						}));
+				if (xhr.readyState === 2 && !aborted) {
+					if (xhr.status === 200) {
+						aborted = true;
+						const httpRangeSupport = xhr.getResponseHeader("Accept-Ranges") === "bytes";
+						xhr.abort();
+						displayMessage("sfz-wait-message", 2);
+						if (httpRangeSupport) {
+							resolve(new zip.HttpRangeReader(location.href, {
+								useXHR: true,
+								combineSizeEocd: true
+							}));
+						} else {
+							getPageData();
+						}
 					} else {
-						getPageData();
+						// an HTTP error status fires no error event; fall back like a network failure
+						xhr.abort();
+						extractDataFromDocument();
 					}
 				}
 			};
