@@ -418,7 +418,9 @@ async function prependHTMLData(pageData, zipDataWriter, script, options, lastMod
 		doc.body.querySelectorAll("style, script, noscript").forEach(element => element.remove());
 		let textBody = "";
 		if (options.extractDataFromPage) {
-			textBody += getPageTitle(pageData) + "\n\n";
+			// the text body is read as raw bytes by text tools, so the title goes in unencoded;
+			// the < and > escaping below covers it
+			textBody += (pageData.title || "") + "\n\n";
 		}
 		textBody += doc.body.innerText;
 		doc.body.querySelectorAll("single-file-note").forEach(node => {
@@ -515,7 +517,9 @@ function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
 
 function getHTMLHeadData(pageData, options) {
 	let pageContent = "";
-	const title = options.extractDataFromPage ? "" : getPageTitle(pageData);
+	// the title is left out of a password-protected archive: manifest.json carries it too and
+	// is encrypted, so emitting it here would publish what the password is meant to cover
+	const title = options.password ? "" : getPageTitle(pageData);
 	pageContent += "<title>" + title + "</title>";
 	if (options.insertCanonicalLink) {
 		pageContent += "<link rel=canonical href=\"" + options.url + "\">";
@@ -536,7 +540,13 @@ function getHTMLHeadData(pageData, options) {
 }
 
 function getPageTitle(pageData) {
-	return pageData.title.replace(/</g, "&lt;").replace(/>/g, "&gt;") || "";
+	// numeric character references are ASCII bytes, so the title survives the single-byte
+	// charset universal mode declares, and any parser decodes them back to the original text
+	return Array.from(pageData.title || "").map(character => {
+		const codePoint = character.codePointAt(0);
+		return codePoint < 32 || codePoint > 126 || character == "&" || character == "<" || character == ">" ?
+			"&#" + codePoint + ";" : character;
+	}).join("");
 }
 
 function findExtraDataTags(textContent, pageData, options, script, writeEntries, lastModDate, indexExtractDataFromPageTags = 0) {
