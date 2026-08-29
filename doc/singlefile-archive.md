@@ -281,7 +281,7 @@ face adds, then the regions the PNG face adds.
 | `tEXt "PNG"` | PNG | PNG face with HTML | The length, type and keyword bytes of the first `tEXt` chunk. Its data is `html-prologue` (with the PDF face, the embedded PDF document rides inside it too), ending with the wrapper start tag. |
 | `tEXt "PDF"` | PNG | PNG + PDF faces without HTML | The length, type and keyword bytes of a `tEXt` chunk whose data is the raw PDF document. Written only when the PNG and PDF faces combine without HTML — with the HTML face the PDF rides inside `tEXt "PNG"` instead — and placed right after `IHDR` so `%PDF-` stays within the header scan window (§4.3). |
 | `pixel-data chunks` | PNG | PNG face | The source image's image-data chunks, copied unmodified. With the HTML face they sit inside the wrapper so the HTML parser skips them. |
-| `tEXt "ZIP"` | PNG | PNG face | The length, type and keyword bytes of the second `tEXt` chunk. Its declared length covers everything from there to the trailing chunk CRC, so the PNG decoder skips the archive — and, with the HTML face, the bootstrap and the appended data — as the data of one chunk. With the HTML face, the wrapper opened at the end of `tEXt "PNG"` closes immediately after these bytes: its content is the first chunk's CRC, the pixel-data chunks and this chunk's own header, and the prologue resumes as markup directly after the close tag. |
+| `tEXt "ZIP"` | PNG | PNG face | The length, type and keyword bytes of the second `tEXt` chunk. Its declared length covers everything from there up to but not including the trailing chunk CRC, as a PNG chunk length always does, so the PNG decoder skips the archive — and, with the HTML face, the bootstrap and the appended data — as the data of one chunk. With the HTML face, the wrapper opened at the end of `tEXt "PNG"` closes immediately after these bytes: its content is the first chunk's CRC, the pixel-data chunks and this chunk's own header, and the prologue resumes as markup directly after the close tag. |
 | `crc · IEND` | PNG | PNG face | The `tEXt "ZIP"` chunk's CRC, computed once the archive bytes are final (§6), followed by the empty `IEND` chunk — the last bytes of the file (PNG requires `IEND` to end the stream, which is why the PNG variants drop the end tags). |
 
 The reader-by-reader interpretation of these regions is §4; the mechanics that keep
@@ -399,7 +399,15 @@ double as the PDF face (§5.6). The encryption is WinZip's AES scheme, the one Z
 tools implement under compression method 99 with the `0x9901` extra field: AE-2,
 AES-256, PBKDF2-HMAC-SHA1 key derivation and an HMAC-SHA1 authentication code. A
 reader that already supports encrypted ZIP entries needs nothing specific to this
-format.
+format, and the [WinZip AES specification](https://www.winzip.com/en/support/aes-encryption/)
+is normative for it. A reader implementing the scheme from primitives rather than from
+a ZIP library needs six parameters that specification supplies and this paragraph's
+names do not: 1000 PBKDF2 iterations; a 16-byte salt at AES-256 strength, stored
+before the data; a derived key of 32 + 32 + 2 bytes, read as encryption key,
+authentication key, then a password verifier the reader MUST check before decrypting;
+the HMAC-SHA1 code truncated to its first 10 bytes and stored after the data; and a
+CTR counter that increments **little-endian**, starting at 1, which general-purpose
+CTR interfaces do not do.
 
 Appended data comes in two forms and both are valid ZIP, so readers MUST accept
 both. **Raw** — the EOCD declares a zero-length comment and the trailing bytes are
@@ -510,7 +518,10 @@ It works in three steps:
    rather than reject the file. It
    inflates to four fields: a checksum of the recovered range, its byte length, the
    newline count, and the packed sequence of 2-bit codes recording each original
-   newline (LF, CR or CR LF). Every one of the four describes the *recovered range*,
+   newline (LF, CR or CR LF). §5.5 gives their wire format — little-endian 32-bit
+   words, the codes packed 16 per word, least-significant pair first — which a reader
+   needs before it can read any of what follows.
+   Every one of the four describes the *recovered range*,
    not the whole ZIP region: a newline formed by the two excluded bytes is neither
    counted nor coded, and the checksum does not cover them. The declared length is the
    **only** bound on the re-encoding: the extractor MUST stop there and append two zero
@@ -598,15 +609,22 @@ of the central directory and its absolute offset, while the directory's position
 the region is known. With `region` the recovered bytes,
 
 ```
-shift = eocd.centralDirectoryOffset - (region.length - 22 - eocd.centralDirectorySize)
+shift = eocd.centralDirectoryOffset - (eocdPosition - eocd.centralDirectorySize)
 ```
 
-which is precisely what a ZIP reader's prepended-data compensation computes internally,
-so a library that implements it needs nothing from the reader here. Under zip64 (§5.4)
-both of those EOCD fields are the `0xFFFFFFFF` sentinel and the
-formula MUST be applied to the zip64 end of central directory record instead, whose
-offset the zip64 locator gives; a reader that uses the sentinels arithmetically gets a
-shift in the billions, with no diagnostic.
+where `eocdPosition` is the EOCD record's own offset within `region`, found by scanning
+backward for its signature the way any ZIP reader finds it. A reader arrives at the
+same number as a ZIP library's prepended-data compensation, which derives it from the
+record's position rather than from the buffer's end. Do not substitute
+`region.length - 22` for `eocdPosition`: the two are equal only when the EOCD is the
+last record in the region, which zip64 and a non-empty archive comment both break.
+
+Under zip64 (§5.4) both of those EOCD fields are the `0xFFFFFFFF` sentinel, and the
+zip64 end of central directory record carries the real values. Take them from there,
+using the same `eocdPosition` arithmetic against that record's own position — the
+zip64 locator states an absolute offset in the original file, so it needs the shift
+this formula produces and cannot be used to find it. A reader that instead uses the
+sentinels arithmetically gets a shift in the billions, with no diagnostic.
 
 ### 4.6 Text tools
 
@@ -839,8 +857,11 @@ length to the directory size (§6).
 ### 5.4 Checksum inventory
 
 Four independent integrity mechanisms cover overlapping byte ranges. All three CRC-32
-variants use the same reflected polynomial (`0xEDB88320`), so one table serves them
-all, but they cover different ranges and live in different structures:
+variants are the standard ZIP and PNG CRC-32: reflected polynomial `0xEDB88320`,
+initial value `0xFFFFFFFF`, final complement, processing each byte
+least-significant-bit first — the function `zlib.crc32` and its equivalents compute.
+One table therefore serves all three, but they cover different ranges and live in
+different structures:
 
 | Checksum | Covers | Stored in |
 |---|---|---|
@@ -1214,7 +1235,8 @@ only if it affects the bytes the page is built from:
 | A `tEXt` chunk CRC does not match, or a chunk holds bytes PNG does not permit (§4.4) | Irrelevant to extraction; a reader of the archive MAY ignore both |
 | `page.pdf` is present but its data does not begin with `%PDF-` | Not an error. The entry is data like any other |
 | `index.html` is present without `manifest.json` | **MUST** still extract (§7.1) |
-| The recovered region (universal mode) disagrees with the same bytes read directly | The file is not well-formed, whichever side is at fault, and a reader that has both MUST NOT silently merge them or pick per entry. Prefer the direct read — it is the writer's own output, where the recovered region is a reconstruction of it — and surface the disagreement rather than displaying either as intact |
+| The recovered region (universal mode) disagrees with the same bytes read directly, in the EOCD's two comment-length bytes only | Expected, not an error. A recovered region always declares a zero-length comment (§4.5), so it differs here from any archive written in the declared form (§4.2). Compare the two only up to those bytes |
+| The recovered region (universal mode) disagrees with the same bytes read directly, anywhere else | The file is not well-formed, whichever side is at fault, and a reader that has both MUST NOT silently merge them or pick per entry. Prefer the direct read — it is the writer's own output, where the recovered region is a reconstruction of it — and surface the disagreement rather than displaying either as intact |
 
 Anything the format does not constrain, a reader MUST NOT reject: entries may carry
 any extra fields, timestamps, data descriptors or name-encoding flags a ZIP writer
