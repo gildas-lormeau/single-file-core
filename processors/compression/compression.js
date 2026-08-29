@@ -140,7 +140,7 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 		await writeData(zipDataWriter.writable, options.embeddedImage.slice(0, PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH));
 		if (options.selfExtractingArchive) {
 			const embeddedImageText = TEXT_DECODER.decode(embeddedImageData);
-			let tagIndex = EMBEDDED_DATA_REGEXPS.slice(0, -1).findIndex(tests => !embeddedImageText.match(tests[1]));
+			let tagIndex = findEmbeddedDataTagIndex(embeddedImageText);
 			let startTag, startHTMLData, htmlData, htmlDataCRC, abruptComment;
 			do {
 				[startTag, endTag] = tagIndex == -1 ? ["", ""] : EMBEDDED_DATA_TAGS[tagIndex];
@@ -535,7 +535,7 @@ function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
 		pdfEntry = options.preventEmbeddedPdfEntry ? undefined : getPDFEntry(embeddedPdf, lastModDate);
 		const localHeader = pdfEntry ? pdfEntry.localHeader : new Uint8Array(0);
 		const embeddedPdfText = TEXT_DECODER.decode(localHeader) + TEXT_DECODER.decode(embeddedPdf);
-		const pdfTagIndex = EMBEDDED_DATA_REGEXPS.slice(0, -1).findIndex(tests => !embeddedPdfText.match(tests[1]));
+		const pdfTagIndex = findEmbeddedDataTagIndex(embeddedPdfText);
 		const [pdfStartTag, pdfEndTag] = pdfTagIndex == -1 ? ["", ""] : EMBEDDED_DATA_TAGS[pdfTagIndex];
 		let htmlArray1 = new TextEncoder().encode(html + pdfStartTag);
 		if (htmlArray1.length + localHeader.length > PDF_HEADER_MAX_OFFSET) {
@@ -612,6 +612,13 @@ function findExtraDataTags(textContent, pageData, options, script, writeEntries,
 		}
 		return createArchive(pageData, options, script, writeEntries, lastModDate);
 	}
+}
+
+// a rung is rejected on its end pattern, which terminates the wrapper, and on its start
+// pattern: script data has escape states the raw text rungs do not have, where "<!--"
+// followed by "<script" leaves "</script>" unable to close the element at all
+function findEmbeddedDataTagIndex(text) {
+	return EMBEDDED_DATA_REGEXPS.slice(0, -1).findIndex(([startRegExp, endRegExp]) => !text.match(startRegExp) && !text.match(endRegExp));
 }
 
 async function writeData(writable, array) {
