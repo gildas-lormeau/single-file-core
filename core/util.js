@@ -24,6 +24,7 @@
 import * as vendor from "./../vendor/index.js";
 import * as modules from "./../modules/index.js";
 import * as helper from "./helper.js";
+import { getDoctypeString } from "./lib/doctype.js";
 
 const DEBUG = false;
 const ONE_MB = 1024 * 1024;
@@ -487,24 +488,6 @@ function guessMIMEType(expectedType, buffer) {
 			return patternMatch;
 		}
 	}
-}
-
-function getDoctypeString(doc) {
-	const docType = doc.doctype;
-	let docTypeString = "";
-	if (docType) {
-		docTypeString = "<!DOCTYPE " + docType.nodeName;
-		if (docType.publicId) {
-			docTypeString += " PUBLIC \"" + docType.publicId + "\"";
-			if (docType.systemId)
-				docTypeString += " \"" + docType.systemId + "\"";
-		} else if (docType.systemId)
-			docTypeString += " SYSTEM \"" + docType.systemId + "\"";
-		if (docType.internalSubset)
-			docTypeString += " [" + docType.internalSubset + "]";
-		docTypeString += "> ";
-	}
-	return docTypeString;
 }
 
 function log(...args) {

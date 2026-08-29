@@ -23,6 +23,8 @@
 
 /* global DOMParser, setTimeout */
 
+import { getDoctypeString } from "./../../core/lib/doctype.js";
+
 export {
 	display
 };
@@ -89,21 +91,4 @@ async function display(document, docContent, { disableFramePointerEvents, inPlac
 	});
 	document.documentElement.setAttribute("data-sfz", "");
 	document.querySelectorAll("link[rel*=icon]").forEach(element => element.replaceWith(element.cloneNode(true)));
-	function getDoctypeString(doc) {
-		const docType = doc.doctype;
-		let docTypeString = "";
-		if (docType) {
-			docTypeString = "<!DOCTYPE " + docType.nodeName;
-			if (docType.publicId) {
-				docTypeString += " PUBLIC \"" + docType.publicId + "\"";
-				if (docType.systemId)
-					docTypeString += " \"" + docType.systemId + "\"";
-			} else if (docType.systemId)
-				docTypeString += " SYSTEM \"" + docType.systemId + "\"";
-			if (docType.internalSubset)
-				docTypeString += " [" + docType.internalSubset + "]";
-			docTypeString += "> ";
-		}
-		return docTypeString;
-	}
 }
