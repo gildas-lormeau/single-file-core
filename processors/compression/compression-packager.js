@@ -83,6 +83,11 @@ async function createPagesArchive(pages, options) {
 		selfExtractingArchive: options.selfExtractingArchive,
 		extractDataFromPage: options.extractDataFromPage,
 		preventAppendedData: options.preventAppendedData,
+		declareAppendedData: options.declareAppendedData,
+		// the faces belong to the archive and are supplied by the caller: one rendered from a
+		// single page would misrepresent every other page, so nothing is generated here
+		embeddedPdf: options.embeddedPdf,
+		embeddedImage: options.embeddedImage,
 		includeBOM: options.includeBOM,
 		insertMetaCSP: options.insertMetaCSP,
 		insertCanonicalLink: options.insertCanonicalLink,
