@@ -21,8 +21,6 @@
  *   Source.
  */
 
-/* global Node */
-
 import {
 	configure,
 	deflateRaw,
@@ -713,56 +711,64 @@ async function getContent() {
 	function extractPageData() {
 		const zipDataElement = document.querySelector("sfz-extra-data");
 		if (zipDataElement) {
-			let dataNode = zipDataElement.nextSibling;
-			if (dataNode) {
-				if (dataNode.nodeType == Node.TEXT_NODE && dataNode.nextSibling) {
-					dataNode = dataNode.nextSibling;
-				} else {
-					dataNode = zipDataElement.previousSibling;
-				}
-			} else {
-				dataNode = zipDataElement.previousSibling;
-			}
 			const inflatedPayload = zip.inflateRaw(base64Decode(zipDataElement.textContent));
 			const payload = new Uint32Array(inflatedPayload.buffer, inflatedPayload.byteOffset, inflatedPayload.length >> 2);
-			const expectedCRC32 = payload[0];
-			const zipDataLength = payload[1];
-			const lfCodesLength = payload[2];
-			const zipData = new Uint8Array(zipDataLength);
-			const { textContent } = dataNode;
-			let offset = 0;
-			let indexLFCode = 0;
-			let crc32 = -1;
-			for (let index = 0; index < textContent.length; index++) {
-				const charCode = textContent.charCodeAt(index);
-				if (charCode == 10) {
-					const lfCode = (payload[3 + (indexLFCode >> 4)] >>> ((indexLFCode & 15) * 2)) & 3;
-					indexLFCode++;
-					if (lfCode == 0) {
-						writeByte(10);
-					} else {
-						writeByte(13);
-						if (lfCode == 2) {
-							writeByte(10);
-						}
+			// the node holding the zip data is the previous sibling when the extra data is
+			// appended and the one after the padding when it is relocated; bytes parsed as
+			// markup can fake either shape, so the candidates are checked against the payload
+			const nextNode = zipDataElement.nextSibling;
+			let error;
+			for (const dataNode of [zipDataElement.previousSibling, nextNode && nextNode.nextSibling, nextNode]) {
+				if (dataNode) {
+					try {
+						return decodeZipData(dataNode, payload);
+					} catch (reason) {
+						error = reason;
 					}
-				} else {
-					writeByte(charCode > 255 ? characterMap.get(charCode) : charCode);
 				}
 			}
-			crc32 = (crc32 ^ -1) >>> 0;
-			if (offset != zipDataLength || indexLFCode != lfCodesLength || crc32 != expectedCRC32) {
-				throw new Error("Invalid checksum of the extracted zip data");
-			}
-			return new Blob([zipData], { type: "application/octet-stream" });
-
-			function writeByte(byte) {
-				zipData[offset] = byte;
-				crc32 = (crc32 >>> 8) ^ crc32Table[(crc32 ^ byte) & 0xff];
-				offset++;
-			}
+			throw error || new Error("Extra zip data not found");
 		}
 		throw new Error("Extra zip data not found");
+	}
+
+	function decodeZipData(dataNode, payload) {
+		const expectedCRC32 = payload[0];
+		const zipDataLength = payload[1];
+		const lfCodesLength = payload[2];
+		const zipData = new Uint8Array(zipDataLength);
+		const { textContent } = dataNode;
+		let offset = 0;
+		let indexLFCode = 0;
+		let crc32 = -1;
+		for (let index = 0; index < textContent.length; index++) {
+			const charCode = textContent.charCodeAt(index);
+			if (charCode == 10) {
+				const lfCode = (payload[3 + (indexLFCode >> 4)] >>> ((indexLFCode & 15) * 2)) & 3;
+				indexLFCode++;
+				if (lfCode == 0) {
+					writeByte(10);
+				} else {
+					writeByte(13);
+					if (lfCode == 2) {
+						writeByte(10);
+					}
+				}
+			} else {
+				writeByte(charCode > 255 ? characterMap.get(charCode) : charCode);
+			}
+		}
+		crc32 = (crc32 ^ -1) >>> 0;
+		if (offset != zipDataLength || indexLFCode != lfCodesLength || crc32 != expectedCRC32) {
+			throw new Error("Invalid checksum of the extracted zip data");
+		}
+		return new Blob([zipData], { type: "application/octet-stream" });
+
+		function writeByte(byte) {
+			zipData[offset] = byte;
+			crc32 = (crc32 >>> 8) ^ crc32Table[(crc32 ^ byte) & 0xff];
+			offset++;
+		}
 	}
 
 	function base64Decode(b64) {
