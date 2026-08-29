@@ -155,6 +155,7 @@ const STAGES = [{
 		{ action: "replaceStylesheets" },
 		{ action: "replaceStyleAttributes" },
 		{ action: "insertVariables" },
+		{ action: "removeEmptyMediaAutoplay" },
 		{ option: "compressHTML", action: "compressHTML" },
 		{ action: "cleanupPage" }
 	],
@@ -824,6 +825,25 @@ class Processor {
 		});
 	}
 
+	// a media element left without any source can never start, and the attribute
+	// would keep it announcing a playback that never happens. The sources are
+	// dropped whenever they could not be stored, so this is not specific to
+	// blocked videos, and it runs on the final state to leave alone an element
+	// that kept one of several sources
+	removeEmptyMediaAutoplay() {
+		this.doc.querySelectorAll("video[autoplay], audio[autoplay]").forEach(element => {
+			const sourceElements = Array.from(element.querySelectorAll("source"));
+			if (!hasSource(element) && !sourceElements.some(hasSource)) {
+				element.removeAttribute("autoplay");
+			}
+		});
+
+		function hasSource(element) {
+			const src = element.getAttribute("src");
+			return Boolean(src) && src != util.EMPTY_RESOURCE;
+		}
+	}
+
 	removeFrames() {
 		const frameElements = this.doc.querySelectorAll("iframe, frame, object[type=\"text/html\"][data]");
 		this.stats.set("discarded", "frames", frameElements.length);
@@ -1195,7 +1215,7 @@ class Processor {
 								canvasElement.height = videoData.size.videoHeight;
 								context.drawImage(temporaryVideoElement, 0, 0, canvasElement.width, canvasElement.height);
 								try {
-									videoElement.poster = canvasElement.toDataURL("image/png");
+									videoElement.poster = util.getPosterDataURI(canvasElement);
 									// eslint-disable-next-line no-unused-vars
 								} catch (error) {
 									videoElement.poster = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='" + videoData.size.videoWidth + "' height='" + videoData.size.videoHeight + "'%3E%3C/svg%3E";

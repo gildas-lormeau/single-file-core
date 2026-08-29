@@ -75,6 +75,8 @@ const COMMENT_HEADER_LEGACY = "Archive processed by SingleFile";
 const SINGLE_FILE_UI_ELEMENT_CLASS = "single-file-ui-element";
 const INFOBAR_TAGNAME = infobar.INFOBAR_TAGNAME;
 const EMPTY_RESOURCE = "data:,";
+const POSTER_CONTENT_TYPES = ["image/webp", "image/jpeg"];
+const POSTER_QUALITY = 0.8;
 const DEFAULT_REPLACED_CHARACTERS = ["~", "+", "?", "%", "*", ":", "|", "\"", "<", ">", "\\\\", "\x00-\x1f", "\x7F"];
 const DEFAULT_REPLACEMENT_CHARACTER = "_";
 const DEFAULT_REPLACEMENT_CHARACTERS = ["～", "＋", "？", "％", "＊", "：", "｜", "＂", "＜", "＞", "＼"];
@@ -143,8 +145,23 @@ export {
 	WAIT_FOR_USERSCRIPT_PROPERTY_NAME,
 	MESSAGE_PREFIX,
 	NO_SCRIPT_PROPERTY_NAME,
-	NESTING_TRACK_ID_ATTRIBUTE_NAME
+	NESTING_TRACK_ID_ATTRIBUTE_NAME,
+	getPosterDataURI
 };
+
+// a poster is a still of a video the reader cannot play, so it is stored in a
+// lossy format: the same frame costs an order of magnitude less than as a PNG.
+// toDataURL falls back to PNG without reporting it when it does not support the
+// format, so the type it returned is tested instead of assumed
+function getPosterDataURI(canvasElement) {
+	for (const contentType of POSTER_CONTENT_TYPES) {
+		const dataURI = canvasElement.toDataURL(contentType, POSTER_QUALITY);
+		if (dataURI.startsWith("data:" + contentType)) {
+			return dataURI;
+		}
+	}
+	return canvasElement.toDataURL("image/png");
+}
 
 let userScriptHandlerObserver;
 
@@ -534,14 +551,16 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 			});
 			element.setAttribute(VIDEO_ATTRIBUTE_NAME, data.videos.length - 1);
 		}
-		if (!element.getAttribute("poster")) {
+		// the posters are only inserted when the videos are blocked, capturing them
+		// otherwise encodes a frame per video for nothing
+		if (options.blockVideos && !element.getAttribute("poster")) {
 			const canvasElement = doc.createElement("canvas");
 			const context = canvasElement.getContext("2d");
 			canvasElement.width = element.videoWidth;
 			canvasElement.height = element.videoHeight;
 			try {
 				context.drawImage(element, 0, 0, canvasElement.width, canvasElement.height);
-				data.posters.push(canvasElement.toDataURL("image/png"));
+				data.posters.push(getPosterDataURI(canvasElement));
 				element.setAttribute(POSTER_ATTRIBUTE_NAME, data.posters.length - 1);
 				data.markedElements.push(element);
 				// eslint-disable-next-line no-unused-vars
