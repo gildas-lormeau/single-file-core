@@ -363,6 +363,12 @@ function patchEndOfCentralDirectory(zipDataWriter, centralRecordLength) {
 	return true;
 }
 
+// the functions inlined in the archive lose their newlines, so a line comment would swallow
+// the rest of the script: whole-line comments are removed before the newlines are
+function inlineFunction(bootstrapFunction) {
+	return bootstrapFunction.toString().replace(/^[ \t]*\/\/.*$/gm, "").replace(/\n|\t/g, "");
+}
+
 // the reservation must be strictly larger than the payload it was computed from, otherwise
 // the retry loop can be handed the same size again and oscillate instead of converging
 function getReservationSize(length) {
@@ -429,17 +435,17 @@ async function prependHTMLData(pageData, zipDataWriter, script, options, lastMod
 		insertEmbeddedScreenshotImage: Boolean(options.embeddedScreenshotImage)
 	};
 	const bootstrapBody = options.multiPageArchive ?
-		"(" + router.toString().replace(/\n|\t/g, "") + ")(content,{extract:" +
-		extract.toString().replace(/\n|\t/g, "") + ",display:" +
-		display.toString().replace(/\n|\t/g, "") + "})" :
-		"(" + extract.toString().replace(/\n|\t/g, "") + ")(content,{prompt}).then(({docContent}) => " +
-		display.toString().replace(/\n|\t/g, "") + "(document,docContent," + JSON.stringify(displayOptions) + "))";
+		"(" + inlineFunction(router) + ")(content,{extract:" +
+		inlineFunction(extract) + ",display:" +
+		inlineFunction(display) + "})" :
+		"(" + inlineFunction(extract) + ")(content,{prompt}).then(({docContent}) => " +
+		inlineFunction(display) + "(document,docContent," + JSON.stringify(displayOptions) + "))";
 	script = "<script>" +
 		script +
 		"document.currentScript.remove();" +
 		"globalThis.bootstrap=(()=>{let bootstrapStarted;return async content=>{if (bootstrapStarted) return bootstrapStarted; bootstrapStarted = " +
 		bootstrapBody + ";return bootstrapStarted;}})();(" +
-		getContent.toString().replace(/\n|\t/g, "") + ")().then(globalThis.bootstrap).then(() => document.dispatchEvent(new CustomEvent(\"single-file-display-infobar\"))).catch(error => {" +
+		inlineFunction(getContent) + ")().then(globalThis.bootstrap).then(() => document.dispatchEvent(new CustomEvent(\"single-file-display-infobar\"))).catch(error => {" +
 		"console.error(error);" +
 		"const waitMessage = document.getElementById(\"sfz-wait-message\");" +
 		"if (waitMessage) { waitMessage.remove(); }" +
