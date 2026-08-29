@@ -469,9 +469,12 @@ function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
 	}
 	html += options.embeddedImage ? "" : pageData.doctype;
 	html += "<html data-sfz>";
-	html += pageData.comment && !options.embeddedImage ? "<!--" + pageData.comment + "-->" : "";
 	const charset = options.extractDataFromPage ? "windows-1252" : "utf-8";
 	html += "<meta charset=" + charset + ">";
+	// the comment carries the page URL, whose length is unbounded: it is emitted after the
+	// declaration of the character encoding, and after the embedded PDF when there is one, so
+	// that neither the encoding declaration nor the PDF header leaves the first 1024 bytes
+	const comment = pageData.comment && !options.embeddedImage ? "<!--" + pageData.comment + "-->" : "";
 	const htmlHeadData = getHTMLHeadData(pageData, options);
 	let htmlArray, pdfEntry;
 	if (options.embeddedPdf) {
@@ -482,7 +485,7 @@ function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
 		const pdfTagIndex = EMBEDDED_DATA_REGEXPS.slice(0, -1).findIndex(tests => !embeddedPdfText.match(tests[1]));
 		const [pdfStartTag, pdfEndTag] = pdfTagIndex == -1 ? ["", ""] : EMBEDDED_DATA_TAGS[pdfTagIndex];
 		const htmlArray1 = new TextEncoder().encode(html + pdfStartTag);
-		const htmlArray2 = new TextEncoder().encode(pdfEndTag + htmlHeadData + startTag);
+		const htmlArray2 = new TextEncoder().encode(pdfEndTag + comment + htmlHeadData + startTag);
 		htmlArray = new Uint8Array(htmlArray1.length + localHeader.length + embeddedPdf.length + htmlArray2.length);
 		htmlArray.set(htmlArray1);
 		htmlArray.set(localHeader, htmlArray1.length);
@@ -492,7 +495,7 @@ function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
 			pdfEntry.offset = htmlArray1.length;
 		}
 	} else {
-		htmlArray = new TextEncoder().encode(html + htmlHeadData + startTag);
+		htmlArray = new TextEncoder().encode(html + comment + htmlHeadData + startTag);
 	}
 	return { htmlArray, pdfEntry };
 }
