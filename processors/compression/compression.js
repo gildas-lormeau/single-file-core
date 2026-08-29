@@ -274,8 +274,15 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 				}
 			} else {
 				if (options.extraDataSize) {
-					options.extraDataSize = undefined;
-					return createArchive(pageData, options, script, writeEntries, lastModDate);
+					// dropping the reservation moves the archive back, which changes the payload
+					// that made it necessary: a payload sitting on the boundary would be too large
+					// appended and small enough relocated, forever. The reservation is dropped at
+					// most once, so the build cannot oscillate between the two placements
+					if (!options.extraDataSizeDropped) {
+						options.extraDataSizeDropped = true;
+						options.extraDataSize = undefined;
+						return createArchive(pageData, options, script, writeEntries, lastModDate);
+					}
 				} else {
 					pageContent += extraData;
 				}
