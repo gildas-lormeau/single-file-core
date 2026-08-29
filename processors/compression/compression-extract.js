@@ -75,7 +75,6 @@ async function extract(content, { password, prompt = () => { }, zipOptions = { u
 	const CHARSET_UTF8 = ";charset=utf-8";
 	const REGEXP_ESCAPE = /([{}()^$&.*?/+|[\\\\]|\]|-)/g;
 	let zipReader;
-	zip.configure(zipOptions);
 	if (!entries) {
 		let reader;
 		if (content.readUint8Array) {
@@ -86,7 +85,7 @@ async function extract(content, { password, prompt = () => { }, zipOptions = { u
 			}
 			reader = new zip.BlobReader(content);
 		}
-		zipReader = new zip.ZipReader(reader);
+		zipReader = new zip.ZipReader(reader, zipOptions);
 		entries = await zipReader.getEntries();
 	}
 	// page.pdf data lies in the HTML head, outside the zip region recovered in
@@ -111,7 +110,9 @@ async function extract(content, { password, prompt = () => { }, zipOptions = { u
 	} else if (excludedPaths) {
 		entries = entries.filter(entry => !excludedPaths.some(excludedPath => entry.filename.startsWith(excludedPath)));
 	}
-	const options = { password };
+	// the options are applied per reader and per entry: a global zip.configure() would leak
+	// them to every other caller in the page, and the default would re-enable web workers
+	const options = Object.assign({ password }, zipOptions);
 	let docContent, origDocContent, url, resources = [], indexPages = [], textResources = [];
 	await Promise.all(entries.map(async entry => {
 		const filename = entry.filename.substring(pagePath.length);
