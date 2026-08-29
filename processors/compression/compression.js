@@ -86,6 +86,7 @@ const PNG_IEND_LENGTH = 12;
 const PNG_CHUNK_CRC_LENGTH = 4;
 const PNG_SIGNATURE_LENGTH = 8;
 const PNG_IHDR_LENGTH = 25;
+const COMMENT_LENGTH_FIELD_LENGTH = 2;
 const PDF_ENTRY_FILENAME = "page.pdf";
 const PDF_HEADER_MAX_OFFSET = 1024;
 const MINIMAL_DOCTYPE = "<!DOCTYPE html>";
@@ -182,6 +183,11 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 		return createArchive(pageData, options, script, writeEntries, lastModDate);
 	}
 	const data = zipDataWriter.getData();
+	// the last two bytes of the archive are the comment length field of the end of central
+	// directory record: they are left out of the data the extraction payload describes, so that
+	// declaring the appended data as the archive comment cannot invalidate a payload computed
+	// before that length is known
+	const zipDataEnd = data.length - COMMENT_LENGTH_FIELD_LENGTH;
 	if (options.selfExtractingArchive) {
 		const lfCodes = [];
 		let crc32 = -1;
@@ -203,13 +209,13 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 			}
 		}
 		if (options.extractDataFromPage) {
-			for (let index = startOffset; index < data.length; index++) {
+			for (let index = startOffset; index < zipDataEnd; index++) {
 				const byte = data[index];
 				crc32 = (crc32 >>> 8) ^ CRC32_TABLE[(crc32 ^ byte) & 0xff];
 				if (byte == 10) {
 					lfCodes.push(0);
 				} else if (byte == 13) {
-					if (data[index + 1] == 10) {
+					if (index + 1 < zipDataEnd && data[index + 1] == 10) {
 						index++;
 						crc32 = (crc32 >>> 8) ^ CRC32_TABLE[(crc32 ^ 10) & 0xff];
 						lfCodes.push(2);
@@ -233,7 +239,7 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 			// payload layout: [crc32, zip data length, LF codes count, 2-bit codes (0=LF, 1=CR, 2=CRLF) packed LSB-first]
 			const payload = new Uint32Array(3 + Math.ceil(lfCodes.length / 16));
 			payload[0] = crc32;
-			payload[1] = data.length - startOffset;
+			payload[1] = zipDataEnd - startOffset;
 			payload[2] = lfCodes.length;
 			lfCodes.forEach((lfCode, indexLFCode) => payload[3 + (indexLFCode >> 4)] |= lfCode << ((indexLFCode & 15) * 2));
 			extraData = "<sfz-extra-data>" + base64Encode(deflateRaw(new Uint8Array(payload.buffer))) + "</sfz-extra-data>";
@@ -756,12 +762,15 @@ async function getContent() {
 		const expectedCRC32 = payload[0];
 		const zipDataLength = payload[1];
 		const lfCodesLength = payload[2];
-		const zipData = new Uint8Array(zipDataLength);
+		// the two extra bytes are the comment length field of the end of central directory
+		// record, which the payload does not describe: left at zero they declare no comment,
+		// which is what the recovered data holds
+		const zipData = new Uint8Array(zipDataLength + 2);
 		const { textContent } = dataNode;
 		let offset = 0;
 		let indexLFCode = 0;
 		let crc32 = -1;
-		for (let index = 0; index < textContent.length; index++) {
+		for (let index = 0; index < textContent.length && offset < zipDataLength; index++) {
 			const charCode = textContent.charCodeAt(index);
 			if (charCode == 10) {
 				const lfCode = (payload[3 + (indexLFCode >> 4)] >>> ((indexLFCode & 15) * 2)) & 3;
