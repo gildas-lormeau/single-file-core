@@ -102,6 +102,7 @@ const MAX_APPENDED_DATA_LENGTH = 65535;
 const PDF_ENTRY_FILENAME = "page.pdf";
 const PDF_HEADER_MAX_OFFSET = 1024;
 const MINIMAL_DOCTYPE = "<!DOCTYPE html>";
+const UNHIDDEN_FACE_WARNING_MESSAGE = "SingleFile: the archive was written without a face, its data names every wrapper tag:";
 const LOCAL_FILE_HEADER_SIGNATURE = 0x04034b50;
 const CENTRAL_FILE_HEADER_SIGNATURE = 0x02014b50;
 const END_OF_CENTRAL_DIR_SIGNATURE = 0x06054b50;
@@ -161,14 +162,22 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 	let extraDataOffset, extraData, embeddedImageDataOffset, endTag, pdfEntry;
 	if (options.embeddedImage) {
 		options.embeddedImage = new Uint8Array(options.embeddedImage);
-		const embeddedImageData = options.embeddedImage.slice(PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH, options.embeddedImage.length - PNG_IEND_LENGTH);
+	}
+	// the rung has to be chosen before the first byte of the image is written, because there may
+	// be no rung: the image is then left out altogether rather than written unwrapped
+	if (options.embeddedImage && options.selfExtractingArchive &&
+		findEmbeddedDataTagIndex(TEXT_DECODER.decode(getEmbeddedImageData(options.embeddedImage))) == -1) {
+		dropUnhiddenFace(options, "embeddedImage");
+	}
+	if (options.embeddedImage) {
+		const embeddedImageData = getEmbeddedImageData(options.embeddedImage);
 		await writeData(zipDataWriter.writable, options.embeddedImage.slice(0, PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH));
 		if (options.selfExtractingArchive) {
 			const embeddedImageText = TEXT_DECODER.decode(embeddedImageData);
 			let tagIndex = findEmbeddedDataTagIndex(embeddedImageText);
 			let startTag, startHTMLData, htmlData, htmlDataCRC, abruptComment;
 			do {
-				[startTag, endTag] = tagIndex == -1 ? ["", ""] : EMBEDDED_DATA_TAGS[tagIndex];
+				[startTag, endTag] = EMBEDDED_DATA_TAGS[tagIndex];
 				startHTMLData = getStartHTMLArray(pageData, options, lastModDate, startTag);
 				htmlData = new Uint8Array([...getLength(startHTMLData.htmlArray.length + 4), ...[0x74, 0x45, 0x58, 0x74, 0x50, 0x4e, 0x47, 0], ...startHTMLData.htmlArray]);
 				htmlDataCRC = getCRC32(htmlData, 4);
@@ -568,24 +577,30 @@ function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
 		const localHeader = pdfEntry ? pdfEntry.localHeader : new Uint8Array(0);
 		const embeddedPdfText = TEXT_DECODER.decode(localHeader) + TEXT_DECODER.decode(embeddedPdf);
 		const pdfTagIndex = findEmbeddedDataTagIndex(embeddedPdfText);
-		const [pdfStartTag, pdfEndTag] = pdfTagIndex == -1 ? ["", ""] : EMBEDDED_DATA_TAGS[pdfTagIndex];
-		let htmlArray1 = new TextEncoder().encode(html + pdfStartTag);
-		if (htmlArray1.length + localHeader.length > PDF_HEADER_MAX_OFFSET) {
-			// PDF readers only scan the start of the file for the %PDF- header, and the page
-			// doctype is copied verbatim: it is the one part of the prefix with no bound, so a
-			// long one is replaced rather than pushing the header out of the scan window
-			htmlArray1 = new TextEncoder().encode(bom + MINIMAL_DOCTYPE + documentStart + pdfStartTag);
+		if (pdfTagIndex == -1) {
+			dropUnhiddenFace(options, "embeddedPdf");
+			pdfEntry = undefined;
+		} else {
+			const [pdfStartTag, pdfEndTag] = EMBEDDED_DATA_TAGS[pdfTagIndex];
+			let htmlArray1 = new TextEncoder().encode(html + pdfStartTag);
+			if (htmlArray1.length + localHeader.length > PDF_HEADER_MAX_OFFSET) {
+				// PDF readers only scan the start of the file for the %PDF- header, and the page
+				// doctype is copied verbatim: it is the one part of the prefix with no bound, so a
+				// long one is replaced rather than pushing the header out of the scan window
+				htmlArray1 = new TextEncoder().encode(bom + MINIMAL_DOCTYPE + documentStart + pdfStartTag);
+			}
+			const htmlArray2 = new TextEncoder().encode(pdfEndTag + comment + htmlHeadData + startTag);
+			htmlArray = new Uint8Array(htmlArray1.length + localHeader.length + embeddedPdf.length + htmlArray2.length);
+			htmlArray.set(htmlArray1);
+			htmlArray.set(localHeader, htmlArray1.length);
+			htmlArray.set(embeddedPdf, htmlArray1.length + localHeader.length);
+			htmlArray.set(htmlArray2, htmlArray1.length + localHeader.length + embeddedPdf.length);
+			if (pdfEntry) {
+				pdfEntry.offset = htmlArray1.length;
+			}
 		}
-		const htmlArray2 = new TextEncoder().encode(pdfEndTag + comment + htmlHeadData + startTag);
-		htmlArray = new Uint8Array(htmlArray1.length + localHeader.length + embeddedPdf.length + htmlArray2.length);
-		htmlArray.set(htmlArray1);
-		htmlArray.set(localHeader, htmlArray1.length);
-		htmlArray.set(embeddedPdf, htmlArray1.length + localHeader.length);
-		htmlArray.set(htmlArray2, htmlArray1.length + localHeader.length + embeddedPdf.length);
-		if (pdfEntry) {
-			pdfEntry.offset = htmlArray1.length;
-		}
-	} else {
+	}
+	if (!options.embeddedPdf) {
 		htmlArray = new TextEncoder().encode(html + comment + htmlHeadData + startTag);
 	}
 	return { htmlArray, pdfEntry };
@@ -651,6 +666,21 @@ function findExtraDataTags(textContent, pageData, options, script, writeEntries,
 // followed by "<script" leaves "</script>" unable to close the element at all
 function findEmbeddedDataTagIndex(text) {
 	return EMBEDDED_DATA_REGEXPS.slice(0, -1).findIndex(([startRegExp, endRegExp]) => !text.match(startRegExp) && !text.match(endRegExp));
+}
+
+// a face exists only while a rung can hide it. When the payload names every rung, the older
+// fallback emitted it unwrapped, on the grounds that the page still rendered: but the payload's
+// markup then joins the document, and a payload that is itself an archive contributes an
+// sfz-data node ahead of this file's own. A reader takes that one and extracts it, checksum and
+// all, with nothing to say the archive it returned is not the archive the file was built around.
+// Dropping the face costs a picture; keeping it costs the archive
+function getEmbeddedImageData(embeddedImage) {
+	return embeddedImage.slice(PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH, embeddedImage.length - PNG_IEND_LENGTH);
+}
+
+function dropUnhiddenFace(options, name) {
+	delete options[name];
+	console.warn(UNHIDDEN_FACE_WARNING_MESSAGE, name); // eslint-disable-line no-console
 }
 
 async function writeData(writable, array) {

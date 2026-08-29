@@ -314,9 +314,9 @@ default wrapper is an HTML comment, and the HTML standard defines exactly which
 character sequences terminate one (`-->`, and the recovery form `--!>`); the writer
 MUST select a wrapper only after checking the bytes it must hide against that
 wrapper's patterns (the exact rules differ between the ZIP region and the PDF and
-PNG payloads, §5.1), so hiding relies on normative parsing behavior. One
-case weakens the wrapper itself: when no wrapper fits a PDF or PNG payload the
-payload is emitted bare (§5.1). Some binary content always sits *outside* a
+PNG payloads, §5.1), so hiding relies on normative parsing behavior. When no
+wrapper fits a PDF or PNG payload, the face is dropped rather than emitted bare
+(§5.1). Some binary content always sits *outside* a
 wrapper: in the PNG variants, the signature, IHDR and chunk framing bytes that
 precede the root element start tag decode to a short run of text that HTML error recovery
 places in the (hidden) body. The backstop for all these cases is the prologue: it
@@ -758,8 +758,12 @@ what differs is how far the ladder goes:
   the rest of the document, title, bootstrap and extra-data element included — but the
   `<plaintext>` rung is excluded from their ladder: those payloads sit in the middle
   of the file, so a wrapper that can never close is not an option. When no rung fits,
-  the payload is written bare, with no wrapper at all; it then reaches the parser as
-  text, and the blank-page backstop of §4.1 keeps it invisible.
+  the writer MUST omit the face and emit the archive without it. It MUST NOT write the
+  payload bare. Bare renders acceptably — the blank-page backstop of §4.1 keeps it
+  invisible — but the payload's markup joins the document, and a payload that is itself
+  a SingleFile archive then contributes an `sfz-data` node ahead of the file's own. A
+  reader looking for one node finds two, takes the first, and returns an archive that
+  passes every check it has (§7.4). A face is a convenience; the archive is not.
 
 The comment rung has one restriction more than a terminator. HTML forbids comment text
 that *starts* with `>` or `->`, and the tokenizer enforces it: it closes the comment
@@ -784,6 +788,16 @@ the region, as the PNG face requires, and `<plaintext>` reads them as the text t
 Verified on a build forced onto this rung with a screenshot embedded: the file ends
 `49 45 4e 44 ae 42 60 82`, decodes as a PNG, and its archive extracts from the parsed
 page. The termination argument of §6.2 therefore holds for the faced variants too.
+
+The ladder has a depth, and nesting reaches it. An archive used as the PDF or PNG
+payload of another one carries the terminator of every rung its own faces climbed
+through, and `-->`, `</script>` and `</style>` besides, which every prologue emits.
+Each level of nesting therefore burns exactly one rung, and the seven a face may use
+run out at the fifth: the reference writer selects `<!--`, then `<noframes>`,
+`<noembed>`, `<iframe>`, `<xmp>`, and then has nothing left. No ladder of fixed length
+avoids this; adding a rung moves the limit by one level. That is why the paragraph
+above states a MUST rather than a quality-of-implementation preference — exhaustion is
+reachable by construction, not only by a payload built to provoke it.
 
 The check MUST be made against the payload's final bytes, for every payload the
 writer hides and in every variant that hides one. Every rejection restarts the build
@@ -1236,6 +1250,7 @@ only if it affects the bytes the page is built from:
 | A `tEXt` chunk CRC does not match, or a chunk holds bytes PNG does not permit (§4.4) | Irrelevant to extraction; a reader of the archive MAY ignore both |
 | `page.pdf` is present but its data does not begin with `%PDF-` | Not an error. The entry is data like any other |
 | `index.html` is present without `manifest.json` | **MUST** still extract (§7.1) |
+| More than one node carries the `sfz-data` identifier | **MUST NOT** extract either silently. A conforming writer emits one (§5.1), so a second is a payload that escaped its wrapper — most often a nested archive written by a writer that emitted a face bare. Both candidates extract cleanly and check out, and the checksums say nothing about which one the file was built around |
 | The recovered region (universal mode) disagrees with the same bytes read directly, in the EOCD's two comment-length bytes only | Expected, not an error. A recovered region always declares a zero-length comment (§4.5), so it differs here from any archive written in the declared form (§4.2). Compare the two only up to those bytes |
 | The recovered region (universal mode) disagrees with the same bytes read directly, anywhere else | The file is not well-formed, whichever side is at fault, and a reader that has both MUST NOT silently merge them or pick per entry. Prefer the direct read — it is the writer's own output, where the recovered region is a reconstruction of it — and surface the disagreement rather than displaying either as intact |
 
@@ -1432,6 +1447,7 @@ predicts.
 | August 2026 | Core 1.5.108: the recovery payload stops two bytes short of the End Of Central Directory record, excluding its comment-length field (§1.3), which lets universal-mode archives declare their appended data as the archive comment — a writer option, for `java.util.zip` and the readers that reject undeclared trailing bytes (§4.2) |
 | August 2026 | Core 1.5.108: the PDF and PNG faces test a wrapper rung's start pattern as well as its end pattern, closing the same script-data escape hole the ZIP region was already guarded against — a face payload holding `<!--` and then `<script` took the `<script type=sfz-data>` rung and swallowed the rest of the document (§5.1) |
 | August 2026 | Core 1.5.108: the retry loop discards a relocation reservation at most once per build, so a payload sitting on the appended-data boundary cannot oscillate between the two placements forever (§6.2) |
+| August 2026 | Core 1.5.110: a PDF or PNG face whose payload names every rung is dropped instead of written bare (§5.1). Found by nesting an archive inside itself as both faces: the fifth level exhausts the ladder, and readers then extracted the fourth level's archive — checksums intact, no way to tell (§7.4) |
 
 This document was itself revised in August 2026, against core 1.5.108, after several
 independent reviews. One of them was a reader built from this specification alone, with

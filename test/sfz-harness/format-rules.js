@@ -202,6 +202,42 @@ const DOUBLE_ESCAPE = "--> <!-- <script ";
 	check("the png face takes no script rung", decodeText(bytes).includes("<script type=sfz-data>"), false);
 }
 
+// a face is hidden by the same ladder as the zip data, minus the rung that cannot be closed:
+// a payload naming all seven of the rest leaves nowhere to put it. Writing it unwrapped was the
+// older behaviour, and it is the dangerous one, because the payload's own markup then joins the
+// document. These payloads carry the identifier the way a nested archive does: a reader looking
+// for one node finds two, takes the first, and extracts an archive that checksums
+const ALL_FACE_RUNGS = "<!--sfz-data<script<style<noframes<noembed<iframe<xmp";
+
+{
+	const embeddedPdf = new TextEncoder().encode("%PDF-1.4\n1 0 obj\n<< /X (" + ALL_FACE_RUNGS + ") >>\nendobj\ntrailer\n<<>>\n%%EOF\n");
+	const options = makeOptions({ embeddedPdf });
+	const pageData = makePageData(22, 4 * 1024);
+	const { bytes } = await runProcess(pageData, options);
+	const text = decodeText(bytes);
+	check("an unhidable pdf face is dropped", text.includes("%PDF-"), false);
+	check("the dropped pdf face leaves one identifier", countIdentifiers(text), 1);
+	const zipReader = new ZipReader(new BlobReader(new Blob([bytes])));
+	const entries = await zipReader.getEntries();
+	await zipReader.close();
+	check("the archive survives the dropped pdf face", entries.length > 0, true);
+	check("no page.pdf entry is left behind", entries.some(entry => entry.filename.endsWith("page.pdf")), false);
+}
+
+{
+	const embeddedImage = new Uint8Array(8 + 25 + 512 + 12);
+	embeddedImage.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+	embeddedImage.fill(0x41, 33, 33 + 512);
+	embeddedImage.set(new TextEncoder().encode(ALL_FACE_RUNGS), 100);
+	const options = makeOptions({ embeddedImage });
+	const pageData = makePageData(23, 4 * 1024);
+	const { bytes } = await runProcess(pageData, options);
+	const text = decodeText(bytes);
+	check("an unhidable png face is dropped", bytes[0], 0x3c);
+	check("the dropped png face leaves one identifier", countIdentifiers(text), 1);
+	check("the page keeps its doctype without the png face", text.startsWith("<!DOCTYPE html>"), true);
+}
+
 // every rung pattern is matched case-insensitively, because the HTML tokenizer closes an
 // element on any case of its end tag. Dropping that would pick a rung the payload itself
 // terminates, and no other test in this file would notice
