@@ -111,23 +111,11 @@ async function getPageData(options = {}, initOptions, doc, win) {
 	}
 	const pageData = await processor.getPageData();
 	if (options.compressContent) {
-		const blob = await processors.compression.process(pageData, {
-			insertTextBody: options.insertTextBody,
-			url: options.url,
-			createRootDirectory: options.createRootDirectory,
-			selfExtractingArchive: options.selfExtractingArchive,
-			disableCompression: options.disableCompression,
-			extractDataFromPage: options.extractDataFromPage,
-			preventAppendedData: options.preventAppendedData,
-			declareAppendedData: options.declareAppendedData,
-			insertCanonicalLink: options.insertCanonicalLink,
-			insertMetaNoIndex: options.insertMetaNoIndex,
-			insertMetaCSP: options.insertMetaCSP,
-			password: options.password,
-			zipScript: options.zipScript,
-			embeddedImage: options.embeddedImage,
-			embeddedPdf: options.embeddedPdf
-		});
+		const compressionOptions = {};
+		for (const optionName of processors.compression.PROCESS_OPTION_NAMES) {
+			compressionOptions[optionName] = options[optionName];
+		}
+		const blob = await processors.compression.process(pageData, compressionOptions);
 		delete pageData.resources;
 		let arrayBuffer;
 		if (globalThis.FileReader) {

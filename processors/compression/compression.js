@@ -110,9 +110,34 @@ const ZIP64_END_OF_CENTRAL_DIR_LOCATOR_SIGNATURE = 0x07064b50;
 
 const browser = globalThis.browser;
 
+// the options process() accepts from its caller. single-file.js builds its argument from this
+// list instead of a literal, because an option added here and forgotten there is undefined at
+// every call site and the feature silently does nothing: that is how declareAppendedData and
+// includeBOM both shipped inert. Options the module sets on itself between passes, and options
+// the packager supplies, are deliberately absent
+const PROCESS_OPTION_NAMES = [
+	"createRootDirectory",
+	"declareAppendedData",
+	"disableCompression",
+	"embeddedImage",
+	"embeddedPdf",
+	"extractDataFromPage",
+	"includeBOM",
+	"insertCanonicalLink",
+	"insertMetaCSP",
+	"insertMetaNoIndex",
+	"insertTextBody",
+	"password",
+	"preventAppendedData",
+	"selfExtractingArchive",
+	"url",
+	"zipScript"
+];
+
 export {
 	process,
-	createArchive
+	createArchive,
+	PROCESS_OPTION_NAMES
 };
 
 async function process(pageData, options, lastModDate = new Date()) {
