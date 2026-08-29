@@ -87,6 +87,7 @@ const PNG_CHUNK_CRC_LENGTH = 4;
 const PNG_SIGNATURE_LENGTH = 8;
 const PNG_IHDR_LENGTH = 25;
 const COMMENT_LENGTH_FIELD_LENGTH = 2;
+const MAX_APPENDED_DATA_LENGTH = 65535;
 const PDF_ENTRY_FILENAME = "page.pdf";
 const PDF_HEADER_MAX_OFFSET = 1024;
 const MINIMAL_DOCTYPE = "<!DOCTYPE html>";
@@ -246,7 +247,7 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 			// the bytes appended after the EOCD record (wrapper end tag, extra data, end tags
 			// and, with an embedded image, the tEXt CRC and IEND chunk) must fit the 65535-byte
 			// window readers scan backward to find the EOCD record
-			if (options.preventAppendedData || extraData.length > 65535 - pageContent.length - endTags.length - (options.embeddedImage ? PNG_IEND_LENGTH + PNG_CHUNK_CRC_LENGTH : 0)) {
+			if (options.preventAppendedData || extraData.length > MAX_APPENDED_DATA_LENGTH - pageContent.length - endTags.length - (options.embeddedImage ? PNG_IEND_LENGTH + PNG_CHUNK_CRC_LENGTH : 0)) {
 				if (!options.extraDataSize) {
 					options.extraDataSize = getReservationSize(extraData.length);
 					return createArchive(pageData, options, script, writeEntries, lastModDate);
@@ -272,6 +273,15 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 			options.extraData = extraData;
 			options.extraDataSize = getReservationSize(extraData.length);
 			return createArchive(pageData, options, script, writeEntries, lastModDate);
+		}
+	}
+	if (options.declareAppendedData) {
+		// readers that reject undeclared bytes after the end of central directory record, notably
+		// java.util.zip, accept the file when the same bytes are declared as the archive comment
+		const appendedDataLength = pageContent.length - data.length +
+			(options.embeddedImage ? PNG_CHUNK_CRC_LENGTH + PNG_IEND_LENGTH : 0);
+		if (appendedDataLength && appendedDataLength <= MAX_APPENDED_DATA_LENGTH) {
+			new DataView(pageContent.buffer, pageContent.byteOffset).setUint16(zipDataEnd, appendedDataLength, true);
 		}
 	}
 	if (options.embeddedImage) {
