@@ -119,6 +119,7 @@ async function getPageData(options = {}, initOptions, doc, win) {
 			disableCompression: options.disableCompression,
 			extractDataFromPage: options.extractDataFromPage,
 			preventAppendedData: options.preventAppendedData,
+			declareAppendedData: options.declareAppendedData,
 			insertCanonicalLink: options.insertCanonicalLink,
 			insertMetaNoIndex: options.insertMetaNoIndex,
 			insertMetaCSP: options.insertMetaCSP,
