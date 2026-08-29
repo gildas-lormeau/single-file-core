@@ -1419,4 +1419,25 @@ predicts.
 | August 2026 | Core 1.5.108: the ZIP region carries the identifier `sfz-data` and the extractor addresses it with that instead of deducing it from its position beside `<sfz-extra-data>` (§4.5). This fixes universal extraction on the `<style type=sfz-data>` rung, where the reference extractor's own relocation of `style` elements into the head moved the region out from under the positional rule |
 | August 2026 | Core 1.5.108: the recovery payload stops two bytes short of the End Of Central Directory record, excluding its comment-length field (§1.3), which lets universal-mode archives declare their appended data as the archive comment — a writer option, for `java.util.zip` and the readers that reject undeclared trailing bytes (§4.2) |
 | August 2026 | Core 1.5.108: the PDF and PNG faces test a wrapper rung's start pattern as well as its end pattern, closing the same script-data escape hole the ZIP region was already guarded against — a face payload holding `<!--` and then `<script` took the `<script type=sfz-data>` rung and swallowed the rest of the document (§5.1) |
-| August 2026 | Document revision from an independent implementation: a reader built from this specification alone, with no access to the reference code, read every specimen correctly and found thirteen defects in it. The load-bearing corrections are in §5.1 (the start-pattern test is necessary, not conservative — script data's escape states let a payload defeat the end-tag test), §5.5 (the WHATWG index is not the platform codec of the same name), §4.5 (the offset shift is derivable from the recovered region; `page.pdf` is reachable, just not by offset) and §1.3 (the appended data may be a declared archive comment, as §4.2 has said since 1.5.108). A second pass by the same implementation, against the revision, caught a regression the revision itself introduced: giving `<plaintext>` a start pattern would have let 55 bytes of ASCII defeat all eight rungs, which the reference writer never did and which §6.2's termination argument forbids (§5.1). Two further reviews against the reference code closed the remaining gaps: a normative order for resolving the page entry, since "the shallowest `index.html`" had no tiebreak (§7.1); a definition separating the logical archive from the ZIP region, which `page.pdf` is the one entry to fall outside (§1.3); the layer convention now stated at the head of the document; and the limits of the reconstructed-`page.pdf` CRC check (§4.5). A third review found the one remaining live defect: §6.2's retry set had a non-monotone step, since discarding a reservation moves the archive and so changes the payload that required it, and a payload on the 65535-byte boundary could oscillate between the two placements forever. Core 1.5.108 now discards a reservation at most once per build. The same review's assessment of the format added three statements the document had left implicit: that the faces are not equally durable and the ZIP one is the only storage claim (§1.1), what each face actually costs a writer (§6), and that a pipeline which repacks the file destroys the other faces silently (§7.2) |
+| August 2026 | Core 1.5.108: the retry loop discards a relocation reservation at most once per build, so a payload sitting on the appended-data boundary cannot oscillate between the two placements forever (§6.2) |
+
+This document was itself revised in August 2026, against core 1.5.108, after several
+independent reviews. One of them was a reader built from this specification alone, with
+no access to the reference code. It read every specimen correctly, which is the best
+evidence available that the format is implementable from this text, and it found
+thirteen defects in the text. The load-bearing corrections are in §5.1 (the
+start-pattern test is necessary, not conservative: script data's escape states let a
+payload defeat the end-tag test), §5.5 (the WHATWG index is not the platform codec of
+the same name), §4.5 (the offset shift is derivable from the recovered region, and
+`page.pdf` is reachable, just not by offset) and §1.3 (the appended data may be a
+declared archive comment). A second pass by the same implementation caught a regression
+the revision had introduced: giving `<plaintext>` a start pattern would have let 55
+bytes of ASCII defeat all eight rungs, which the reference writer never did and which
+§6.2's termination argument forbids. Later passes added a normative order for resolving
+the page entry, since "the shallowest `index.html`" had no tiebreak (§7.1); the
+distinction between the logical archive and the ZIP region, which `page.pdf` is the one
+entry to fall outside (§1.3); the layer convention now stated at the head of the
+document; the limits of the reconstructed-`page.pdf` CRC check (§4.5); the durability
+ranking of the faces (§1.1); what each face costs a writer (§6); and the silent loss of
+the other faces to a pipeline that repacks the file (§7.2). One review found a live
+defect rather than a documentation one, the non-monotone retry step recorded above.
