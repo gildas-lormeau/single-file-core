@@ -113,7 +113,9 @@ const MAX_APPENDED_DATA_LENGTH = 65535;
 const PDF_ENTRY_FILENAME = "page.pdf";
 const PDF_HEADER_MAX_OFFSET = 1024;
 const MINIMAL_DOCTYPE = "<!DOCTYPE html>";
-const UNHIDDEN_FACE_WARNING_MESSAGE = "SingleFile: the archive was written without a face, its data names every wrapper tag:";
+const UNHIDDEN_FACE_WARNING_MESSAGE = "SingleFile: the page data contains every HTML tag that could hide an embedded file, the archive was written without its";
+const EMBEDDED_IMAGE_LABEL = "PNG image";
+const EMBEDDED_PDF_LABEL = "PDF document";
 const LOCAL_FILE_HEADER_SIGNATURE = 0x04034b50;
 const CENTRAL_FILE_HEADER_SIGNATURE = 0x02014b50;
 const END_OF_CENTRAL_DIR_SIGNATURE = 0x06054b50;
@@ -181,7 +183,7 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 	if (options.embeddedImage && options.selfExtractingArchive) {
 		imageChunk = getImageHTMLChunk(pageData, options, lastModDate);
 		if (!imageChunk) {
-			dropUnhiddenFace(options, "embeddedImage");
+			dropUnhiddenFace(options, "embeddedImage", EMBEDDED_IMAGE_LABEL);
 		}
 	}
 	if (options.embeddedImage) {
@@ -582,7 +584,7 @@ function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
 		const embeddedPdfText = TEXT_DECODER.decode(localHeader) + TEXT_DECODER.decode(embeddedPdf);
 		const pdfTagIndex = findEmbeddedDataTagIndex(embeddedPdfText);
 		if (pdfTagIndex == -1) {
-			dropUnhiddenFace(options, "embeddedPdf");
+			dropUnhiddenFace(options, "embeddedPdf", EMBEDDED_PDF_LABEL);
 			pdfEntry = undefined;
 		} else {
 			const [pdfStartTag, pdfEndTag] = EMBEDDED_DATA_TAGS[pdfTagIndex];
@@ -704,9 +706,9 @@ function getEmbeddedImageData(embeddedImage) {
 	return embeddedImage.slice(PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH, embeddedImage.length - PNG_IEND_LENGTH);
 }
 
-function dropUnhiddenFace(options, name) {
+function dropUnhiddenFace(options, name, label) {
 	delete options[name];
-	console.warn(UNHIDDEN_FACE_WARNING_MESSAGE, name); // eslint-disable-line no-console
+	console.warn(UNHIDDEN_FACE_WARNING_MESSAGE, label); // eslint-disable-line no-console
 }
 
 async function writeData(writable, array) {
