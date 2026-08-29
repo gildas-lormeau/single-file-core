@@ -934,9 +934,10 @@ gets no protection beyond that. Four consequences follow:
   readable in the central directory, so the resource list of an encrypted archive is
   public. This is standard ZIP behavior, not a property of this format; §7 restates it.
 - **What the writer withholds instead.** Three things are not forced into the clear by
-  the format and so are simply not written when a password is set: the entry comments,
-  which would otherwise publish every resource's source URL (§4.2); the `<title>`
-  element, whose value `manifest.json` carries as an encrypted entry; and the optional
+  the format and so are withheld when a password is set: the entry comments, which
+  would otherwise publish every resource's source URL (§4.2); the `<title>` element's
+  text, whose value `manifest.json` carries as an encrypted entry, leaving an empty
+  `<title></title>` in the prologue; and the optional
   text body, which repeats the whole page text outside the archive (§4.6). Unlike the
   PNG and PDF faces, none of the three is load-bearing for a reader, so a writer that
   emits them in a password-protected archive publishes what the password is meant to

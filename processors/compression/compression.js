@@ -44,7 +44,7 @@ const { Blob, fetch, TextEncoder, TextDecoder, DOMParser } = globalThis;
 // windows-1252 never decodes bytes >= 0x80 into the ASCII range, the scanned patterns are all ASCII
 const TEXT_DECODER = new TextDecoder("windows-1252");
 
-const NO_COMPRESSION_EXTENSIONS = [".jpg", ".jpeg", ".png", ".avi", ".apng", ".pdf", ".woff2", ".mp4", ".mp3", ".ogg", ".webp", ".webm", ".avi", ".mpeg", ".ts", ".ogv", ".heif", ".heic"];
+const NO_COMPRESSION_EXTENSIONS = [".jpg", ".jpeg", ".png", ".apng", ".gif", ".webp", ".avif", ".heif", ".heic", ".jxl", ".pdf", ".woff", ".woff2", ".mp4", ".webm", ".avi", ".mpeg", ".mov", ".ts", ".ogv", ".mp3", ".ogg", ".oga", ".weba", ".m4a", ".aac", ".opus", ".flac"];
 const SCRIPT_PATH = "/lib/single-file-zip.min.js";
 // <noscript> is excluded: it is the only tag whose content is raw text when scripting is
 // enabled and markup when it is not, so the archive bytes would be parsed on a page opened
