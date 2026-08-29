@@ -750,7 +750,7 @@ async function addPageResources(zipWriter, pageData, options, prefixName, url) {
 	]);
 }
 
-async function addFile(zipWriter, prefixName, data, disableCompresson) {
+async function addFile(zipWriter, prefixName, data, disableCompression) {
 	const dataReader = typeof data.content == "string" ? new TextReader(data.content) : new BlobReader(new Blob([new Uint8Array(data.content)]));
 	const options = { password: data.password, bufferedWrite: true };
 	if (!data.password) {
@@ -758,7 +758,7 @@ async function addFile(zipWriter, prefixName, data, disableCompresson) {
 		// password the resource URLs would be readable while the same map in manifest.json is not
 		options.comment = data.url && data.url.startsWith("data:") ? "data:" : data.url;
 	}
-	if (NO_COMPRESSION_EXTENSIONS.includes(data.extension) || disableCompresson) {
+	if (NO_COMPRESSION_EXTENSIONS.includes(data.extension) || disableCompression) {
 		options.level = 0;
 	}
 	await zipWriter.add(prefixName + data.name, dataReader, options);
