@@ -49,11 +49,15 @@ const SCRIPT_PATH = "/lib/single-file-zip.min.js";
 // <noscript> is excluded: it is the only tag whose content is raw text when scripting is
 // enabled and markup when it is not, so the archive bytes would be parsed on a page opened
 // without scripting
+// the script and style rungs come first because text extractors drop their content the way
+// they drop a comment: macOS Spotlight indexes the content of every other rung, and textutil
+// also reads the last two. Neither is applied nor executed, the type is neither CSS nor
+// JavaScript. <plaintext> stays last, it is the only rung that cannot be closed
 const EXTRA_DATA_TAGS = [
-	["<noframes>", "</noframes>"],
-	["<noembed>", "</noembed>"],
 	["<script type=sfz-data>", "</script>"],
 	["<style type=sfz-data>", "</style>"],
+	["<noframes>", "</noframes>"],
+	["<noembed>", "</noembed>"],
 	["<iframe>", "</iframe>"],
 	["<xmp>", "</xmp>"],
 	["<plaintext>", "</plaintext>"]
@@ -66,10 +70,10 @@ const EMBEDDED_DATA_TAGS = [
 // wrapper ladder must never carry it, they are located by byte structure instead
 const DATA_IDENTIFIER = "sfz-data";
 const EXTRA_DATA_REGEXPS = [
-	[/<noframes/i, /<\/noframes[\t\n\f\r />]/i],
-	[/<noembed/i, /<\/noembed[\t\n\f\r />]/i],
 	[/<script/i, /<\/script[\t\n\f\r />]/i],
 	[/<style/i, /<\/style[\t\n\f\r />]/i],
+	[/<noframes/i, /<\/noframes[\t\n\f\r />]/i],
+	[/<noembed/i, /<\/noembed[\t\n\f\r />]/i],
 	[/<iframe/i, /<\/iframe[\t\n\f\r />]/i],
 	[/<xmp/i, /<\/xmp[\t\n\f\r />]/i],
 	[/<plaintext/i, /<\/plaintext[\t\n\f\r />]/i]
