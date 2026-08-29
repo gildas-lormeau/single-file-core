@@ -62,6 +62,9 @@ const EMBEDDED_DATA_TAGS = [
 	["<!--", "-->"],
 	...EXTRA_DATA_TAGS,
 ];
+// the identifier the extractor addresses the zip data with; the faces hidden by the same
+// wrapper ladder must never carry it, they are located by byte structure instead
+const DATA_IDENTIFIER = "sfz-data";
 const EXTRA_DATA_REGEXPS = [
 	[/<noframes/i, /<\/noframes[\t\n\f\r />]/i],
 	[/<noembed/i, /<\/noembed[\t\n\f\r />]/i],
@@ -480,12 +483,19 @@ async function prependHTMLData(pageData, zipDataWriter, script, options, lastMod
 		extraData += extraTags + new Array(options.extraDataSize - extraTags.length).fill(" ").join("");
 	}
 	pageContent += extraData;
-	const startTag = options.extractDataFromPageTags ? options.extractDataFromPageTags[0] : "<!--";
-	// the space guarantees a text node between <sfz-extra-data> and the start tag
-	pageContent += (extraData ? " " : "") + startTag;
-	const extraDataOffset = startTag.length + extraData.length + (extraData ? 1 : 0);
+	const startTag = getDataStartTag(options.extractDataFromPageTags || EMBEDDED_DATA_TAGS[0]);
+	pageContent += startTag;
+	const extraDataOffset = startTag.length + extraData.length;
 	await writeData(zipDataWriter.writable, (new TextEncoder()).encode(pageContent));
 	return { extraDataOffset, pdfEntry };
+}
+
+// the extractor finds the zip data by identifier instead of by its position in the tree: an
+// element carries it as an attribute, a comment as the first characters of its data
+function getDataStartTag([startTag]) {
+	return startTag == "<!--" ?
+		startTag + DATA_IDENTIFIER :
+		startTag.slice(0, -1) + " id=" + DATA_IDENTIFIER + ">";
 }
 
 function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
@@ -644,7 +654,9 @@ async function addFile(zipWriter, prefixName, data, disableCompresson) {
 
 async function getContent() {
 	const BASE64_TABLE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-	const { Blob, XMLHttpRequest, document, zip, location } = globalThis;
+	// the function is inlined in the archive as source, it cannot close over the module scope
+	const DATA_IDENTIFIER = "sfz-data";
+	const { Blob, XMLHttpRequest, NodeFilter, document, zip, location } = globalThis;
 	const characterMap = new Map([
 		[65533, 0], [8364, 128], [8218, 130], [402, 131], [8222, 132], [8230, 133], [8224, 134], [8225, 135], [710, 136], [8240, 137],
 		[352, 138], [8249, 139], [338, 140], [381, 142], [8216, 145], [8217, 146], [8220, 147], [8221, 148], [8226, 149], [8211, 150],
@@ -749,26 +761,22 @@ async function getContent() {
 		if (zipDataElement) {
 			const inflatedPayload = zip.inflateRaw(base64Decode(zipDataElement.textContent));
 			const payload = new Uint32Array(inflatedPayload.buffer, inflatedPayload.byteOffset, inflatedPayload.length >> 2);
-			// the node holding the zip data is the previous sibling when the extra data is
-			// appended and the one after the padding when it is relocated; bytes parsed as
-			// markup can fake either shape, so the candidates are checked against the payload
-			const nextNode = zipDataElement.nextSibling;
-			let error;
-			for (const dataNode of [zipDataElement.previousSibling, nextNode && nextNode.nextSibling, nextNode]) {
-				if (dataNode) {
-					try {
-						return decodeZipData(dataNode, payload);
-					} catch (reason) {
-						error = reason;
-					}
+			// the zip data is identified, not located: its node can be moved before this runs
+			const dataElement = document.getElementById(DATA_IDENTIFIER);
+			if (dataElement) {
+				return decodeZipData(dataElement, payload, 0);
+			}
+			const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT);
+			while (walker.nextNode()) {
+				if (walker.currentNode.data.startsWith(DATA_IDENTIFIER)) {
+					return decodeZipData(walker.currentNode, payload, DATA_IDENTIFIER.length);
 				}
 			}
-			throw error || new Error("Extra zip data not found");
 		}
 		throw new Error("Extra zip data not found");
 	}
 
-	function decodeZipData(dataNode, payload) {
+	function decodeZipData(dataNode, payload, startIndex) {
 		const expectedCRC32 = payload[0];
 		const zipDataLength = payload[1];
 		const lfCodesLength = payload[2];
@@ -780,7 +788,7 @@ async function getContent() {
 		let offset = 0;
 		let indexLFCode = 0;
 		let crc32 = -1;
-		for (let index = 0; index < textContent.length && offset < zipDataLength; index++) {
+		for (let index = startIndex; index < textContent.length && offset < zipDataLength; index++) {
 			const charCode = textContent.charCodeAt(index);
 			if (charCode == 10) {
 				const lfCode = (payload[3 + (indexLFCode >> 4)] >>> ((indexLFCode & 15) * 2)) & 3;
