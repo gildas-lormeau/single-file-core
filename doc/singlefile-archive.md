@@ -678,7 +678,8 @@ this ladder, in order:
 | 5 | `<noembed>` | raw text | `</noembed` + delimiter |
 | 6 | `<iframe>` | raw text | `</iframe` + delimiter |
 | 7 | `<xmp>` | raw text | `</xmp` + delimiter |
-| 8 | `<plaintext>` | everything to end of file | nothing — the element cannot be closed |
+| 8 | `<svg><![CDATA[` … `]]></svg>` | CDATA section | `]]>` |
+| 9 | `<plaintext>` | everything to end of file | nothing — the element cannot be closed |
 
 The terminators are written lower case above, but HTML matches end tag names ASCII
 case-insensitively: `</XMP>` and `</Script ` close their elements just as `</xmp>` and
@@ -711,6 +712,31 @@ or stops reading `<xmp>`, changes only which archives end up in a local search i
 every rung still hides its content from the HTML parser, and a writer whose ladder is
 ordered differently produces files that are just as correct.
 
+The CDATA rung sits where it does for the same reason, and it is the only rung whose
+placement understates it. A CDATA section is a CDATA section only in foreign content,
+which is what the `<svg>` element is there for — in HTML content `<![CDATA[` is a
+bogus comment, and the payload would be markup. Given the `<svg>`, the construct is the
+strongest on the ladder: `]]>` is the whole of its terminator, and it is a sequence real
+payloads carry far less often than `-->` or `</script>`. That matters most for the one
+thing the ladder cannot otherwise avoid — an archive nested inside another as a face
+carries the terminator of every rung it climbed, so each rung is spent once and only
+once (§5.1, ladder depth). A writer MUST place the identifier on the `<svg>` element and
+not on the markup declaration, which takes no attributes: `<svg id=sfz-data><![CDATA[`.
+
+Two properties of the CDATA section state are worth stating because a writer is tempted
+to guard against both and needs neither. Sections do not nest, so a `<![CDATA[` inside
+the payload is text like any other — the start-pattern test on this rung is the same
+conservatism the raw-text rungs get, not a necessity. And trailing brackets are safe: a
+payload ending `]]` against the writer's `]]>` produces `]]]]>`, and the tokenizer's
+CDATA section end state emits the payload's own two brackets before closing, so the
+recovered bytes are exact.
+
+Verified in Blink, Gecko and WebKit, and against html5lib: a universal-mode archive on
+this rung recovers from the parsed document byte for byte, with the checksum of §4.5
+matching, indistinguishably from the same archive on the comment rung. The same probe
+covered a payload holding every byte value, every rung's patterns, and the near-misses
+`]]x>`, `] ]>`, `]>` and `]]`, in both the prologue position and mid-document.
+
 Two things about the ladder *are* required. Whatever order a writer gives the seven
 closable rungs, it MUST apply the selection test below to every rung it considers, and
 MUST keep `<plaintext>` available as the rung of last resort: §6.2's termination
@@ -730,14 +756,15 @@ what differs is how far the ladder goes:
 - **The ZIP region** rejects a rung whose *end* pattern the payload contains, and also
   a rung whose *start* pattern it contains. A rung's start pattern is the tag's opening
   delimiter and name, without attributes: `<!--` for the comment, then `<script`,
-  `<style`, `<noframes`, `<noembed`, `<iframe`, `<xmp` for the elements.
+  `<style`, `<noframes`, `<noembed`, `<iframe`, `<xmp` for the elements, and
+  `<![CDATA[` for the CDATA rung.
 
   `<plaintext>` is exempt from **both** tests. It has no terminator to occur and no
   tokenizer states to escape into — a `<plaintext` inside a `<plaintext>` is inert
   text like everything else — so no payload can defeat it. §6.2's termination argument
   rests on that exemption.
 
-  The other seven are all tested, and a writer MUST test all seven rather than the one
+  The other eight are all tested, and a writer MUST test all eight rather than the one
   that needs it. The `<script>` rung needs it
   to be correct at all, because script data has escape states no other rung has: `<!--`
   in script data enters *script data escaped*, and a `<script` after that enters *script
@@ -746,7 +773,8 @@ what differs is how far the ladder goes:
   and the wrapper then swallows its own end tag, the extra-data element and the rest of
   the document. On the other six the start test is genuine conservatism: a nested `<!--`
   is a parse error inside a comment but does not close it, and the raw-text rungs hold a
-  flat run of characters with no states at all. The rule is uniform deliberately: the
+  flat run of characters with no states at all, while CDATA sections do not nest. The
+  rule is uniform deliberately: the
   exemption would save one pattern match per rung on bytes already in memory, at the
   cost of a special case an implementer has to remember correctly about the single rung
   where forgetting it destroys the document. An earlier draft offered exactly that
@@ -797,10 +825,12 @@ page. The termination argument of §6.2 therefore holds for the faced variants t
 The ladder has a depth, and nesting reaches it. An archive used as the PDF or PNG
 payload of another one carries the terminator of every rung its own faces climbed
 through, and `-->`, `</script>` and `</style>` besides, which every prologue emits.
-Each level of nesting therefore burns exactly one rung, and the seven a face may use
-run out at the fifth: the reference writer selects `<!--`, then `<noframes>`,
-`<noembed>`, `<iframe>`, `<xmp>`, and then has nothing left. No ladder of fixed length
-avoids this; adding a rung moves the limit by one level. That is why the paragraph
+Each level of nesting therefore burns exactly one rung, and the eight a face may use
+run out at the sixth: the reference writer selects `<!--`, then `<noframes>`,
+`<noembed>`, `<iframe>`, `<xmp>`, the CDATA rung, and then has nothing left. No ladder
+of fixed length avoids this; adding a rung moves the limit by one level, which is the
+limit of what the CDATA rung buys here — its value is that real payloads rarely hold
+`]]>`, not that it makes nesting unbounded. That is why the paragraph
 above states a MUST rather than a quality-of-implementation preference — exhaustion is
 reachable by construction, not only by a payload built to provoke it.
 
@@ -928,8 +958,8 @@ inverse mapping the extractor applies is, for the declared charset:
 3. **U+FFFD → 0x00.** No byte decodes to U+FFFD under a qualifying encoding (§2.1), so
    the replacement character can only have come from a NUL byte. This holds because
    the payload is inside a wrapper: in every tokenizer state the ladder of §5.1
-   produces — comment, raw text, script data, plaintext — the parser replaces NUL with
-   U+FFFD.
+   produces — comment, raw text, script data, CDATA section, plaintext — the parser
+   replaces NUL with U+FFFD.
 4. **Newlines from the payload.** The parser normalizes CR and CR LF to LF, so the
    original byte sequence is unrecoverable from the text alone; each newline consumes
    the next 2-bit code (0 = LF, 1 = CR, 2 = CR LF).
@@ -1454,6 +1484,7 @@ predicts.
 | August 2026 | Core 1.5.108: the retry loop discards a relocation reservation at most once per build, so a payload sitting on the appended-data boundary cannot oscillate between the two placements forever (§6.2) |
 | August 2026 | Core 1.5.110: a PDF or PNG face whose payload names every rung is dropped instead of written bare (§5.1). Found by nesting an archive inside itself as both faces: the fifth level exhausts the ladder, and readers then extracted the fourth level's archive — checksums intact, no way to tell (§7.4) |
 | August 2026 | Core 1.5.110: a PNG face leaving the comment rung on its checksum resumes the rung search instead of taking the next rung untested (§5.1). Taking it put a payload holding `</script>` on the script rung, where its own bytes closed the wrapper 93 bytes in and left the image data, the chunk framing and the whole ZIP region to the parser |
+| August 2026 | Core 1.5.110: `<svg><![CDATA[` joins the ladder above `<plaintext>` (§5.1) — the one rung whose terminator, `]]>`, real payloads rarely carry. It gives a payload naming every element rung somewhere to go that does not cost the appended-data placement, and moves the self-nesting limit from the fifth level to the sixth |
 
 This document was itself revised in August 2026, against core 1.5.108, after several
 independent reviews. One of them was a reader built from this specification alone, with

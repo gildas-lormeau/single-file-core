@@ -166,7 +166,7 @@ function countIdentifiers(text) {
 	// the last rung is exempt from both tests: it has no terminator and no tokenizer
 	// states, so a payload naming every rung still fits inside it
 	const content = new Uint8Array(4096).fill(0x21);
-	content.set(new TextEncoder().encode("<!--<script<style<noframes<noembed<iframe<xmp<plaintext"), 128);
+	content.set(new TextEncoder().encode("<!--<script<style<noframes<noembed<iframe<xmp<![CDATA[<plaintext"), 128);
 	const options = makeOptions();
 	const pageData = makePageData(19, 4 * 1024);
 	pageData.resources.images.push({ name: "images/all-starts.png", extension: ".png", content });
@@ -174,6 +174,33 @@ function countIdentifiers(text) {
 	check("every rung's start pattern exhausts to", options.extractDataFromPageTags[0], "<plaintext>");
 	check("every rung's start pattern keeps extraction", options.extractDataFromPage !== false, true);
 	check("the last rung still carries the identifier", decodeText(bytes).includes("<plaintext id=sfz-data>PK"), true);
+}
+
+// the CDATA rung is the last one that can be closed, so it is what stands between a payload
+// naming every element rung and <plaintext>, whose selection costs the appended-data placement.
+// Its identifier goes on the svg, not on the markup declaration, which takes no attributes
+{
+	const content = new Uint8Array(4096).fill(0x21);
+	content.set(new TextEncoder().encode("<!--<script<style<noframes<noembed<iframe<xmp"), 128);
+	const options = makeOptions();
+	const pageData = makePageData(24, 4 * 1024);
+	pageData.resources.images.push({ name: "images/no-cdata.png", extension: ".png", content });
+	const { bytes } = await runProcess(pageData, options);
+	check("a payload naming every element rung stops at the cdata rung", options.extractDataFromPageTags[0], "<svg><![CDATA[");
+	check("the cdata rung identifies the svg, not the declaration", decodeText(bytes).includes("<svg id=sfz-data><![CDATA[PK"), true);
+	check("the cdata rung leaves the appended data placement alone", options.preventAppendedData !== true, true);
+}
+
+// the terminator is the whole test for this rung, so a payload holding it must step past
+{
+	const content = new Uint8Array(4096).fill(0x21);
+	content.set(new TextEncoder().encode("<!--<script<style<noframes<noembed<iframe<xmp]]>"), 128);
+	const options = makeOptions();
+	const pageData = makePageData(25, 4 * 1024);
+	pageData.resources.images.push({ name: "images/cdata-end.png", extension: ".png", content });
+	const { bytes } = await runProcess(pageData, options);
+	check("a payload holding \"]]>\" defeats the cdata rung", options.extractDataFromPageTags[0], "<plaintext>");
+	check("the rung below takes it", decodeText(bytes).includes("<plaintext id=sfz-data>PK"), true);
 }
 
 // script data has escape states the raw text rungs do not: "<!--" then "<script" in a
@@ -207,7 +234,7 @@ const DOUBLE_ESCAPE = "--> <!-- <script ";
 // older behaviour, and it is the dangerous one, because the payload's own markup then joins the
 // document. These payloads carry the identifier the way a nested archive does: a reader looking
 // for one node finds two, takes the first, and extracts an archive that checksums
-const ALL_FACE_RUNGS = "<!--sfz-data<script<style<noframes<noembed<iframe<xmp";
+const ALL_FACE_RUNGS = "<!--sfz-data<script<style<noframes<noembed<iframe<xmp<![CDATA[";
 
 {
 	const embeddedPdf = new TextEncoder().encode("%PDF-1.4\n1 0 obj\n<< /X (" + ALL_FACE_RUNGS + ") >>\nendobj\ntrailer\n<<>>\n%%EOF\n");

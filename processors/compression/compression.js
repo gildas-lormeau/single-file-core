@@ -53,6 +53,11 @@ const SCRIPT_PATH = "/lib/single-file-zip.min.js";
 // they drop a comment: macOS Spotlight indexes the content of every other rung, and textutil
 // also reads the last two. Neither is applied nor executed, the type is neither CSS nor
 // JavaScript. <plaintext> stays last, it is the only rung that cannot be closed
+// the CDATA section sits second to last, and it is the one rung a payload is unlikely to hold
+// the terminator of: every other rung ends on a sequence that real documents carry, which is
+// also why each level of self-nesting burns one. It is low in the ladder only because text
+// extractors read its content; nothing about the parse is weaker. A CDATA section is only a
+// CDATA section in foreign content, hence the <svg> element around it
 const EXTRA_DATA_TAGS = [
 	["<script type=sfz-data>", "</script>"],
 	["<style type=sfz-data>", "</style>"],
@@ -60,6 +65,7 @@ const EXTRA_DATA_TAGS = [
 	["<noembed>", "</noembed>"],
 	["<iframe>", "</iframe>"],
 	["<xmp>", "</xmp>"],
+	["<svg><![CDATA[", "]]></svg>"],
 	["<plaintext>", "</plaintext>"]
 ];
 const EMBEDDED_DATA_TAGS = [
@@ -76,6 +82,11 @@ const EXTRA_DATA_REGEXPS = [
 	[/<noembed/i, /<\/noembed[\t\n\f\r />]/i],
 	[/<iframe/i, /<\/iframe[\t\n\f\r />]/i],
 	[/<xmp/i, /<\/xmp[\t\n\f\r />]/i],
+	// a CDATA section ends on "]]>" and nothing else, so the terminator is the whole test; the
+	// start pattern is the same conservatism the raw text rungs get, since a nested "<![CDATA["
+	// is text like any other. Trailing brackets are safe: a payload ending "]]" against the
+	// writer's "]]>" gives "]]]]>", and the tokenizer emits the payload's own two before closing
+	[/<!\[CDATA\[/i, /\]\]>/],
 	[/<plaintext/i, /<\/plaintext[\t\n\f\r />]/i]
 ];
 // a comment must also not end with "<!-", the last of the restrictions HTML puts on comment
@@ -540,9 +551,13 @@ async function prependHTMLData(pageData, zipDataWriter, script, options, lastMod
 // the extractor finds the zip data by identifier instead of by its position in the tree: an
 // element carries it as an attribute, a comment as the first characters of its data
 function getDataStartTag([startTag]) {
-	return startTag == "<!--" ?
-		startTag + DATA_IDENTIFIER :
-		startTag.slice(0, -1) + " id=" + DATA_IDENTIFIER + ">";
+	if (startTag == "<!--") {
+		return startTag + DATA_IDENTIFIER;
+	}
+	// the attribute belongs to the element that opens the wrapper, which is not always the whole
+	// start tag: the CDATA rung opens with an <svg> and then a markup declaration that takes none
+	const tagEnd = startTag.indexOf(">");
+	return startTag.slice(0, tagEnd) + " id=" + DATA_IDENTIFIER + startTag.slice(tagEnd);
 }
 
 function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
