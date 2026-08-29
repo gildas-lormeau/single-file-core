@@ -413,7 +413,8 @@ async function prependHTMLData(pageData, zipDataWriter, script, options, lastMod
 	if (pageData.tocContent) {
 		pageContent += pageData.tocContent;
 	}
-	if (options.insertTextBody) {
+	// the text body repeats the page content outside the archive, where no password reaches it
+	if (options.insertTextBody && !options.password) {
 		const doc = (new DOMParser()).parseFromString(pageData.content, "text/html");
 		doc.body.querySelectorAll("style, script, noscript").forEach(element => element.remove());
 		let textBody = "";
