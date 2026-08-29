@@ -41,7 +41,11 @@ const REGEXP_COMMA = /\s*,\s*/;
 const REGEXP_DASH = /-/;
 const REGEXP_QUESTION_MARK = /\?/g;
 const REGEXP_STARTS_U_PLUS = /^U\+/i;
+const REGEXP_CUSTOM_PROPERTY = /var\((--[^),]*)\)/g;
 const VALID_FONT_STYLES = [/^normal$/, /^italic$/, /^oblique$/, /^oblique\s+/];
+// a family name kept when the "font" shorthand cannot be read: it resolves to nothing, so it
+// survives the substitution below and marks the fonts as undetermined instead of unused
+const UNRESOLVED_CUSTOM_PROPERTY_FAMILY = "var(--)";
 
 export {
 	process
@@ -268,21 +272,34 @@ function getFontFamilyNames(declarations, options) {
 	}
 	const font = declarations.children.filter(node => node.property == "font").tail;
 	if (font && font.data && font.data.value) {
+		const fontValue = cssTree.generate(font.data.value);
 		try {
 			let value = font.data.value;
-			let fontFamilyName = cssTree.generate(value);
-			const matchedVar = fontFamilyName.match(/^var\((--.*)\)$/);
-			if (matchedVar && matchedVar[1]) {
-				value = cssTree.parse(globalThis.getComputedStyle(options.doc.body).getPropertyValue(matchedVar[1]), { context: "value" });
+			const resolvedFontValue = resolveCustomProperties(fontValue, options);
+			if (resolvedFontValue != fontValue) {
+				value = cssTree.parse(resolvedFontValue, { context: "value" });
 			}
 			const parsedFont = fontPropertyParser.parse(value);
 			parsedFont.family.forEach(familyName => fontFamilyNames.push(helper.normalizeFontFamily(familyName)));
 			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
-			// ignored				
+			// the shorthand is unreadable, and dropping it here would count the fonts it names as
+			// unused: a custom property left in it means the families cannot be determined at all
+			if (fontValue.includes("var(")) {
+				fontFamilyNames.push(UNRESOLVED_CUSTOM_PROPERTY_FAMILY);
+			}
 		}
 	}
 	return fontFamilyNames;
+}
+
+function resolveCustomProperties(value, options) {
+	if (globalThis.getComputedStyle && options.doc) {
+		const computedStyle = globalThis.getComputedStyle(options.doc.body);
+		return value.replace(REGEXP_CUSTOM_PROPERTY, (property, name) => computedStyle.getPropertyValue(name) || property);
+	} else {
+		return value;
+	}
 }
 
 function parseFamilyNames(fontFamilyNameTokenData, fontFamilyNames) {
