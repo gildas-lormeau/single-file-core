@@ -771,9 +771,14 @@ right there, spilling the payload into the parser. What starts the comment diffe
 payload — the ZIP region begins with the identifier, the PDF face with a local file
 header or `%PDF-` — but the PNG face begins with the CRC of the chunk carrying the
 start tag, four bytes that are only settled once the tag is chosen, and one in 256 of
-them is `>`. A writer using a comment there MUST compute that checksum and take the
-next rung when it opens with `>` or `->`; the next rung is an element, which has no
-such restriction, so the test cannot cascade. HTML also forbids comment text ending
+them is `>`. A writer using a comment there MUST compute that checksum and leave the
+comment rung when it opens with `>` or `->`. It MUST leave it by *resuming the rung
+search* below it, not by taking the rung that follows: the checksum says only that the
+comment is unusable, and which rung is usable remains the payload's to say. The test
+itself cannot cascade — only the comment rung carries the restriction, and every rung
+below it is an element — but the payload's terminators still apply, and a payload
+holding `</script>` sends a writer that stepped rather than searched onto the one rung
+it is guaranteed to close. HTML also forbids comment text ending
 with `<!-`, which the terminator check covers by testing that pattern anchored at the
 payload's end.
 
@@ -1448,6 +1453,7 @@ predicts.
 | August 2026 | Core 1.5.108: the PDF and PNG faces test a wrapper rung's start pattern as well as its end pattern, closing the same script-data escape hole the ZIP region was already guarded against — a face payload holding `<!--` and then `<script` took the `<script type=sfz-data>` rung and swallowed the rest of the document (§5.1) |
 | August 2026 | Core 1.5.108: the retry loop discards a relocation reservation at most once per build, so a payload sitting on the appended-data boundary cannot oscillate between the two placements forever (§6.2) |
 | August 2026 | Core 1.5.110: a PDF or PNG face whose payload names every rung is dropped instead of written bare (§5.1). Found by nesting an archive inside itself as both faces: the fifth level exhausts the ladder, and readers then extracted the fourth level's archive — checksums intact, no way to tell (§7.4) |
+| August 2026 | Core 1.5.110: a PNG face leaving the comment rung on its checksum resumes the rung search instead of taking the next rung untested (§5.1). Taking it put a payload holding `</script>` on the script rung, where its own bytes closed the wrapper 93 bytes in and left the image data, the chunk framing and the whole ZIP region to the parser |
 
 This document was itself revised in August 2026, against core 1.5.108, after several
 independent reviews. One of them was a reader built from this specification alone, with

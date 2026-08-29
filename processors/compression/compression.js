@@ -163,39 +163,28 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 	if (options.embeddedImage) {
 		options.embeddedImage = new Uint8Array(options.embeddedImage);
 	}
-	// the rung has to be chosen before the first byte of the image is written, because there may
-	// be no rung: the image is then left out altogether rather than written unwrapped
-	if (options.embeddedImage && options.selfExtractingArchive &&
-		findEmbeddedDataTagIndex(TEXT_DECODER.decode(getEmbeddedImageData(options.embeddedImage))) == -1) {
-		dropUnhiddenFace(options, "embeddedImage");
+	// the whole chunk is built before the first byte of the image is written, because building it
+	// is what settles the rung, and the search can end with no rung at all: the image is then left
+	// out altogether rather than written unwrapped
+	let imageChunk;
+	if (options.embeddedImage && options.selfExtractingArchive) {
+		imageChunk = getImageHTMLChunk(pageData, options, lastModDate);
+		if (!imageChunk) {
+			dropUnhiddenFace(options, "embeddedImage");
+		}
 	}
 	if (options.embeddedImage) {
 		const embeddedImageData = getEmbeddedImageData(options.embeddedImage);
 		await writeData(zipDataWriter.writable, options.embeddedImage.slice(0, PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH));
 		if (options.selfExtractingArchive) {
-			const embeddedImageText = TEXT_DECODER.decode(embeddedImageData);
-			let tagIndex = findEmbeddedDataTagIndex(embeddedImageText);
-			let startTag, startHTMLData, htmlData, htmlDataCRC, abruptComment;
-			do {
-				[startTag, endTag] = EMBEDDED_DATA_TAGS[tagIndex];
-				startHTMLData = getStartHTMLArray(pageData, options, lastModDate, startTag);
-				htmlData = new Uint8Array([...getLength(startHTMLData.htmlArray.length + 4), ...[0x74, 0x45, 0x58, 0x74, 0x50, 0x4e, 0x47, 0], ...startHTMLData.htmlArray]);
-				htmlDataCRC = getCRC32(htmlData, 4);
-				// what follows the start tag is this chunk's CRC, four bytes only known once the
-				// tag is chosen: a comment they open with ">" or "->" is closed by the parser
-				// there and then, leaving the image data to be read as markup
-				abruptComment = tagIndex == 0 && (htmlDataCRC[0] == 0x3e || (htmlDataCRC[0] == 0x2d && htmlDataCRC[1] == 0x3e));
-				if (abruptComment) {
-					tagIndex++;
-				}
-			} while (abruptComment);
-			if (startHTMLData.pdfEntry) {
-				pdfEntry = startHTMLData.pdfEntry;
+			endTag = imageChunk.endTag;
+			if (imageChunk.startHTMLData.pdfEntry) {
+				pdfEntry = imageChunk.startHTMLData.pdfEntry;
 				// the htmlArray starts after the 4-byte length and the 8-byte type of the tEXt chunk
 				pdfEntry.offset += zipDataWriter.offset + 12;
 			}
-			await writeData(zipDataWriter.writable, htmlData);
-			await writeData(zipDataWriter.writable, htmlDataCRC);
+			await writeData(zipDataWriter.writable, imageChunk.htmlData);
+			await writeData(zipDataWriter.writable, imageChunk.htmlDataCRC);
 		} else if (options.embeddedPdf) {
 			const data = new Uint8Array([...getLength(options.embeddedPdf.length + 4), ...[0x74, 0x45, 0x58, 0x74, 0x50, 0x44, 0x46, 0], ...new Uint8Array(options.embeddedPdf)]);
 			await writeData(zipDataWriter.writable, data);
@@ -664,8 +653,9 @@ function findExtraDataTags(textContent, pageData, options, script, writeEntries,
 // a rung is rejected on its end pattern, which terminates the wrapper, and on its start
 // pattern: script data has escape states the raw text rungs do not have, where "<!--"
 // followed by "<script" leaves "</script>" unable to close the element at all
-function findEmbeddedDataTagIndex(text) {
-	return EMBEDDED_DATA_REGEXPS.slice(0, -1).findIndex(([startRegExp, endRegExp]) => !text.match(startRegExp) && !text.match(endRegExp));
+function findEmbeddedDataTagIndex(text, fromIndex = 0) {
+	const tagIndex = EMBEDDED_DATA_REGEXPS.slice(fromIndex, -1).findIndex(([startRegExp, endRegExp]) => !text.match(startRegExp) && !text.match(endRegExp));
+	return tagIndex == -1 ? -1 : tagIndex + fromIndex;
 }
 
 // a face exists only while a rung can hide it. When the payload names every rung, the older
@@ -674,6 +664,27 @@ function findEmbeddedDataTagIndex(text) {
 // sfz-data node ahead of this file's own. A reader takes that one and extracts it, checksum and
 // all, with nothing to say the archive it returned is not the archive the file was built around.
 // Dropping the face costs a picture; keeping it costs the archive
+// what follows the start tag is the checksum of the chunk carrying it, four bytes only known once
+// the tag is chosen: a comment they open with ">" or "->" is closed by the parser there and then,
+// leaving the image data to be read as markup. Stepping past the comment rung means searching from
+// the next one, not taking it — a rung qualifies on the payload, and the payload had no say in
+// which rung the checksum sent the writer to
+function getImageHTMLChunk(pageData, options, lastModDate) {
+	const embeddedImageText = TEXT_DECODER.decode(getEmbeddedImageData(options.embeddedImage));
+	let tagIndex = findEmbeddedDataTagIndex(embeddedImageText);
+	while (tagIndex != -1) {
+		const [startTag, endTag] = EMBEDDED_DATA_TAGS[tagIndex];
+		const startHTMLData = getStartHTMLArray(pageData, options, lastModDate, startTag);
+		const htmlData = new Uint8Array([...getLength(startHTMLData.htmlArray.length + 4), ...[0x74, 0x45, 0x58, 0x74, 0x50, 0x4e, 0x47, 0], ...startHTMLData.htmlArray]);
+		const htmlDataCRC = getCRC32(htmlData, 4);
+		if (tagIndex == 0 && (htmlDataCRC[0] == 0x3e || (htmlDataCRC[0] == 0x2d && htmlDataCRC[1] == 0x3e))) {
+			tagIndex = findEmbeddedDataTagIndex(embeddedImageText, tagIndex + 1);
+		} else {
+			return { endTag, startHTMLData, htmlData, htmlDataCRC };
+		}
+	}
+}
+
 function getEmbeddedImageData(embeddedImage) {
 	return embeddedImage.slice(PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH, embeddedImage.length - PNG_IEND_LENGTH);
 }

@@ -281,6 +281,29 @@ for (const seed of [147, 148, 616]) {
 	check("no wrapper comment is closed abruptly, seed " + seed, /<!--(>|->)/.test(decodeText(bytes)), false);
 }
 
+// leaving the comment rung is a search, not an increment. The checksum decides only that the
+// comment is unusable; which rung is usable is still the payload's to say, and these payloads
+// terminate the rung immediately below. Taking it on trust put the image data, the chunk framing
+// and the whole ZIP region outside the wrapper, 19KB of it, read by the parser as markup
+for (const seed of [148, 616]) {
+	const embeddedImage = randomPng(seed);
+	embeddedImage.set(new TextEncoder().encode("</script>"), 100);
+	const options = makeOptions({ embeddedImage });
+	const pageData = makePageData(seed, 2 * 1024);
+	const { bytes } = await runProcess(pageData, options);
+	const text = decodeText(bytes);
+	check("the step off the comment rung skips what the payload terminates, seed " + seed, text.includes("<script type=sfz-data>"), false);
+	check("the step off the comment rung lands on a rung that qualifies, seed " + seed, text.includes("<style type=sfz-data>"), true);
+}
+
+// the control for the pair above: the same seeds, the same step, a payload that leaves the rung
+// below usable — the writer must still take it rather than skip past it
+{
+	const options = makeOptions({ embeddedImage: randomPng(148) });
+	const { bytes } = await runProcess(makePageData(148, 2 * 1024), options);
+	check("the step off the comment rung takes a usable rung", decodeText(bytes).includes("<script type=sfz-data>"), true);
+}
+
 function readAppendedData(bytes) {
 	const view = new DataView(bytes.buffer, bytes.byteOffset);
 	for (let index = bytes.length - 22; index >= 0; index--) {
