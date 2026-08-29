@@ -75,7 +75,7 @@ async function createPagesArchive(pages, options) {
 		content: "",
 		title: pages[0].title || "",
 		comment: options.insertSingleFileComment ? getComment(pages[0].url, options) : undefined,
-		tocContent: getTOCContent(pages)
+		tocContent: options.pageList ? getTOCContent(pages) : undefined
 	};
 	const archiveOptions = {
 		url: pages[0].url,
@@ -219,6 +219,9 @@ function escapeUnicodeHTML(value) {
 	return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+// the list of pages in the prelude is the only description of the archive readable without
+// decompressing an entry, for indexing tools that never extract it; the table of contents
+// page stored in the archive is what serves navigation
 function getTOCContent(pages) {
 	return "<nav><ul>" +
 		pages.map(page => "<li><a href=\"" + escapeHTML(page.url) + "\">" + escapeHTML(page.title || page.url) + "</a></li>").join("") +
