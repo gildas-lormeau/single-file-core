@@ -1,0 +1,245 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1972 574" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+<rect width="1972" height="574" fill="#ffffff"/>
+<text x="16" y="24" font-size="15" font-weight="600" fill="#1c2733">SingleFile archive reader lenses</text>
+<rect x="16" y="36" width="12" height="12" rx="2" fill="#3d7dbf"/>
+<text x="32" y="46" font-size="11" fill="#3a4652">HTML markup</text>
+<rect x="115.3" y="36" width="12" height="12" rx="2" fill="#28568a"/>
+<text x="131.3" y="46" font-size="11" fill="#3a4652">bootstrap script</text>
+<rect x="246.10000000000002" y="36" width="12" height="12" rx="2" fill="#e8a33d"/>
+<text x="262.1" y="46" font-size="11" fill="#3a4652">zip entries (local headers + data)</text>
+<rect x="490.3" y="36" width="12" height="12" rx="2" fill="#b06f1d"/>
+<text x="506.3" y="46" font-size="11" fill="#3a4652">zip central directory + EOCD</text>
+<rect x="696.7" y="36" width="12" height="12" rx="2" fill="#c14f4f"/>
+<text x="712.7" y="46" font-size="11" fill="#3a4652">PDF document</text>
+<rect x="802.3000000000001" y="36" width="12" height="12" rx="2" fill="#4f9b63"/>
+<text x="818.3000000000001" y="46" font-size="11" fill="#3a4652">PNG structures</text>
+<rect x="920.5000000000001" y="36" width="12" height="12" rx="2" fill="#8f62b8"/>
+<text x="936.5000000000001" y="46" font-size="11" fill="#3a4652">extra-data payload</text>
+<text x="16" y="86" font-size="12.5" font-weight="600" fill="#1c2733">HTML parser</text>
+<text x="109.4" y="86" font-size="11" fill="#68727c">one document; the wrapper tags hide every binary region, the hidden body hides the rest</text>
+<rect x="16" y="94" width="130" height="34" rx="3" fill="#4f9b63" opacity="0.15"/>
+<text x="81" y="114.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">png-signature · IHDR</text>
+<rect x="148" y="94" width="72" height="34" rx="3" fill="#4f9b63" opacity="0.15"/>
+<text x="184" y="114.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">tEXt "PNG"</text>
+<rect x="222" y="94" width="95" height="34" rx="3" fill="#3d7dbf"/>
+<text x="269.5" y="114.5" font-size="10.5" fill="#ffffff" text-anchor="middle">html-prologue</text>
+<rect x="319" y="94" width="60" height="34" rx="3" fill="#3d7dbf"/>
+<text x="349" y="114.5" font-size="10.5" fill="#ffffff" text-anchor="middle">&lt;!--</text>
+<rect x="381" y="94" width="107" height="34" rx="3" fill="#e8a33d" opacity="0.15"/>
+<text x="434.5" y="114.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">pdf-local-header</text>
+<rect x="490" y="94" width="140" height="34" rx="3" fill="#c14f4f" opacity="0.15"/>
+<text x="560" y="114.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">pdf-document</text>
+<rect x="632" y="94" width="60" height="34" rx="3" fill="#3d7dbf"/>
+<text x="662" y="114.5" font-size="10.5" fill="#ffffff" text-anchor="middle">--&gt;</text>
+<rect x="694" y="94" width="136" height="34" rx="3" fill="#3d7dbf"/>
+<text x="762" y="114.5" font-size="10.5" fill="#ffffff" text-anchor="middle">html-prologue (cont.)</text>
+<rect x="832" y="94" width="60" height="34" rx="3" fill="#3d7dbf"/>
+<text x="862" y="114.5" font-size="10.5" fill="#ffffff" text-anchor="middle">&lt;!--</text>
+<rect x="894" y="94" width="113" height="34" rx="3" fill="#4f9b63" opacity="0.15"/>
+<text x="950.5" y="114.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">pixel-data chunks</text>
+<rect x="1009" y="94" width="72" height="34" rx="3" fill="#4f9b63" opacity="0.15"/>
+<text x="1045" y="114.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">tEXt "ZIP"</text>
+<rect x="1083" y="94" width="60" height="34" rx="3" fill="#3d7dbf"/>
+<text x="1113" y="114.5" font-size="10.5" fill="#ffffff" text-anchor="middle">--&gt;</text>
+<rect x="1145" y="94" width="95" height="34" rx="3" fill="#28568a"/>
+<path d="M 1226 93 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="1192.5" y="114.5" font-size="10.5" fill="#ffffff" text-anchor="middle">bootstrap</text>
+<rect x="1242" y="94" width="60" height="34" rx="3" fill="#3d7dbf"/>
+<text x="1272" y="114.5" font-size="8.5" fill="#ffffff" text-anchor="middle">&lt;!--sfz-data</text>
+<rect x="1304" y="94" width="140" height="34" rx="3" fill="#e8a33d" opacity="0.15"/>
+<text x="1374" y="114.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">zip-entries</text>
+<rect x="1446" y="94" width="119" height="34" rx="3" fill="#b06f1d" opacity="0.15"/>
+<text x="1505.5" y="114.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">pdf-central-record</text>
+<rect x="1567" y="94" width="154" height="34" rx="3" fill="#b06f1d" opacity="0.15"/>
+<text x="1644" y="114.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">central-directory · eocd</text>
+<rect x="1723" y="94" width="60" height="34" rx="3" fill="#3d7dbf"/>
+<text x="1753" y="114.5" font-size="10.5" fill="#ffffff" text-anchor="middle">--&gt;</text>
+<rect x="1785" y="94" width="95" height="34" rx="3" fill="#8f62b8"/>
+<text x="1832.5" y="114.5" font-size="10.5" fill="#ffffff" text-anchor="middle">extra-data</text>
+<rect x="1882" y="94" width="72" height="34" rx="3" fill="#4f9b63" opacity="0.15"/>
+<text x="1918" y="114.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">crc · IEND</text>
+<path d="M 381 141 v 5 H 630 v -5" stroke="#3d7dbf" stroke-width="1.5" fill="none"/>
+<text x="505.5" y="158" font-size="9.5" fill="#3d7dbf" text-anchor="middle">wrapper comment content</text>
+<path d="M 894 141 v 5 H 1081 v -5" stroke="#3d7dbf" stroke-width="1.5" fill="none"/>
+<text x="987.5" y="158" font-size="9.5" fill="#3d7dbf" text-anchor="middle">wrapper comment content</text>
+<path d="M 1304 141 v 5 H 1721 v -5" stroke="#3d7dbf" stroke-width="1.5" fill="none"/>
+<text x="1512.5" y="158" font-size="9.5" fill="#3d7dbf" text-anchor="middle">wrapper comment content</text>
+<text x="16" y="200" font-size="12.5" font-weight="600" fill="#1c2733">ZIP reader</text>
+<text x="102" y="200" font-size="11" fill="#68727c">finds the eocd from the end of the file, then reads only what the central directory points at</text>
+<rect x="16" y="208" width="130" height="34" rx="3" fill="#4f9b63" opacity="0.15"/>
+<text x="81" y="228.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">png-signature · IHDR</text>
+<rect x="148" y="208" width="72" height="34" rx="3" fill="#4f9b63" opacity="0.15"/>
+<text x="184" y="228.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">tEXt "PNG"</text>
+<rect x="222" y="208" width="95" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="269.5" y="228.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">html-prologue</text>
+<rect x="319" y="208" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="349" y="228.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">&lt;!--</text>
+<rect x="381" y="208" width="107" height="34" rx="3" fill="#e8a33d"/>
+<text x="434.5" y="228.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pdf-local-header</text>
+<rect x="490" y="208" width="140" height="34" rx="3" fill="#c14f4f"/>
+<path d="M 616 207 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="560" y="228.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pdf-document</text>
+<rect x="632" y="208" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="662" y="228.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">--&gt;</text>
+<rect x="694" y="208" width="136" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="762" y="228.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">html-prologue (cont.)</text>
+<rect x="832" y="208" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="862" y="228.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">&lt;!--</text>
+<rect x="894" y="208" width="113" height="34" rx="3" fill="#4f9b63" opacity="0.15"/>
+<text x="950.5" y="228.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">pixel-data chunks</text>
+<rect x="1009" y="208" width="72" height="34" rx="3" fill="#4f9b63" opacity="0.15"/>
+<text x="1045" y="228.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">tEXt "ZIP"</text>
+<rect x="1083" y="208" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="1113" y="228.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">--&gt;</text>
+<rect x="1145" y="208" width="95" height="34" rx="3" fill="#28568a" opacity="0.15"/>
+<text x="1192.5" y="228.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">bootstrap</text>
+<rect x="1242" y="208" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="1272" y="228.5" font-size="8.5" fill="#98a2ac" text-anchor="middle">&lt;!--sfz-data</text>
+<rect x="1304" y="208" width="140" height="34" rx="3" fill="#e8a33d"/>
+<path d="M 1430 207 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="1374" y="228.5" font-size="10.5" fill="#ffffff" text-anchor="middle">zip-entries</text>
+<rect x="1446" y="208" width="119" height="34" rx="3" fill="#b06f1d"/>
+<text x="1505.5" y="228.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pdf-central-record</text>
+<rect x="1567" y="208" width="154" height="34" rx="3" fill="#b06f1d"/>
+<text x="1644" y="228.5" font-size="10.5" fill="#ffffff" text-anchor="middle">central-directory · eocd</text>
+<rect x="1723" y="208" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="1753" y="228.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">--&gt;</text>
+<rect x="1785" y="208" width="95" height="34" rx="3" fill="#8f62b8" opacity="0.15"/>
+<text x="1832.5" y="228.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">extra-data</text>
+<rect x="1882" y="208" width="72" height="34" rx="3" fill="#4f9b63" opacity="0.15"/>
+<text x="1918" y="228.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">crc · IEND</text>
+<text x="16" y="288" font-size="12.5" font-weight="600" fill="#1c2733">PDF viewer</text>
+<text x="102" y="288" font-size="11" fill="#68727c">finds %PDF- starting at offset 1024 or lower; every offset in the document is relative to that position</text>
+<rect x="16" y="296" width="130" height="34" rx="3" fill="#4f9b63" opacity="0.15"/>
+<text x="81" y="316.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">png-signature · IHDR</text>
+<rect x="148" y="296" width="72" height="34" rx="3" fill="#4f9b63" opacity="0.15"/>
+<text x="184" y="316.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">tEXt "PNG"</text>
+<rect x="222" y="296" width="95" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="269.5" y="316.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">html-prologue</text>
+<rect x="319" y="296" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="349" y="316.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">&lt;!--</text>
+<rect x="381" y="296" width="107" height="34" rx="3" fill="#e8a33d" opacity="0.15"/>
+<text x="434.5" y="316.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">pdf-local-header</text>
+<rect x="490" y="296" width="140" height="34" rx="3" fill="#c14f4f"/>
+<path d="M 616 295 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="560" y="316.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pdf-document</text>
+<rect x="632" y="296" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="662" y="316.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">--&gt;</text>
+<rect x="694" y="296" width="136" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="762" y="316.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">html-prologue (cont.)</text>
+<rect x="832" y="296" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="862" y="316.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">&lt;!--</text>
+<rect x="894" y="296" width="113" height="34" rx="3" fill="#4f9b63" opacity="0.15"/>
+<text x="950.5" y="316.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">pixel-data chunks</text>
+<rect x="1009" y="296" width="72" height="34" rx="3" fill="#4f9b63" opacity="0.15"/>
+<text x="1045" y="316.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">tEXt "ZIP"</text>
+<rect x="1083" y="296" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="1113" y="316.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">--&gt;</text>
+<rect x="1145" y="296" width="95" height="34" rx="3" fill="#28568a" opacity="0.15"/>
+<text x="1192.5" y="316.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">bootstrap</text>
+<rect x="1242" y="296" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="1272" y="316.5" font-size="8.5" fill="#98a2ac" text-anchor="middle">&lt;!--sfz-data</text>
+<rect x="1304" y="296" width="140" height="34" rx="3" fill="#e8a33d" opacity="0.15"/>
+<text x="1374" y="316.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">zip-entries</text>
+<rect x="1446" y="296" width="119" height="34" rx="3" fill="#b06f1d" opacity="0.15"/>
+<text x="1505.5" y="316.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">pdf-central-record</text>
+<rect x="1567" y="296" width="154" height="34" rx="3" fill="#b06f1d" opacity="0.15"/>
+<text x="1644" y="316.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">central-directory · eocd</text>
+<rect x="1723" y="296" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="1753" y="316.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">--&gt;</text>
+<rect x="1785" y="296" width="95" height="34" rx="3" fill="#8f62b8" opacity="0.15"/>
+<text x="1832.5" y="316.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">extra-data</text>
+<rect x="1882" y="296" width="72" height="34" rx="3" fill="#4f9b63" opacity="0.15"/>
+<text x="1918" y="316.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">crc · IEND</text>
+<text x="16" y="376" font-size="12.5" font-weight="600" fill="#1c2733">PNG decoder</text>
+<text x="109.4" y="376" font-size="11" fill="#68727c">walks chunks from the signature; the declared lengths of the two tEXt chunks skip all foreign bytes</text>
+<rect x="16" y="384" width="130" height="34" rx="3" fill="#4f9b63"/>
+<text x="81" y="404.5" font-size="10.5" fill="#ffffff" text-anchor="middle">png-signature · IHDR</text>
+<rect x="148" y="384" width="72" height="34" rx="3" fill="#4f9b63"/>
+<text x="184" y="404.5" font-size="10.5" fill="#ffffff" text-anchor="middle">tEXt "PNG"</text>
+<rect x="222" y="384" width="95" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="269.5" y="404.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">html-prologue</text>
+<rect x="319" y="384" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="349" y="404.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">&lt;!--</text>
+<rect x="381" y="384" width="107" height="34" rx="3" fill="#e8a33d" opacity="0.15"/>
+<text x="434.5" y="404.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">pdf-local-header</text>
+<rect x="490" y="384" width="140" height="34" rx="3" fill="#c14f4f" opacity="0.15"/>
+<text x="560" y="404.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">pdf-document</text>
+<rect x="632" y="384" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="662" y="404.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">--&gt;</text>
+<rect x="694" y="384" width="136" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="762" y="404.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">html-prologue (cont.)</text>
+<rect x="832" y="384" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="862" y="404.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">&lt;!--</text>
+<rect x="894" y="384" width="113" height="34" rx="3" fill="#4f9b63"/>
+<path d="M 993 383 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="950.5" y="404.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pixel-data chunks</text>
+<rect x="1009" y="384" width="72" height="34" rx="3" fill="#4f9b63"/>
+<text x="1045" y="404.5" font-size="10.5" fill="#ffffff" text-anchor="middle">tEXt "ZIP"</text>
+<rect x="1083" y="384" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="1113" y="404.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">--&gt;</text>
+<rect x="1145" y="384" width="95" height="34" rx="3" fill="#28568a" opacity="0.15"/>
+<text x="1192.5" y="404.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">bootstrap</text>
+<rect x="1242" y="384" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="1272" y="404.5" font-size="8.5" fill="#98a2ac" text-anchor="middle">&lt;!--sfz-data</text>
+<rect x="1304" y="384" width="140" height="34" rx="3" fill="#e8a33d" opacity="0.15"/>
+<text x="1374" y="404.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">zip-entries</text>
+<rect x="1446" y="384" width="119" height="34" rx="3" fill="#b06f1d" opacity="0.15"/>
+<text x="1505.5" y="404.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">pdf-central-record</text>
+<rect x="1567" y="384" width="154" height="34" rx="3" fill="#b06f1d" opacity="0.15"/>
+<text x="1644" y="404.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">central-directory · eocd</text>
+<rect x="1723" y="384" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="1753" y="404.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">--&gt;</text>
+<rect x="1785" y="384" width="95" height="34" rx="3" fill="#8f62b8" opacity="0.15"/>
+<text x="1832.5" y="404.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">extra-data</text>
+<rect x="1882" y="384" width="72" height="34" rx="3" fill="#4f9b63"/>
+<text x="1918" y="404.5" font-size="10.5" fill="#ffffff" text-anchor="middle">crc · IEND</text>
+<path d="M 222 431 v 5 H 892 v -5" stroke="#4f9b63" stroke-width="1.5" fill="none"/>
+<text x="557" y="448" font-size="9.5" fill="#4f9b63" text-anchor="middle">tEXt "PNG" chunk data</text>
+<path d="M 1083 431 v 5 H 1880 v -5" stroke="#4f9b63" stroke-width="1.5" fill="none"/>
+<text x="1481.5" y="448" font-size="9.5" fill="#4f9b63" text-anchor="middle">tEXt "ZIP" chunk data</text>
+<text x="16" y="490" font-size="12.5" font-weight="600" fill="#1c2733">universal-mode extractor</text>
+<text x="205.60000000000002" y="490" font-size="11" fill="#68727c">re-encodes the parsed characters of the hidden zip region back into bytes, guided by extra-data</text>
+<rect x="16" y="498" width="130" height="34" rx="3" fill="#4f9b63" opacity="0.15"/>
+<text x="81" y="518.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">png-signature · IHDR</text>
+<rect x="148" y="498" width="72" height="34" rx="3" fill="#4f9b63" opacity="0.15"/>
+<text x="184" y="518.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">tEXt "PNG"</text>
+<rect x="222" y="498" width="95" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="269.5" y="518.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">html-prologue</text>
+<rect x="319" y="498" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="349" y="518.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">&lt;!--</text>
+<rect x="381" y="498" width="107" height="34" rx="3" fill="#e8a33d" opacity="0.15"/>
+<text x="434.5" y="518.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">pdf-local-header</text>
+<rect x="490" y="498" width="140" height="34" rx="3" fill="#c14f4f" opacity="0.15"/>
+<text x="560" y="518.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">pdf-document</text>
+<rect x="632" y="498" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="662" y="518.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">--&gt;</text>
+<rect x="694" y="498" width="136" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="762" y="518.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">html-prologue (cont.)</text>
+<rect x="832" y="498" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="862" y="518.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">&lt;!--</text>
+<rect x="894" y="498" width="113" height="34" rx="3" fill="#4f9b63" opacity="0.15"/>
+<text x="950.5" y="518.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">pixel-data chunks</text>
+<rect x="1009" y="498" width="72" height="34" rx="3" fill="#4f9b63" opacity="0.15"/>
+<text x="1045" y="518.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">tEXt "ZIP"</text>
+<rect x="1083" y="498" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="1113" y="518.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">--&gt;</text>
+<rect x="1145" y="498" width="95" height="34" rx="3" fill="#28568a" opacity="0.15"/>
+<text x="1192.5" y="518.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">bootstrap</text>
+<rect x="1242" y="498" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="1272" y="518.5" font-size="8.5" fill="#98a2ac" text-anchor="middle">&lt;!--sfz-data</text>
+<rect x="1304" y="498" width="140" height="34" rx="3" fill="#e8a33d"/>
+<path d="M 1430 497 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="1374" y="518.5" font-size="10.5" fill="#ffffff" text-anchor="middle">zip-entries</text>
+<rect x="1446" y="498" width="119" height="34" rx="3" fill="#b06f1d"/>
+<text x="1505.5" y="518.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pdf-central-record</text>
+<rect x="1567" y="498" width="154" height="34" rx="3" fill="#b06f1d"/>
+<text x="1644" y="518.5" font-size="10.5" fill="#ffffff" text-anchor="middle">central-directory · eocd</text>
+<rect x="1723" y="498" width="60" height="34" rx="3" fill="#3d7dbf" opacity="0.15"/>
+<text x="1753" y="518.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">--&gt;</text>
+<rect x="1785" y="498" width="95" height="34" rx="3" fill="#8f62b8"/>
+<text x="1832.5" y="518.5" font-size="10.5" fill="#ffffff" text-anchor="middle">extra-data</text>
+<rect x="1882" y="498" width="72" height="34" rx="3" fill="#4f9b63" opacity="0.15"/>
+<text x="1918" y="518.5" font-size="10.5" fill="#98a2ac" text-anchor="middle">crc · IEND</text>
+<text x="16" y="568" font-size="9.5" fill="#68727c">Every row is the same file (the all-four-faces variant of the byte map); solid blocks are the bytes that reader interprets, faded blocks the bytes it ignores.</text>
+</svg>
