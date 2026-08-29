@@ -87,6 +87,8 @@ const PNG_CHUNK_CRC_LENGTH = 4;
 const PNG_SIGNATURE_LENGTH = 8;
 const PNG_IHDR_LENGTH = 25;
 const PDF_ENTRY_FILENAME = "page.pdf";
+const PDF_HEADER_MAX_OFFSET = 1024;
+const MINIMAL_DOCTYPE = "<!DOCTYPE html>";
 const LOCAL_FILE_HEADER_SIGNATURE = 0x04034b50;
 const CENTRAL_FILE_HEADER_SIGNATURE = 0x02014b50;
 const END_OF_CENTRAL_DIR_SIGNATURE = 0x06054b50;
@@ -468,14 +470,14 @@ async function prependHTMLData(pageData, zipDataWriter, script, options, lastMod
 }
 
 function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
-	let html = "";
+	let bom = "";
 	if (options.includeBOM && !options.extractDataFromPage && !options.embeddedImage) {
-		html += "\ufeff";
+		bom = "\ufeff";
 	}
-	html += options.embeddedImage ? "" : pageData.doctype;
-	html += "<html data-sfz>";
+	const doctype = options.embeddedImage ? "" : pageData.doctype;
 	const charset = options.extractDataFromPage ? "windows-1252" : "utf-8";
-	html += "<meta charset=" + charset + ">";
+	const documentStart = "<html data-sfz><meta charset=" + charset + ">";
+	const html = bom + doctype + documentStart;
 	// the comment carries the page URL, whose length is unbounded: it is emitted after the
 	// declaration of the character encoding, and after the embedded PDF when there is one, so
 	// that neither the encoding declaration nor the PDF header leaves the first 1024 bytes
@@ -489,7 +491,13 @@ function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
 		const embeddedPdfText = TEXT_DECODER.decode(localHeader) + TEXT_DECODER.decode(embeddedPdf);
 		const pdfTagIndex = EMBEDDED_DATA_REGEXPS.slice(0, -1).findIndex(tests => !embeddedPdfText.match(tests[1]));
 		const [pdfStartTag, pdfEndTag] = pdfTagIndex == -1 ? ["", ""] : EMBEDDED_DATA_TAGS[pdfTagIndex];
-		const htmlArray1 = new TextEncoder().encode(html + pdfStartTag);
+		let htmlArray1 = new TextEncoder().encode(html + pdfStartTag);
+		if (htmlArray1.length + localHeader.length > PDF_HEADER_MAX_OFFSET) {
+			// PDF readers only scan the start of the file for the %PDF- header, and the page
+			// doctype is copied verbatim: it is the one part of the prefix with no bound, so a
+			// long one is replaced rather than pushing the header out of the scan window
+			htmlArray1 = new TextEncoder().encode(bom + MINIMAL_DOCTYPE + documentStart + pdfStartTag);
+		}
 		const htmlArray2 = new TextEncoder().encode(pdfEndTag + comment + htmlHeadData + startTag);
 		htmlArray = new Uint8Array(htmlArray1.length + localHeader.length + embeddedPdf.length + htmlArray2.length);
 		htmlArray.set(htmlArray1);
