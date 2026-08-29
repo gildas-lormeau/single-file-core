@@ -1,0 +1,120 @@
+{
+	"contentLength": 2097152,
+	"seeds": [
+		{
+			"seed": 68,
+			"fallbackTag": "<noscript>",
+			"pageSize": 720144
+		},
+		{
+			"seed": 154,
+			"fallbackTag": "<noscript>",
+			"pageSize": 721588
+		},
+		{
+			"seed": 176,
+			"fallbackTag": "<noscript>",
+			"pageSize": 721767
+		},
+		{
+			"seed": 184,
+			"fallbackTag": "<noscript>",
+			"pageSize": 721482
+		},
+		{
+			"seed": 212,
+			"fallbackTag": "<noscript>",
+			"pageSize": 720720
+		},
+		{
+			"seed": 223,
+			"fallbackTag": "<noscript>",
+			"pageSize": 721306
+		},
+		{
+			"seed": 224,
+			"fallbackTag": "<noscript>",
+			"pageSize": 721302
+		},
+		{
+			"seed": 232,
+			"fallbackTag": "<noscript>",
+			"pageSize": 720889
+		},
+		{
+			"seed": 256,
+			"fallbackTag": "<noscript>",
+			"pageSize": 719971
+		},
+		{
+			"seed": 282,
+			"fallbackTag": "<noscript>",
+			"pageSize": 721603
+		},
+		{
+			"seed": 288,
+			"fallbackTag": "<noscript>",
+			"pageSize": 722658
+		},
+		{
+			"seed": 343,
+			"fallbackTag": "<noscript>",
+			"pageSize": 721619
+		},
+		{
+			"seed": 351,
+			"fallbackTag": "<noscript>",
+			"pageSize": 721824
+		},
+		{
+			"seed": 372,
+			"fallbackTag": "<noscript>",
+			"pageSize": 720912
+		},
+		{
+			"seed": 379,
+			"fallbackTag": "<noscript>",
+			"pageSize": 722173
+		},
+		{
+			"seed": 383,
+			"fallbackTag": "<noscript>",
+			"pageSize": 722115
+		},
+		{
+			"seed": 404,
+			"fallbackTag": "<noscript>",
+			"pageSize": 720466
+		},
+		{
+			"seed": 426,
+			"fallbackTag": "<noscript>",
+			"pageSize": 721537
+		},
+		{
+			"seed": 441,
+			"fallbackTag": "<noscript>",
+			"pageSize": 721682
+		},
+		{
+			"seed": 445,
+			"fallbackTag": "<noscript>",
+			"pageSize": 721596
+		},
+		{
+			"seed": 475,
+			"fallbackTag": "<noscript>",
+			"pageSize": 720466
+		},
+		{
+			"seed": 495,
+			"fallbackTag": "<noscript>",
+			"pageSize": 720280
+		},
+		{
+			"seed": 500,
+			"fallbackTag": "<noscript>",
+			"pageSize": 721072
+		}
+	]
+}

@@ -1,0 +1,31 @@
+# .github/workflows/test.yml
+
+name: Test
+
+# tag pushes are excluded: creating a release would otherwise re-run the check already done on the branch
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  sfz-harness:
+    name: 'SFZ format rules'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      # the suites drive the writer directly, with no browser and no network
+      - run: npm test
+  lint:
+    name: 'Lint'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - run: npm ci
+      - run: npx eslint .
