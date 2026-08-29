@@ -643,14 +643,9 @@ async function getContent() {
 			const xhr = new XMLHttpRequest();
 			xhr.responseType = "blob";
 			xhr.open("GET", "");
-			xhr.onerror = () => {
-				if (aborted) {
-					displayMessage("sfz-error-message", 2);
-					reject();
-				} else {
-					extractDataFromDocument();
-				}
-			};
+			// a failure of the full download is recoverable when the page carries the data:
+			// the wait message left the document intact, so the page text can still be read
+			xhr.onerror = () => extractDataFromDocument();
 			xhr.send();
 			xhr.onreadystatechange = () => {
 				if (xhr.readyState === 2 && !aborted) {
@@ -658,7 +653,7 @@ async function getContent() {
 						aborted = true;
 						const httpRangeSupport = xhr.getResponseHeader("Accept-Ranges") === "bytes";
 						xhr.abort();
-						displayMessage("sfz-wait-message", 2);
+						displayMessage("sfz-wait-message", 2, true);
 						if (httpRangeSupport) {
 							resolve(new zip.HttpRangeReader(location.href, {
 								useXHR: true,
@@ -690,14 +685,14 @@ async function getContent() {
 		});
 	}
 
-	function displayMessage(elementId, delay = 0) {
+	function displayMessage(elementId, delay = 0, keepContent) {
 		const element = document.getElementById(elementId);
 		if (element) {
 			Array.from(document.body.childNodes).forEach(node => {
 				if (node.id != elementId) {
 					if (node.id == "sfz-wait-message" || node.id == "sfz-error-message") {
 						node.hidden = true;
-					} else {
+					} else if (!keepContent) {
 						node.remove();
 					}
 				}
