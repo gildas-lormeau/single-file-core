@@ -238,7 +238,7 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 			// window readers scan backward to find the EOCD record
 			if (options.preventAppendedData || extraData.length > 65535 - pageContent.length - endTags.length - (options.embeddedImage ? PNG_IEND_LENGTH + PNG_CHUNK_CRC_LENGTH : 0)) {
 				if (!options.extraDataSize) {
-					options.extraDataSize = Math.floor(extraData.length * 1.001);
+					options.extraDataSize = getReservationSize(extraData.length);
 					return createArchive(pageData, options, script, writeEntries, lastModDate);
 				}
 			} else {
@@ -260,7 +260,7 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 			pageContent.set(new TextEncoder().encode(extraData), startOffset - extraDataOffset);
 		} else {
 			options.extraData = extraData;
-			options.extraDataSize = Math.floor(extraData.length * 1.001);
+			options.extraDataSize = getReservationSize(extraData.length);
 			return createArchive(pageData, options, script, writeEntries, lastModDate);
 		}
 	}
@@ -357,6 +357,12 @@ function patchEndOfCentralDirectory(zipDataWriter, centralRecordLength) {
 		view.setBigUint64(offsetZip64EOCD + 32, view.getBigUint64(offsetZip64EOCD + 32, true) + 1n, true);
 		view.setBigUint64(offsetZip64EOCD + 40, view.getBigUint64(offsetZip64EOCD + 40, true) + BigInt(centralRecordLength), true);
 	}
+}
+
+// the reservation must be strictly larger than the payload it was computed from, otherwise
+// the retry loop can be handed the same size again and oscillate instead of converging
+function getReservationSize(length) {
+	return Math.max(length + 1, Math.floor(length * 1.001));
 }
 
 function getLength(length) {
