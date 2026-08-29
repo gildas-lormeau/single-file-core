@@ -11,9 +11,7 @@ The key words MUST, MUST NOT, SHOULD and MAY are to be interpreted as
 described in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119) when, and only when,
 they appear in all capitals.
 
-Three kinds of statement appear throughout, and telling them apart matters more here
-than in most specifications, because the format's whole method is to satisfy readers
-that know nothing about it:
+Three kinds of statement appear throughout:
 
 - **Format requirements**, in RFC 2119 capitals. Their subject is a writer producing an
   archive, or a *conforming reader of this format* — third-party software that reads
@@ -39,17 +37,16 @@ resources. Depending on the options used to produce it, the same byte string is 
 - a valid **PDF document** rendering the page.
 
 Each format's reader accepts the file as a complete document of its own format and
-silently ignores the bytes that belong to the other formats — *accepts* rather than
-*conforms*: several faces lean on reader tolerances the target standards do not
+silently ignores the bytes that belong to the other formats. The word is *accepts*,
+not *conforms*: several faces lean on reader tolerances the target standards do not
 promise (§1.1). The large payloads are stored once and
 shared: the archive entries, the PDF document and the PNG pixel data are single
 regions that several readers reach, not per-face copies. The polyglot works by
 *partitioning* the file into regions and arranging each region so that every reader
 either interprets it or skips it. Optional features add derived views of the
-page content: the text body (an optional plain-text copy of the page stored in the
-HTML face for text tools and indexers, §4.6) repeats the page text, and a screenshot
-is by definition a second rendering. But no face embeds another face's payload
-twice.
+page content, not copies of another face's payload: the text body (an optional
+plain-text copy of the page stored in the HTML face for text tools and indexers,
+§4.6) repeats the page text, and a screenshot is by definition a second rendering.
 
 ### 1.1 Design goals
 
@@ -61,8 +58,9 @@ little software as possible. Each way of opening the file has a simpler fallback
    instructions. Without JavaScript, it renders as a blank page: the document body
    is hidden by construction, so the browser displays neither the page nor raw
    archive bytes (§4.1).
-3. Renamed to `.zip`, the file opens in any ZIP tool; the page and each resource are
-   ordinary entries.
+3. Renamed to `.zip`, the file opens in a ZIP tool; the page and each resource are
+   ordinary entries. The two measured readers that refuse a self-extracting variant are
+   named in the ranking below.
 4. Renamed to `.pdf` or `.png` (when those faces are present), the file opens in a PDF
    viewer or an image viewer.
 
@@ -81,24 +79,24 @@ Three consequences shape everything below:
   `tEXt` chunk contains (§4.4). The compatibility appendix records the customary
   tolerances' real-world support (§8).
 - **The faces are not equally durable.** They rest on different amounts of unpromised
-  behavior, and anyone deciding what to rely on years from now should rank them rather
-  than treat "the file is valid in four formats" as four guarantees:
-  1. **The ZIP face** is the one to trust, and the only one the format is willing to
-     call storage. A variant with no other face is an ordinary ZIP file with nothing
-     unusual about it. The self-extracting variants add prepended and appended bytes,
-     which cost two measured readers — `ditto`, which requires a local header at offset
-     0, and `java.util.zip`, which rejects undeclared trailing bytes, the second of
-     which a writer can fix by declaring them as the archive comment (§4.2).
+  behavior, and "the file is valid in four formats" is not four guarantees. A decision
+  about what to rely on years from now should follow this order:
+  1. **The ZIP face** is the one to trust, and the only one the format calls storage.
+     A variant with no other face is an ordinary ZIP file. The self-extracting variants
+     add prepended and appended bytes, which cost two measured readers: `ditto`, which
+     requires a local header at offset 0, and `java.util.zip`, which rejects undeclared
+     trailing bytes. A writer can fix the second case by declaring those bytes as the
+     archive comment (§4.2).
   2. **The HTML face** rests mostly on *normative* behavior: HTML's tokenizer states
      and error recovery are specified, and the blank-page backstop of §4.1 is ordinary
-     CSS. Its exposure is that it depends on the ZIP face beneath it, and that a
-     browser must run its script for the page to appear.
+     CSS. It is exposed on two other counts: it depends on the ZIP face beneath it, and
+     a browser must run its script for the page to appear.
   3. **The PDF and PNG faces are conveniences.** Both rest entirely on tolerances no
-     standard promises: the PDF header scan — where PDFium already enforces its
-     1024-byte window exactly, with no margin — and PNG decoders' indifference to a
+     standard promises: the PDF header scan, where PDFium already enforces its
+     1024-byte window exactly with no margin, and PNG decoders' indifference to a
      `tEXt` chunk holding bytes the format does not permit. They are worth having
-     because they cost nothing the other faces need, but a preservation policy should
-     treat them as exports that happen to share the file, not as archival copies.
+     because they cost nothing the other faces need. For preservation purposes they
+     are exports that happen to share the file; they are not archival copies.
 
 ### 1.2 Non-goals
 
@@ -110,19 +108,18 @@ Three consequences shape everything below:
   the recovery payload of universal mode contains a checksum of the whole ZIP
   region, and the PDF and PNG structures wrap the archive (§5.4). A tool
   that adds, removes or recompresses entries invalidates them, and most rewriters drop
-  the prepended and appended regions outright. Editing an archive means producing a
-  new one through the writer rules (§6); a generically rewritten file keeps, at
-  best, its ZIP face.
+  the prepended and appended regions outright. A generically rewritten file keeps at
+  best its ZIP face. Editing an archive means producing a new one through the writer
+  rules (§6).
 - **Multi-page archives.** The reference implementation can bundle several saved
   pages into one archive behind a routing bootstrap (`multiPageArchive`). This
   version of the document specifies single-page archives only; the multi-page
   layout is out of scope.
 - **Confidentiality outside the ZIP entries.** A password encrypts ZIP entry contents
   only (AES). The PDF and PNG faces render the page content and are plaintext by
-  design; what the writer can withhold without breaking a face, it does withhold —
-  see §5.6. The embedded PDF MAY itself be a PDF-encrypted
-  document — the format is agnostic to the PDF's content — but the reference writer
-  does not produce one.
+  design; the writer withholds what it can without breaking a face, as described in
+  §5.6. The embedded PDF MAY itself be a PDF-encrypted document, since the format is
+  agnostic to the PDF's content, but the reference writer does not produce one.
 
 ### 1.3 Terminology
 
@@ -184,9 +181,8 @@ Notes on composition:
   URLs" in Chrome, Edge and Brave; "Disable Local File Restrictions" in Safari). Over
   HTTP the plain file is self-sufficient, fetching its own URL. A
   universal file instead carries the extra-data payload (§3.1, §5.5), so the bootstrap can
-  rebuild the archive from the parsed page text with no access to the raw bytes at
-  all — the file opens from disk in any browser, with no setting and no
-  assistance.
+  rebuild the archive from the parsed page text with no access to the raw bytes. Such a
+  file opens from disk in any browser, with no setting and no assistance.
 - **All four faces at once is a supported combination**: the PDF document rides
   inside the HTML head, which itself rides inside the PNG's first `tEXt` chunk
   (the all-four-faces row of the byte map).
@@ -241,10 +237,9 @@ face is discoverable from the bytes alone: PNG and PDF by their signatures, the 
 face by its End Of Central Directory record, and the HTML face by an `<html` start tag
 occurring before the first local file header — inside the first `tEXt` chunk's data in
 the PNG variants, where the markup begins after the chunk's keyword. Inside the
-archive, the `index.html` and `manifest.json` entries mark it as a saved page, and
-that is the identification a reader should use (§7.1). The self-extracting variants
-are told apart the same way: a universal file carries an `<sfz-extra-data>` element,
-a plain one does not.
+archive, the `index.html` and `manifest.json` entries mark it as a saved page; a
+reader should identify it that way (§7.1). The self-extracting variants are told apart
+the same way: only a universal file carries an `<sfz-extra-data>` element.
 
 ## 3. The byte map
 
@@ -252,9 +247,8 @@ Unless a row states otherwise, the layouts below are measured from specimen file
 saved from `example.com` (the generation commands are in §8); the
 oversized-payload layout is derived from the writer rules instead, because a payload
 over 64 KB requires an archive too large for a readable specimen. The figure below shows
-the regions and their order; the glossary of §3.1 is the normative list, and everything
-the figure conveys is stated there in text, so a copy of this document without its
-assets is still complete.
+the regions and their order; the glossary of §3.1 is the normative list, and it states
+in text everything the figure conveys.
 
 ![SingleFile archive byte map](assets/singlefile-archive-byte-map.svg)
 
@@ -293,11 +287,10 @@ them from colliding (wrapper-tag selection, checksums, offsets, the 64 KB budget
 
 ## 4. Reader lenses
 
-A polyglot is hard to read as one layout but easy to read as one reader at a time:
-each consumer has a defined way of locating its own bytes and a defined reason to
-ignore the rest. This section walks the same file through each reader. The figure
-shows the all-four-faces variant of the byte map once per reader, fading the regions
-that reader ignores; the subsections explain each row.
+Each consumer of the file has a defined way of locating its own bytes and a defined
+reason to ignore the rest. This section walks the same file through each reader. The
+figure shows the all-four-faces variant of the byte map once per reader, fading the
+regions that reader ignores; the subsections explain each row.
 
 ![SingleFile archive reader lenses](assets/singlefile-archive-lenses.svg)
 
@@ -318,15 +311,15 @@ default wrapper is an HTML comment, and the HTML standard defines exactly which
 character sequences terminate one (`-->`, and the recovery form `--!>`); the writer
 MUST select a wrapper only after checking the bytes it must hide against that
 wrapper's patterns (the exact rules differ between the ZIP region and the PDF and
-PNG payloads, §5.1), so hiding relies on normative parsing behavior, not on luck. One
+PNG payloads, §5.1), so hiding relies on normative parsing behavior. One
 case weakens the wrapper itself: when no wrapper fits a PDF or PNG payload the
-payload is emitted bare (§5.1). And some binary content always sits *outside* a
-wrapper — in the PNG variants, the signature, IHDR and chunk framing bytes that
+payload is emitted bare (§5.1). Some binary content always sits *outside* a
+wrapper: in the PNG variants, the signature, IHDR and chunk framing bytes that
 precede the root element start tag decode to a short run of text that HTML error recovery
 places in the (hidden) body. The backstop for all these cases is the prologue: it
 declares `<body hidden>` and a stylesheet that suppresses everything except the
-wait and error messages, which is what ultimately guarantees a blank page rather
-than raw bytes, with or without scripting.
+wait and error messages, so the page comes up blank rather than showing raw bytes,
+with or without scripting.
 
 The bootstrap script runs at parse time and proceeds in three stages:
 
@@ -356,8 +349,8 @@ the file's bytes as a `Blob` or an array of byte values, or a reader object expo
 the embedded ZIP reader's `readUint8Array` interface, and the call returns a promise
 that settles when the page has been displayed. This is how
 the SingleFile extension assists a *plain* (non-universal) file on `file:`: granted
-file-URL access, it reads the file and invokes the bootstrap, which is exactly the
-recovery path the plain variant's error message describes.
+file-URL access, it reads the file and invokes the bootstrap. That is the recovery
+path the plain variant's error message describes.
 
 ### 4.2 The ZIP reader
 
@@ -425,20 +418,19 @@ which contains the payload, whose content depends on the field.
 ### 4.3 The PDF viewer
 
 The PDF face relies on two customary reader behaviors — conventions PDF
-implementations follow rather than guarantees of the PDF specification, which is why
-the compatibility appendix records real-world support (§8):
+implementations follow rather than guarantees of the PDF specification, so the
+compatibility appendix records real-world support (§8):
 
 - **The header scan.** Viewers accept a file whose `%PDF-` header starts at offset
-  1024 or lower — the bound is on the header's first byte, and 1024 itself passes, as
-  the measurement below shows — and treat
-  the header's position as byte 0 of the document: every
+  1024 or lower — the bound is on the header's first byte, and 1024 itself passes —
+  and treat the header's position as byte 0 of the document: every
   offset in the file (cross-reference entries, `startxref`) is interpreted relative
   to it. The writer MUST place the header inside that window; the document's own
   offsets then need no rewriting. Engines differ in how strictly they hold to the
   1024-byte figure, and the strict ones are the common ones: PDFium — Chrome, Edge and
   everything else Chromium-based — accepts a header starting at offset 1024 and
   rejects one at 1025 outright, while poppler and macOS PDFKit impose no limit at all
-  (§8.1). The window is therefore a real constraint, not a formality.
+  (§8.1).
 - **Tolerance of trailing data.** The archive continues after `%%EOF`, so the
   document's tail is not the file's tail. Viewers cope by searching backward for the
   trailer over a larger window or by reconstructing the cross-reference table from
@@ -453,7 +445,7 @@ of it would break the face. Without the HTML face the document needs no wrapper,
 where it sits depends on the PNG face: alone with the ZIP face it simply starts the
 file, at offset 0, exercising only the trailing-data tolerance; with the PNG face it is
 the data of a `tEXt "PDF"` chunk placed right after `IHDR` (§3.1), which puts `%PDF-`
-at roughly offset 45 — inside the window, but not at its start.
+at roughly offset 45, inside the window but not at its start.
 
 ### 4.4 The PNG decoder
 
@@ -479,13 +471,13 @@ Both chunks carry text the PNG standard does not strictly permit: a `tEXt` text
 string is Latin-1 text, and the payloads here contain NUL bytes — 78 in the
 `tEXt "ZIP"` chunk of the `png` specimen, 101 in the `png-pdf` one. Decoders skip
 ancillary chunks without inspecting their text, so this passes everywhere tested
-(§8.1). It is the PNG tolerance §1.1 lists, exercised at its limit: not merely that a
-decoder ignores a `tEXt` chunk's text, but that it ignores text PNG does not permit.
+(§8.1). It exercises the PNG tolerance §1.1 lists at its limit: what decoders ignore
+in a `tEXt` chunk is text PNG does not permit.
 
 Both chunks MUST carry correct CRCs — decoders are entitled to verify them, and the
 second chunk's CRC can only be computed once the archive bytes are final (§6). The
 `pixel-data chunks` region is copied bit-identically from the source screenshot, so
-the decoded image is exactly the capture; the format never re-encodes pixels.
+the decoded image is exactly the capture.
 
 ### 4.5 The universal-mode extractor
 
@@ -517,8 +509,9 @@ It works in three steps:
    newline count, and the packed sequence of 2-bit codes recording each original
    newline (LF, CR or CR LF). Every one of the four describes the *recovered range*,
    not the whole ZIP region: a newline formed by the two excluded bytes is neither
-   counted nor coded, and the checksum does not cover them. The declared length is the **only** bound on the re-encoding — the
-   extractor MUST stop there and append two zero bytes to complete the EOCD record.
+   counted nor coded, and the checksum does not cover them. The declared length is the
+   **only** bound on the re-encoding: the extractor MUST stop there and append two zero
+   bytes to complete the EOCD record.
    Those two bytes are its comment-length field, and only that field: every other byte
    of the record is reconstructed from the parsed text like the rest of the region. The
    field is excluded because its value depends on what follows the region, so a payload
@@ -579,19 +572,19 @@ entry out on every acquisition path, including the ones that read raw bytes and 
 return it.
 
 The extractor MUST verify the three checkable payload fields — byte length, newline
-count and checksum — and fail to the error message on any mismatch; a corrupted
-reconstruction is never fed to the ZIP reader.
+count and checksum — and fail to the error message on any mismatch.
 
 The recovered region is a complete archive but **not an offset-self-contained one**.
 Its offsets are still absolute positions in the original file (§5.3), so every
 local-header offset in its central directory, and the central-directory offset in its
 EOCD record, overshoot by exactly the region's start position in the file. A reader of
-the recovered region MUST therefore apply a uniform negative shift of that amount —
-which is the prepended-data compensation ZIP readers already implement, since from the
-region's point of view the missing bytes look like a prefix that was stripped. In the
+the recovered region MUST therefore apply a uniform negative shift of that amount, the
+prepended-data compensation ZIP readers already implement: from the region's point of
+view the missing bytes look like a prefix that was stripped. In the
 specimen of §8.2 the shift is 122005 bytes: Info-ZIP reports `missing 122005 bytes in
 zipfile`, adds `(attempting to process anyway)` and lists both entries, while readers
-that compensate silently, such as Python's `zipfile`, show no diagnostic at all. This is also what puts `page.pdf` out of the
+that compensate silently, such as Python's `zipfile`, show no diagnostic at all. The
+shift also puts `page.pdf` out of the
 offset-following path: its local header lies *before* the region, so its compensated
 offset is negative (−102092 in the `pdf` specimen) and no reader can seek to it. On
 success the shifted bytes enter the normal extraction path (§4.2).
@@ -605,12 +598,12 @@ the region is known. With `region` the recovered bytes,
 shift = eocd.centralDirectoryOffset - (region.length - 22 - eocd.centralDirectorySize)
 ```
 
-which is precisely what a ZIP reader's prepended-data compensation computes internally
-— so a reader handing the recovered region to such a library has nothing to do at all.
-Under zip64 (§5.4) both of those EOCD fields are the `0xFFFFFFFF` sentinel and the
+which is precisely what a ZIP reader's prepended-data compensation computes internally,
+so a library that implements it needs nothing from the reader here. Under zip64 (§5.4)
+both of those EOCD fields are the `0xFFFFFFFF` sentinel and the
 formula MUST be applied to the zip64 end of central directory record instead, whose
 offset the zip64 locator gives; a reader that uses the sentinels arithmetically gets a
-shift in the billions rather than a diagnostic.
+shift in the billions, with no diagnostic.
 
 ### 4.6 Text tools
 
@@ -618,18 +611,17 @@ The optional text body (`insertTextBody`) addresses one more consumer: software 
 reads the file as plain text — `grep`, desktop search, indexers — and will never run
 the bootstrap or unzip anything. It is a `<main hidden>` element at the end of the
 visible prologue holding the page's text content, so the page stays searchable
-without any extraction. Searchable to everyone, which is why it is not written at all
-when a password is set (§5.6): it would hand the page's text to the same tools the
-password is meant to stop.
+without any extraction. It is searchable by everyone, so it is not written at all
+when a password is set (§5.6): its text would be readable without the password.
 
 The text body is always written in UTF-8, regardless of the declared charset. In
 universal mode this cuts its audience in two: a charset-oblivious tool that reads
 raw bytes — `grep`, plain-text search — sees intact UTF-8, while any consumer that
 honors the declared `<meta charset>` decodes it as windows-1252 and garbles
 non-ASCII text. That includes the HTML parser itself — harmless there, because the
-region is hidden and replaced (§4.1) — but also HTML-aware indexers, which is the
-tradeoff universal mode accepts. The text body opens with the page title, for the same
-raw-byte audience — it is the first *text* in the element, which is not necessarily the
+region is hidden and replaced (§4.1) — but also HTML-aware indexers. The text body
+opens with the page title, for the same raw-byte
+audience — it is the first *text* in the element, which is not necessarily the
 element's first line: the reference writer's serialization puts a newline before it.
 
 The `<title>` element takes the opposite route. Its content is RCDATA, where
@@ -685,8 +677,9 @@ parser, but text extractors differ, and the ZIP region is large enough that the
 difference is a user-visible one. Measured on macOS: Spotlight's HTML importer indexes
 the content of `<noframes>`, `<noembed>`, `<iframe>`, `<xmp>` and `<plaintext>`, and
 `textutil` reads the last two of those, `<xmp>` and `<plaintext>`, while the comment
-and the `script` and `style` rungs are dropped by both. Those two therefore sit directly under the comment,
-so that an escalating writer keeps the archive out of the reader's local search index
+and the `script` and `style` rungs are dropped by both. Those two therefore sit
+directly under the comment, so that an escalating writer keeps the archive out of the
+reader's local search index
 for as long as the payload allows. Both are inert at those types: the script is not
 executed and no style sheet is built.
 
@@ -695,15 +688,12 @@ behavior rather than against a rule, and unlike the tolerances of §1.1 nothing 
 on the measurement holding. An extractor that starts reading `<script type=sfz-data>`,
 or stops reading `<xmp>`, changes only which archives end up in a local search index;
 every rung still hides its content from the HTML parser, and a writer whose ladder is
-ordered differently produces files that are just as correct. Treat the order as a
-default worth keeping, not as a property of the format.
+ordered differently produces files that are just as correct.
 
-Two things about the ladder *are* required, and they are worth separating from the
-order. A writer MUST apply the selection test below to every rung it considers, and
-MUST keep `<plaintext>` available as the rung of last resort — §6.2's termination
-argument needs one rung no payload can defeat, and that is the only structural role the
-ladder's shape plays. Which of the seven closable rungs a writer prefers, and in what
-sequence, is its own choice.
+Two things about the ladder *are* required. Whatever order a writer gives the seven
+closable rungs, it MUST apply the selection test below to every rung it considers, and
+MUST keep `<plaintext>` available as the rung of last resort: §6.2's termination
+argument needs one rung no payload can defeat.
 
 The wrapper of the ZIP region also carries the identifier the extractor addresses it
 with (§4.5): an element rung takes it as an `id` attribute — `<script type=sfz-data
@@ -723,9 +713,8 @@ what differs is how far the ladder goes:
 
   `<plaintext>` is exempt from **both** tests. It has no terminator to occur and no
   tokenizer states to escape into — a `<plaintext` inside a `<plaintext>` is inert
-  text like everything else — so no payload can defeat it. That exemption is what
-  makes §6.2's termination argument true: the last rung always fits, whatever the
-  payload contains.
+  text like everything else — so no payload can defeat it. §6.2's termination argument
+  rests on that exemption.
 
   The other seven are all tested, and a writer MUST test all seven rather than the one
   that needs it. The `<script>` rung needs it
@@ -736,20 +725,20 @@ what differs is how far the ladder goes:
   and the wrapper then swallows its own end tag, the extra-data element and the rest of
   the document. On the other six the start test is genuine conservatism: a nested `<!--`
   is a parse error inside a comment but does not close it, and the raw-text rungs hold a
-  flat run of characters with no states at all. The rule is uniform anyway, and
-  deliberately so — the exemption would save one pattern match per rung on bytes already
-  in memory, and would buy that with a special case an implementer has to remember
-  correctly about the single rung where forgetting it destroys the document. An earlier
-  draft of this section offered exactly that latitude, in the broader form "a writer MAY
-  skip the start test outside universal mode", and the reference writer's PDF and PNG
-  faces took it and shipped the bug (§8.5).
+  flat run of characters with no states at all. The rule is uniform deliberately: the
+  exemption would save one pattern match per rung on bytes already in memory, at the
+  cost of a special case an implementer has to remember correctly about the single rung
+  where forgetting it destroys the document. An earlier draft offered exactly that
+  latitude, in the broader form "a writer MAY skip the start test outside universal
+  mode", and the reference writer's PDF and PNG faces took it and shipped the bug
+  (§8.5).
 - **The PDF and PNG payloads** apply the same two tests, for the same reason — a face
   that took the `<script>` rung on a payload holding `<!--` and `<script` would swallow
   the rest of the document, title, bootstrap and extra-data element included — but the
   `<plaintext>` rung is excluded from their ladder: those payloads sit in the middle
   of the file, so a wrapper that can never close is not an option. When no rung fits,
   the payload is written bare, with no wrapper at all; it then reaches the parser as
-  text, and the blank-page backstop of §4.1 is what keeps it invisible.
+  text, and the blank-page backstop of §4.1 keeps it invisible.
 
 The comment rung has one restriction more than a terminator. HTML forbids comment text
 that *starts* with `>` or `->`, and the tokenizer enforces it: it closes the comment
@@ -768,13 +757,12 @@ Choosing the last rung has consequences that reach the rest of the file: because
 may follow the ZIP region, which forces the relocated placement of the extra-data
 element (§5.2) and drops the closing `</body></html>`.
 
-That constraint is about markup, not about the last byte of the file, and the PNG face
-composes with this rung for exactly that reason: the `tEXt` chunk's checksum and the
-`IEND` chunk still follow the region, as the PNG face requires, and `<plaintext>` reads
-them as the text they are. Verified on a build forced onto this rung with a screenshot
-embedded: the file ends `49 45 4e 44 ae 42 60 82`, decodes as a PNG, and its archive
-extracts from the parsed page. So §6.2's termination argument holds for every variant —
-the last rung fits whatever the payload and whatever the faces.
+That constraint is about markup, not about the last byte of the file, so the PNG face
+composes with this rung: the `tEXt` chunk's checksum and the `IEND` chunk still follow
+the region, as the PNG face requires, and `<plaintext>` reads them as the text they are.
+Verified on a build forced onto this rung with a screenshot embedded: the file ends
+`49 45 4e 44 ae 42 60 82`, decodes as a PNG, and its archive extracts from the parsed
+page. The termination argument of §6.2 therefore holds for the faced variants too.
 
 The check MUST be made against the payload's final bytes, for every payload the
 writer hides and in every variant that hides one. Every rejection restarts the build
@@ -792,8 +780,7 @@ wrapper close tag + extra-data element + end tags + (PNG face: 4-byte chunk CRC 
 ```
 
 and the writer compares its total against 65535 before committing to it. The EOCD
-record's own 22 bytes sit inside the window too, which is where the 65557-byte figure
-of §1.3 comes from.
+record's own 22 bytes sit inside the window too, giving the 65557-byte figure of §1.3.
 
 Only the extra-data element can outgrow the budget: it carries one 2-bit code per
 newline sequence in the ZIP region — CR LF counts once, for two bytes (§5.5) — so it
@@ -801,8 +788,8 @@ grows with the archive. Newline bytes
 occur at their natural density in compressed and STOREd binary data — about two in
 every 256 bytes — and the codes are compressed and base64-encoded, which measures at
 one byte of element per 650 bytes of archive at scale (§8). The budget is therefore
-exhausted at an archive of roughly 40 MB, which is why the relocated placement is rare
-in practice. That ratio is the large-archive limit and must not be used to size a
+exhausted at an archive of roughly 40 MB, so the relocated placement is rare in
+practice. That ratio is the large-archive limit and must not be used to size a
 particular file: deflate's overhead is a fixed cost spread over a growing payload, so
 small archives are far less efficient. Measured on exact byte counts, a 6099-byte region
 needs 69 bytes of element — a ratio of 88 — and a 74057-byte region needs 189, a ratio
@@ -842,9 +829,9 @@ counter, at exactly the position where the central directory is about to start.
 The writer's counter is therefore left *behind* the true stream position by exactly
 the record's length, so the central-directory offset it stores lands on the injected
 record rather than after it: the stored offset needs no correction and the record
-becomes the first entry of the directory. What does need
-correcting is the accounting: after the archive is closed the writer increments the
-entry counts and adds the record's length to the directory size (§6).
+becomes the first entry of the directory. The accounting does need correcting: after
+the archive is closed the writer increments the entry counts and adds the record's
+length to the directory size (§6).
 
 ### 5.4 Checksum inventory
 
@@ -859,12 +846,12 @@ all, but they cover different ranges and live in different structures:
 | Universal payload CRC-32 | the recovered range as the extractor re-encodes it — the ZIP region without its comment-length field (§1.3) | the recovery payload, with the range's length and newline count (§4.5) |
 | AES authentication code | one encrypted entry's stored bytes | that entry's data, when a password is set |
 
-The PDF face contributes none: PDF has no whole-file checksum, which is what lets the
-document sit inside a larger file unchanged.
+The PDF face contributes none: PDF has no whole-file checksum, so the document can sit
+inside a larger file unchanged.
 
-Two of these can only be computed when the file is otherwise final — the
-`tEXt "ZIP"` chunk CRC and the universal payload — which is what fixes the last steps
-of the writer's order (§6).
+Two of these — the `tEXt "ZIP"` chunk CRC and the universal payload — can only be
+computed when the file is otherwise final, which fixes the last steps of the writer's
+order (§6).
 
 ### 5.5 The character round trip
 
@@ -910,9 +897,8 @@ first — raw-deflated and base64-encoded with the standard alphabet and padding
 
 ### 5.6 Password scope
 
-A password encrypts the *contents* of ZIP entries with AES, and nothing else. Four
-consequences follow, and a reader is entitled to none of the protections it might
-assume:
+A password encrypts the *contents* of ZIP entries with AES, and nothing else. A reader
+gets no protection beyond that. Four consequences follow:
 
 - **`page.pdf` is never encrypted** and never compressed: its bytes double as the PDF
   face, which a viewer reads directly from the entry's data region (§4.3).
@@ -922,8 +908,7 @@ assume:
   archived resources, not the page's visible content.
 - **Entry metadata is never encrypted.** Names, uncompressed sizes and dates remain
   readable in the central directory, so the resource list of an encrypted archive is
-  public. This is standard ZIP behavior, not a property of this format, and §7
-  restates it for implementers.
+  public. This is standard ZIP behavior, not a property of this format; §7 restates it.
 - **What the writer withholds instead.** Three things are not forced into the clear by
   the format and so are simply not written when a password is set: the entry comments,
   which would otherwise publish every resource's source URL (§4.2); the `<title>`
@@ -933,17 +918,17 @@ assume:
   emits them in a password-protected archive publishes what the password is meant to
   cover for no gain.
 
-Encrypted entries are stamped AE-2, so their CRC-32 field is zero (§5.4) and
-`page.pdf`, which stays unencrypted, is the only entry of a password-protected
-archive whose checksum a ZIP tool can verify.
+Encrypted entries are stamped AE-2, so their CRC-32 field is zero (§5.4). `page.pdf`
+stays unencrypted, so in a password-protected archive its checksum is the only one a
+ZIP tool can verify.
 
 ### 5.7 zip64
 
 The archive uses the zip64 structures whenever the ordinary records cannot express
 it: a central directory starting beyond 4 GiB (the prefix counts toward the offset,
 §5.3), a directory 4 GiB or longer, or 65535 entries or more. The reference writer
-never requests zip64 explicitly, so it appears only when reached — and, given how
-large that is, effectively never in a saved page.
+never requests zip64 explicitly, so it appears only when reached, and given how large
+that is, effectively never in a saved page.
 
 When it is reached, the EOCD record carries the sentinel values `0xFFFF` and
 `0xFFFFFFFF` in the fields that overflowed, preceded by a zip64 end of central
@@ -977,9 +962,9 @@ buys. The cost is not evenly spread:
 | Plus the PDF or PNG face | The header window of §4.3 or the chunk patching of §5.3, plus a second wrapper choice for the embedded payload |
 
 Only the third row needs the retry loops, and only the fourth needs a value that cannot
-be computed until the file is otherwise complete. A writer that wants durable saved
-pages and not polyglots can stop at the first row and still produce files every reader
-in §8.1 accepts.
+be computed until the file is otherwise complete. A writer that only wants durable saved
+pages can stop at the first row; the files it produces are accepted by every reader in
+§8.1.
 
 ### 6.1 Build order
 
@@ -989,9 +974,10 @@ in §8.1 accepts.
    PDF scan window (§4.3).
 2. **HTML prologue.** With the HTML face, emit the doctype (omitted under the PNG
    face, which owns the start of the file), the root element start tag, any comment the
-   implementation adds, the `<meta charset>` required by §2.1, the head elements — the `<title>` among them,
-   unless a password is set (§5.6) — the CSS and `<body hidden>`, the wait and error messages, the optional table of contents and
-   text body, and the bootstrap script. With the PNG face the head of this region,
+   implementation adds, the `<meta charset>` required by §2.1, the head elements (the
+   `<title>` among them, unless a password is set (§5.6)), the CSS and `<body hidden>`,
+   the wait and error messages, the optional table of contents and text body, and the
+   bootstrap script. With the PNG face the head of this region,
    through `<body hidden>`, is the data of the `tEXt "PNG"` chunk and the remainder is
    emitted after the `tEXt "ZIP"` chunk header in step 12; with the PDF face the
    region is interrupted by step 3 as well.
@@ -999,7 +985,7 @@ in §8.1 accepts.
    Whatever a writer puts in the prologue, closing every element it opens before the
    wrapper start tag is good practice but not a requirement: the extractor addresses
    the ZIP region by identifier (§4.5), so an element left open only makes the archive
-   a descendant of it, which resolves the same way.
+   a descendant of it, and the lookup resolves the same way.
 3. **Embedded PDF.** With the PDF face and the HTML face, the prologue is *split*
    around the PDF, which MUST come early enough for `%PDF-` to start at offset 1024
    or lower (§4.3). Only what a parser needs first precedes it — the doctype, the
@@ -1010,7 +996,7 @@ in §8.1 accepts.
    local file header, the PDF document, the wrapper end tag, and record the local
    header's absolute position; then resume the prologue.
 
-   The window is reachable but not structurally guaranteed, and this is the one place
+   The window is reachable but not structurally guaranteed, and it is the one place
    where the format depends on the writer rather than on its own layout. The
    irreducible part of the prefix is small: the root element start tag, the charset
    declaration, the wrapper start tag and the 38-byte local file header for
@@ -1019,11 +1005,12 @@ in §8.1 accepts.
    regions ahead of the header have no length the format controls: the doctype, which
    is copied from the saved page and carries its public and system identifiers
    verbatim, and any comment the implementation chooses to write there. Real doctypes
-   are small — the longest in common use, XHTML 1.1 with MathML and SVG, is about 140
-   bytes — but nothing caps either region, so a writer MUST cap them itself, keeping
+   are small; the longest in common use, XHTML 1.1 with MathML and SVG, is about 140
+   bytes. But nothing caps either region, so a writer MUST cap them itself, keeping
    everything before the local file header inside the remaining budget of roughly 924
-   bytes — 879 with the PNG face, whose signature, `IHDR` and first chunk header take
-   the first 45 bytes of the same window and whose variant drops the doctype in exchange — shortening, dropping or relocating that content rather than emitting a
+   bytes (879 with the PNG face, whose signature, `IHDR` and first chunk header take
+   the first 45 bytes of the same window, and whose variant drops the doctype in
+   exchange), shortening, dropping or relocating that content instead of emitting a
    header outside the window. A writer that places nothing of unbounded length before
    the PDF block satisfies the rule by construction and needs no check at all.
 
@@ -1031,9 +1018,9 @@ in §8.1 accepts.
    block, so the page URL it carries cannot reach the window at all, and the prefix is
    measured before the header is written: when the page's own doctype would push
    `%PDF-` past 1024, `<!DOCTYPE html>` is emitted in its place. Substituting the
-   doctype changes the bootstrap document's rendering mode, which costs nothing here,
-   since the extracted page is written into the document with its own doctype (§4.1);
-   a writer that must keep the page doctype has to find the room elsewhere.
+   doctype changes the bootstrap document's rendering mode, which costs nothing here:
+   the extracted page is written into the document with its own doctype (§4.1). A
+   writer that must keep the page doctype has to find the room elsewhere.
 
    Without the HTML face, the PDF is simply the first thing in the file and the
    question does not arise.
@@ -1070,9 +1057,9 @@ in §8.1 accepts.
 
 ### 6.2 The retry loops
 
-Three conditions restart the build from step 1, and each restart carries forward what
-the failed pass learned. They terminate because every restart advances a monotone
-quantity:
+Four conditions restart the build from step 1, and each restart carries forward what
+the failed pass learned. The first three terminate because each of them advances a
+monotone quantity:
 
 - **Wrapper collision** (§5.1): the next pass starts at the next rung of the ladder.
   The ladder is finite and its last rung, `<plaintext>`, is exempt from both selection
@@ -1080,23 +1067,23 @@ quantity:
 - **Payload does not fit the appended budget** (§5.2): the next pass reserves room
   ahead of the archive, sized at the measured payload length plus a margin.
 - **Reservation too small**: relocating the payload changes the file's layout, hence
-  its offsets, hence the payload — which can grow past the room reserved for it. The
+  its offsets, hence the payload, which can grow past the room reserved for it. The
   next pass reserves the new length plus the same margin. For the loop to terminate,
   each reservation MUST be strictly larger than the payload that sized it: a margin
   that can round down to zero lets two passes measure the same length and reserve the
   same room forever.
 
-The converse also restarts: a pass that reserved room but then found the payload
-would fit in the appended window discards the reservation and rebuilds without it, so
-the writer does not leave dead padding in the file. This one is not monotone, and it is
-the only step that could keep the build alive forever — dropping the reservation moves
+The fourth is the converse of the second: a pass that reserved room but then found the
+payload would fit in the appended window discards the reservation and rebuilds without
+it, so the writer does not leave dead padding in the file. This step is not monotone,
+and it is the only one that could keep the build alive forever: dropping the reservation
+moves
 the archive back, which changes the offsets, which changes the payload that made the
 reservation necessary. A payload lying on the 65535-byte boundary can therefore be too
 large appended and small enough relocated, and the build oscillates. A writer MUST
 break that cycle: **the reservation is discarded at most once per build**, and a payload
 that fits the appended window on a later pass stays in the reservation it already has.
-The margin wasted is at most the reservation's own, which is what the discard was
-avoiding in the first place.
+The file then keeps at most the reservation's own margin of dead padding.
 
 Given identical inputs, modification date and archive time, the process is
 deterministic: the same page produces the same bytes, retries included. The archive
@@ -1117,20 +1104,20 @@ handles every variant of §2 without knowing which one it has.
   by scanning backward from the end of the file, then follow its offset. A reader that
   streams local headers from offset 0 will not find an archive: the file starts with
   the HTML, PDF or PNG face (§1.2, and §8.1 measures what such readers actually do).
-- **Tolerate bytes before and after the archive.** They are not corruption; they are
-  the other faces. Offsets are absolute, so no compensation is needed (§5.3).
+- **Tolerate bytes before and after the archive.** They are the other faces, not
+  corruption. Offsets are absolute, so no compensation is needed (§5.3).
 - **Accept both forms of appended data.** The bytes after the EOCD record may be raw
   or declared as the archive comment; both are valid (§4.2). A reader MUST NOT treat
   undeclared trailing bytes as a defect.
 - **Do not identify the format by file name.** Extensions are conventions (§2.2). A
-  SingleFile archive is identifiable from its content. Recognition and extraction are
-  separate questions, and the answers differ: an `index.html` entry accompanied by a
-  `manifest.json` entry in the same directory is the positive signal a reader should
-  recognize the format by, while `index.html` alone is enough to *extract* from, since
-  `manifest.json` is informative and MUST NOT be required (below). Neither test
-  distinguishes this format from an arbitrary ZIP file laid out the same way, and none
-  is offered: nothing in the format depends on recognizing it, and a reader that treats
-  any archive containing a page entry as a saved page loses nothing.
+  SingleFile archive is identifiable from its content, and recognition and extraction
+  use different tests: an `index.html` entry accompanied by a `manifest.json` entry in
+  the same directory is the positive signal for recognizing the format, while
+  `index.html` alone is enough to *extract* from, since `manifest.json` is informative
+  and MUST NOT be required (below). Neither test distinguishes this format from an
+  arbitrary ZIP file laid out the same way, and none is offered, because nothing in the
+  format depends on recognizing it. A reader that treats any archive containing a page
+  entry as a saved page loses nothing.
 - **Resolve the page entry in this order.** The archive's internal layout is
   implementation-defined, and two properties of the reference layout matter to a
   reader. Every entry MAY sit under a single root directory, which the reference
@@ -1142,27 +1129,27 @@ handles every variant of §2 without knowing which one it has.
   first that succeeds:
 
   1. `manifest.json`'s `indexFilename`, resolved against the root directory, when the
-     entry exists. This is the only authoritative answer, and it is why a writer that
-     departs from the reference layout SHOULD emit the manifest even though a reader
-     MUST NOT require it.
+     entry exists. This is the only authoritative answer, so a writer that departs from
+     the reference layout SHOULD emit the manifest even though a reader MUST NOT
+     require it.
   2. Otherwise the `index.html` entry at the smallest directory depth.
   3. If several `index.html` entries tie at that depth, the archive does not name its
      page: a reader MUST NOT pick one arbitrarily. Report the ambiguity, or treat the
      file as a plain ZIP archive.
 
-  The reference writer never produces a tie — one root directory at most, and every
-  other page nested under `frames/<n>/` — so step 3 exists for archives from other
-  writers.
+  The reference writer never produces a tie, since it creates at most one root
+  directory and nests every other page under `frames/<n>/`; step 3 exists for archives
+  from other writers.
 - **Treat `manifest.json` as informative.** The reference writer records the original
   URL as `originalUrl`, the title as `title`, the save time as `archiveTime` (an ISO
   8601 string), the entry name of the page as `indexFilename` and the resource-to-URL
-  map as `resources`. The page displays without any of it, a reader MUST NOT require
-  the entry or any field of it, and `indexFilename` names the page relative to the root
-  directory rather than as a full entry name. The set of fields is not closed: a reader
+  map as `resources`. The page displays without any of it, and a reader MUST NOT require
+  the entry or any field of it. `indexFilename` names the page relative to the root
+  directory, not as a full entry name. The set of fields is not closed: a reader
   MUST ignore what it does not recognize.
 - **Expect a `page.pdf` entry whose data lies outside the archive proper** (§4.2). It
   is an ordinary STORE entry at an ordinary offset, so nothing special is needed to
-  read it — but a reader that assumes every entry sits between the first local header
+  read it, but a reader that assumes every entry sits between the first local header
   and the central directory will reject or mislocate it.
 
 ### 7.2 Modifying
@@ -1177,13 +1164,13 @@ A tool that wants to produce a modified archive MUST rebuild it through the writ
 rules of §6. A tool that only wants the page content SHOULD extract rather than
 rewrite.
 
-The loss is silent, which makes automated handling the real hazard: a deduplicating
-store, a backup system that recompresses, a mail or chat service that repacks
-attachments, or any pipeline that round-trips the file through a ZIP library will
-return an archive whose entries are all intact and whose other faces are gone, with no
-error at any step. Nothing in the file records that this happened. Software that stores
-these archives SHOULD treat them as opaque bytes, and a preservation workflow that
-cannot guarantee that SHOULD keep a checksum of the original alongside it.
+The hazard is automated handling: a deduplicating store, a backup system that
+recompresses, a mail or chat service that repacks attachments, or any pipeline that
+round-trips the file through a ZIP library will return an archive whose entries are all
+intact and whose other faces are gone, with no error at any step and no record of it in
+the file. Software that stores these archives SHOULD treat them as opaque bytes, and a
+preservation workflow that cannot guarantee that SHOULD keep a checksum of the original
+alongside it.
 
 ### 7.3 Security considerations
 
@@ -1210,10 +1197,9 @@ cannot guarantee that SHOULD keep a checksum of the original alongside it.
 
 ### 7.4 What to reject and what to tolerate
 
-A reader of a polyglot file meets conditions that look like corruption but are not,
-and conditions that look harmless but mean the extracted page would be wrong. The
-distinction that matters is whether the condition affects the bytes the page is built
-from:
+A reader of a polyglot file meets conditions that look like corruption and are not, and
+others that look harmless but leave the extracted page wrong. A condition matters if and
+only if it affects the bytes the page is built from:
 
 | Condition | Reader behavior |
 |---|---|
@@ -1238,7 +1224,7 @@ would ordinarily emit, and none of it is specified here.
 Measured on macOS 26 with the specimens of §8.3 (Info-ZIP UnZip 6.00, libarchive
 3.7.4, Python 3.14, OpenJDK 21, 7-Zip 25.01, poppler `pdftotext`, macOS `ditto`,
 `sips` and Quick Look). Every result is predicted by two structural properties, so
-the variants are grouped by them rather than listed one by one:
+the variants are grouped by them:
 
 | Class | Bytes before the archive | Bytes after the EOCD | Variants |
 |---|---|---|---|
@@ -1246,7 +1232,7 @@ the variants are grouped by them rather than listed one by one:
 | B | yes | — | relocated (`preventAppendedData`), zip-pdf |
 | C | yes | yes | plain, universal, ladder, password, pdf, png, png-pdf, zip-png, zip-png-pdf, zip64 |
 
-The classes follow the bytes, not the options. `preventAppendedData` is what puts the
+The classes follow the bytes, not the options. `preventAppendedData` puts the
 relocated variant in class B, but it suppresses *markup* after the archive, not the PNG
 face's tail: an archive combining that option with a PNG face has bytes after the EOCD
 and is class C.
@@ -1261,11 +1247,11 @@ and is class C.
 | Java `java.util.zip` (`jar tf`) | ✔ | ✔ | ✘ | `zip END header not found` whenever bytes follow the EOCD undeclared. Declaring them as the archive comment makes the same file open, measured on every class-C variant (§4.2) |
 | macOS `ditto -x -k` | ✔ | ✘ | ✘ | `Couldn't read PKZip signature` — requires a local file header at offset 0, so prepended data alone defeats it |
 
-The cost of the declared form was measured on the same tools, and it is a display cost
-rather than a compatibility one: an archive whose trailing bytes are declared as the
-comment has them printed back on ordinary listings. `unzip -l` reproduces the whole run
-— in universal mode that is the `-->`, the entire `<sfz-extra-data>` element and the end
-tags — under the archive's own header, which is why the raw form is the default (§4.2).
+The cost of the declared form was measured on the same tools: it is a display cost, not
+a compatibility one. An archive whose trailing bytes are declared as the comment has
+them printed back on ordinary listings; `unzip -l` reproduces the whole run — in
+universal mode that is the `-->`, the entire `<sfz-extra-data>` element and the end tags
+— under the archive's own header. The raw form is the default for that reason (§4.2).
 
 The other faces were exercised on the variants that carry them, and all succeeded:
 `pdftotext` extracts the page text from every PDF-face variant, including the
@@ -1281,21 +1267,21 @@ engine of every Chromium-based browser) loads the document while the header star
 offset 1024 or less and fails with a data-format error from 1025 on — the documented
 1024-byte figure, enforced exactly. poppler `pdftotext` and macOS PDFKit render the
 same files with the header at 1000222 bytes, so they impose no window at all. A
-writer that keeps the header inside 1024 bytes satisfies every engine tested; one
-that does not still works on macOS and poppler while failing in Chrome.
+writer that keeps the header inside 1024 bytes satisfies every engine tested.
 
-`file(1)` disagrees with itself across the variants, and what it reports depends on
+`file(1)` disagrees with itself across the variants. What it reports depends on
 where the archive falls relative to the fixed buffer it sniffs, not on the variant as
-such — a small self-extracting file whose archive starts within that buffer is
-reported as `data` where a large one is reported as HTML. On these specimens: `HTML document text` for the plain, universal and ladder
-specimens, `PNG image data` for every PNG-face variant, `PDF document` for a
+such: a small self-extracting file whose archive starts within that buffer is
+reported as `data` where a large one is reported as HTML. On these specimens:
+`HTML document text` for the plain, universal and ladder specimens, `PNG image data`
+for every PNG-face variant, `PDF document` for a
 PDF-first archive, `Zip archive data` for a pure archive **and for the relocated
 variant**, whose first bytes are a doctype, and `data` where the HTML head carries
 the embedded PDF.
 
-Two conclusions for §1.1's customary tolerances. The EOCD backward scan and the
-tolerance of undeclared trailing bytes are near-universal but not unanimous — Java is
-the measured exception, and it is not a niche one, since `java.util.zip` is what
+Two of these results bear on §1.1's customary tolerances. The EOCD backward scan and
+the tolerance of undeclared trailing bytes are near-universal but not unanimous: Java
+is the measured exception, and not a niche one, since `java.util.zip` is what
 Android and most JVM tooling use. Prepended data is tolerated by every ZIP reader
 measured except Apple's `ditto`.
 
@@ -1334,10 +1320,10 @@ of them and supplies the last two itself (§1.3).
 Generated with the command-line client running `single-file-core` against
 `example.com`. The anatomy of §8.2 was regenerated against 1.5.108; the compatibility
 results of §8.1 were measured on the 1.5.107 build of the same specimen set, which
-differs only inside the prologue and so falls in the same classes — those are grouped by
-whether bytes precede the archive and follow the EOCD, which no prologue change alters. `--compress-content` is what makes the output an archive;
-`extract-data-from-page` defaults to true there, which is why the plain variant has
-to switch it off:
+differs only inside the prologue and so falls in the same classes: those are grouped
+by whether bytes precede the archive and follow the EOCD, which no prologue change
+alters. `--compress-content` makes the output an archive; `extract-data-from-page`
+defaults to true there, so the plain variant has to switch it off:
 
 | Specimen | Command |
 |---|---|
@@ -1352,10 +1338,11 @@ to switch it off:
 | password | add `--password=<password>` |
 
 These specimens are deliberately small, and a reader tested only against them is
-undertested: they are all flat archives of two or three entries. None exercises a root
-directory, `frames/<n>/` nesting, a second `index.html`, a `data:`-URL entry comment,
-the optional text body or table of contents (§4.6), a UTF-8 BOM, zip64 (§5.7), a
-payload past the 64 KB budget, or a relocated reservation with padding left in it.
+undertested: they are all flat archives of two or three entries. None
+exercises a root directory, `frames/<n>/` nesting, a second `index.html`, a `data:`-URL
+entry comment, the optional text body or table of contents (§4.6), a UTF-8 BOM, zip64
+(§5.7), a payload past the 64 KB budget, or a relocated reservation with padding left
+in it.
 
 Two specimens cannot be produced from a URL alone. The **ladder** specimen, which
 forces the second rung of §5.1, needs a page referencing an image whose stored bytes
@@ -1370,7 +1357,7 @@ of §5.7.
 
 ### 8.4 The charset round trip, measured
 
-Two claims of §2.1 were verified rather than assumed.
+Two claims of §2.1 were verified.
 
 **Which encodings qualify.** Decoding all 256 byte values through each encoding
 defined by the WHATWG standard shows 20 that are injective and never produce U+FFFD:
