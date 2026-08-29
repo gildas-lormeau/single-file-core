@@ -46,8 +46,10 @@ const TEXT_DECODER = new TextDecoder("windows-1252");
 
 const NO_COMPRESSION_EXTENSIONS = [".jpg", ".jpeg", ".png", ".avi", ".apng", ".pdf", ".woff2", ".mp4", ".mp3", ".ogg", ".webp", ".webm", ".avi", ".mpeg", ".ts", ".ogv", ".heif", ".heic"];
 const SCRIPT_PATH = "/lib/single-file-zip.min.js";
+// <noscript> is excluded: it is the only tag whose content is raw text when scripting is
+// enabled and markup when it is not, so the archive bytes would be parsed on a page opened
+// without scripting
 const EXTRA_DATA_TAGS = [
-	["<noscript>", "</noscript>"],
 	["<noframes>", "</noframes>"],
 	["<noembed>", "</noembed>"],
 	["<script type=sfz-data>", "</script>"],
@@ -61,7 +63,6 @@ const EMBEDDED_DATA_TAGS = [
 	...EXTRA_DATA_TAGS,
 ];
 const EXTRA_DATA_REGEXPS = [
-	[/<noscript/i, /<\/noscript[\t\n\f\r />]/i],
 	[/<noframes/i, /<\/noframes[\t\n\f\r />]/i],
 	[/<noembed/i, /<\/noembed[\t\n\f\r />]/i],
 	[/<script/i, /<\/script[\t\n\f\r />]/i],
