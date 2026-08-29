@@ -174,8 +174,11 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 		await writeData(zipDataWriter.writable, pdfEntry.centralRecord);
 	}
 	await zipWriter.close(undefined, { preventClose: true });
-	if (pdfEntry) {
-		patchEndOfCentralDirectory(zipDataWriter, pdfEntry.centralRecord.length);
+	if (pdfEntry && !patchEndOfCentralDirectory(zipDataWriter, pdfEntry.centralRecord.length)) {
+		// the record cannot be declared in the end of central directory record: rebuild the
+		// archive without it rather than leave a record the directory does not count
+		options.preventEmbeddedPdfEntry = true;
+		return createArchive(pageData, options, script, writeEntries, lastModDate);
 	}
 	const data = zipDataWriter.getData();
 	if (options.selfExtractingArchive) {
@@ -326,7 +329,7 @@ function patchEndOfCentralDirectory(zipDataWriter, centralRecordLength) {
 	const view = new DataView(zipDataWriter.array.buffer);
 	const offsetEOCD = zipDataWriter.offset - 22;
 	if (view.getUint32(offsetEOCD, true) != END_OF_CENTRAL_DIR_SIGNATURE) {
-		return;
+		return false;
 	}
 	const entriesOnDisk = view.getUint16(offsetEOCD + 8, true);
 	const totalEntries = view.getUint16(offsetEOCD + 10, true);
@@ -337,10 +340,10 @@ function patchEndOfCentralDirectory(zipDataWriter, centralRecordLength) {
 		// the offset stored in the locator does not account for the PDF record either
 		offsetZip64EOCD = Number(view.getBigUint64(offsetLocator + 8, true)) + centralRecordLength;
 		if (view.getUint32(offsetZip64EOCD, true) != ZIP64_END_OF_CENTRAL_DIR_SIGNATURE) {
-			return;
+			return false;
 		}
 	} else if (entriesOnDisk + 1 >= 0xFFFF || totalEntries + 1 >= 0xFFFF || centralDirectorySize + centralRecordLength >= 0xFFFFFFFF) {
-		return;
+		return false;
 	}
 	if (entriesOnDisk != 0xFFFF) {
 		view.setUint16(offsetEOCD + 8, entriesOnDisk + 1, true);
@@ -357,6 +360,7 @@ function patchEndOfCentralDirectory(zipDataWriter, centralRecordLength) {
 		view.setBigUint64(offsetZip64EOCD + 32, view.getBigUint64(offsetZip64EOCD + 32, true) + 1n, true);
 		view.setBigUint64(offsetZip64EOCD + 40, view.getBigUint64(offsetZip64EOCD + 40, true) + BigInt(centralRecordLength), true);
 	}
+	return true;
 }
 
 // the reservation must be strictly larger than the payload it was computed from, otherwise
@@ -472,18 +476,21 @@ function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
 	let htmlArray, pdfEntry;
 	if (options.embeddedPdf) {
 		const embeddedPdf = new Uint8Array(options.embeddedPdf);
-		pdfEntry = getPDFEntry(embeddedPdf, lastModDate);
-		const embeddedPdfText = TEXT_DECODER.decode(pdfEntry.localHeader) + TEXT_DECODER.decode(embeddedPdf);
+		pdfEntry = options.preventEmbeddedPdfEntry ? undefined : getPDFEntry(embeddedPdf, lastModDate);
+		const localHeader = pdfEntry ? pdfEntry.localHeader : new Uint8Array(0);
+		const embeddedPdfText = TEXT_DECODER.decode(localHeader) + TEXT_DECODER.decode(embeddedPdf);
 		const pdfTagIndex = EMBEDDED_DATA_REGEXPS.slice(0, -1).findIndex(tests => !embeddedPdfText.match(tests[1]));
 		const [pdfStartTag, pdfEndTag] = pdfTagIndex == -1 ? ["", ""] : EMBEDDED_DATA_TAGS[pdfTagIndex];
 		const htmlArray1 = new TextEncoder().encode(html + pdfStartTag);
 		const htmlArray2 = new TextEncoder().encode(pdfEndTag + htmlHeadData + startTag);
-		htmlArray = new Uint8Array(htmlArray1.length + pdfEntry.localHeader.length + embeddedPdf.length + htmlArray2.length);
+		htmlArray = new Uint8Array(htmlArray1.length + localHeader.length + embeddedPdf.length + htmlArray2.length);
 		htmlArray.set(htmlArray1);
-		htmlArray.set(pdfEntry.localHeader, htmlArray1.length);
-		htmlArray.set(embeddedPdf, htmlArray1.length + pdfEntry.localHeader.length);
-		htmlArray.set(htmlArray2, htmlArray1.length + pdfEntry.localHeader.length + embeddedPdf.length);
-		pdfEntry.offset = htmlArray1.length;
+		htmlArray.set(localHeader, htmlArray1.length);
+		htmlArray.set(embeddedPdf, htmlArray1.length + localHeader.length);
+		htmlArray.set(htmlArray2, htmlArray1.length + localHeader.length + embeddedPdf.length);
+		if (pdfEntry) {
+			pdfEntry.offset = htmlArray1.length;
+		}
 	} else {
 		htmlArray = new TextEncoder().encode(html + htmlHeadData + startTag);
 	}
