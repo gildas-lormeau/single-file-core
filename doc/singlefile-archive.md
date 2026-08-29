@@ -554,33 +554,29 @@ of reach either: the local header
 and the document sit in a wrapper in the head, so they are in the parsed page like any
 other region, and a reader MAY recover them by the same round trip — find a local file
 header naming `page.pdf` among the other parsed nodes, take the declared number of
-bytes after it, and check them against the CRC-32 the central directory holds. That
-check is mandatory rather than diligent, because the recovery payload's newline codes
-cover the ZIP region only: a newline in the PDF block has no code, so its original
-bytes must be guessed (assume LF, the byte the parser normalized *to*), and a PDF
-routinely contains CR. The guess is right often enough to be worth trying and wrong
-often enough that nothing may be written without the CRC agreeing; take the length from
-the central-directory record, which is the entry's authority for it — the hand-built
-local header of §6.1 carries the same value, but a reader has no way to know it was
-built that way rather than deferred to a data descriptor. A matching CRC-32 is validation, not proof of identity:
-it is a 32-bit non-cryptographic check over a reconstruction that differs from the
-original in at most a few newline bytes, which makes an undetected error unlikely but
-not impossible. A reader MUST NOT present a reconstructed `page.pdf` as verified, and
-MUST NOT let one displace bytes obtained from a raw-bytes read.
+bytes after it, and check them against the CRC-32 the central directory holds. The CRC
+check is mandatory. The recovery payload's newline codes cover the ZIP region only, so
+a newline in the PDF block has no code and its original bytes must be guessed: assume
+LF, the byte the parser normalized *to*. A PDF routinely contains CR, so the guess
+often fails, and nothing may be written unless the CRC-32 agrees. Take the length from
+the central-directory record, which is the entry's authority for it; the hand-built
+local header of §6.1 carries the same value, but a reader cannot tell that from a
+length deferred to a data descriptor. A matching CRC-32 is a 32-bit non-cryptographic
+check over a reconstruction that differs from the original in at most a few newline
+bytes, so an undetected error is improbable but cannot be ruled out. A reader MUST NOT
+present a reconstructed `page.pdf` as verified, and MUST NOT let one displace bytes
+obtained from a raw-bytes read.
 
-Recovering the entry is therefore optional, and skipping it — what the reference
-extractor does — is conforming.
-
-Skipping it silently is not, for one kind of reader. A reader that *presents the
-archive's contents* — a listing, an extract-to-disk, an entry enumeration offered to a
-caller (§7.1) — MUST report `page.pdf` as present and unretrieved rather than omit it,
-whether it skipped the recovery or tried and failed the CRC check; the listing is then
-the same as a raw-bytes reader's and only the bytes are missing. A reader that has no
-such surface is outside the rule: the display path of §4.1 rebuilds a page from the
-entries it needs, `page.pdf` is referenced by nothing in that page, and the reference
-extractor accordingly filters the entry out on every acquisition path, including the
-ones that read raw bytes and could return it. Dropping an entry nobody can observe is
-not the same act as dropping one from an answer about what the archive holds.
+Recovering the entry is therefore optional; the reference extractor skips it, which
+conforms. A reader that *presents the archive's contents* — a listing, an
+extract-to-disk, an entry enumeration offered to a caller (§7.1) — MUST report
+`page.pdf` as present and unretrieved rather than omit it, whether it skipped the
+recovery or tried and failed the CRC check. Its listing is then the same as a raw-bytes
+reader's, with only the bytes missing. A reader that has no such surface is outside the
+rule: the display path of §4.1 rebuilds a page from the entries it needs, `page.pdf` is
+referenced by nothing in that page, and the reference extractor accordingly filters the
+entry out on every acquisition path, including the ones that read raw bytes and could
+return it.
 
 The extractor MUST verify the three checkable payload fields — byte length, newline
 count and checksum — and fail to the error message on any mismatch; a corrupted
@@ -894,13 +890,11 @@ inverse mapping the extractor applies is, for the declared charset:
    | WHATWG | U+0081 | U+008D | U+008F | U+0090 | U+009D |
    | Python `cp1252`, Java `windows-1252` | undefined | undefined | undefined | undefined | undefined |
 
-   Those five bytes occur in ordinary compressed data, so this is not a corner case: a
-   strict platform decode raises on essentially every archive, and the obvious
-   workaround is worse than the error, because a decoder configured to replace what it
-   cannot map emits U+FFFD, which rule 3 below turns into NUL — silently corrupting one
-   byte per occurrence. Measured over ten specimen archives, 42 to 1468 bytes per file
-   would be lost this way. The payload checksum catches it; the debugging session it
-   costs is what this paragraph exists to prevent.
+   Those five bytes occur in ordinary compressed data, so a strict platform decode
+   raises on essentially every archive. Configuring the decoder to replace what it
+   cannot map is worse: it emits U+FFFD, which rule 3 below turns into NUL, corrupting
+   one byte per occurrence. Measured over ten specimen archives, 42 to 1468 bytes per
+   file would be lost this way. The payload checksum catches it.
 3. **U+FFFD → 0x00.** No byte decodes to U+FFFD under a qualifying encoding (§2.1), so
    the replacement character can only have come from a NUL byte. This holds because
    the payload is inside a wrapper: in every tokenizer state the ladder of §5.1
