@@ -181,22 +181,24 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 	if (options.selfExtractingArchive) {
 		const lfCodes = [];
 		let crc32 = -1;
-		if (options.extractDataFromPage) {
-			if (!options.extractDataFromPageTags || options.extractDataFromPageTags[0] != "<plaintext>") {
-				const textContent = TEXT_DECODER.decode(data.subarray(startOffset));
-				if (options.extractDataFromPageTags) {
-					const tagIndex = EXTRA_DATA_TAGS.indexOf(options.extractDataFromPageTags);
-					const regExpsTag = EXTRA_DATA_REGEXPS[tagIndex];
-					if (textContent.match(regExpsTag[0]) || textContent.match(regExpsTag[1])) {
-						return findExtraDataTags(textContent, pageData, options, script, writeEntries, lastModDate, tagIndex + 1);
-					}
-				} else {
-					const matchCommentTags = textContent.match(/<!--/i) || textContent.match(/--!?>/i);
-					if (matchCommentTags) {
-						return findExtraDataTags(textContent, pageData, options, script, writeEntries, lastModDate);
-					}
+		// the wrapper must not be closed by the zip data itself, whether or not the page
+		// carries the data: a premature closer parses the rest of the archive as markup
+		if (!options.extractDataFromPageTags || options.extractDataFromPageTags[0] != "<plaintext>") {
+			const textContent = TEXT_DECODER.decode(data.subarray(startOffset));
+			if (options.extractDataFromPageTags) {
+				const tagIndex = EXTRA_DATA_TAGS.indexOf(options.extractDataFromPageTags);
+				const regExpsTag = EXTRA_DATA_REGEXPS[tagIndex];
+				if (textContent.match(regExpsTag[0]) || textContent.match(regExpsTag[1])) {
+					return findExtraDataTags(textContent, pageData, options, script, writeEntries, lastModDate, tagIndex + 1);
+				}
+			} else {
+				const matchCommentTags = textContent.match(/<!--/i) || textContent.match(/--!?>/i);
+				if (matchCommentTags) {
+					return findExtraDataTags(textContent, pageData, options, script, writeEntries, lastModDate);
 				}
 			}
+		}
+		if (options.extractDataFromPage) {
 			for (let index = startOffset; index < data.length; index++) {
 				const byte = data[index];
 				crc32 = (crc32 >>> 8) ^ CRC32_TABLE[(crc32 ^ byte) & 0xff];
