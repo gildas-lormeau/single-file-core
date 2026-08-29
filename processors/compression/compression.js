@@ -78,8 +78,12 @@ const EXTRA_DATA_REGEXPS = [
 	[/<xmp/i, /<\/xmp[\t\n\f\r />]/i],
 	[/<plaintext/i, /<\/plaintext[\t\n\f\r />]/i]
 ];
+// a comment must also not end with "<!-", the last of the restrictions HTML puts on comment
+// text. The remaining one, that it must not start with ">" or "->", is not a matter of what
+// the payload contains: the zip data starts with the identifier and the PDF with a signature,
+// while the image data starts with a checksum, tested where that checksum is computed
 const EMBEDDED_DATA_REGEXPS = [
-	[/<!--/i, /--!?>/i],
+	[/<!--/i, /--!?>|<!-$/i],
 	...EXTRA_DATA_REGEXPS,
 ];
 const CRC32_TABLE = new Uint32Array(256).map((_, indexTable) => {
@@ -136,19 +140,28 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 		await writeData(zipDataWriter.writable, options.embeddedImage.slice(0, PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH));
 		if (options.selfExtractingArchive) {
 			const embeddedImageText = TEXT_DECODER.decode(embeddedImageData);
-			const tagIndex = EMBEDDED_DATA_REGEXPS.slice(0, -1).findIndex(tests => !embeddedImageText.match(tests[1]));
-			let startTag;
-			[startTag, endTag] = tagIndex == -1 ? ["", ""] : EMBEDDED_DATA_TAGS[tagIndex];
-			const startHTMLData = getStartHTMLArray(pageData, options, lastModDate, startTag);
-			const htmlArray = startHTMLData.htmlArray;
+			let tagIndex = EMBEDDED_DATA_REGEXPS.slice(0, -1).findIndex(tests => !embeddedImageText.match(tests[1]));
+			let startTag, startHTMLData, htmlData, htmlDataCRC, abruptComment;
+			do {
+				[startTag, endTag] = tagIndex == -1 ? ["", ""] : EMBEDDED_DATA_TAGS[tagIndex];
+				startHTMLData = getStartHTMLArray(pageData, options, lastModDate, startTag);
+				htmlData = new Uint8Array([...getLength(startHTMLData.htmlArray.length + 4), ...[0x74, 0x45, 0x58, 0x74, 0x50, 0x4e, 0x47, 0], ...startHTMLData.htmlArray]);
+				htmlDataCRC = getCRC32(htmlData, 4);
+				// what follows the start tag is this chunk's CRC, four bytes only known once the
+				// tag is chosen: a comment they open with ">" or "->" is closed by the parser
+				// there and then, leaving the image data to be read as markup
+				abruptComment = tagIndex == 0 && (htmlDataCRC[0] == 0x3e || (htmlDataCRC[0] == 0x2d && htmlDataCRC[1] == 0x3e));
+				if (abruptComment) {
+					tagIndex++;
+				}
+			} while (abruptComment);
 			if (startHTMLData.pdfEntry) {
 				pdfEntry = startHTMLData.pdfEntry;
 				// the htmlArray starts after the 4-byte length and the 8-byte type of the tEXt chunk
 				pdfEntry.offset += zipDataWriter.offset + 12;
 			}
-			const htmlData = new Uint8Array([...getLength(htmlArray.length + 4), ...[0x74, 0x45, 0x58, 0x74, 0x50, 0x4e, 0x47, 0], ...htmlArray]);
 			await writeData(zipDataWriter.writable, htmlData);
-			await writeData(zipDataWriter.writable, getCRC32(htmlData, 4));
+			await writeData(zipDataWriter.writable, htmlDataCRC);
 		} else if (options.embeddedPdf) {
 			const data = new Uint8Array([...getLength(options.embeddedPdf.length + 4), ...[0x74, 0x45, 0x58, 0x74, 0x50, 0x44, 0x46, 0], ...new Uint8Array(options.embeddedPdf)]);
 			await writeData(zipDataWriter.writable, data);
@@ -210,8 +223,8 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 					return findExtraDataTags(textContent, pageData, options, script, writeEntries, lastModDate, tagIndex + 1);
 				}
 			} else {
-				const matchCommentTags = textContent.match(/<!--/i) || textContent.match(/--!?>/i);
-				if (matchCommentTags) {
+				const [startRegExp, endRegExp] = EMBEDDED_DATA_REGEXPS[0];
+				if (textContent.match(startRegExp) || textContent.match(endRegExp)) {
 					return findExtraDataTags(textContent, pageData, options, script, writeEntries, lastModDate);
 				}
 			}
