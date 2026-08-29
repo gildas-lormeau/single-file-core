@@ -1368,7 +1368,12 @@ undertested: they are all flat archives of two or three entries. None
 exercises a root directory, `frames/<n>/` nesting, a second `index.html`, a `data:`-URL
 entry comment, the optional text body or table of contents (§4.6), a UTF-8 BOM, zip64
 (§5.7), a payload past the 64 KB budget, or a relocated reservation with padding left
-in it.
+in it. Two omissions matter more than the rest, because they are the parts of §5.1 a
+writer is most likely to get wrong: no specimen defeats a rung by its **start**
+pattern, and none defeats one with an **upper-case** pattern. A writer that tested only
+end patterns, or matched them case-sensitively, produces every specimen here unchanged
+— and the first of those two mistakes is one the reference writer actually shipped
+(§8.5).
 
 Two specimens cannot be produced from a URL alone. The **ladder** specimen, which
 forces the second rung of §5.1, needs a page referencing an image whose stored bytes
