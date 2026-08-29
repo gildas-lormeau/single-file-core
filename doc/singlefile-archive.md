@@ -33,8 +33,10 @@ resources. Depending on the options used to produce it, the same byte string is 
 
 - a valid **HTML page** that extracts and displays the archived page when opened in a
   browser, with no external dependency;
-- a valid **PNG image** showing a screenshot of the page;
-- a valid **PDF document** rendering the page.
+- a valid **PNG image**, typically a screenshot of the page, though the format does not
+  require the image to depict it;
+- a valid **PDF document**, typically a rendering of the page, though the format does
+  not require the document to depict it either.
 
 Each format's reader accepts the file as a complete document of its own format and
 silently ignores the bytes that belong to the other formats. The word is *accepts*,
@@ -43,10 +45,11 @@ promise (§1.1). The large payloads are stored once and
 shared: the archive entries, the PDF document and the PNG pixel data are single
 regions that several readers reach, not per-face copies. The polyglot works by
 *partitioning* the file into regions and arranging each region so that every reader
-either interprets it or skips it. Optional features add derived views of the
-page content, not copies of another face's payload: the text body (an optional
-plain-text copy of the page stored in the HTML face for text tools and indexers,
-§4.6) repeats the page text, and a screenshot is by definition a second rendering.
+either interprets it or skips it. What the optional features add is never a copy of
+another face's payload: the text body (an optional plain-text copy of the page stored
+in the HTML face for text tools and indexers, §4.6) repeats the page text, and the
+image and PDF a writer supplies are separate documents, whether or not they depict the
+archived page.
 
 ### 1.1 Design goals
 
@@ -274,10 +277,10 @@ face adds, then the regions the PNG face adds.
 | `pdf-local-header` | ZIP | PDF face with HTML | The hand-built local file header for `page.pdf` (STORE, checksum precomputed), written immediately before the PDF document so ZIP readers see an ordinary entry whose data is the PDF (§6). |
 | `pdf-document` | PDF | PDF face | The raw PDF bytes. With the HTML face, wrapped together with `pdf-local-header` in a wrapper tag pair inside `html-prologue`, placed so `%PDF-` starts at offset 1024 or lower — the range PDF readers search for the header, which is what lets a PDF document start after other bytes at all (§4.3). Without the HTML face the file simply *starts* with the PDF document, as prepended data the ZIP face tolerates; `page.pdf` is then not an archive entry at all — no local header, no central record. |
 | `pdf-central-record` | ZIP | PDF face with HTML | The central-directory record for `page.pdf`, injected *before* the writer's own central directory. The start of the central directory is the one place a record can be added without moving any offset the writer already committed, and it makes `page.pdf` the first entry ZIP tools list (§6). |
-| `png-signature · IHDR` | PNG | PNG face | The 8-byte PNG signature and the `IHDR` chunk declaring the screenshot's dimensions — the first 33 bytes of the file. |
+| `png-signature · IHDR` | PNG | PNG face | The 8-byte PNG signature and the `IHDR` chunk declaring the source image's dimensions — the first 33 bytes of the file. |
 | `tEXt "PNG"` | PNG | PNG face with HTML | The length, type and keyword bytes of the first `tEXt` chunk. Its data is `html-prologue` (with the PDF face, the embedded PDF document rides inside it too), ending with the wrapper start tag. |
 | `tEXt "PDF"` | PNG | PNG + PDF faces without HTML | The length, type and keyword bytes of a `tEXt` chunk whose data is the raw PDF document. Written only when the PNG and PDF faces combine without HTML — with the HTML face the PDF rides inside `tEXt "PNG"` instead — and placed right after `IHDR` so `%PDF-` stays within the header scan window (§4.3). |
-| `pixel-data chunks` | PNG | PNG face | The screenshot's image-data chunks, copied unmodified from the source image. With the HTML face they sit inside the wrapper so the HTML parser skips them. |
+| `pixel-data chunks` | PNG | PNG face | The source image's image-data chunks, copied unmodified. With the HTML face they sit inside the wrapper so the HTML parser skips them. |
 | `tEXt "ZIP"` | PNG | PNG face | The length, type and keyword bytes of the second `tEXt` chunk. Its declared length covers everything from there to the trailing chunk CRC, so the PNG decoder skips the archive — and, with the HTML face, the bootstrap and the appended data — as the data of one chunk. With the HTML face, the wrapper opened at the end of `tEXt "PNG"` closes immediately after these bytes: its content is the first chunk's CRC, the pixel-data chunks and this chunk's own header, and the prologue resumes as markup directly after the close tag. |
 | `crc · IEND` | PNG | PNG face | The `tEXt "ZIP"` chunk's CRC, computed once the archive bytes are final (§6), followed by the empty `IEND` chunk — the last bytes of the file (PNG requires `IEND` to end the stream, which is why the PNG variants drop the end tags). |
 
@@ -476,8 +479,8 @@ in a `tEXt` chunk is text PNG does not permit.
 
 Both chunks MUST carry correct CRCs — decoders are entitled to verify them, and the
 second chunk's CRC can only be computed once the archive bytes are final (§6). The
-`pixel-data chunks` region is copied bit-identically from the source screenshot, so
-the decoded image is exactly the capture.
+`pixel-data chunks` region is copied bit-identically from the source image, so the
+decoded image is exactly that image.
 
 ### 4.5 The universal-mode extractor
 
@@ -969,7 +972,7 @@ pages can stop at the first row; the files it produces are accepted by every rea
 ### 6.1 Build order
 
 1. **PNG head.** With the PNG face, copy the signature and `IHDR` from the source
-   screenshot unchanged. Without the HTML face but with the PDF face, emit the
+   image unchanged. Without the HTML face but with the PDF face, emit the
    `tEXt "PDF"` chunk holding the PDF document here, so its header falls inside the
    PDF scan window (§4.3).
 2. **HTML prologue.** With the HTML face, emit the doctype (omitted under the PNG
