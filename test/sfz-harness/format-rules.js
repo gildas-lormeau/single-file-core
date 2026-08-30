@@ -207,6 +207,34 @@ function countIdentifiers(text) {
 	check("the cdata rung leaves the appended data placement alone", options.preventAppendedData !== true, true);
 }
 
+// the rung a caller names is resolved by its start tag, not by the identity of the array holding
+// it. The option is internal and is normally set from the module's own EXTRA_DATA_TAGS, so an
+// identity match worked by accident; a caller passing an equal pair of its own indexed the regexp
+// table with -1 and threw a bare TypeError out of library internals
+{
+	const options = makeOptions({ extractDataFromPageTags: ["<noframes>", "</noframes>"] });
+	const pageData = makePageData(31, 4 * 1024);
+	let error;
+	try {
+		await runProcess(pageData, options);
+	} catch (caught) {
+		error = caught;
+	}
+	check("a rung named by an equal pair is resolved", error, undefined);
+}
+
+{
+	const options = makeOptions({ extractDataFromPageTags: ["<marquee>", "</marquee>"] });
+	const pageData = makePageData(32, 4 * 1024);
+	let message;
+	try {
+		await runProcess(pageData, options);
+	} catch (error) {
+		message = error.message;
+	}
+	check("a rung that is not in the ladder names itself", message, "Unknown data tags: <marquee>");
+}
+
 // the terminator is the whole test for this rung, so a payload holding it must step past
 {
 	const content = new Uint8Array(4096).fill(0x21);

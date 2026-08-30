@@ -253,7 +253,10 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 		if (!options.extractDataFromPageTags || options.extractDataFromPageTags[0] != "<plaintext>") {
 			const textContent = TEXT_DECODER.decode(data.subarray(startOffset));
 			if (options.extractDataFromPageTags) {
-				const tagIndex = EXTRA_DATA_TAGS.indexOf(options.extractDataFromPageTags);
+				// the rung is matched on its start tag, not on the identity of the array holding it:
+				// the option is set from EXTRA_DATA_TAGS internally, but a caller passing an equal
+				// pair of its own would otherwise index the regexps with -1
+				const tagIndex = getExtraDataTagIndex(options.extractDataFromPageTags);
 				const regExpsTag = EXTRA_DATA_REGEXPS[tagIndex];
 				if (textContent.match(regExpsTag[0]) || textContent.match(regExpsTag[1])) {
 					return findExtraDataTags(textContent, pageData, options, script, writeEntries, lastModDate, tagIndex + 1);
@@ -649,6 +652,14 @@ function getPageTitle(pageData) {
 		return codePoint < 32 || codePoint > 126 || character == "&" || character == "<" || character == ">" ?
 			"&#" + codePoint + ";" : character;
 	}).join("");
+}
+
+function getExtraDataTagIndex(extractDataFromPageTags) {
+	const tagIndex = EXTRA_DATA_TAGS.findIndex(([startTag]) => startTag == extractDataFromPageTags[0]);
+	if (tagIndex == -1) {
+		throw new Error("Unknown data tags: " + extractDataFromPageTags[0]);
+	}
+	return tagIndex;
 }
 
 function findExtraDataTags(textContent, pageData, options, script, writeEntries, lastModDate, indexExtractDataFromPageTags = 0) {
