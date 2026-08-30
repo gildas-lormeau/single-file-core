@@ -211,6 +211,29 @@ tokenization, does not rescue the file. The parser does not resume the prescan. 
 re-navigates the document under the new encoding instead, and a writer must not rely
 on that.
 
+The declaration decides the decoding only when nothing outranks it. Three things do,
+each returning an encoding with the standard's *certain* confidence, all of them ahead
+of the prescan: a byte order mark, a user's explicit encoding override, and a charset
+stated by the transport layer, which over HTTP means a `Content-Type` header carrying
+its own `charset`. Any of the three replaces the declared charset. The parsed text is
+then not what the writer encoded, and universal extraction cannot recover the region.
+This is the one precondition universal mode has that the file cannot satisfy from
+within itself.
+
+The failure is safe rather than silent. Decoded under the wrong charset the
+reconstructed bytes are wrong, the payload checksum does not match, and the extractor
+MUST fail to the error message (§4.5) instead of displaying a corrupt page. So a
+writer gets robust failure, not recovery everywhere: a universal-mode archive is
+recoverable wherever it is decoded as declared, which covers every `file:` open and
+every server that states no charset of its own. A reader MAY tell this case apart from
+ordinary corruption by comparing the encoding the document was actually decoded with —
+`document.characterSet` in a browser — against the declared one, and say so in the
+error message. Nothing requires it, and the MUST above is unaffected either way.
+
+The BOM is the one of the three a writer controls, and it is why universal and PNG
+variants never carry one (§3.1). The reference writer emits a BOM for the plain
+variant only, where nothing depends on the declared charset.
+
 Universal mode works in two parts, and the charset carries the first. The archive
 bytes themselves are recovered *from the parsed page text*: the browser decoded
 them as characters when it parsed the file, and the bootstrap re-encodes those
@@ -313,7 +336,10 @@ change.
 The HTML parser consumes the whole file as one document. Its encoding prescan finds
 the `<meta charset>` declaration within the first 1024 bytes (§2.1) and the file is
 decoded as a single text; every binary region therefore also exists as characters in
-the parsed document, which is what universal mode exploits (§4.5).
+the parsed document, which is what universal mode exploits (§4.5). This holds only
+while the declaration is what decides the decoding. A BOM, a user override or a
+transport-layer charset outranks it, and universal extraction then fails its checksum
+rather than recovering anything (§2.1).
 
 The binary regions are kept out of the rendered page by the wrapper tags. The
 default wrapper is an HTML comment, and the HTML standard defines exactly which
@@ -976,6 +1002,24 @@ The payload itself is a sequence of little-endian 32-bit words — checksum, rec
 range length, newline count, then the codes packed 16 per word, least-significant pair
 first — raw-deflated and base64-encoded with the standard alphabet and padding.
 
+Those word widths cap what the payload can describe. A writer MUST NOT use universal
+mode for a ZIP region of 2^32 bytes or more, since the length field cannot express it.
+The cap is not enforced by the wire format itself: a writer that ignores it stores the
+length modulo 2^32 and produces a file that looks well-formed, and the mismatch
+surfaces only when a reader verifies the field (§4.5). The reference writer is in that
+position — it assigns the length into a `Uint32Array`, where the truncation is silent
+— and reaches the cap in no saved page. This bound and zip64 (§5.7) are separate
+things: zip64 is reachable at any archive size through the 65535-entry trigger and
+stays compatible with universal mode, and it is only a region large enough to need
+zip64's 64-bit *offsets* that runs past what the payload can describe.
+
+An engine limit binds long before the format's. The extractor holds the region as one
+JavaScript string, and the maximum string length is engine-specific: V8 caps it at
+2^29 − 24 characters, 536870888, measured on V8 15.0.245. A universal-mode archive
+whose ZIP region approaches half a gigabyte is therefore already unreadable in Chrome,
+Edge and Node, whatever the payload declares. Other engines set the limit elsewhere.
+The practical ceiling on universal mode is this one, not the 4 GiB above.
+
 ### 5.6 Password scope
 
 A password encrypts the *contents* of ZIP entries with AES, and nothing else. A reader
@@ -1028,6 +1072,12 @@ This combination has been verified on a forced-zip64 build (§8): `page.pdf` is 
 first by both Info-ZIP and the reference reader, the central directory offset in the
 zip64 record points at the injected record, and extraction produces the same page as
 the non-zip64 build.
+
+zip64 does not conflict with universal mode. Its commonest trigger, 65535 entries or
+more, is reached at any archive size, and §4.5 gives the offset arithmetic for a
+recovered region whose EOCD fields are sentinels. What universal mode cannot carry is
+a ZIP region of 2^32 bytes or more, which the recovery payload's 32-bit length field
+cannot express (§5.5) — a size bound, not a zip64 one.
 
 ## 6. Writer algorithm
 
@@ -1531,3 +1581,9 @@ bytes from it, §7.4 rejected a duplicate identifier that §4.5 resolves by tie-
 and §2.1 described the HTML encoding prescan as mandatory and 1024 bytes wide when the
 standard makes it optional and only encourages that bound. None of the four changes
 what a writer emits or a reader accepts.
+
+The same pass added the two boundaries universal mode had left unstated: that it
+recovers the region only where the declared charset is what decided the decoding, a
+BOM, a user override and a transport-layer charset all outranking it (§2.1), and that
+the recovery payload's 32-bit length field caps the region below 2^32 bytes, with
+engine string limits binding well before that (§5.5).
