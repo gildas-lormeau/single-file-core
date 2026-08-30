@@ -31,7 +31,8 @@ import {
 	ZipReader
 } from "./../../vendor/zip/zip.js";
 import {
-	createArchive
+	createArchive,
+	escapeHTML
 } from "./compression.js";
 
 const browser = globalThis.browser;
@@ -231,14 +232,4 @@ function getTOCContent(pages) {
 	return "<nav><ul>" +
 		pages.map(page => "<li><a href=\"" + escapeHTML(page.url) + "\">" + escapeHTML(page.title || page.url) + "</a></li>").join("") +
 		"</ul></nav>";
-}
-
-// the prelude declares the windows-1252 charset, non-ASCII characters must be
-// encoded as HTML entities to survive it
-function escapeHTML(value) {
-	return Array.from(value).map(character => {
-		const codePoint = character.codePointAt(0);
-		return codePoint < 32 || codePoint > 126 || character == "&" || character == "<" || character == ">" || character == "\"" ?
-			"&#" + codePoint + ";" : character;
-	}).join("");
 }

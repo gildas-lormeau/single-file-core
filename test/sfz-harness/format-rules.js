@@ -2,7 +2,9 @@ import "./dom-stub.js";
 import { makePageData, makeOptions, runProcess, mulberry32 } from "./common.js";
 import { ZipReader, BlobReader } from "../../vendor/zip/zip.js";
 
-const TITLE = "日本語 — café & <b>";
+// the quote is there because the escaper the title shares with the table of contents encodes
+// it for an attribute value, where it matters, and a title has to round-trip through that too
+const TITLE = "日本語 — café & <b> \"quoted\"";
 const PDF = new TextEncoder().encode("%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n");
 
 let failed = false;

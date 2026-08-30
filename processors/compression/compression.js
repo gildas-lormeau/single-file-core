@@ -151,6 +151,7 @@ const PROCESS_OPTION_NAMES = [
 export {
 	process,
 	createArchive,
+	escapeHTML,
 	PROCESS_OPTION_NAMES
 };
 
@@ -622,7 +623,7 @@ function getHTMLHeadData(pageData, options) {
 	let pageContent = "";
 	// the title is left out of a password-protected archive: manifest.json carries it too and
 	// is encrypted, so emitting it here would publish what the password is meant to cover
-	const title = options.password ? "" : getPageTitle(pageData);
+	const title = options.password ? "" : escapeHTML(pageData.title || "");
 	pageContent += "<title>" + title + "</title>";
 	// the canonical link publishes the URL the archive was saved from, for the same reason
 	// the title above is left out of a password-protected archive
@@ -644,12 +645,13 @@ function getHTMLHeadData(pageData, options) {
 	return pageContent;
 }
 
-function getPageTitle(pageData) {
-	// numeric character references are ASCII bytes, so the title survives the single-byte
-	// charset universal mode declares, and any parser decodes them back to the original text
-	return Array.from(pageData.title || "").map(character => {
+// every piece of text in the prelude goes through this, wherever it is assembled: the prelude
+// declares a single-byte charset, and numeric character references are ASCII bytes, so they
+// survive it and any parser decodes them back to the original text
+function escapeHTML(value) {
+	return Array.from(value).map(character => {
 		const codePoint = character.codePointAt(0);
-		return codePoint < 32 || codePoint > 126 || character == "&" || character == "<" || character == ">" ?
+		return codePoint < 32 || codePoint > 126 || character == "&" || character == "<" || character == ">" || character == "\"" ?
 			"&#" + codePoint + ";" : character;
 	}).join("");
 }
