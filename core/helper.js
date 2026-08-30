@@ -639,7 +639,14 @@ function getUsedFont(computedStyle, loadedFonts, usedFonts) {
 			// the weight is deliberately not compared: the browser resolves a used weight to the
 			// nearest declared one, so a page asking for 500 against declared 400 and 700 loads
 			// 400, and an equality test would find no loaded face and drop the whole family
-			if (!loadedFonts || loadedFonts.find(font => normalizeFontFamily(font.family) == fontFamilyName && testFontStyle(font.style, fontStyle))) {
+			//
+			// an element with no computed font-family at all is one whose styles could not be read,
+			// not one drawn in a family with no name. It happens to every element of a frame that
+			// was re-parsed from its srcdoc, because the computed style is asked of the parent
+			// window and the document it belongs to is not the one being rendered. Recorded, it
+			// turns "nothing is known here" into a list of length one, which reads downstream as a
+			// complete answer and prunes every face the frame declares
+			if (fontFamilyName && (!loadedFonts || loadedFonts.find(font => normalizeFontFamily(font.family) == fontFamilyName && testFontStyle(font.style, fontStyle)))) {
 				const fontWeight = getFontWeight(computedStyle.getPropertyValue("font-weight"));
 				const fontVariant = computedStyle.getPropertyValue("font-variant") || "normal";
 				const value = [fontFamilyName, fontWeight, fontStyle, fontVariant];
