@@ -380,7 +380,7 @@ function fixInvalidNesting(document, NESTING_TRACK_ID_ATTRIBUTE_NAME, preventCle
 	}
 }
 
-function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map(), canvases: [], images: [], posters: [], videos: [], shadowRoots: [], markedElements: [], loadedFonts: getLoadedFonts(doc) }, adoptedStyleSheetsCache = new Map(), ascendantHidden) {
+function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map(), canvases: [], images: [], posters: [], videos: [], shadowRoots: [], markedElements: [] }, adoptedStyleSheetsCache = new Map(), ascendantHidden) {
 	if (element.childNodes) {
 		const elements = Array.from(element.childNodes).filter(node => (node instanceof win.HTMLElement) || (node instanceof win.SVGElement) || (node instanceof globalThis.HTMLElement) || (node instanceof globalThis.SVGElement));
 		elements.forEach(element => {
@@ -408,10 +408,10 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 						}
 					}
 					if (options.removeUnusedFonts) {
-						getUsedFont(computedStyle, data.loadedFonts, data.usedFonts);
-						getUsedFont(getComputedStyle(win, element, ":first-letter"), data.loadedFonts, data.usedFonts);
-						getUsedFont(getComputedStyle(win, element, ":before"), data.loadedFonts, data.usedFonts);
-						getUsedFont(getComputedStyle(win, element, ":after"), data.loadedFonts, data.usedFonts);
+						getUsedFont(computedStyle, data.usedFonts);
+						getUsedFont(getComputedStyle(win, element, ":first-letter"), data.usedFonts);
+						getUsedFont(getComputedStyle(win, element, ":before"), data.usedFonts);
+						getUsedFont(getComputedStyle(win, element, ":after"), data.usedFonts);
 					}
 				}
 			}
@@ -611,42 +611,28 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 	}
 }
 
-// the faces the document actually resolved, which is what says a family in a computed
-// font-family is really rendered rather than merely listed: a fallback stack names every family
-// the page might need, and the browser loads only the ones it ends up using. Faces still loading
-// count, they are on their way in. An empty set means the document declares no face at all, and
-// is returned as undefined so that the caller keeps every family instead of dropping them all
-function getLoadedFonts(doc) {
-	if (doc.fonts) {
-		const loadedFonts = Array.from(doc.fonts).filter(font => font.status == "loaded" || font.status == "loading");
-		if (loadedFonts.length) {
-			return loadedFonts;
-		}
-	}
-}
-
-// a face declares its style with an optional angle ("oblique 20deg") and the computed value can
-// carry a different one, so only the keyword decides which face answers for the style
-function testFontStyle(declaredStyle, fontStyle) {
-	return declaredStyle.trim().split(" ")[0] == fontStyle.trim().split(" ")[0];
-}
-
-function getUsedFont(computedStyle, loadedFonts, usedFonts) {
+// Every family in the computed font-family is recorded, and the set of faces the document actually
+// resolved is deliberately NOT consulted. Narrowing the list to the loaded faces is the obvious
+// idea — a fallback stack names every family the page might need and only some are used — and it
+// was written in 2019, wired to an option nothing ever set, and dead until it was reconnected here.
+// Reconnected, it saved nothing measurable on nine real pages and cost fidelity twice: a face
+// matched on its declared style is not found when the browser SYNTHESIZED that style, so a family
+// drawn in an italic it declares no face for was dropped from the page that draws it; and a webfont
+// that merely failed to load on the capturing machine would be dropped from the archive for good.
+// It belongs with the unicode-range work, which needs the same information and can weigh a measured
+// benefit against those, not here.
+function getUsedFont(computedStyle, usedFonts) {
 	if (computedStyle) {
 		const fontStyle = computedStyle.getPropertyValue("font-style") || "normal";
 		computedStyle.getPropertyValue("font-family").split(",").forEach(fontFamilyName => {
 			fontFamilyName = normalizeFontFamily(fontFamilyName);
-			// the weight is deliberately not compared: the browser resolves a used weight to the
-			// nearest declared one, so a page asking for 500 against declared 400 and 700 loads
-			// 400, and an equality test would find no loaded face and drop the whole family
-			//
 			// an element with no computed font-family at all is one whose styles could not be read,
 			// not one drawn in a family with no name. It happens to every element of a frame that
 			// was re-parsed from its srcdoc, because the computed style is asked of the parent
 			// window and the document it belongs to is not the one being rendered. Recorded, it
 			// turns "nothing is known here" into a list of length one, which reads downstream as a
 			// complete answer and prunes every face the frame declares
-			if (fontFamilyName && (!loadedFonts || loadedFonts.find(font => normalizeFontFamily(font.family) == fontFamilyName && testFontStyle(font.style, fontStyle)))) {
+			if (fontFamilyName) {
 				const fontWeight = getFontWeight(computedStyle.getPropertyValue("font-weight"));
 				const fontVariant = computedStyle.getPropertyValue("font-variant") || "normal";
 				const value = [fontFamilyName, fontWeight, fontStyle, fontVariant];
