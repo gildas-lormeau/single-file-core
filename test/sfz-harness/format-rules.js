@@ -37,18 +37,34 @@ function imageResource(url) {
 }
 
 {
-	const options = makeOptions({ password: "secret" });
+	const options = makeOptions({ password: "secret", insertCanonicalLink: true, url: "https://example.com/secret-page" });
 	const pageData = makePageData(2, 4 * 1024);
 	pageData.title = TITLE;
+	pageData.comment = "\n url: https://example.com/secret-page \n";
 	pageData.resources.images.push(imageResource("https://example.com/secret-image.png"));
 	const { bytes } = await runProcess(pageData, options);
 	const text = decodeText(bytes);
 	check("title withheld from a protected archive", text.includes("<title></title>"), true);
 	check("resource url absent from a protected archive", text.includes("secret-image.png"), false);
+	// the wrapper ladder hides the zip data in a comment of its own, so only the text
+	// of the SingleFile comment tells whether it was written
+	check("comment withheld from a protected archive", text.includes("<!--\n url:"), false);
+	check("canonical link withheld from a protected archive", text.includes("<link rel=canonical"), false);
+	check("page url absent from a protected archive", text.includes("secret-page"), false);
 	const zipReader = new ZipReader(new BlobReader(new Blob([bytes])));
 	const entries = await zipReader.getEntries();
 	await zipReader.close();
 	check("entry comments empty in a protected archive", entries.every(entry => !entry.comment), true);
+}
+
+{
+	const options = makeOptions({ insertCanonicalLink: true, url: "https://example.com/page" });
+	const pageData = makePageData(9, 4 * 1024);
+	pageData.comment = "\n url: https://example.com/page \n";
+	const { bytes } = await runProcess(pageData, options);
+	const text = decodeText(bytes);
+	check("comment written without a password", text.includes("<!--\n url: https://example.com/page \n-->"), true);
+	check("canonical link written without a password", text.includes("<link rel=canonical href=\"https://example.com/page\">"), true);
 }
 
 {

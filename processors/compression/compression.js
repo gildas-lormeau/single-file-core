@@ -573,8 +573,11 @@ function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
 	const html = bom + doctype + documentStart;
 	// the comment carries the page URL, whose length is unbounded: it is emitted after the
 	// declaration of the character encoding, and after the embedded PDF when there is one, so
-	// that neither the encoding declaration nor the PDF header leaves the first 1024 bytes
-	const comment = pageData.comment && !options.embeddedImage ? "<!--" + pageData.comment + "-->" : "";
+	// that neither the encoding declaration nor the PDF header leaves the first 1024 bytes.
+	// it is left out of a password-protected archive, like the title below: the same URL is
+	// in manifest.json, which is encrypted, so emitting it here would publish what the
+	// password is meant to cover
+	const comment = pageData.comment && !options.embeddedImage && !options.password ? "<!--" + pageData.comment + "-->" : "";
 	const htmlHeadData = getHTMLHeadData(pageData, options);
 	let htmlArray, pdfEntry;
 	if (options.embeddedPdf) {
@@ -618,7 +621,9 @@ function getHTMLHeadData(pageData, options) {
 	// is encrypted, so emitting it here would publish what the password is meant to cover
 	const title = options.password ? "" : getPageTitle(pageData);
 	pageContent += "<title>" + title + "</title>";
-	if (options.insertCanonicalLink) {
+	// the canonical link publishes the URL the archive was saved from, for the same reason
+	// the title above is left out of a password-protected archive
+	if (options.insertCanonicalLink && !options.password) {
 		pageContent += "<link rel=canonical href=\"" + options.url + "\">";
 	}
 	if (options.insertMetaNoIndex) {
