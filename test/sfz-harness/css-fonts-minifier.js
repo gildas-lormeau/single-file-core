@@ -106,6 +106,27 @@ check("a var() nested in a fallback keeps every font",
 	run({ rules: ".card{--probe-font:\"UsedOne\"}.card p{font-family:var(--other,var(--probe-font),serif)}" }),
 	ALL_FAMILIES);
 
+// the check above leaves the family undetermined because the OUTER property is declared nowhere.
+// A var() written in the font-family itself is split by the AST walk, which hands each branch over
+// separately, so nesting alone was never the problem there. The chain that did give up is a var()
+// inside a property VALUE: it was read one level deep and whatever it named stayed unresolved,
+// which switched pruning off for the whole document
+check("a property whose value is another declared property resolves through it",
+	run({ rules: ".card{--first-font:var(--second-font)}.note{--second-font:\"UsedOne\"}.card p{font-family:var(--first-font),serif}" }),
+	["usedone"]);
+
+// splitting that value on every comma cut this one into "var(--second-font" and "\"UsedTwo\")",
+// two names that resolve to nothing, and the document went undetermined over a value it holds in full
+check("a value holding a var() with its own fallback is split on the top-level comma",
+	run({ rules: ".card{--first-font:var(--second-font,\"UsedTwo\"),serif}.note{--second-font:\"UsedOne\"}.card p{font-family:var(--first-font)}" }),
+	["usedone", "usedtwo"]);
+
+// two properties naming each other resolve for ever without the guard: this check hangs rather
+// than fails when it regresses
+check("a property naming itself through another one keeps every font",
+	run({ rules: ".card{--first-font:var(--second-font)}.note{--second-font:var(--first-font)}.card p{font-family:var(--first-font),serif}" }),
+	ALL_FAMILIES);
+
 check("a property whose value is another undetermined property keeps every font",
 	run({ rules: ".card{--probe-font:var(--set-by-script)}.card p{font-family:var(--probe-font),serif}" }),
 	ALL_FAMILIES);

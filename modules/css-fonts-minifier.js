@@ -200,25 +200,68 @@ function getCustomPropertyValues(name, options) {
 	return values;
 }
 
-function resolveFamilyName(familyName, options) {
+function resolveFamilyName(familyName, options, resolvedProperties = new Set()) {
 	const matchedVar = familyName.match(REGEXP_CUSTOM_PROPERTY_FAMILY);
 	if (matchedVar) {
+		const propertyName = matchedVar[1];
 		const fallback = matchedVar[2];
-		// a var() nested in the fallback cannot be split on its commas, so the family is left
-		// undetermined rather than read as a list of broken names
-		if (!fallback || !fallback.includes("var(")) {
-			const values = getCustomPropertyValues(matchedVar[1], options);
+		// a property naming itself, directly or through another one, would resolve for ever: the
+		// chain already walked is carried down the branch so it stops instead
+		if (!resolvedProperties.has(propertyName)) {
+			const properties = new Set(resolvedProperties);
+			properties.add(propertyName);
+			const values = getCustomPropertyValues(propertyName, options);
 			if (values) {
-				const families = helper.flatten(values.map(value => splitFamilyNames(value)));
-				return fallback ? families.concat(splitFamilyNames(fallback)) : families;
+				const families = helper.flatten(values.map(value => splitFamilyNames(value, options, properties)));
+				const fallbackFamilies = fallback ? splitFamilyNames(fallback, options, properties) : [];
+				// the browser takes the property or the fallback, so knowing one branch is not
+				// knowing the value: a var() left unresolved in either one keeps the family
+				// undetermined, exactly as it was before the nested one could be read at all
+				if (!families.concat(fallbackFamilies).some(testUnresolvedFamilyName)) {
+					return families.concat(fallbackFamilies);
+				}
 			}
 		}
 	}
 	return familyName;
 }
 
-function splitFamilyNames(value) {
-	return value.split(",").map(familyName => normalizeFamilyName(familyName)).filter(familyName => familyName);
+function testUnresolvedFamilyName(familyName) {
+	return typeof familyName == "string" && familyName.startsWith("var(");
+}
+
+function splitFamilyNames(value, options, resolvedProperties) {
+	const familyNames = splitValues(value).map(familyName => normalizeFamilyName(familyName)).filter(familyName => familyName);
+	return options
+		? helper.flatten(familyNames.map(familyName => resolveFamilyName(familyName, options, resolvedProperties)))
+		: familyNames;
+}
+
+// a family list is split on its top-level commas only: the commas inside a var() belong to that
+// var(), and the ones inside a quoted name belong to the name. Splitting on every comma is what
+// made a var() nested in a fallback unreadable, and it also broke a family named "Foo, Bar"
+function splitValues(value) {
+	const values = [];
+	let depth = 0, quote, start = 0;
+	for (let index = 0; index < value.length; index++) {
+		const character = value.charAt(index);
+		if (quote) {
+			if (character == quote && value.charAt(index - 1) != "\\") {
+				quote = null;
+			}
+		} else if (character == "\"" || character == "'") {
+			quote = character;
+		} else if (character == "(") {
+			depth++;
+		} else if (character == ")") {
+			depth--;
+		} else if (character == "," && !depth) {
+			values.push(value.substring(start, index));
+			start = index + 1;
+		}
+	}
+	values.push(value.substring(start));
+	return values;
 }
 
 function filterUnusedFonts(cssRules, declaredFonts, unusedFonts, filteredUsedFonts, docChars) {
