@@ -395,12 +395,7 @@ class ProcessorHelperCommon {
 	}
 
 	async removeAlternativeFonts(doc, stylesheets, fonts, fontTests) {
-		const fontsDetails = {
-			fonts: new Map(),
-			medias: new Map(),
-			supports: new Map(),
-			layers: new Map()
-		};
+		const fontsDetails = this.createFontsDetailsInfo();
 		const stats = { rules: { processed: 0, discarded: 0 }, fonts: { processed: 0, discarded: 0 } };
 		let sheetIndex = 0;
 		stylesheets.forEach(stylesheetInfo => {
@@ -459,7 +454,18 @@ class ProcessorHelperCommon {
 				const key = this.getFontKey(ruleData);
 				const fontInfo = fontsDetails.fonts.get(key);
 				if (fontInfo) {
-					await this.processFontFaceRule(ruleData, fontInfo, fonts, fontTests, stats);
+					// a face declaring the same descriptors and the same sources as one already kept
+					// cannot change what that one did, and its sources are embedded a second time. A
+					// stylesheet reached from two <link> elements, or imported by two sheets, repeats
+					// every face it carries. The test is made before the await: the sources are read
+					// as they stand for both rules, and processing them is what would interleave
+					const ruleKey = key + " " + this.getPropertyValue(ruleData, "src");
+					if (fontsDetails.emittedFonts.has(ruleKey)) {
+						removedRules.push(cssRule);
+					} else {
+						fontsDetails.emittedFonts.add(ruleKey);
+						await this.processFontFaceRule(ruleData, fontInfo, fonts, fontTests, stats);
+					}
 				} else {
 					removedRules.push(cssRule);
 				}
@@ -517,7 +523,12 @@ class ProcessorHelperCommon {
 			fonts: new Map(),
 			medias: new Map(),
 			supports: new Map(),
-			layers: new Map()
+			layers: new Map(),
+			// the faces already emitted in this cascade context, so a second declaration of one of
+			// them can be dropped instead of embedding the same bytes again. Each media, supports
+			// and layer block gets its own info, so only rules that apply under the same conditions
+			// are ever compared
+			emittedFonts: new Set()
 		};
 	}
 
