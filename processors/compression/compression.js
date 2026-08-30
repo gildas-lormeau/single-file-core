@@ -157,10 +157,21 @@ export {
 
 async function process(pageData, options, lastModDate = new Date()) {
 	let script;
+	// The worker is configured before anything else, and outside the extension it is turned off
+	// rather than left alone. Given no address, zip.js resolves its default one against the page
+	// being saved, so the browser asks the CAPTURED SITE for a file that site has never heard of:
+	// three 404s in the user's own server logs for every archive, and then a fallback to the main
+	// thread anyway, which is where the work was always going to happen. Choosing the fallback
+	// costs nothing that was ever gained and asks the site for nothing.
+	const extensionContext = Boolean(browser && browser.runtime && browser.runtime.getURL);
+	if (extensionContext) {
+		configure({ workerURI: "/lib/single-file-z-worker.js" });
+	} else {
+		configure({ useWebWorkers: false });
+	}
 	if (options.zipScript) {
 		script = options.zipScript;
-	} else if (browser && browser.runtime && browser.runtime.getURL) {
-		configure({ workerURI: "/lib/single-file-z-worker.js" });
+	} else if (extensionContext) {
 		script = await (await fetch(browser.runtime.getURL(SCRIPT_PATH))).text();
 	}
 	return createArchive(pageData, options, script, zipWriter => {
