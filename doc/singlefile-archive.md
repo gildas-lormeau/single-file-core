@@ -201,9 +201,14 @@ Notes on composition:
 The HTML face declares `<meta charset=utf-8>` when universal mode is off, and a
 single-byte charset when it is on — `windows-1252` in the reference writer. The
 declaration MUST appear within the first 1024 bytes of the file so the parser's
-encoding prescan finds it. The prescan reads exactly that many bytes and does not
-resume, so the whole `<meta>` tag has to fit: one that straddles the boundary is not
-seen, and the parser falls back to its default encoding.
+encoding prescan finds it. That bound is the HTML standard's own authoring rule. The
+prescan it serves is weaker than the rule suggests: the standard makes it optional,
+and only *encourages* scanning the first 1024 bytes. Treat the number as a ceiling to
+write under, never as a budget a parser promises to read. The whole `<meta>` tag has
+to fit: one that straddles the boundary is not seen, and the parser falls back to its
+default encoding. Meeting the declaration later, during tokenization, does not rescue
+the file — the parser does not resume the prescan, it re-navigates the document under
+the new encoding, and nothing there is worth a writer's reliance.
 
 Universal mode works in two parts, and the charset carries the first. The archive
 bytes themselves are recovered *from the parsed page text*: the browser decoded
@@ -267,7 +272,7 @@ face adds, then the regions the PNG face adds.
 
 | Region | Producer | Present | Contents |
 |---|---|---|---|
-| `html-prologue` | HTML | HTML face | Doctype, the root element start tag, an optional implementation-defined comment, `<meta charset>`, title, optional head elements (canonical link, `robots` meta, viewport, Content-Security-Policy), minimal CSS, `<body hidden>`, wait/error messages, optional table of contents, optional text body (§4.6). In the plain variant an optional UTF-8 BOM MAY precede the doctype (`includeBOM`); universal and PNG variants never carry one. In the PNG variants the region is split: everything through `<body hidden>` is the data of the `tEXt "PNG"` chunk, while the messages, the optional table of contents and the optional text body follow the `tEXt "ZIP"` chunk header; the doctype and the leading comment are dropped. |
+| `html-prologue` | HTML | HTML face | Doctype, the root element start tag, an optional implementation-defined comment, `<meta charset>`, title, optional head elements (canonical link, `robots` meta, viewport, Content-Security-Policy), minimal CSS, `<body hidden>`, wait/error messages, optional table of contents, optional text body (§4.6). The leading comment, the title, the canonical link and the text body are withheld when a password is set (§5.6). In the plain variant an optional UTF-8 BOM MAY precede the doctype (`includeBOM`); universal and PNG variants never carry one. In the PNG variants the region is split: everything through `<body hidden>` is the data of the `tEXt "PNG"` chunk, while the messages, the optional table of contents and the optional text body follow the `tEXt "ZIP"` chunk header; the doctype and the leading comment are dropped. |
 | `bootstrap` | HTML | HTML face | One inline `<script>`: the embedded ZIP reader, the extractor, the display routine, and the content-acquisition logic (§4.1). The wrapper start tag that opens the ZIP region follows it, directly or after a relocated `extra-data`. |
 | `<!--` / `-->` | HTML | HTML face | The wrapper tag pair hiding a binary region from the HTML parser — comment tags by default, another pair when the hidden bytes contain `-->` (§5.1). Drawn at each opening and closing position. The close tag is absent when appended data is prevented (`preventAppendedData`, or the `<plaintext>` wrapper which cannot close): no markup follows the archive and the wrapper runs to end-of-file. That does not mean the file ends at the EOCD — the PNG face's tail still follows, inside the wrapper, where it parses as text (§5.1). |
 | `zip-entries` | ZIP | always | The archive's local file headers and entry data, written by the ZIP writer. The central directory of an archive written by the reference writer lists `index.html` (the page) first, then `manifest.json` (a JSON description of the archive: original URL, title, save time, resource-to-URL map — informative; the page displays without it), then the resources; the *physical* order of the local headers inside the region is not guaranteed to match, and readers MUST NOT rely on either order — entries are addressed by name (§7.1). |
@@ -494,8 +499,10 @@ decoded image is exactly that image.
 
 The last reader is the format's own: the extraction path of universal mode, used
 when the raw bytes are unreachable (§4.1). Its input is not the file but the *parsed
-document* — the characters the HTML parser produced — and its output is the exact
-ZIP region, byte for byte.
+document* — the characters the HTML parser produced — and its output is the ZIP
+region reconstructed byte for byte, with one deliberate exception: the two bytes of
+the EOCD comment-length field, which the payload does not describe and the extractor
+always writes as zero (step 2 below, and the row in §7.4).
 
 It works in three steps:
 
@@ -982,15 +989,18 @@ gets no protection beyond that. Four consequences follow:
 - **Entry metadata is never encrypted.** Names, uncompressed sizes and dates remain
   readable in the central directory, so the resource list of an encrypted archive is
   public. This is standard ZIP behavior, not a property of this format; §7 restates it.
-- **What the writer withholds instead.** Three things are not forced into the clear by
-  the format and so are withheld when a password is set: the entry comments, which
-  would otherwise publish every resource's source URL (§4.2); the `<title>` element's
-  text, whose value `manifest.json` carries as an encrypted entry, leaving an empty
-  `<title></title>` in the prologue; and the optional
-  text body, which repeats the whole page text outside the archive (§4.6). Unlike the
-  PNG and PDF faces, none of the three is load-bearing for a reader, so a writer that
-  emits them in a password-protected archive publishes what the password is meant to
-  cover for no gain.
+- **What the writer withholds instead.** Five things are not forced into the clear by
+  the format, and so are withheld when a password is set. Three of them state a URL:
+  the entry comments, which publish every resource's source URL (§4.2), and two
+  prologue fields carrying the address the page was saved from — the provenance
+  comment an implementation may write there, and the canonical `<link>` among the head
+  elements (§3.1). The other two are the `<title>` element's text, leaving an empty
+  `<title></title>` in the prologue, and the optional text body, which repeats the
+  whole page text outside the archive (§4.6). Nothing is lost by leaving any of them
+  out: `manifest.json` holds the page URL, the title and the resource-URL map, and it
+  is an encrypted entry like the rest. Unlike the PNG and PDF faces, none of the five
+  is load-bearing for a reader, so a writer that emits them in a password-protected
+  archive publishes what the password is meant to cover for no gain.
 
 Encrypted entries are stamped AE-2, so their CRC-32 field is zero (§5.4). `page.pdf`
 stays unencrypted, so in a password-protected archive its checksum is the only one a
@@ -1049,9 +1059,11 @@ pages can stop at the first row; the files it produces are accepted by every rea
 2. **HTML prologue.** With the HTML face, emit the doctype (omitted under the PNG
    face, which owns the start of the file), the root element start tag, any comment the
    implementation adds, the `<meta charset>` required by §2.1, the head elements (the
-   `<title>` among them, unless a password is set (§5.6)), the CSS and `<body hidden>`,
+   `<title>` and the canonical link among them), the CSS and `<body hidden>`,
    the wait and error messages, the optional table of contents and text body, and the
-   bootstrap script. With the PNG face the head of this region,
+   bootstrap script. With a password, five of those are left out: the comment, the
+   title, the canonical link, the text body and the entry comments of step 6 (§5.6).
+   With the PNG face the head of this region,
    through `<body hidden>`, is the data of the `tEXt "PNG"` chunk and the remainder is
    emitted after the `tEXt "ZIP"` chunk header in step 12; with the PDF face the
    region is interrupted by step 3 as well.
@@ -1259,10 +1271,13 @@ alongside it.
   Software that displays either MUST do so in a sandboxed context, and MUST NOT run
   the bootstrap in a privileged one. The format's own display path replaces the
   document with the extracted page, which is not an isolation boundary by itself.
-- **A password protects entry contents only** (§5.6). Entry names, sizes, dates and
-  source URLs stay readable, and the PNG, PDF and text-body faces render the page
-  regardless. Software MUST NOT present a password-protected archive as an encrypted
-  document.
+- **A password protects entry contents only** (§5.6). Entry names, sizes and dates
+  stay readable in the central directory, and a name commonly states the resource's
+  filename. The PNG and PDF faces render the page regardless. A conforming writer
+  withholds the five fields of §5.6, the source URLs among them, but a reader MUST NOT
+  read their absence as protection: nothing in the format stops a writer from emitting
+  any of them, so an archive of unknown provenance may state every URL in the clear.
+  Software MUST NOT present a password-protected archive as an encrypted document.
 - **Sniffing disagrees with itself on these files.** `file(1)` reports HTML, PNG, PDF
   or "data" depending on the variant (§8.1), so a server that guesses the media type
   from content may serve a saved page as an image. Software that serves SingleFile
@@ -1285,7 +1300,7 @@ only if it affects the bytes the page is built from:
 | A `tEXt` chunk CRC does not match, or a chunk holds bytes PNG does not permit (§4.4) | Irrelevant to extraction; a reader of the archive MAY ignore both |
 | `page.pdf` is present but its data does not begin with `%PDF-` | Not an error. The entry is data like any other |
 | `index.html` is present without `manifest.json` | **MUST** still extract (§7.1) |
-| More than one node carries the `sfz-data` identifier | **MUST NOT** extract either silently. A conforming writer emits one (§5.1), so a second is a payload that escaped its wrapper — most often a nested archive written by a writer that emitted a face bare. Both candidates extract cleanly and check out, and the checksums say nothing about which one the file was built around |
+| More than one candidate carries the `sfz-data` identifier once §4.5's tie-break has been applied | **MUST NOT** extract either silently. The tie-break comes first and settles the ordinary pairing: an id-bearing element that is one of §5.1's wrapper rungs wins over a comment, and one that is not a rung loses to it, since the `id` is then something else in the page. What this row forbids is what the tie-break does not reach — two elements, or two comments, or an element and a comment that both survive it. A conforming writer emits one candidate (§5.1), so a second is a payload that escaped its wrapper, most often a nested archive written by a writer that emitted a face bare. Both extract cleanly and check out, and the checksums say nothing about which one the file was built around |
 | The recovered region (universal mode) disagrees with the same bytes read directly, in the EOCD's two comment-length bytes only | Expected, not an error. A recovered region always declares a zero-length comment (§4.5), so it differs here from any archive written in the declared form (§4.2). Compare the two only up to those bytes |
 | The recovered region (universal mode) disagrees with the same bytes read directly, anywhere else | The file is not well-formed, whichever side is at fault, and a reader that has both MUST NOT silently merge them or pick per entry. Prefer the direct read — it is the writer's own output, where the recovered region is a reconstruction of it — and surface the disagreement rather than displaying either as intact |
 
@@ -1485,6 +1500,7 @@ predicts.
 | August 2026 | Core 1.5.110: a PDF or PNG face whose payload names every rung is dropped instead of written bare (§5.1). Found by nesting an archive inside itself as both faces: the fifth level exhausts the ladder, and readers then extracted the fourth level's archive — checksums intact, no way to tell (§7.4) |
 | August 2026 | Core 1.5.110: a PNG face leaving the comment rung on its checksum resumes the rung search instead of taking the next rung untested (§5.1). Taking it put a payload holding `</script>` on the script rung, where its own bytes closed the wrapper 93 bytes in and left the image data, the chunk framing and the whole ZIP region to the parser |
 | August 2026 | Core 1.5.110: `<svg><![CDATA[` joins the ladder above `<plaintext>` (§5.1) — the one rung whose terminator, `]]>`, real payloads rarely carry. It gives a payload naming every element rung somewhere to go that does not cost the appended-data placement, and moves the self-nesting limit from the fifth level to the sixth |
+| August 2026 | Core 1.5.115: password-protected archives withhold the provenance comment and the canonical link as well (§5.6). Both wrote the page's own URL into the prologue, beside the title that was already withheld, so the address the archive was saved from stayed in the clear |
 
 This document was itself revised in August 2026, against core 1.5.108, after several
 independent reviews. One of them was a reader built from this specification alone, with
@@ -1506,3 +1522,11 @@ document; the limits of the reconstructed-`page.pdf` CRC check (§4.5); the dura
 ranking of the faces (§1.1); what each face costs a writer (§6); and the silent loss of
 the other faces to a pipeline that repacks the file (§7.2). One review found a live
 defect rather than a documentation one, the non-monotone retry step recorded above.
+
+A later pass found four places where the document contradicted itself or the standard
+it cites: §7.3 stated that source URLs stay readable under a password while §5.6 said
+the writer withholds them, §4.5 called the recovered region exact while excluding two
+bytes from it, §7.4 rejected a duplicate identifier that §4.5 resolves by tie-break,
+and §2.1 described the HTML encoding prescan as mandatory and 1024 bytes wide when the
+standard makes it optional and only encourages that bound. None of the four changes
+what a writer emits or a reader accepts.
