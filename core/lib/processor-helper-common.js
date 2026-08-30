@@ -255,6 +255,17 @@ class ProcessorHelperCommon {
 		}));
 	}
 
+	// a video or an audio element gets the attribute REMOVED rather than emptied: util.EMPTY_RESOURCE
+	// is inert on an image but not on a media element, which would attempt the load, fail, and sit
+	// in an error state where removing the attribute leaves the poster showing cleanly
+	setAttributeEmpty(resourceElement, attributeName, expectedType) {
+		if (expectedType == "video" || expectedType == "audio") {
+			resourceElement.removeAttribute(attributeName);
+		} else {
+			resourceElement.setAttribute(attributeName, util.EMPTY_RESOURCE);
+		}
+	}
+
 	setBackgroundImage(element, url, style) {
 		element.style.setProperty("background-blend-mode", "normal", "important");
 		element.style.setProperty("background-clip", "content-box", "important");

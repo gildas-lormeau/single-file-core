@@ -319,7 +319,7 @@ function getProcessorHelperClass(utilInstance) {
 					delete resourceElement.dataset.singleFileOriginURL;
 					if (!expectedType || !options["block" + expectedType.charAt(0).toUpperCase() + expectedType.substring(1) + "s"]) {
 						if (!testIgnoredPath(resourceURL)) {
-							setAttributeEmpty(resourceElement, attributeName, expectedType);
+							this.setAttributeEmpty(resourceElement, attributeName, expectedType);
 							if (testValidPath(resourceURL)) {
 								try {
 									resourceURL = util.resolveURL(resourceURL, baseURI);
@@ -373,18 +373,10 @@ function getProcessorHelperClass(utilInstance) {
 							}
 						}
 					} else {
-						setAttributeEmpty(resourceElement, attributeName, expectedType);
+						this.setAttributeEmpty(resourceElement, attributeName, expectedType);
 					}
 				}
 			}));
-
-			function setAttributeEmpty(resourceElement, attributeName, expectedType) {
-				if (expectedType == "video" || expectedType == "audio") {
-					resourceElement.removeAttribute(attributeName);
-				} else {
-					resourceElement.setAttribute(attributeName, util.EMPTY_RESOURCE);
-				}
-			}
 		}
 
 		async processImageSrcset(resourceURL, srcsetValue, resources, batchRequest) {
