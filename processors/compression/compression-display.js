@@ -23,13 +23,34 @@
 
 /* global DOMParser, setTimeout */
 
-import { getDoctypeString } from "./../../core/lib/doctype.js";
-
 export {
 	display
 };
 
+// the functions below are serialized with toString() and pasted into the page the archive
+// generates, where module scope does not exist: everything they call must be declared inside
+// them. An import would survive bundling and then be an undefined free variable at runtime
 async function display(document, docContent, { disableFramePointerEvents, inPlace } = {}) {
+	function getDoctypeString(doc) {
+		const docType = doc.doctype;
+		let docTypeString = "";
+		if (docType) {
+			docTypeString = "<!DOCTYPE " + docType.nodeName;
+			if (docType.publicId) {
+				docTypeString += " PUBLIC \"" + docType.publicId + "\"";
+				if (docType.systemId) {
+					docTypeString += " \"" + docType.systemId + "\"";
+				}
+			} else if (docType.systemId) {
+				docTypeString += " SYSTEM \"" + docType.systemId + "\"";
+			}
+			if (docType.internalSubset) {
+				docTypeString += " [" + docType.internalSubset + "]";
+			}
+			docTypeString += ">";
+		}
+		return docTypeString;
+	}
 	docContent = docContent.replace(/<noscript/gi, "<template disabled-noscript");
 	docContent = docContent.replace(/<\/noscript/gi, "</template");
 	const doc = (new DOMParser()).parseFromString(docContent, "text/html");
