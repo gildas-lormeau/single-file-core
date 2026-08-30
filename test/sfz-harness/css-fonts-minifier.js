@@ -110,12 +110,42 @@ check("a property whose value is another undetermined property keeps every font"
 	run({ rules: ".card{--probe-font:var(--set-by-script)}.card p{font-family:var(--probe-font),serif}" }),
 	ALL_FAMILIES);
 
+// An unquoted family name is a sequence of identifier tokens, and the walk that joins them has to
+// resume after the LAST of them. Resuming after the first pushed every word but that one again as a
+// family in its own right, so "Helvetica Neue Light" also claimed fonts named "Neue Light" and
+// "Light". It only ever kept too much, which is why it went unnoticed; a page declaring a family
+// whose name is the tail of another one paid for it.
+const TAIL_FACES = `
+	@font-face{font-family:"Helvetica Neue Light";src:url(one.woff2)}
+	@font-face{font-family:"Neue Light";src:url(two.woff2)}
+	@font-face{font-family:"Light";src:url(three.woff2)}`;
+
+const TAIL_USED_FONTS = [
+	["helvetica neue light", "400", "normal", "normal"],
+	["neue light", "400", "normal", "normal"],
+	["light", "400", "normal", "normal"]
+];
+
+check("a multi-word family name is read whole",
+	run({ faces: TAIL_FACES, usedFonts: TAIL_USED_FONTS, rules: "p{font-family:Helvetica Neue Light,serif}" }),
+	["helvetica neue light"]);
+
+check("a quoted name is still matched by its quoted declaration",
+	run({ faces: TAIL_FACES, usedFonts: TAIL_USED_FONTS, rules: "p{font-family:\"Neue Light\",serif}" }),
+	["neue light"]);
+
+// the token that ends a name is not always the comma: a string or a number ends it too, and the
+// walk used to append the token's absent `name` to the family as the text "undefined"
+check("a name is ended by a token that is not an identifier",
+	run({ faces: TAIL_FACES, usedFonts: TAIL_USED_FONTS, rules: "p{font-family:Light \"Neue Light\"}" }),
+	["neue light", "light"]);
+
 console.log(failures ? `\n${failures} check(s) FAILED` : "\nall checks passed");
 Deno.exit(failures ? 1 : 0);
 
-function run({ rules, computed }) {
-	const stylesheet = cssTree.parse(FONT_FACES + rules);
-	const options = { usedFonts: USED_FONTS };
+function run({ rules, computed, faces = FONT_FACES, usedFonts = USED_FONTS }) {
+	const stylesheet = cssTree.parse(faces + rules);
+	const options = { usedFonts };
 	const originalGetComputedStyle = globalThis.getComputedStyle;
 	if (computed) {
 		options.doc = { body: {} };

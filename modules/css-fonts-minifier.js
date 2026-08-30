@@ -392,13 +392,16 @@ function parseFamilyNames(fontFamilyNameTokenData, fontFamilyNames) {
 	while (nextToken) {
 		if (nextToken.data.type == "Identifier") {
 			let familyName = nextToken.data.name;
+			// an unquoted family name is a sequence of identifiers, and the walk has to resume
+			// after the last of them: resuming after the first pushes every word but that one
+			// again as a family of its own, so "Foo Bar" also claims a font-face named "Bar"
 			let nextIdentifierToken = nextToken.next;
-			while (nextIdentifierToken && nextIdentifierToken.data.type != "Operator" && nextIdentifierToken.data.value != ",") {
+			while (nextIdentifierToken && nextIdentifierToken.data.type == "Identifier") {
 				familyName += " " + nextIdentifierToken.data.name;
 				nextIdentifierToken = nextIdentifierToken.next;
 			}
 			fontFamilyNames.push(helper.normalizeFontFamily(familyName));
-			nextToken = nextToken.next;
+			nextToken = nextIdentifierToken;
 		} else if (nextToken.data.type == "Function" && nextToken.data.name == "var" && nextToken.data.children) {
 			const varName = nextToken.data.children.head.data.name;
 			fontFamilyNames.push("var(" + varName + ")");

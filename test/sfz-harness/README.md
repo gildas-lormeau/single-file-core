@@ -29,7 +29,7 @@ any check failed.
 | `option-wiring.js` | That every option `compression.js` reads is either declared as a caller option or classified as internal, and that `single-file.js` still builds its argument from that declaration. Guards the layer the other suites sit below. |
 | `css-property-filter.js` | That the declaration filter keeps a property css-tree's dictionary does not know (`stop-color`, `flood-opacity`, anything newer than the pinned build) and still drops a genuinely invalid value. |
 | `adopted-stylesheets-hook.js` | That the page-world hook answers the adopted-stylesheets request for a CLOSED shadow root, which its host does not expose. |
-| `css-fonts-var.js` | That `removeUnusedFonts` resolves a `var()` font family from the values the document declares, not only from the ones the body inherits, and that it still keeps every font when the value is genuinely undetermined. |
+| `css-fonts-minifier.js` | That `removeUnusedFonts` reads the font families it prunes on correctly: a `var()` family resolved from the values the document declares and not only from the ones the body inherits, every font kept when the value is genuinely undetermined, and a multi-word family name that does not also claim a font named after its own tail. |
 
 ## The tools
 
