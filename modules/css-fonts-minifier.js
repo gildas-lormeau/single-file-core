@@ -41,7 +41,9 @@ const REGEXP_COMMA = /\s*,\s*/;
 const REGEXP_DASH = /-/;
 const REGEXP_QUESTION_MARK = /\?/g;
 const REGEXP_STARTS_U_PLUS = /^U\+/i;
-const REGEXP_CUSTOM_PROPERTY = /var\((--[^),]*)\)/g;
+const REGEXP_CUSTOM_PROPERTY = /var\(\s*(--[^\s,)]+)\s*(?:,[^)]*)?\)/g;
+const REGEXP_CUSTOM_PROPERTY_FAMILY = /^var\(\s*(--[^\s,)]+)\s*(?:,(.*))?\)$/;
+const REGEXP_CUSTOM_PROPERTY_NAME = /^--/;
 const VALID_FONT_STYLES = [/^normal$/, /^italic$/, /^oblique$/, /^oblique\s+/];
 // a family name kept when the "font" shorthand cannot be read: it resolves to nothing, so it
 // survives the substitution below and marks the fonts as undetermined instead of unused
@@ -54,9 +56,19 @@ export {
 function process(doc, stylesheets, styles, options) {
 	const stats = { rules: { processed: 0, discarded: 0 }, fonts: { processed: 0, discarded: 0 } };
 	const fontsInfo = { declared: [], used: [] };
+	const customProperties = new Map();
 	const workStyleElement = doc.createElement("style");
 	let docContent = "";
 	doc.body.appendChild(workStyleElement);
+	// the custom properties are collected first: a family or a "font" shorthand can be resolved
+	// with a property that a later stylesheet, or a style attribute, declares
+	stylesheets.forEach(stylesheetInfo => {
+		if (stylesheetInfo.stylesheet && stylesheetInfo.stylesheet.children) {
+			getCustomPropertiesInfo(stylesheetInfo.stylesheet.children, customProperties);
+		}
+	});
+	styles.forEach(declarations => getCustomProperties(declarations.children, customProperties));
+	options = Object.assign({}, options, { customProperties });
 	stylesheets.forEach(stylesheetInfo => {
 		if (stylesheetInfo.stylesheet) {
 			const cssRules = stylesheetInfo.stylesheet.children;
@@ -77,17 +89,8 @@ function process(doc, stylesheets, styles, options) {
 	});
 	workStyleElement.remove();
 	docContent += doc.body.innerText;
-	if (globalThis.getComputedStyle && options.doc) {
-		fontsInfo.used = fontsInfo.used.map(fontNames => fontNames.map(familyName => {
-			const matchedVar = familyName.match(/^var\((--.*)\)$/);
-			if (matchedVar && matchedVar[1]) {
-				const computedFamilyName = globalThis.getComputedStyle(options.doc.body).getPropertyValue(matchedVar[1]);
-				return (computedFamilyName && computedFamilyName.split(",").map(name => helper.normalizeFontFamily(name))) || familyName;
-			}
-			return familyName;
-		}));
-		fontsInfo.used = fontsInfo.used.map(fontNames => helper.flatten(fontNames));
-	}
+	fontsInfo.used = fontsInfo.used.map(fontNames => fontNames.map(familyName => resolveFamilyName(familyName, options)));
+	fontsInfo.used = fontsInfo.used.map(fontNames => helper.flatten(fontNames));
 	const variableFound = fontsInfo.used.find(fontNames => fontNames.find(fontName => fontName.match(/^var\(--/)));
 	let unusedFonts, filteredUsedFonts;
 	if (variableFound) {
@@ -139,6 +142,83 @@ function getFontsInfo(cssRules, fontsInfo, options) {
 			}
 		}
 	});
+}
+
+function getCustomPropertiesInfo(cssRules, customProperties) {
+	cssRules.forEach(ruleData => {
+		if (ruleData.type == "Atrule" && ruleData.name == "import" && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head.data.importedChildren) {
+			getCustomPropertiesInfo(ruleData.prelude.children.head.data.importedChildren, customProperties);
+		} else if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports" || ruleData.name == "layer" || ruleData.name == "container") && ruleData.block && ruleData.block.children) {
+			getCustomPropertiesInfo(ruleData.block.children, customProperties);
+		} else if (ruleData.type == "Rule" && ruleData.block && ruleData.block.children) {
+			getCustomProperties(ruleData.block.children, customProperties);
+		}
+	});
+}
+
+function getCustomProperties(declarations, customProperties) {
+	if (declarations) {
+		declarations.forEach(declaration => {
+			if (declaration.property && declaration.property.match(REGEXP_CUSTOM_PROPERTY_NAME)) {
+				try {
+					const value = cssTree.generate(declaration.value).trim();
+					if (value) {
+						let values = customProperties.get(declaration.property);
+						if (!values) {
+							values = new Set();
+							customProperties.set(declaration.property, values);
+						}
+						values.add(value);
+					}
+					// eslint-disable-next-line no-unused-vars
+				} catch (error) {
+					// ignored
+				}
+			}
+		});
+	}
+}
+
+function getCustomPropertyValues(name, options) {
+	let values;
+	if (globalThis.getComputedStyle && options.doc) {
+		const computedValue = globalThis.getComputedStyle(options.doc.body).getPropertyValue(name);
+		if (computedValue && computedValue.trim()) {
+			values = [computedValue];
+		}
+	}
+	if (!values) {
+		// the property is not inherited by the body: it is declared on a descendant, or in a
+		// media query that does not apply, so the value seen by the element using it cannot be
+		// determined here. Every value declared for it in the document is taken as a candidate,
+		// which still discards the fonts named by none of them
+		const declaredValues = options.customProperties && options.customProperties.get(name);
+		if (declaredValues && declaredValues.size) {
+			values = Array.from(declaredValues);
+		}
+	}
+	return values;
+}
+
+function resolveFamilyName(familyName, options) {
+	const matchedVar = familyName.match(REGEXP_CUSTOM_PROPERTY_FAMILY);
+	if (matchedVar) {
+		const fallback = matchedVar[2];
+		// a var() nested in the fallback cannot be split on its commas, so the family is left
+		// undetermined rather than read as a list of broken names
+		if (!fallback || !fallback.includes("var(")) {
+			const values = getCustomPropertyValues(matchedVar[1], options);
+			if (values) {
+				const families = helper.flatten(values.map(value => splitFamilyNames(value)));
+				return fallback ? families.concat(splitFamilyNames(fallback)) : families;
+			}
+		}
+	}
+	return familyName;
+}
+
+function splitFamilyNames(value) {
+	return value.split(",").map(familyName => normalizeFamilyName(familyName)).filter(familyName => familyName);
 }
 
 function filterUnusedFonts(cssRules, declaredFonts, unusedFonts, filteredUsedFonts, docChars) {
@@ -266,7 +346,7 @@ function getFontFamilyNames(declarations, options) {
 		} else {
 			fontFamilyName = cssTree.generate(fontFamilyName.data.value);
 			if (fontFamilyName) {
-				fontFamilyNames.push(helper.normalizeFontFamily(fontFamilyName));
+				fontFamilyNames.push(normalizeFamilyName(fontFamilyName));
 			}
 		}
 	}
@@ -280,7 +360,7 @@ function getFontFamilyNames(declarations, options) {
 				value = cssTree.parse(resolvedFontValue, { context: "value" });
 			}
 			const parsedFont = fontPropertyParser.parse(value);
-			parsedFont.family.forEach(familyName => fontFamilyNames.push(helper.normalizeFontFamily(familyName)));
+			parsedFont.family.forEach(familyName => fontFamilyNames.push(normalizeFamilyName(familyName)));
 			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			// the shorthand is unreadable, and dropping it here would count the fonts it names as
@@ -294,12 +374,17 @@ function getFontFamilyNames(declarations, options) {
 }
 
 function resolveCustomProperties(value, options) {
-	if (globalThis.getComputedStyle && options.doc) {
-		const computedStyle = globalThis.getComputedStyle(options.doc.body);
-		return value.replace(REGEXP_CUSTOM_PROPERTY, (property, name) => computedStyle.getPropertyValue(name) || property);
-	} else {
-		return value;
-	}
+	return value.replace(REGEXP_CUSTOM_PROPERTY, (property, name) => {
+		const values = getCustomPropertyValues(name, options);
+		// the shorthand is parsed as a whole, so it can only be substituted with a single value:
+		// with several candidates the families it names stay undetermined
+		return values && values.length == 1 ? values[0] : property;
+	});
+}
+
+function normalizeFamilyName(familyName = "") {
+	// custom property names are case-sensitive, unlike family names
+	return familyName.match(REGEXP_CUSTOM_PROPERTY_FAMILY) ? familyName.trim() : helper.normalizeFontFamily(familyName);
 }
 
 function parseFamilyNames(fontFamilyNameTokenData, fontFamilyNames) {
@@ -316,7 +401,7 @@ function parseFamilyNames(fontFamilyNameTokenData, fontFamilyNames) {
 			nextToken = nextToken.next;
 		} else if (nextToken.data.type == "Function" && nextToken.data.name == "var" && nextToken.data.children) {
 			const varName = nextToken.data.children.head.data.name;
-			fontFamilyNames.push(helper.normalizeFontFamily("var(" + varName + ")"));
+			fontFamilyNames.push("var(" + varName + ")");
 			let nextValueToken = nextToken.data.children.head.next;
 			while (nextValueToken && nextValueToken.data.type == "Operator" && nextValueToken.data.value == ",") {
 				nextValueToken = nextValueToken.next;
@@ -326,7 +411,9 @@ function parseFamilyNames(fontFamilyNameTokenData, fontFamilyNames) {
 				if (fallbackToken.data.children) {
 					parseFamilyNames(fallbackToken.data, fontFamilyNames);
 				} else {
-					fontFamilyNames.push(helper.normalizeFontFamily(fallbackToken.data.value));
+					// the fallback of a var() is parsed as a single raw token, so it still has to
+					// be split into the list of families it may hold
+					splitFamilyNames(String(fallbackToken.data.value)).forEach(familyName => fontFamilyNames.push(familyName));
 				}
 			}
 			nextToken = nextToken.next;
