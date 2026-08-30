@@ -51,6 +51,7 @@ const SELECTOR_LIST_CONTEXT = "selectorList";
 const STYLESHEET_CONTEXT = "stylesheet";
 const SELECTOR_CONTEXT = "selector";
 const DECLARATION_LIST_CONTEXT = "declarationList";
+const UNKNOWN_PROPERTY_ERROR_NAME = "SyntaxReferenceError";
 const PARSE_CSS_ERROR_MESSAGE = "Failed to parse CSS";
 const QSA_ERROR_MESSAGE = "Failed to match selector";
 const PRELUDE_SEPARATOR = ",";
@@ -69,8 +70,14 @@ const INVALID_CSS_ESCAPE_TEST = /\\(?![0-9a-fA-F]{1,6}\s|[^0-9a-zA-Z])/;
 const ANONYMOUS_LAYER_PLACEHOLDER = "\u0000";
 
 export {
-	process
+	process,
+	isUnsupportedPropertyValue
 };
+
+function isUnsupportedPropertyValue(property, value) {
+	const match = cssTree.lexer.matchProperty(property, value);
+	return Boolean(!match.matched && match.error && match.error.name !== UNKNOWN_PROPERTY_ERROR_NAME);
+}
 
 function process(doc, stylesheets) {
 	const docContext = {
@@ -493,7 +500,7 @@ function collectDeclarationItemsForElement(element, docContext) {
 				isInvalidValue = value.children.head.data.name.startsWith(VENDOR_PREFIX) || INVALID_CSS_ESCAPE_TEST.test(value.children.head.data.name);
 			} if (!property.startsWith(VENDOR_PREFIX) && value.children.head.data.value) {
 				try {
-					isInvalidValue = !cssTree.lexer.matchProperty(property, value).matched;
+					isInvalidValue = isUnsupportedPropertyValue(property, value);
 				} catch {
 					// ignored
 				}
