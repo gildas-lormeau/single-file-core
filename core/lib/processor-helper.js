@@ -151,7 +151,7 @@ function getProcessorHelperClass(utilInstance) {
 			}
 		}
 
-		async resolveImportURLs(stylesheetInfo, baseURI, options, workStylesheet, resources, stylesheets) {
+		async resolveImportURLs(stylesheetInfo, baseURI, options, workStylesheet, resources, stylesheets, importedStyleSheets = new Set()) {
 			const stylesheet = stylesheetInfo.stylesheet;
 			const scoped = stylesheetInfo.scoped;
 			this.resolveStylesheetURLs(stylesheet, baseURI, workStylesheet);
@@ -168,7 +168,10 @@ function getProcessorHelperClass(utilInstance) {
 						} catch (error) {
 							// ignored
 						}
-						if (testValidURL(resourceURL)) {
+						// a sheet already open higher in this import chain must not be entered again: the
+						// ancestors are carried down the branch, not accumulated across the whole document,
+						// so two sibling imports of one sheet are still both resolved
+						if (testValidURL(resourceURL) && !importedStyleSheets.has(resourceURL)) {
 							const mediaQueryListNode = cssTree.find(node, node => node.type == "MediaQueryList");
 							let mediaText, layerName, supportsCondition;
 							if (mediaQueryListNode) {
@@ -198,12 +201,19 @@ function getProcessorHelperClass(utilInstance) {
 									layerName,
 									supportsCondition
 								};
+								const requestedURL = resourceURL;
 								const content = await this.getStylesheetContent(resourceURL, options);
 								stylesheetInfo.url = resourceURL = content.resourceURL;
 								content.data = getUpdatedResourceContent(resourceURL, options) || content.data;
 								stylesheetInfo.stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
 								stylesheet = stylesheetInfo.stylesheet;
-								await this.resolveImportURLs(stylesheetInfo, resourceURL, options, workStylesheet, resources, stylesheets);
+								const ancestorStyleSheets = new Set(importedStyleSheets);
+								// both identities of the sheet are remembered: a redirect makes the URL that was
+								// requested and the URL that answered differ, and an import of either one is the
+								// same cycle
+								ancestorStyleSheets.add(requestedURL);
+								ancestorStyleSheets.add(resourceURL);
+								await this.resolveImportURLs(stylesheetInfo, resourceURL, options, workStylesheet, resources, stylesheets, ancestorStyleSheets);
 								stylesheets.set({ urlNode }, stylesheetInfo);
 							}
 							urlNode.importedChildren = stylesheet.children;
