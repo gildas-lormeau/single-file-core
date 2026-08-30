@@ -36,6 +36,7 @@ const CANVAS_TAG_FOUND = /<canvas/gi;
 const EMPTY_URL_SOURCE = /^url\(["']?data:[^,]*,?["']?\)/;
 const LOCAL_SOURCE = "local(";
 const FONT_MAX_LOAD_DELAY = 5000;
+const LINK_OWN_ATTRIBUTE_NAMES = ["rel", "type", "href", "media"];
 
 let util;
 
@@ -100,6 +101,7 @@ function getProcessorHelperClass(utilInstance) {
 		replaceStylesheets(doc, stylesheets, options, resources) {
 			const entries = Array.from(stylesheets).reverse();
 			const linkElements = new Map();
+			const sharedStyleElements = new Map();
 			Array.from(new Set(options.inlineStylesheetsRefs.values())).forEach(stylesheetRefIndex => {
 				const linkElement = doc.createElement("link");
 				linkElement.setAttribute("rel", "stylesheet");
@@ -117,6 +119,11 @@ function getProcessorHelperClass(utilInstance) {
 					: cssTree.parse(content, { context: "stylesheet", parseCustomProperty: true });
 				resources.stylesheets.set(resources.stylesheets.size, { name, content: this.generateStylesheetContent(stylesheet, options) });
 				linkElements.set(stylesheetRefIndex, linkElement);
+				// the element the duplicates were folded into is not itself a duplicate, so it is
+				// absent from inlineStylesheetsRefs and would keep its content inline: the archive
+				// would then hold the same stylesheet twice, once as the entry the links point at
+				// and once in the page
+				sharedStyleElements.set(styleElement, stylesheetRefIndex);
 			});
 			for (const [key, stylesheetInfo] of entries) {
 				if (key.urlNode) {
@@ -135,11 +142,22 @@ function getProcessorHelperClass(utilInstance) {
 					resources.stylesheets.set(resources.stylesheets.size, { name, stylesheet: stylesheetInfo.stylesheet, url: stylesheetInfo.url });
 				} else {
 					const styleElement = key.element;
-					const stylesheetRefIndex = options.inlineStylesheetsRefs.get(styleElement);
+					const stylesheetRefIndex = options.inlineStylesheetsRefs.has(styleElement)
+						? options.inlineStylesheetsRefs.get(styleElement)
+						: sharedStyleElements.get(styleElement);
 					if (stylesheetRefIndex === undefined) {
 						styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
 					} else {
 						const linkElement = linkElements.get(stylesheetRefIndex).cloneNode(true);
+						// the element is replaced rather than rewritten, so whatever identified it in
+						// the page has to be carried over: an id a script still looks up, a class a
+						// selector still matches. The attributes left out are the ones that describe
+						// the link itself, which the code around here sets
+						Array.from(styleElement.attributes).forEach(({ name, value }) => {
+							if (!LINK_OWN_ATTRIBUTE_NAMES.includes(name.toLowerCase())) {
+								linkElement.setAttribute(name, value);
+							}
+						});
 						if (stylesheetInfo.mediaText) {
 							linkElement.media = stylesheetInfo.mediaText;
 						}
