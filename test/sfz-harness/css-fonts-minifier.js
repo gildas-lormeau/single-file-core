@@ -127,6 +127,18 @@ check("a property naming itself through another one keeps every font",
 	run({ rules: ".card{--first-font:var(--second-font)}.note{--second-font:var(--first-font)}.card p{font-family:var(--first-font),serif}" }),
 	ALL_FAMILIES);
 
+// The rendered-fonts list is what says a declared face is really drawn, and an EMPTY one is not
+// the same answer as a short one: every rendered element has a computed font-family, so an empty
+// list means the computed styles could not be read at all. It happens for real. A frame whose
+// contentDocument is unreachable is re-parsed from its srcdoc with DOMParser
+// (processors/frame-tree/content/content-frame-tree.js), and that document is never rendered, so
+// it reports no font and the frame lost EVERY face it declared — measured on derstandard.at,
+// where the newsletter box inside such a frame fell back to a system font, and on MDN, where the
+// text in the CSS-demo frame reflowed. The families are named right there in the frame's own CSS.
+check("a document that reports no rendered font keeps every font",
+	run({ rules: ".card p{font-family:\"UsedOne\",serif}", usedFonts: [] }),
+	ALL_FAMILIES);
+
 check("a property whose value is another undetermined property keeps every font",
 	run({ rules: ".card{--probe-font:var(--set-by-script)}.card p{font-family:var(--probe-font),serif}" }),
 	ALL_FAMILIES);

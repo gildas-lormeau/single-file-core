@@ -92,8 +92,14 @@ function process(doc, stylesheets, styles, options) {
 	fontsInfo.used = fontsInfo.used.map(fontNames => fontNames.map(familyName => resolveFamilyName(familyName, options)));
 	fontsInfo.used = fontsInfo.used.map(fontNames => helper.flatten(fontNames));
 	const variableFound = fontsInfo.used.find(fontNames => fontNames.find(fontName => fontName.match(/^var\(--/)));
+	// an empty list of rendered fonts does not mean the document uses none: every rendered element
+	// has a computed font-family, so an empty list means the computed styles could not be read at
+	// all. A frame whose contentDocument is unreachable is re-parsed from its srcdoc with
+	// DOMParser, and that document is never rendered, so it reports nothing and every face it
+	// declares would be dropped
+	const usedFontsUnknown = !options.usedFonts || !options.usedFonts.length;
 	let unusedFonts, filteredUsedFonts;
-	if (variableFound) {
+	if (variableFound || usedFontsUnknown) {
 		unusedFonts = [];
 	} else {
 		filteredUsedFonts = new Map();
