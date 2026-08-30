@@ -199,17 +199,17 @@ Notes on composition:
 ### 2.1 The charset rule
 
 The HTML face declares `<meta charset=utf-8>` when universal mode is off. When
-universal mode is on it declares a single-byte charset instead — `windows-1252` in
-the reference writer. The
-declaration MUST appear within the first 1024 bytes of the file so the parser's
-encoding prescan finds it. That bound is the HTML standard's own authoring rule. The
-prescan it serves is weaker than the rule suggests: the standard makes it optional,
-and only *encourages* scanning the first 1024 bytes. Treat the number as a ceiling to
-write under, never as a budget a parser promises to read. The whole `<meta>` tag has
-to fit: one that straddles the boundary is not seen, and the parser falls back to its
-default encoding. Meeting the declaration later, during tokenization, does not rescue
-the file. The parser does not resume the prescan. It re-navigates the document under
-the new encoding instead, and a writer must not rely on that.
+universal mode is on it declares a single-byte charset instead — `windows-1252` in the
+reference writer. The declaration MUST appear within the first 1024 bytes of the file
+so the parser's encoding prescan finds it. That bound is the HTML standard's own
+authoring rule. The prescan it serves is weaker than the rule suggests: the standard
+makes it optional, and only *encourages* scanning the first 1024 bytes. Treat the
+number as a ceiling to write under, never as a budget a parser promises to read. The
+whole `<meta>` tag has to fit: one that straddles the boundary is not seen, and the
+parser falls back to its default encoding. Meeting the declaration later, during
+tokenization, does not rescue the file. The parser does not resume the prescan. It
+re-navigates the document under the new encoding instead, and a writer must not rely
+on that.
 
 Universal mode works in two parts, and the charset carries the first. The archive
 bytes themselves are recovered *from the parsed page text*: the browser decoded
