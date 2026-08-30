@@ -102,9 +102,10 @@ class ProcessorHelperCommon {
 			["image, feImage", "xlink:href"],
 			["image, feImage", "href"]
 		];
-		if (options.blockImages) {
-			doc.querySelectorAll("svg").forEach(element => element.remove());
-		}
+		// an inline svg is document content, not a fetched resource: blocking images empties the
+		// references it makes outwards (image, feImage and use are all processed below) and leaves
+		// the markup itself alone. Removing it deleted JS-drawn charts, inline icons, and the
+		// <defs> holding gradients and filters that CSS applies to ordinary HTML elements
 		let resourcePromises = processAttributeArgs.map(([selector, attributeName, removeElementIfMissing, processDuplicates]) =>
 			this.processAttribute(doc, doc.querySelectorAll(selector), attributeName, baseURI, options, "image", resources, removeElementIfMissing, batchRequest, styles, processDuplicates)
 		);
@@ -136,9 +137,12 @@ class ProcessorHelperCommon {
 				resourceElement.setAttribute("data-sf-original-href", originalResourceURL);
 			}
 			let resourceURL = normalizeURL(originalResourceURL);
-			if (!options.blockImages) {
-				if (testValidPath(resourceURL) && !testIgnoredPath(resourceURL)) {
-					resourceElement.setAttribute(attributeName, util.EMPTY_RESOURCE);
+			// a reference into the page itself costs no request, so blocking images must not empty
+			// it: normalizeURL drops the fragment, which leaves a bare "#symbol" as the empty path
+			// below and a same-document URL matching options.url
+			if (testValidPath(resourceURL) && !testIgnoredPath(resourceURL)) {
+				resourceElement.setAttribute(attributeName, util.EMPTY_RESOURCE);
+				if (!options.blockImages) {
 					try {
 						resourceURL = util.resolveURL(resourceURL, baseURI);
 						// eslint-disable-next-line no-unused-vars
@@ -172,11 +176,9 @@ class ProcessorHelperCommon {
 							}
 						}
 					}
-				} else if (resourceURL == options.url) {
-					resourceElement.setAttribute(attributeName, originalResourceURL.substring(resourceURL.length));
 				}
-			} else {
-				resourceElement.setAttribute(attributeName, util.EMPTY_RESOURCE);
+			} else if (resourceURL == options.url) {
+				resourceElement.setAttribute(attributeName, originalResourceURL.substring(resourceURL.length));
 			}
 		}));
 	}
