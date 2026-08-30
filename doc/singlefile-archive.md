@@ -198,8 +198,9 @@ Notes on composition:
 
 ### 2.1 The charset rule
 
-The HTML face declares `<meta charset=utf-8>` when universal mode is off, and a
-single-byte charset when it is on — `windows-1252` in the reference writer. The
+The HTML face declares `<meta charset=utf-8>` when universal mode is off. When
+universal mode is on it declares a single-byte charset instead — `windows-1252` in
+the reference writer. The
 declaration MUST appear within the first 1024 bytes of the file so the parser's
 encoding prescan finds it. That bound is the HTML standard's own authoring rule. The
 prescan it serves is weaker than the rule suggests: the standard makes it optional,
