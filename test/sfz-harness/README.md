@@ -18,7 +18,7 @@ deno run --allow-read test/sfz-harness/format-rules.js
 
 ## The suites
 
-CI runs these three. Each prints one `PASS`/`FAIL` line per check and exits non-zero if
+CI runs these. Each prints one `PASS`/`FAIL` line per check and exits non-zero if
 any check failed.
 
 | Script | What it covers |
@@ -26,7 +26,9 @@ any check failed.
 | `format-rules.js` | The rules of the format: charset round trip, the wrapper-tag ladder and its selection tests, the identifier, appended-data placement and declaration, password scope, the PDF and PNG faces. |
 | `stored-trigger.js` | That a stored (uncompressed) entry whose bytes contain a rung's pattern moves the writer to the right rung. |
 | `check-determinism.js` | That the same inputs produce the same bytes, and that the levers which should change the output do. |
-| `option-wiring.js` | That every option `compression.js` reads is either declared as a caller option or classified as internal, and that `single-file.js` still builds its argument from that declaration. Guards the layer the other three suites sit below. |
+| `option-wiring.js` | That every option `compression.js` reads is either declared as a caller option or classified as internal, and that `single-file.js` still builds its argument from that declaration. Guards the layer the other suites sit below. |
+| `css-property-filter.js` | That the declaration filter keeps a property css-tree's dictionary does not know (`stop-color`, `flood-opacity`, anything newer than the pinned build) and still drops a genuinely invalid value. |
+| `adopted-stylesheets-hook.js` | That the page-world hook answers the adopted-stylesheets request for a CLOSED shadow root, which its host does not expose. |
 
 ## The tools
 

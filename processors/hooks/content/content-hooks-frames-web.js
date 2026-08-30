@@ -83,6 +83,7 @@
 
 	let dispatchScrollEvent;
 	let adoptedStylesheetsData = new WeakMap();
+	const shadowRootsData = new WeakMap();
 
 	init();
 	new MutationObserver(init).observe(document, { childList: true });
@@ -534,8 +535,24 @@
 	};
 	CSSStyleSheet.prototype.deleteRule.toString = function () { return "function deleteRule() { [native code] }"; };
 
+	// the listener below is reached through the host element, and a closed shadow root is
+	// not reachable from it, so the roots are recorded as they are created
+	const originalAttachShadow = Element.prototype.attachShadow;
+	Element.prototype.attachShadow = function (init) {
+		try {
+			const shadowRoot = originalAttachShadow.apply(this, [init]);
+			shadowRootsData.set(this, shadowRoot);
+			return shadowRoot;
+		} catch (error) {
+			error.stack = error.message + "\n" + "    \n" + error.stack.trim().split("\n").slice(-1).join("\n");
+			throw error;
+		}
+	};
+	Element.prototype.attachShadow.toString = function () { return "function attachShadow() { [native code] }"; };
+	setFunctionName(Element.prototype.attachShadow, "attachShadow");
+
 	function getAdoptedStylesheetsListener(event) {
-		const shadowRoot = event.target.shadowRoot;
+		const shadowRoot = event.target.shadowRoot || shadowRootsData.get(event.target);
 		event.stopPropagation();
 		if (shadowRoot) {
 			shadowRoot.addEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, getAdoptedStylesheetsListener, { capture: true });
