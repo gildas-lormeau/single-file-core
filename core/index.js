@@ -422,6 +422,7 @@ const SHADOWROOT_CLONABLE = "shadowrootclonable";
 const SHADOWROOT_SERIALIZABLE = "shadowrootserializable";
 const SCRIPT_OPTIONS = "data-single-file-options";
 const UTF8_CHARSET = "utf-8";
+const TAINTED_CANVAS_WARNING_MESSAGE = "SingleFile: canvas elements tainted by a cross-origin resource, dropped from the page:";
 
 class Processor {
 	constructor(options, processorHelper, batchRequest) {
@@ -1055,20 +1056,29 @@ class Processor {
 
 	replaceCanvasElements() {
 		if (this.options.canvases) {
+			let discardedCount = 0;
 			this.doc.querySelectorAll("canvas").forEach(canvasElement => {
 				const attributeValue = canvasElement.getAttribute(util.CANVAS_ATTRIBUTE_NAME);
 				if (attributeValue) {
 					const canvasData = this.options.canvases[Number(attributeValue)];
 					if (canvasData) {
-						const backgroundStyle = {};
-						if (canvasData.backgroundColor) {
-							backgroundStyle["background-color"] = canvasData.backgroundColor;
+						if (canvasData.dataURI) {
+							const backgroundStyle = {};
+							if (canvasData.backgroundColor) {
+								backgroundStyle["background-color"] = canvasData.backgroundColor;
+							}
+							this.processorHelper.setBackgroundImage(canvasElement, "url(" + canvasData.dataURI + ")", backgroundStyle);
+							this.stats.add("processed", "canvas", 1);
+						} else {
+							discardedCount++;
+							this.stats.add("discarded", "canvas", 1);
 						}
-						this.processorHelper.setBackgroundImage(canvasElement, "url(" + canvasData.dataURI + ")", backgroundStyle);
-						this.stats.add("processed", "canvas", 1);
 					}
 				}
 			});
+			if (discardedCount) {
+				warn(TAINTED_CANVAS_WARNING_MESSAGE, discardedCount);
+			}
 		}
 	}
 
@@ -1724,6 +1734,10 @@ function testValidURL(resourceURL) {
 
 function log(...args) {
 	console.log("S-File <core>   ", ...args); // eslint-disable-line no-console
+}
+
+function warn(...args) {
+	console.warn("S-File <core>   ", ...args); // eslint-disable-line no-console
 }
 
 // -----

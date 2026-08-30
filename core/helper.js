@@ -496,17 +496,22 @@ function getStylesheetsContent(styleSheets, adoptedStyleSheetsCache = new Map())
 function getResourcesInfo(win, doc, element, options, data, elementHidden, computedStyle) {
 	const tagName = element.tagName && element.tagName.toUpperCase();
 	if (tagName == "CANVAS") {
+		const canvasComputedStyle = computedStyle || getComputedStyle(win, element);
+		const canvasData = {
+			backgroundColor: canvasComputedStyle && canvasComputedStyle.getPropertyValue("background-color")
+		};
 		try {
-			data.canvases.push({
-				dataURI: element.toDataURL("image/png"),
-				backgroundColor: computedStyle.getPropertyValue("background-color")
-			});
-			element.setAttribute(CANVAS_ATTRIBUTE_NAME, data.canvases.length - 1);
-			data.markedElements.push(element);
+			canvasData.dataURI = element.toDataURL("image/png");
 			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
-			// ignored
+			// a canvas painted with a cross-origin resource is tainted and toDataURL throws for the
+			// whole element, its own drawing included. The entry is pushed and the element marked
+			// anyway: the loss is then counted and reported instead of being silent, and an
+			// out-of-page fallback re-rendering the element has something to find it by
 		}
+		data.canvases.push(canvasData);
+		element.setAttribute(CANVAS_ATTRIBUTE_NAME, data.canvases.length - 1);
+		data.markedElements.push(element);
 	}
 	if (tagName == "IMG") {
 		const imageData = {
