@@ -556,9 +556,7 @@
 		event.stopPropagation();
 		if (shadowRoot) {
 			shadowRoot.addEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, getAdoptedStylesheetsListener, { capture: true });
-			shadowRoot.addEventListener(UNREGISTER_GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, () => {
-				shadowRoot.removeEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, getAdoptedStylesheetsListener);
-			}, { once: true });
+			shadowRoot.addEventListener(UNREGISTER_GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, unregisterGetAdoptedStylesheetsListener, { once: true });
 			const adoptedStyleSheets = Array.from(shadowRoot.adoptedStyleSheets).map(stylesheet => {
 				if (adoptedStylesheetsData.has(stylesheet)) {
 					return adoptedStylesheetsData.get(stylesheet);
@@ -570,6 +568,14 @@
 				shadowRoot.dispatchEvent(new CustomEvent(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, { detail: { adoptedStyleSheets } }));
 			}
 		}
+	}
+
+	// the root is read from the event rather than captured, so one function serves every shadow root:
+	// a closure per root would be a distinct callback each time and would accumulate instead of being
+	// the no-op that re-adding an already registered listener is. The capture flag has to be repeated
+	// here because it is part of what identifies the listener to remove
+	function unregisterGetAdoptedStylesheetsListener(event) {
+		event.currentTarget.removeEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, getAdoptedStylesheetsListener, { capture: true });
 	}
 
 	async function getDetailObject(fontFamily, src, descriptors) {

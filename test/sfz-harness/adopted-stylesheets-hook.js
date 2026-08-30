@@ -37,6 +37,7 @@
 
 const REQUEST_EVENT = "single-file-request-get-adopted-stylesheets";
 const RESPONSE_EVENT = "single-file-response-get-adopted-stylesheets";
+const UNREGISTER_EVENT = "single-file-unregister-request-get-adopted-stylesheets";
 const HOOK_PATH = new URL("../../processors/hooks/content/content-hooks-frames-web.js", import.meta.url);
 
 let failures = 0;
@@ -88,6 +89,29 @@ check("an empty root is still listened to for nested hosts", emptyRoot.listenerC
 // a target that is neither a host nor a recorded root must not throw
 check("an unrelated target is ignored", request(new StubElement(), new StubShadowRoot()) === undefined);
 
+// the cleanup the hook installs on each root it answers for. Both halves of it were dead:
+// the unregister handler was a fresh closure per handshake, so it was never the no-op that
+// re-adding a registered listener is and one was left behind per root per save, and it
+// removed the request listener without the capture flag it had been added with, which
+// matches nothing at all
+const repeatHost = new StubElement();
+const repeatRoot = repeatHost.attachShadow({ mode: "open" });
+adopt(repeatRoot, ".repeat { color: teal }");
+request(repeatHost, repeatRoot);
+const unregisterAfterFirst = repeatRoot.listenerCount(UNREGISTER_EVENT);
+request(repeatHost, repeatRoot);
+request(repeatHost, repeatRoot);
+check("one handshake installs one unregister listener", unregisterAfterFirst === 1);
+check("repeated handshakes do not accumulate unregister listeners",
+	repeatRoot.listenerCount(UNREGISTER_EVENT) === 1);
+check("the root is listened to for requests until it is unregistered",
+	repeatRoot.listenerCount(REQUEST_EVENT) === 1);
+repeatRoot.dispatchEvent(new globalThis.CustomEvent(UNREGISTER_EVENT, { bubbles: true }));
+check("unregistering removes the request listener the hook added with capture",
+	repeatRoot.listenerCount(REQUEST_EVENT) === 0);
+check("the unregister listener removes itself once it has fired",
+	repeatRoot.listenerCount(UNREGISTER_EVENT) === 0);
+
 console.log(failures ? `\n${failures} check(s) FAILED` : "\nall checks passed");
 Deno.exit(failures ? 1 : 0);
 
@@ -130,22 +154,37 @@ function StubElement() {
 }
 
 function installStubs() {
+	// a listener is identified by type, callback AND capture: adding one that is already
+	// registered is a no-op, and removing one with a different capture flag matches nothing.
+	// The stub has to model both, because those are the two rules the cleanup code got wrong
 	const listenerMethods = {
-		addEventListener(type, listener) {
+		addEventListener(type, listener, options) {
+			const capture = Boolean(options && options.capture);
 			if (!this.listeners.has(type)) {
 				this.listeners.set(type, []);
 			}
-			this.listeners.get(type).push(listener);
+			const listeners = this.listeners.get(type);
+			if (!listeners.some(entry => entry.listener === listener && entry.capture === capture)) {
+				listeners.push({ listener, capture, once: Boolean(options && options.once) });
+			}
 		},
-		removeEventListener(type, listener) {
+		removeEventListener(type, listener, options) {
+			const capture = Boolean(options && options.capture);
 			const listeners = this.listeners.get(type) || [];
-			const index = listeners.indexOf(listener);
+			const index = listeners.findIndex(entry => entry.listener === listener && entry.capture === capture);
 			if (index !== -1) {
 				listeners.splice(index, 1);
 			}
 		},
 		dispatchEvent(event) {
-			(this.listeners.get(event.type) || []).slice().forEach(listener => listener(event));
+			event.currentTarget = this;
+			(this.listeners.get(event.type) || []).slice().forEach(entry => {
+				if (entry.once) {
+					this.removeEventListener(event.type, entry.listener, { capture: entry.capture });
+				}
+				entry.listener(event);
+			});
+			event.currentTarget = null;
 			return true;
 		},
 		listenerCount(type) {
