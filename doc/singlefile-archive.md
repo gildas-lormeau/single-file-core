@@ -215,24 +215,37 @@ The declaration decides the decoding only when nothing outranks it. Three things
 each returning an encoding with the standard's *certain* confidence, all of them ahead
 of the prescan: a byte order mark, a user's explicit encoding override, and a charset
 stated by the transport layer, which over HTTP means a `Content-Type` header carrying
-its own `charset`. Any of the three replaces the declared charset. The parsed text is
-then not what the writer encoded, and universal extraction cannot recover the region.
-This is the one precondition universal mode has that the file cannot satisfy from
-within itself.
+its own `charset`. Any of the three replaces the declared charset, the parsed text is
+then not what the writer encoded, and the region cannot be recovered from it. This is
+the one precondition universal mode has that the file cannot satisfy from within
+itself.
 
-The failure is safe rather than silent. Decoded under the wrong charset the
-reconstructed bytes are wrong, the payload checksum does not match, and the extractor
-MUST fail to the error message (§4.5) instead of displaying a corrupt page. So a
-writer gets robust failure, not recovery everywhere: a universal-mode archive is
-recoverable wherever it is decoded as declared, which covers every `file:` open and
-every server that states no charset of its own. A reader MAY tell this case apart from
-ordinary corruption by comparing the encoding the document was actually decoded with —
+Where it bites is narrower than that makes it sound, because the parsed text is the
+last rung, not the first. The bootstrap reads the file's raw bytes whenever it can
+(§4.1), and raw bytes carry no encoding; universal extraction is the fallback for when
+they are out of reach. Taking the three in turn:
+
+- A **transport charset** exists only over HTTP, and over HTTP the raw read is what
+  runs — the bootstrap requests its own URL and takes the response as bytes, which no
+  `Content-Type` can reinterpret. It reaches universal extraction only in a double
+  failure: the response has to defeat the raw read, through a network or CORS failure
+  or a non-200 status, *and* state a charset of its own.
+- A **BOM** is the writer's own doing. It is why universal and PNG variants never carry
+  one (§3.1): the reference writer emits a BOM for the plain variant only
+  (`includeBOM`), where nothing depends on the declared charset.
+- A **user override** is the one no software can prevent, and the rarest.
+
+On `file:` URLs the bootstrap goes straight to page-text extraction, since no raw read
+is available there (§4.1) — but there is also no transport layer, so the first of the
+three cannot arise on the very path that depends on the charset most.
+
+The failure is safe rather than silent, which is why the precondition is worth stating
+at all. Decoded under the wrong charset the reconstructed bytes are wrong, the payload
+checksum does not match, and the extractor MUST fail to the error message (§4.5)
+instead of displaying a corrupt page. A reader MAY tell the case apart from ordinary
+corruption by comparing the encoding the document was actually decoded with —
 `document.characterSet` in a browser — against the declared one, and say so in the
-error message. Nothing requires it, and the MUST above is unaffected either way.
-
-The BOM is the one of the three a writer controls, and it is why universal and PNG
-variants never carry one (§3.1). The reference writer emits a BOM for the plain
-variant only, where nothing depends on the declared charset.
+error message. Nothing requires it, and the MUST is unaffected either way.
 
 Universal mode works in two parts, and the charset carries the first. The archive
 bytes themselves are recovered *from the parsed page text*: the browser decoded
@@ -337,9 +350,11 @@ The HTML parser consumes the whole file as one document. Its encoding prescan fi
 the `<meta charset>` declaration within the first 1024 bytes (§2.1) and the file is
 decoded as a single text; every binary region therefore also exists as characters in
 the parsed document, which is what universal mode exploits (§4.5). This holds only
-while the declaration is what decides the decoding. A BOM, a user override or a
+while the declaration is what decides the decoding: a BOM, a user override or a
 transport-layer charset outranks it, and universal extraction then fails its checksum
-rather than recovering anything (§2.1).
+rather than recovering anything (§2.1). The acquisition order below keeps that off the
+common path — the raw bytes are read in preference to the parsed text wherever they
+can be, and no encoding applies to them.
 
 The binary regions are kept out of the rendered page by the wrapper tags. The
 default wrapper is an HTML comment, and the HTML standard defines exactly which
@@ -1584,6 +1599,7 @@ what a writer emits or a reader accepts.
 
 The same pass added the two boundaries universal mode had left unstated: that it
 recovers the region only where the declared charset is what decided the decoding, a
-BOM, a user override and a transport-layer charset all outranking it (§2.1), and that
+BOM, a user override and a transport-layer charset all outranking it — narrow in
+practice, since the raw read comes first and no encoding applies to it (§2.1) — and that
 the recovery payload's 32-bit length field caps the region below 2^32 bytes, with
 engine string limits binding well before that (§5.5).
