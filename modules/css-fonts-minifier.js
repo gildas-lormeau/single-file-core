@@ -99,18 +99,26 @@ function process(doc, stylesheets, styles, options) {
 	// declares would be dropped
 	const usedFontsUnknown = !options.usedFonts || !options.usedFonts.length;
 	let unusedFonts, filteredUsedFonts;
-	if (variableFound || usedFontsUnknown) {
+	if (usedFontsUnknown) {
 		unusedFonts = [];
 	} else {
 		filteredUsedFonts = new Map();
-		fontsInfo.used.forEach(fontNames => fontNames.forEach(familyName => {
-			if (fontsInfo.declared.find(fontInfo => fontInfo.fontFamily == familyName)) {
-				const optionalData = options.usedFonts && options.usedFonts.filter(fontInfo => fontInfo[0] == familyName);
-				if (optionalData && optionalData.length) {
-					filteredUsedFonts.set(familyName, optionalData);
-				}
-			}
-		}));
+		fontsInfo.used.forEach(fontNames => fontNames.forEach(familyName =>
+			keepDeclaredFontIfRendered(familyName, fontsInfo, filteredUsedFonts, options)));
+		// A family named through a value that could not be resolved cannot be looked up in the
+		// stylesheets — but the browser resolved it when it drew the page, so whatever it named is
+		// in the list of fonts actually rendered, and that list answers for it.
+		//
+		// Giving up on the whole document instead, which is what an unresolved name used to do,
+		// kept every declared face on any page holding one unreadable value anywhere while every
+		// other page pruned as usual. That was not a policy about uncertainty: a page that names
+		// its families plainly has always dropped a face it had not drawn yet, and only a page
+		// whose value happened not to parse was spared. The difference came from a parse failure,
+		// so it is the rendered list that decides in both cases now.
+		if (variableFound) {
+			fontsInfo.declared.forEach(fontInfo =>
+				keepDeclaredFontIfRendered(fontInfo.fontFamily, fontsInfo, filteredUsedFonts, options));
+		}
 		unusedFonts = fontsInfo.declared.filter(fontInfo => !filteredUsedFonts.has(fontInfo.fontFamily));
 	}
 	const docChars = Array.from(new Set(docContent)).map(char => char.charCodeAt(0)).sort((value1, value2) => value1 - value2);
@@ -124,6 +132,17 @@ function process(doc, stylesheets, styles, options) {
 		}
 	});
 	return stats;
+}
+
+// a face is kept when the page declares it and the browser reports having drawn with it: the
+// stylesheets say what exists, the rendered list says what was needed
+function keepDeclaredFontIfRendered(familyName, fontsInfo, filteredUsedFonts, options) {
+	if (fontsInfo.declared.find(fontInfo => fontInfo.fontFamily == familyName)) {
+		const optionalData = options.usedFonts.filter(fontInfo => fontInfo[0] == familyName);
+		if (optionalData.length) {
+			filteredUsedFonts.set(familyName, optionalData);
+		}
+	}
 }
 
 function getFontsInfo(cssRules, fontsInfo, options) {

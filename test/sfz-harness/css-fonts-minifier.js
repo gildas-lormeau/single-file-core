@@ -11,6 +11,13 @@
 // so it can only keep too much, never too little — and options.usedFonts, which comes from the
 // rendered computed styles, gates the result anyway.
 //
+// What happens when even the union cannot answer changed with it. Switching pruning off for the
+// whole document was never a policy about uncertainty — a page naming its families plainly has
+// always dropped a face it had not drawn yet, and only a page holding one unreadable value anywhere
+// was spared, all of it. So the rendered list decides in that case too: a family the browser
+// resolved when it drew the page is in that list whatever the stylesheets can be made to say. The
+// one case that still keeps everything is the one where the rendering itself is missing.
+//
 // The other var() defects this pins, all found alongside it:
 //   - custom property names are case-sensitive; they were lowercased with the family names, so
 //     var(--ProbeFont) never resolved, not even from :root
@@ -44,6 +51,11 @@ const USED_FONTS = [
 ];
 
 const ALL_FAMILIES = ["usedone", "usedtwo", "usedthree", "unused"];
+
+// what survives when the stylesheets cannot say which family a value names: the faces the page
+// declares AND the rendering reports having drawn with. It is USED_FONTS that decides there, so a
+// face nothing drew is dropped even though nothing could be shown to name it either
+const RENDERED_FAMILIES = ["usedone", "usedtwo", "usedthree"];
 
 let failures = 0;
 
@@ -83,12 +95,18 @@ check("the font shorthand resolves a property written with a fallback",
 	run({ rules: ".card{--probe-font:\"UsedOne\"}.card p{font:italic 1em var(--probe-font,serif)}" }),
 	["usedone"]);
 
-// the conservative half of the contract: when the value genuinely cannot be determined, every
-// declared font stays, including the one no rule names. These are the cases the union does not
-// cover, and getting them wrong loses fonts from the saved page rather than merely wasting bytes
-check("a property declared nowhere keeps every font",
+// The other half of the contract: what happens when the value genuinely cannot be determined. The
+// stylesheets no longer decide there — the rendering does. The browser resolved the value when it
+// drew the page, so whatever the property named is in the list of fonts reported as used, and a
+// face absent from that list was drawn by nothing.
+//
+// It used to keep EVERY declared face, and not as a decision about uncertainty: a page naming its
+// families plainly has always dropped a face it had not drawn yet, and only a page holding one
+// value that happened not to parse was spared — the whole document, over one unreadable name. The
+// case these checks still guard is the one below them, where the rendering itself is unavailable.
+check("a property declared nowhere falls back to the fonts that were drawn",
 	run({ rules: ".card p{font-family:var(--set-by-script),serif}" }),
-	ALL_FAMILIES);
+	RENDERED_FAMILIES);
 
 // the shorthand cannot be substituted with several candidate values, but its var() sits in family
 // position, so the parser hands it back as the family and the union answers it there instead
@@ -97,14 +115,14 @@ check("a font shorthand with several candidates resolves through the family",
 	["usedone", "usedtwo"]);
 
 // a property holding the whole shorthand is the case the union must NOT touch: its values are not
-// family lists, and reading them as such would drop every font in the document
-check("a property holding a whole shorthand keeps every font",
+// family lists, and reading them as such would name families the document never had
+check("a property holding a whole shorthand falls back to the fonts that were drawn",
 	run({ rules: ".card{--font:italic 1em \"UsedOne\"}.note{--font:italic 1em \"UsedTwo\"}p{font:var(--font)}" }),
-	ALL_FAMILIES);
+	RENDERED_FAMILIES);
 
-check("a var() nested in a fallback keeps every font",
+check("a var() nested in a fallback falls back to the fonts that were drawn",
 	run({ rules: ".card{--probe-font:\"UsedOne\"}.card p{font-family:var(--other,var(--probe-font),serif)}" }),
-	ALL_FAMILIES);
+	RENDERED_FAMILIES);
 
 // the check above leaves the family undetermined because the OUTER property is declared nowhere.
 // A var() written in the font-family itself is split by the AST walk, which hands each branch over
@@ -123,9 +141,9 @@ check("a value holding a var() with its own fallback is split on the top-level c
 
 // two properties naming each other resolve for ever without the guard: this check hangs rather
 // than fails when it regresses
-check("a property naming itself through another one keeps every font",
+check("a property naming itself through another one falls back to the fonts that were drawn",
 	run({ rules: ".card{--first-font:var(--second-font)}.note{--second-font:var(--first-font)}.card p{font-family:var(--first-font),serif}" }),
-	ALL_FAMILIES);
+	RENDERED_FAMILIES);
 
 // The rendered-fonts list is what says a declared face is really drawn, and an EMPTY one is not
 // the same answer as a short one: every rendered element has a computed font-family, so an empty
@@ -139,9 +157,9 @@ check("a document that reports no rendered font keeps every font",
 	run({ rules: ".card p{font-family:\"UsedOne\",serif}", usedFonts: [] }),
 	ALL_FAMILIES);
 
-check("a property whose value is another undetermined property keeps every font",
+check("a property whose value is another undetermined property falls back to the fonts that were drawn",
 	run({ rules: ".card{--probe-font:var(--set-by-script)}.card p{font-family:var(--probe-font),serif}" }),
-	ALL_FAMILIES);
+	RENDERED_FAMILIES);
 
 // An unquoted family name is a sequence of identifier tokens, and the walk that joins them has to
 // resume after the LAST of them. Resuming after the first pushed every word but that one again as a
