@@ -106,11 +106,16 @@ function getProcessorHelperClass(utilInstance) {
 				linkElement.setAttribute("type", "text/css");
 				const name = "stylesheet_" + resources.stylesheets.size + ".css";
 				linkElement.setAttribute("href", name);
-				let { content } = options.inlineStylesheets.get(stylesheetRefIndex);
-				const stylesheet = cssTree.parse(content, { context: "stylesheet", parseCustomProperty: true });
-				this.replacePseudoClassDefined(stylesheet);
-				content = this.generateStylesheetContent(stylesheet, options);
-				resources.stylesheets.set(resources.stylesheets.size, { name, content });
+				// the shared copy is generated from the stylesheet of the element the duplicates were
+				// folded into, not from the text that was captured: that text still names the resources
+				// by their addresses in the original page, which resolve to nothing once the page is
+				// inside the archive
+				const { styleElement, content } = options.inlineStylesheets.get(stylesheetRefIndex);
+				const sharedEntry = entries.find(([key]) => key.element == styleElement);
+				const stylesheet = sharedEntry
+					? sharedEntry[1].stylesheet
+					: cssTree.parse(content, { context: "stylesheet", parseCustomProperty: true });
+				resources.stylesheets.set(resources.stylesheets.size, { name, content: this.generateStylesheetContent(stylesheet, options) });
 				linkElements.set(stylesheetRefIndex, linkElement);
 			});
 			for (const [key, stylesheetInfo] of entries) {
