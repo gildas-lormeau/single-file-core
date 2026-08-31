@@ -295,10 +295,12 @@ inside the extractor is not. The reference writer shipped exactly this defect: i
 inlined ZIP library carried a CP437 lookup table as literal characters, the page
 re-decoded them as windows-1252, and the table grew from 256 entries to 508, shifting
 every lookup past the first 32 by 60 positions. Only names decoded through that table
-were affected — the ones whose UTF-8 flag is clear (§5.8), which in a reference archive
-means `page.pdf` alone — and that was enough: its name is what the extractor matches to
-skip it, so no archive with a PDF face extracted in any engine, while the page itself
-looked correct.
+were affected — the ones whose UTF-8 flag was clear (§5.8), which in an archive of that
+era meant `page.pdf` alone — and that was enough: its name is what the extractor matches
+to skip it, so no archive with a PDF face extracted in any engine, while the page itself
+looked correct. `page.pdf` now carries the flag like every other entry, so an archive
+written by a current version has no name on that path at all; the requirement stands
+regardless, because it is the bootstrap that is at stake and not one table inside it.
 
 ### 2.2 File name conventions
 
@@ -343,7 +345,7 @@ face adds, then the regions the PNG face adds.
 | `central-directory · eocd` | ZIP | always | The central-directory records followed by the End Of Central Directory record. All offsets are absolute file positions (§5.3). In the HTML+PDF variants the EOCD accounts for the injected `pdf-central-record` (how the writer achieves that is §6). |
 | `extra-data` | extractor | universal | `<sfz-extra-data>` element holding the base64, deflate-compressed recovery payload (§5.5). It always sits outside the wrapper, so it parses as a real element the extractor can address. Normal placement: after the EOCD, between the wrapper close tag and the end tags. Relocated placement, used when the payload exceeds the 64 KB appended-data window or `preventAppendedData` is set: immediately before the wrapper start tag. In the relocated form the element is followed by space padding: its room is reserved before the archive is written, because the region precedes the ZIP data and resizing it would shift every central-directory offset (§6). Neither placement carries positional meaning — the extractor finds the ZIP region by identifier, not relative to this element (§4.5). |
 | `</body></html>` | HTML | HTML face | The end tags closing the document after the wrapper close tag. Omitted when appended data is prevented, and in the PNG variants so the file can end with the PNG tail. |
-| `pdf-local-header` | ZIP | PDF face with HTML | The hand-built local file header for `page.pdf` (STORE, checksum precomputed), written immediately before the PDF document so ZIP readers see an ordinary entry whose data is the PDF (§6). |
+| `pdf-local-header` | ZIP | PDF face with HTML | The hand-built local file header for `page.pdf` (STORE, checksum precomputed, language encoding flag set as on every other entry — §5.8), written immediately before the PDF document so ZIP readers see an ordinary entry whose data is the PDF (§6). |
 | `pdf-document` | PDF | PDF face | The raw PDF bytes. With the HTML face, wrapped together with `pdf-local-header` in a wrapper tag pair inside `html-prologue`, placed so `%PDF-` starts at offset 1024 or lower — the range PDF readers search for the header, which is what lets a PDF document start after other bytes at all (§4.3). Without the HTML face the file simply *starts* with the PDF document, as prepended data the ZIP face tolerates; `page.pdf` is then not an archive entry at all — no local header, no central record. |
 | `pdf-central-record` | ZIP | PDF face with HTML | The central-directory record for `page.pdf`, injected *before* the writer's own central directory. The start of the central directory is the one place a record can be added without moving any offset the writer already committed, and it makes `page.pdf` the first entry ZIP tools list (§6). |
 | `png-signature · IHDR` | PNG | PNG face | The 8-byte PNG signature and the `IHDR` chunk declaring the source image's dimensions — the first 33 bytes of the file. |
@@ -1133,10 +1135,17 @@ cannot express (§5.5) — a size bound, not a zip64 one.
 
 ### 5.8 Entry name encoding
 
-Entry names in this format are arbitrary Unicode. They derive from the captured page's
-resource URLs (§7.3), so an archive of an ordinary non-English page carries names no
-ASCII encoding can express, and how a name is decoded is an interoperability question
-rather than a detail.
+Entry names in this format are arbitrary Unicode, and how a name is decoded is an
+interoperability question rather than a detail.
+
+The reference writer never exercises that range. Its names are a fixed prefix, an
+index and an extension — `index.html`, `manifest.json`, `stylesheet_0.css`,
+`images/1.png`, `fonts/2.woff2`, `scripts/3.js`, `frames/4/`, `page.pdf` — and the
+extension comes either from a table of content types or from a URL pathname, which is
+percent-encoded. Every name it writes is therefore ASCII, whatever the language of the
+captured page. That is a property of this writer, not a guarantee of the format: a
+conforming writer may name entries after the resources themselves, and §7.3's rule
+that entry names are untrusted assumes one does.
 
 ZIP resolves it with **bit 11 of the general purpose bit flag**, the language encoding
 flag. Set, the name field is UTF-8. Clear, it is IBM code page 437, the format's
@@ -1146,6 +1155,8 @@ directory record, and a reader takes it from whichever record it read the name f
 A writer MUST set bit 11 on every entry whose name is not pure ASCII, and SHOULD set
 it on every entry, which is what the reference writer does: the two encodings agree
 over printable ASCII, so setting it unconditionally is safe and removes a decision.
+It also means no entry in the archive is decoded through the legacy table, which is
+worth more than the decision it removes — see the second bullet below.
 
 A reader MUST honor the flag rather than assume one encoding. Two failures follow from
 assuming, and they are not symmetric: reading a CP437 name as UTF-8 yields U+FFFD for
@@ -1164,12 +1175,14 @@ Two further requirements a reader has to get right:
   its low half shifts every lookup after it, so even pure-ASCII names come out mangled.
   That is not hypothetical: it is how the defect described in §2.1 presented, and it is
   why that defect was invisible until an entry without the UTF-8 flag existed.
-- **Expect a name whose flag is clear even in a wholly modern archive.** The reference
-  writer's hand-built `page.pdf` records (§3.1, §6) set no bit flag at all, so that one
-  entry is always read through CP437 while every other name in the same file is read
-  as UTF-8. The name is ASCII, where the two agree, so a correct reader sees `page.pdf`
-  either way — but a reader that hardcodes UTF-8 on the strength of the other entries
-  will find this one is not covered by that assumption.
+- **Expect a name whose flag is clear in an archive written before core 1.5.120.** The
+  hand-built `page.pdf` records (§3.1, §6) are the only ones the reference writer does
+  not produce through its ZIP writer, and they set no bit flag at all until that
+  version, so in an older archive that one entry is read through CP437 while every
+  other name in the same file is read as UTF-8. The name is ASCII, where the two agree,
+  so a correct reader sees `page.pdf` either way. The reason to have fixed it is not
+  the decoded name but the path: one flagless entry per archive was enough to keep the
+  legacy table reachable in every reader, and that is where the §2.1 defect surfaced.
 
 A name is not a path. §7.3's rule that entry names are untrusted applies to the decoded
 name, and decoding is the step before that check, not a substitute for it.
@@ -1648,6 +1661,7 @@ predicts.
 | August 2026 | Core 1.5.110: `<svg><![CDATA[` joins the ladder above `<plaintext>` (§5.1) — the one rung whose terminator, `]]>`, real payloads rarely carry. It gives a payload naming every element rung somewhere to go that does not cost the appended-data placement, and moves the self-nesting limit from the fifth level to the sixth |
 | August 2026 | Core 1.5.115: password-protected archives withhold the provenance comment and the canonical link as well (§5.6). Both wrote the page's own URL into the prologue, beside the title that was already withheld, so the address the archive was saved from stayed in the clear |
 | August 2026 | Core 1.5.119: the inlined ZIP library is built ASCII-only, and §2.1 now requires it of any bootstrap. Its CP437 table had been emitted as literal characters, which the page re-decoded as windows-1252, growing the table from 256 entries to 508 and shifting every lookup by 60 — so the one entry read without the UTF-8 flag, `page.pdf`, came back mangled and no archive with a PDF face extracted in any engine (§5.8) |
+| August 2026 | Core 1.5.120: the hand-built `page.pdf` records set the language encoding flag, like every entry the ZIP writer produces (§5.8). Its name is ASCII, so no decoded name changes; what changes is that no entry in an archive is read through CP437 any more, closing the path the 1.5.119 defect surfaced on |
 
 This document was itself revised in August 2026, against core 1.5.108, after several
 independent reviews. One of them was a reader built from this specification alone, with
