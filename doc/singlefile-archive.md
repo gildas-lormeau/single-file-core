@@ -273,6 +273,33 @@ The parser also replaces NUL bytes with U+FFFD; since no byte decodes to U+FFFD 
 a qualifying encoding, the extractor maps U+FFFD back to NUL unambiguously and the
 payload needs nothing for it (§5.5).
 
+The declared charset governs the **whole document**, not only the regions the format
+reasons about. Everything the parser reads is decoded with it, the bootstrap script
+included, and the writer's own code is therefore subject to the same single-byte
+decoding as the page it carries. In universal mode the bootstrap MUST contain no
+character outside printable ASCII.
+
+Unlike the `<title>` and the table of contents (§4.6), it cannot be rescued by
+character references. A `<script>` element's content is script data, a tokenizer state
+that does not resolve them: `&#9786;` written there stays seven literal characters and
+reaches the program as seven characters. The escape has to happen one level down, in
+the JavaScript source — `\u263A` rather than `☺`, an escape the language resolves when
+the script is compiled, not one the HTML parser resolves when the file is read. A
+minifier will undo this if allowed to, since printing the shortest form is its default
+and the shortest form of `\u263A` is the literal character. A writer that assembles
+the bootstrap through a minifier MUST configure it to emit ASCII only.
+
+The consequence of getting this wrong is worse than the mojibake a raw title produces,
+and that is the reason for the MUST. A garbled title is visible; a garbled string
+inside the extractor is not. The reference writer shipped exactly this defect: its
+inlined ZIP library carried a CP437 lookup table as literal characters, the page
+re-decoded them as windows-1252, and the table grew from 256 entries to 508, shifting
+every lookup past the first 32 by 60 positions. Only names decoded through that table
+were affected — the ones whose UTF-8 flag is clear (§5.8), which in a reference archive
+means `page.pdf` alone — and that was enough: its name is what the extractor matches to
+skip it, so no archive with a PDF face extracted in any engine, while the page itself
+looked correct.
+
 ### 2.2 File name conventions
 
 The reference implementation names files by variant: `.zip` (no HTML face),
@@ -310,7 +337,7 @@ face adds, then the regions the PNG face adds.
 | Region | Producer | Present | Contents |
 |---|---|---|---|
 | `html-prologue` | HTML | HTML face | Doctype, the root element start tag, an optional implementation-defined comment, `<meta charset>`, title, optional head elements (canonical link, `robots` meta, viewport, Content-Security-Policy), minimal CSS, `<body hidden>`, wait/error messages, optional table of contents, optional text body (§4.6). The leading comment, the title, the canonical link and the text body are withheld when a password is set (§5.6). In the plain variant an optional UTF-8 BOM MAY precede the doctype (`includeBOM`); universal and PNG variants never carry one. In the PNG variants the region is split: everything through `<body hidden>` is the data of the `tEXt "PNG"` chunk, while the messages, the optional table of contents and the optional text body follow the `tEXt "ZIP"` chunk header; the doctype and the leading comment are dropped. |
-| `bootstrap` | HTML | HTML face | One inline `<script>`: the embedded ZIP reader, the extractor, the display routine, and the content-acquisition logic (§4.1). The wrapper start tag that opens the ZIP region follows it, directly or after a relocated `extra-data`. |
+| `bootstrap` | HTML | HTML face | One inline `<script>`: the embedded ZIP reader, the extractor, the display routine, and the content-acquisition logic (§4.1). In universal mode its bytes MUST be pure ASCII, since the declared charset decodes this region like any other and character references do not apply inside script data (§2.1). The wrapper start tag that opens the ZIP region follows it, directly or after a relocated `extra-data`. |
 | `<!--` / `-->` | HTML | HTML face | The wrapper tag pair hiding a binary region from the HTML parser — comment tags by default, another pair when the hidden bytes contain `-->` (§5.1). Drawn at each opening and closing position. The close tag is absent when appended data is prevented (`preventAppendedData`, or the `<plaintext>` wrapper which cannot close): no markup follows the archive and the wrapper runs to end-of-file. That does not mean the file ends at the EOCD — the PNG face's tail still follows, inside the wrapper, where it parses as text (§5.1). |
 | `zip-entries` | ZIP | always | The archive's local file headers and entry data, written by the ZIP writer. The central directory of an archive written by the reference writer lists `index.html` (the page) first, then `manifest.json` (a JSON description of the archive: original URL, title, save time, resource-to-URL map — informative; the page displays without it), then the resources; the *physical* order of the local headers inside the region is not guaranteed to match, and readers MUST NOT rely on either order — entries are addressed by name (§7.1). |
 | `central-directory · eocd` | ZIP | always | The central-directory records followed by the End Of Central Directory record. All offsets are absolute file positions (§5.3). In the HTML+PDF variants the EOCD accounts for the injected `pdf-central-record` (how the writer achieves that is §6). |
@@ -694,13 +721,23 @@ opens with the page title, for the same raw-byte
 audience — it is the first *text* in the element, which is not necessarily the
 element's first line: the reference writer's serialization puts a newline before it.
 
-The `<title>` element takes the opposite route. Its content is RCDATA, where
-character references are resolved against Unicode independently of the declared
-encoding, so the writer emits every character outside printable ASCII — and `&`,
-`<`, `>` — as a numeric reference. The element's bytes are therefore pure ASCII and
-the title survives the single-byte declaration intact: a page titled 日本語 shows as
-日本語 in the browser tab and to any conforming parser. Writers that emit the title
-raw MUST NOT do so in universal mode, where the same bytes decode as mojibake.
+The `<title>` element takes the opposite route, and so does every other piece of
+prologue text the writer assembles itself. Character references are resolved against
+Unicode independently of the declared encoding — in RCDATA, where the title's content
+sits, in ordinary element text, and in attribute values alike — so the writer emits
+every character outside printable ASCII, along with `&`, `<`, `>` and `"`, as a
+numeric reference. Those bytes are therefore pure ASCII and the text survives the
+single-byte declaration intact: a page titled 日本語 shows as 日本語 in the browser tab
+and to any conforming parser. The reference writer passes the title and the multi-page
+table of contents — its link text and its `href` values, which is what the `"` is for —
+through one shared escaper. Writers that emit such text raw MUST NOT do so in
+universal mode, where the same bytes decode as mojibake.
+
+The text body above is the deliberate exception, not an oversight: it is left as raw
+UTF-8 because its audience reads bytes rather than parsed text. The bootstrap script
+is the other region outside this rule, and it is outside for a harder reason — script
+data does not resolve character references at all, so the escape must happen in the
+JavaScript source instead (§2.1).
 
 ## 5. Cross-cutting mechanics
 
@@ -1093,6 +1130,49 @@ more, is reached at any archive size, and §4.5 gives the offset arithmetic for 
 recovered region whose EOCD fields are sentinels. What universal mode cannot carry is
 a ZIP region of 2^32 bytes or more, which the recovery payload's 32-bit length field
 cannot express (§5.5) — a size bound, not a zip64 one.
+
+### 5.8 Entry name encoding
+
+Entry names in this format are arbitrary Unicode. They derive from the captured page's
+resource URLs (§7.3), so an archive of an ordinary non-English page carries names no
+ASCII encoding can express, and how a name is decoded is an interoperability question
+rather than a detail.
+
+ZIP resolves it with **bit 11 of the general purpose bit flag**, the language encoding
+flag. Set, the name field is UTF-8. Clear, it is IBM code page 437, the format's
+original encoding. The flag appears in both the local file header and the central
+directory record, and a reader takes it from whichever record it read the name from.
+
+A writer MUST set bit 11 on every entry whose name is not pure ASCII, and SHOULD set
+it on every entry, which is what the reference writer does: the two encodings agree
+over printable ASCII, so setting it unconditionally is safe and removes a decision.
+
+A reader MUST honor the flag rather than assume one encoding. Two failures follow from
+assuming, and they are not symmetric: reading a CP437 name as UTF-8 yields U+FFFD for
+every high byte and loses the name, while reading a UTF-8 name as CP437 yields a
+well-formed wrong name — `café.png` becomes `caf├⌐.png` — which raises nothing and
+propagates silently into a file written to disk.
+
+Two further requirements a reader has to get right:
+
+- **Derive CP437 from the real IBM437 mapping**, not from whatever the platform calls
+  "cp437", for the same reason §5.5 gives for the payload's reverse table. The trap
+  here is the opposite of the payload's: the low half. CP437 has no control characters
+  — its first 32 positions hold the graphic symbols ☺☻♥♦♣♠ and their kind, which sit
+  *before* the ASCII range in the table. An implementation that treats the low half as
+  ASCII gets those 32 positions wrong; worse, one that has the table right but corrupts
+  its low half shifts every lookup after it, so even pure-ASCII names come out mangled.
+  That is not hypothetical: it is how the defect described in §2.1 presented, and it is
+  why that defect was invisible until an entry without the UTF-8 flag existed.
+- **Expect a name whose flag is clear even in a wholly modern archive.** The reference
+  writer's hand-built `page.pdf` records (§3.1, §6) set no bit flag at all, so that one
+  entry is always read through CP437 while every other name in the same file is read
+  as UTF-8. The name is ASCII, where the two agree, so a correct reader sees `page.pdf`
+  either way — but a reader that hardcodes UTF-8 on the strength of the other entries
+  will find this one is not covered by that assumption.
+
+A name is not a path. §7.3's rule that entry names are untrusted applies to the decoded
+name, and decoding is the step before that check, not a substitute for it.
 
 ## 6. Writer algorithm
 
@@ -1567,6 +1647,7 @@ predicts.
 | August 2026 | Core 1.5.110: a PNG face leaving the comment rung on its checksum resumes the rung search instead of taking the next rung untested (§5.1). Taking it put a payload holding `</script>` on the script rung, where its own bytes closed the wrapper 93 bytes in and left the image data, the chunk framing and the whole ZIP region to the parser |
 | August 2026 | Core 1.5.110: `<svg><![CDATA[` joins the ladder above `<plaintext>` (§5.1) — the one rung whose terminator, `]]>`, real payloads rarely carry. It gives a payload naming every element rung somewhere to go that does not cost the appended-data placement, and moves the self-nesting limit from the fifth level to the sixth |
 | August 2026 | Core 1.5.115: password-protected archives withhold the provenance comment and the canonical link as well (§5.6). Both wrote the page's own URL into the prologue, beside the title that was already withheld, so the address the archive was saved from stayed in the clear |
+| August 2026 | Core 1.5.119: the inlined ZIP library is built ASCII-only, and §2.1 now requires it of any bootstrap. Its CP437 table had been emitted as literal characters, which the page re-decoded as windows-1252, growing the table from 256 entries to 508 and shifting every lookup by 60 — so the one entry read without the UTF-8 flag, `page.pdf`, came back mangled and no archive with a PDF face extracted in any engine (§5.8) |
 
 This document was itself revised in August 2026, against core 1.5.108, after several
 independent reviews. One of them was a reader built from this specification alone, with
