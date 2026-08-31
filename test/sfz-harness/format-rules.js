@@ -297,6 +297,24 @@ const ALL_FACE_RUNGS = "<!--sfz-data<script<style<noframes<noembed<iframe<xmp<![
 	check("no page.pdf entry is left behind", entries.some(entry => entry.filename.endsWith("page.pdf")), false);
 }
 
+// page.pdf is the only record the writer builds by hand, so it is the only place the
+// language encoding flag can go missing: without it a reader decodes that one name
+// through CP437 while reading every other name in the same archive as UTF-8
+{
+	const options = makeOptions({ embeddedPdf: PDF });
+	const pageData = makePageData(23, 4 * 1024);
+	pageData.resources.images.push(imageResource("https://example.com/image.png"));
+	const { bytes } = await runProcess(pageData, options);
+	const zipReader = new ZipReader(new BlobReader(new Blob([bytes])));
+	const entries = await zipReader.getEntries();
+	await zipReader.close();
+	check("the pdf entry is listed", entries.some(entry => entry.filename == "page.pdf"), true);
+	check("every central record declares utf-8 names", entries.every(entry => entry.filenameUTF8), true);
+	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+	const localFlags = entries.map(entry => view.getUint16(entry.offset + 6, true));
+	check("every local header declares utf-8 names", localFlags.every(flags => Boolean(flags & 0x0800)), true);
+}
+
 {
 	const embeddedImage = new Uint8Array(8 + 25 + 512 + 12);
 	embeddedImage.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);

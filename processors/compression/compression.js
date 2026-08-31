@@ -127,6 +127,7 @@ const CENTRAL_FILE_HEADER_SIGNATURE = 0x02014b50;
 const END_OF_CENTRAL_DIR_SIGNATURE = 0x06054b50;
 const ZIP64_END_OF_CENTRAL_DIR_SIGNATURE = 0x06064b50;
 const ZIP64_END_OF_CENTRAL_DIR_LOCATOR_SIGNATURE = 0x07064b50;
+const LANGUAGE_ENCODING_FLAG = 0x0800;
 
 const browser = globalThis.browser;
 
@@ -403,6 +404,11 @@ function getPDFEntry(embeddedPdf, lastModDate = new Date()) {
 	const localHeaderView = new DataView(localHeader.buffer);
 	localHeaderView.setUint32(0, LOCAL_FILE_HEADER_SIGNATURE, true);
 	localHeaderView.setUint16(4, 20, true);
+	// every other entry is written by the ZIP writer, which sets this flag on all of them: without
+	// it here this record would be the only name in the archive a reader decodes through CP437.
+	// the name is ASCII, where the two encodings agree, so nothing about the decoded name depends
+	// on it, but the legacy path is then never taken at all
+	localHeaderView.setUint16(6, LANGUAGE_ENCODING_FLAG, true);
 	localHeaderView.setUint16(10, dosTime, true);
 	localHeaderView.setUint16(12, dosDate, true);
 	localHeaderView.setUint32(14, crc32, true);
@@ -415,6 +421,7 @@ function getPDFEntry(embeddedPdf, lastModDate = new Date()) {
 	centralRecordView.setUint32(0, CENTRAL_FILE_HEADER_SIGNATURE, true);
 	centralRecordView.setUint16(4, 0x0300, true);
 	centralRecordView.setUint16(6, 20, true);
+	centralRecordView.setUint16(8, LANGUAGE_ENCODING_FLAG, true);
 	centralRecordView.setUint16(12, dosTime, true);
 	centralRecordView.setUint16(14, dosDate, true);
 	centralRecordView.setUint32(16, crc32, true);
