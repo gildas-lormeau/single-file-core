@@ -316,12 +316,19 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 		const endTags = options.preventAppendedData || options.embeddedImage ? "" : "</body></html>";
 		if (options.extractDataFromPage) {
 			// payload layout: [crc32, zip data length, LF codes count, 2-bit codes (0=LF, 1=CR, 2=CRLF) packed LSB-first]
-			const payload = new Uint32Array(3 + Math.ceil(lfCodes.length / 16));
-			payload[0] = crc32;
-			payload[1] = zipDataEnd - startOffset;
-			payload[2] = lfCodes.length;
-			lfCodes.forEach((lfCode, indexLFCode) => payload[3 + (indexLFCode >> 4)] |= lfCode << ((indexLFCode & 15) * 2));
-			extraData = "<sfz-extra-data>" + base64Encode(deflateRaw(new Uint8Array(payload.buffer))) + "</sfz-extra-data>";
+			const words = new Uint32Array(3 + Math.ceil(lfCodes.length / 16));
+			words[0] = crc32;
+			words[1] = zipDataEnd - startOffset;
+			words[2] = lfCodes.length;
+			lfCodes.forEach((lfCode, indexLFCode) => words[3 + (indexLFCode >> 4)] |= lfCode << ((indexLFCode & 15) * 2));
+			// the words are serialized little-endian rather than in host order: the format fixes
+			// the byte order, so a big-endian host writing the view of the array directly would
+			// emit a payload no conforming reader can decode, while still round-tripping against
+			// its own extractor
+			const payload = new Uint8Array(words.length * 4);
+			const payloadView = new DataView(payload.buffer);
+			words.forEach((word, indexWord) => payloadView.setUint32(indexWord * 4, word, true));
+			extraData = "<sfz-extra-data>" + base64Encode(deflateRaw(payload)) + "</sfz-extra-data>";
 			// the bytes appended after the EOCD record (wrapper end tag, extra data, end tags
 			// and, with an embedded image, the tEXt CRC and IEND chunk) must fit the 65535-byte
 			// window readers scan backward to find the EOCD record
@@ -921,7 +928,9 @@ async function getContent() {
 		const zipDataElement = document.querySelector("sfz-extra-data");
 		if (zipDataElement) {
 			const inflatedPayload = zip.inflateRaw(base64Decode(zipDataElement.textContent));
-			const payload = new Uint32Array(inflatedPayload.buffer, inflatedPayload.byteOffset, inflatedPayload.length >> 2);
+			// a DataView reads the words little-endian whatever the host is, and unlike a typed
+			// array view it needs no 4-byte alignment of the inflated buffer
+			const payload = new DataView(inflatedPayload.buffer, inflatedPayload.byteOffset, inflatedPayload.length & -4);
 			// the zip data is identified, not located: its node can be moved before this runs
 			const dataElement = document.getElementById(DATA_IDENTIFIER);
 			if (dataElement) {
@@ -938,9 +947,9 @@ async function getContent() {
 	}
 
 	function decodeZipData(dataNode, payload, startIndex) {
-		const expectedCRC32 = payload[0];
-		const zipDataLength = payload[1];
-		const lfCodesLength = payload[2];
+		const expectedCRC32 = payload.getUint32(0, true);
+		const zipDataLength = payload.getUint32(4, true);
+		const lfCodesLength = payload.getUint32(8, true);
 		// the two extra bytes are the comment length field of the end of central directory
 		// record, which the payload does not describe: left at zero they declare no comment,
 		// which is what the recovered data holds
@@ -952,7 +961,7 @@ async function getContent() {
 		for (let index = startIndex; index < textContent.length && offset < zipDataLength; index++) {
 			const charCode = textContent.charCodeAt(index);
 			if (charCode == 10) {
-				const lfCode = (payload[3 + (indexLFCode >> 4)] >>> ((indexLFCode & 15) * 2)) & 3;
+				const lfCode = (payload.getUint32(12 + (indexLFCode >> 4) * 4, true) >>> ((indexLFCode & 15) * 2)) & 3;
 				indexLFCode++;
 				if (lfCode == 0) {
 					writeByte(10);
