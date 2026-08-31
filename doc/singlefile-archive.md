@@ -1279,7 +1279,11 @@ pages can stop at the first row; the files it produces are accepted by every rea
    is copied from the saved page and carries its public and system identifiers
    verbatim, and any comment the implementation chooses to write there. Real doctypes
    are small; the longest in common use, XHTML 1.1 with MathML and SVG, is about 140
-   bytes. But nothing caps either region, so a writer MUST cap them itself, keeping
+   bytes, though a crafted one is bounded only by what the parser accepts. Step 2's
+   MUST already caps the doctype, but only far enough to keep the charset declaration
+   inside the window; this header sits further into the file, behind the wrapper tag
+   and a 38-byte local header, so it needs the tighter bound below and the comment
+   needs one too. A writer MUST cap them itself, keeping
    everything before the local file header inside the remaining budget of roughly 930
    bytes (about 900 with the PNG face, whose signature, `IHDR` and first chunk header
    take the first 45 bytes of the same window while its variant drops the 15-byte
