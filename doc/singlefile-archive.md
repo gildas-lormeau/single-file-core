@@ -1464,8 +1464,11 @@ only if it affects the bytes the page is built from:
 | The recovered region (universal mode) disagrees with the same bytes read directly, anywhere else | The file is not well-formed, whichever side is at fault, and a reader that has both MUST NOT silently merge them or pick per entry. Prefer the direct read — it is the writer's own output, where the recovered region is a reconstruction of it — and surface the disagreement rather than displaying either as intact |
 
 Anything the format does not constrain, a reader MUST NOT reject: entries may carry
-any extra fields, timestamps, data descriptors or name-encoding flags a ZIP writer
-would ordinarily emit, and none of it is specified here.
+any extra fields, timestamps or data descriptors a ZIP writer would ordinarily emit,
+and none of it is specified here. The name-encoding flag used to be listed here too,
+and is not: §5.8 requires a reader to honor it. That is a rule about how a name is
+decoded, not a ground for rejecting an entry, so this row still applies to it — either
+value of the flag is something a reader meets and reads.
 
 ## 8. Appendices
 
