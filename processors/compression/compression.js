@@ -662,9 +662,10 @@ function getHTMLHeadData(pageData, options) {
 	return pageContent;
 }
 
-// every piece of text in the prelude goes through this, wherever it is assembled: the prelude
-// declares a single-byte charset, and numeric character references are ASCII bytes, so they
-// survive it and any parser decodes them back to the original text
+// the text the writer assembles for the prelude goes through this, wherever it is assembled:
+// the prelude declares a single-byte charset, and numeric character references are ASCII
+// bytes, so they survive it and any parser decodes them back to the original text. The text
+// body is the exception and stays raw UTF-8, for the byte-reading audience it exists for
 function escapeHTML(value) {
 	return Array.from(value).map(character => {
 		const codePoint = character.codePointAt(0);
