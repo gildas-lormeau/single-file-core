@@ -1064,7 +1064,7 @@ class Processor {
 							}
 							this.processorHelper.setBackgroundImage(canvasElement, "url(" + canvasData.dataURI + ")", backgroundStyle);
 							this.stats.add("processed", "canvas", 1);
-						} else {
+						} else if (!canvasData.blank) {
 							discardedCount++;
 							this.stats.add("discarded", "canvas", 1);
 						}

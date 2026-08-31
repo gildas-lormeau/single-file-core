@@ -493,6 +493,15 @@ function getStylesheetsContent(styleSheets, adoptedStyleSheetsCache = new Map())
 	}
 }
 
+// an untouched canvas is fully transparent, so it encodes exactly like a blank one of the same
+// size: comparing the two is cheaper than reading the pixels back and needs no drawing context
+function isBlankCanvas(doc, element, dataURI) {
+	const blankElement = doc.createElement("canvas");
+	blankElement.width = element.width;
+	blankElement.height = element.height;
+	return blankElement.toDataURL("image/png") == dataURI;
+}
+
 function getResourcesInfo(win, doc, element, options, data, elementHidden, computedStyle) {
 	const tagName = element.tagName && element.tagName.toUpperCase();
 	if (tagName == "CANVAS") {
@@ -501,7 +510,16 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 			backgroundColor: canvasComputedStyle && canvasComputedStyle.getPropertyValue("background-color")
 		};
 		try {
-			canvasData.dataURI = element.toDataURL("image/png");
+			const dataURI = element.toDataURL("image/png");
+			// a canvas in a page SingleFile has already saved is empty, no script ran to draw into
+			// it, and the picture it displays is the background image the previous save left
+			// behind. An empty bitmap must not overwrite it
+			const backgroundImage = canvasComputedStyle ? canvasComputedStyle.getPropertyValue("background-image") : element.style.getPropertyValue("background-image");
+			if (backgroundImage && backgroundImage != "none" && isBlankCanvas(doc, element, dataURI)) {
+				canvasData.blank = true;
+			} else {
+				canvasData.dataURI = dataURI;
+			}
 			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			// ignored
