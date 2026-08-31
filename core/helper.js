@@ -504,10 +504,7 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 			canvasData.dataURI = element.toDataURL("image/png");
 			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
-			// a canvas painted with a cross-origin resource is tainted and toDataURL throws for the
-			// whole element, its own drawing included. The entry is pushed and the element marked
-			// anyway: the loss is then counted and reported instead of being silent, and an
-			// out-of-page fallback re-rendering the element has something to find it by
+			// ignored
 		}
 		data.canvases.push(canvasData);
 		element.setAttribute(CANVAS_ATTRIBUTE_NAME, data.canvases.length - 1);
@@ -611,27 +608,11 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 	}
 }
 
-// Every family in the computed font-family is recorded, and the set of faces the document actually
-// resolved is deliberately NOT consulted. Narrowing the list to the loaded faces is the obvious
-// idea — a fallback stack names every family the page might need and only some are used — and it
-// was written in 2019, wired to an option nothing ever set, and dead until it was reconnected here.
-// Reconnected, it saved nothing measurable on nine real pages and cost fidelity twice: a face
-// matched on its declared style is not found when the browser SYNTHESIZED that style, so a family
-// drawn in an italic it declares no face for was dropped from the page that draws it; and a webfont
-// that merely failed to load on the capturing machine would be dropped from the archive for good.
-// It belongs with the unicode-range work, which needs the same information and can weigh a measured
-// benefit against those, not here.
 function getUsedFont(computedStyle, usedFonts) {
 	if (computedStyle) {
 		const fontStyle = computedStyle.getPropertyValue("font-style") || "normal";
 		computedStyle.getPropertyValue("font-family").split(",").forEach(fontFamilyName => {
 			fontFamilyName = normalizeFontFamily(fontFamilyName);
-			// an element with no computed font-family at all is one whose styles could not be read,
-			// not one drawn in a family with no name. It happens to every element of a frame that
-			// was re-parsed from its srcdoc, because the computed style is asked of the parent
-			// window and the document it belongs to is not the one being rendered. Recorded, it
-			// turns "nothing is known here" into a list of length one, which reads downstream as a
-			// complete answer and prunes every face the frame declares
 			if (fontFamilyName) {
 				const fontWeight = getFontWeight(computedStyle.getPropertyValue("font-weight"));
 				const fontVariant = computedStyle.getPropertyValue("font-variant") || "normal";
