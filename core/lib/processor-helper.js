@@ -36,6 +36,7 @@ const CANVAS_TAG_FOUND = /<canvas/gi;
 const EMPTY_URL_SOURCE = /^url\(["']?data:[^,]*,?["']?\)/;
 const LOCAL_SOURCE = "local(";
 const FONT_MAX_LOAD_DELAY = 5000;
+const SCRIPT_EXTENSION = ".js";
 const LINK_OWN_ATTRIBUTE_NAMES = ["rel", "type", "href", "media"];
 
 let util;
@@ -454,7 +455,11 @@ function getProcessorHelperClass(utilInstance) {
 				networkTimeout: options.networkTimeout
 			});
 			content = getUpdatedResourceContent(resourceURL, options) || content;
-			const name = "scripts/" + indexResource + extension;
+			// the extension is taken from the URL when the content type is not in the map, and a
+			// script URL says nothing about the content: a module served as text/javascript from a
+			// ".ts" URL was named ".ts", stored uncompressed and served back as video/mp2t, which
+			// the browser refuses to execute. Stylesheets have always been named this way
+			const name = "scripts/" + indexResource + SCRIPT_EXTENSION;
 			element.setAttribute("src", name);
 			resources.scripts.set(indexResource, { name, content, extension, contentType, url: resourceURL });
 		}
@@ -473,7 +478,7 @@ function getProcessorHelperClass(utilInstance) {
 				acceptHeaders: options.acceptHeaders,
 				networkTimeout: options.networkTimeout
 			});
-			const name = "scripts/" + indexResource + extension;
+			const name = "scripts/" + indexResource + SCRIPT_EXTENSION;
 			if (workletOptions) {
 				scriptElement.textContent += `  CSS.paintWorklet.addModule("${name}", ${JSON.stringify(workletOptions)});\n`;
 			} else {
