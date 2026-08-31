@@ -1241,9 +1241,27 @@ pages can stop at the first row; the files it produces are accepted by every rea
    otherwise push that declaration out of the first 1024 bytes. The doctype is the
    other unbounded region ahead of the declaration, copied from the saved page with its
    identifiers verbatim, so a writer MUST emit a minimal doctype in its place when
-   keeping it would push the declaration past 1024 bytes; that substitution costs
-   nothing, because the extracted page is written into the document with its own
-   doctype (§4.1). Then the head elements (the
+   keeping it would push the declaration past 1024 bytes.
+
+   **Replace it; do not truncate it, and do not drop it.** Truncation is unsafe:
+   a cut inside a quoted identifier leaves the tokenizer in the system-identifier
+   state, where it consumes the markup that follows until the next `>`. Measured,
+   that swallows the root element start tag and the `data-sfz` marker on it (§1.3)
+   into the identifier, and the document loses both. Dropping the doctype parses
+   cleanly but puts the document in quirks mode, which is the mode the blank-page
+   backstop, the wait message and the error message are then rendered under (§4.1) —
+   the error message most of all, since it is what a reader sees precisely when
+   nothing else has worked. A minimal doctype is 15 bytes, keeps standards mode, and
+   costs nothing else: the extracted page is written into the document with its own
+   doctype (§4.1), so the outer one never governs the restored page.
+
+   The PNG face is the exception, and not by preference: a PNG file MUST begin with
+   its 8-byte signature, so no doctype can precede it and the variant has none. It
+   therefore renders in quirks mode until the extracted page replaces it, which is a
+   real cost of that face rather than a choice, and one reason the question above does
+   not arise there — the doctype is already gone, and with it the unbounded region.
+
+   Then the head elements (the
    `<title>` and the canonical link among them), the CSS and `<body hidden>`,
    the wait and error messages, the optional table of contents and text body, and the
    bootstrap script. With a password, five of those are left out: the comment, the
