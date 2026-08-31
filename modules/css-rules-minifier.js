@@ -71,12 +71,37 @@ const ANONYMOUS_LAYER_PLACEHOLDER = "\u0000";
 
 export {
 	process,
-	isUnsupportedPropertyValue
+	isUnsupportedPropertyValue,
+	isUnsupportedVendorValue
 };
 
 function isUnsupportedPropertyValue(property, value) {
 	const match = cssTree.lexer.matchProperty(property, value);
 	return Boolean(!match.matched && match.error && match.error.name !== UNKNOWN_PROPERTY_ERROR_NAME);
+}
+
+// A vendor-prefixed VALUE is dropped only when this browser cannot actually use it. Dropping every
+// one of them was the overreach: `display:-ms-flexbox` is genuinely dead here and worth removing,
+// but `display:-webkit-box` is alive and load-bearing — `-webkit-line-clamp` does nothing without
+// it, so a page keeps its clamp rules and silently stops clamping. On anandabazar.com that expanded
+// 80 clamped headlines by a line each and moved the page 150px, with nothing wrong-looking left in
+// the saved CSS. Four of the five sites in a fifteen-site sweep that use line-clamp were affected.
+function isUnsupportedVendorValue(property, name) {
+	if (!name.startsWith(VENDOR_PREFIX)) {
+		return false;
+	}
+	// unknown fails open, the same rule the unknown-property branch follows: a dropped valid
+	// declaration breaks rendering, a kept invalid one is ignored. With no browser to ask, keep.
+	if (!globalThis.CSS || !globalThis.CSS.supports) {
+		return false;
+	}
+	try {
+		return !globalThis.CSS.supports(property, name);
+	// eslint-disable-next-line no-unused-vars
+	} catch (error) {
+		// a value CSS.supports will not even take as an argument tells us nothing either way
+		return false;
+	}
 }
 
 function process(doc, stylesheets) {
@@ -497,7 +522,8 @@ function collectDeclarationItemsForElement(element, docContext) {
 			hasValueChildNodes &&
 			value.children.size == 1) {
 			if (value.children.head.data.name) {
-				isInvalidValue = value.children.head.data.name.startsWith(VENDOR_PREFIX) || INVALID_CSS_ESCAPE_TEST.test(value.children.head.data.name);
+				const name = value.children.head.data.name;
+				isInvalidValue = isUnsupportedVendorValue(property, name) || INVALID_CSS_ESCAPE_TEST.test(name);
 			} if (!property.startsWith(VENDOR_PREFIX) && value.children.head.data.value) {
 				try {
 					isInvalidValue = isUnsupportedPropertyValue(property, value);

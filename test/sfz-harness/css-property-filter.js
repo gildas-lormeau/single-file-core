@@ -10,7 +10,7 @@
 // The rule this pins: unknown must fail open. A dropped valid declaration breaks rendering; a kept
 // invalid one is ignored by the browser.
 import * as cssTree from "../../vendor/css-tree.js";
-import { isUnsupportedPropertyValue } from "../../modules/css-rules-minifier.js";
+import { isUnsupportedPropertyValue, isUnsupportedVendorValue } from "../../modules/css-rules-minifier.js";
 
 // valid declarations whose property the vendored css-tree does not know. Every one of these was
 // deleted before the fix. The SVG paint-server and filter properties are the ones that matter in
@@ -76,6 +76,34 @@ const unknownProperty = cssTree.lexer.matchProperty("stop-opacity", cssTree.pars
 const wrongValue = cssTree.lexer.matchProperty("margin-trim", cssTree.parse("block", { context: "value" }));
 check("unknown property reports SyntaxReferenceError", unknownProperty.error && unknownProperty.error.name, "SyntaxReferenceError");
 check("wrong value reports SyntaxMatchError", wrongValue.error && wrongValue.error.name, "SyntaxMatchError");
+
+// The same failure as above, one step earlier and on VALUES rather than properties. Before the fix
+// the call site dropped any single-identifier value beginning with "-", asking nothing: the test
+// for a dead `display:-ms-flexbox` also deleted a live `display:-webkit-box`. That one costs more
+// than it looks, because `-webkit-line-clamp` does nothing without it and both of ITS declarations
+// survive — being unknown properties, they already fail open — so the rule keeps a clamp it no
+// longer applies. Four of the five sites in a fifteen-site sweep that use line-clamp were affected;
+// on one of them 80 headlines each grew a line and the page moved 150px.
+//
+// CSS.supports is the authority and Deno has none, so it is stubbed here. That is also the point of
+// the last group: with no browser to ask, this must KEEP, which is the same fail-open rule as above.
+const CHROME_SUPPORTS = new Set(["display:-webkit-box", "display:-webkit-inline-box", "-webkit-box-orient:vertical"]);
+const originalCSS = globalThis.CSS;
+globalThis.CSS = { supports: (property, value) => CHROME_SUPPORTS.has(property + ":" + value) };
+try {
+	// alive in this browser, and load-bearing
+	check("vendor value kept: display: -webkit-box", isUnsupportedVendorValue("display", "-webkit-box"), false);
+	check("vendor value kept: display: -webkit-inline-box", isUnsupportedVendorValue("display", "-webkit-inline-box"), false);
+	// dead in this browser, and the reason the check exists at all — the fix must not disable it
+	check("vendor value dropped: display: -ms-flexbox", isUnsupportedVendorValue("display", "-ms-flexbox"), true);
+	check("vendor value dropped: display: -moz-box", isUnsupportedVendorValue("display", "-moz-box"), true);
+	// not vendor-prefixed, so this predicate must not have an opinion either way
+	check("non-vendor value untouched: display: flex", isUnsupportedVendorValue("display", "flex"), false);
+	check("non-vendor value untouched: color: nonsense", isUnsupportedVendorValue("color", "nonsense"), false);
+} finally {
+	globalThis.CSS = originalCSS;
+}
+check("no browser to ask keeps the value", isUnsupportedVendorValue("display", "-ms-flexbox"), false);
 
 if (failed) {
 	console.log("FAILED");
