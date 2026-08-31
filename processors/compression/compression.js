@@ -931,12 +931,13 @@ async function getContent() {
 			// a DataView reads the words little-endian whatever the host is, and unlike a typed
 			// array view it needs no 4-byte alignment of the inflated buffer
 			const payload = new DataView(inflatedPayload.buffer, inflatedPayload.byteOffset, inflatedPayload.length & -4);
-			// the zip data is identified, not located: its node can be moved before this runs
+			// the zip data is identified, not located: its node can be moved before this runs, so
+			// the walk covers the whole document rather than the subtree the writer put it under
 			const dataElement = document.getElementById(DATA_IDENTIFIER);
 			if (dataElement) {
 				return decodeZipData(dataElement, payload, 0);
 			}
-			const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT);
+			const walker = document.createTreeWalker(document, NodeFilter.SHOW_COMMENT);
 			while (walker.nextNode()) {
 				if (walker.currentNode.data.startsWith(DATA_IDENTIFIER)) {
 					return decodeZipData(walker.currentNode, payload, DATA_IDENTIFIER.length);
