@@ -664,7 +664,10 @@ entry out on every acquisition path, including the ones that read raw bytes and 
 return it.
 
 The extractor MUST verify the three checkable payload fields — byte length, newline
-count and checksum — and fail to the error message on any mismatch.
+count and checksum — and fail to the error message on any mismatch. It MUST also fail
+on the unassigned newline code of step 2 rather than decode it, so that a payload
+written against a later revision of the format is named as unsupported instead of
+silently reconstructing the wrong bytes.
 
 The recovered region is a complete archive but **not an offset-self-contained one**.
 Its offsets are still absolute positions in the original file (§5.3), so every

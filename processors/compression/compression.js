@@ -963,7 +963,12 @@ async function getContent() {
 			if (charCode == 10) {
 				const lfCode = (payload.getUint32(12 + (indexLFCode >> 4) * 4, true) >>> ((indexLFCode & 15) * 2)) & 3;
 				indexLFCode++;
-				if (lfCode == 0) {
+				if (lfCode == 3) {
+					// the fourth code is unassigned: a payload using it was written against a
+					// later revision of the format, and decoding it as a lone CR would corrupt
+					// the archive silently instead of naming the reason
+					throw new Error("Unsupported newline code in the extracted zip data");
+				} else if (lfCode == 0) {
 					writeByte(10);
 				} else {
 					writeByte(13);
