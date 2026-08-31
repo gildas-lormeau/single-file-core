@@ -44,6 +44,12 @@ const { Blob, fetch, TextEncoder, TextDecoder, DOMParser } = globalThis;
 // windows-1252 never decodes bytes >= 0x80 into the ASCII range, the scanned patterns are all ASCII
 const TEXT_DECODER = new TextDecoder("windows-1252");
 
+// the extension is only a guess when it comes from the URL, and a wrong one costs the whole
+// gain: a script served as text/javascript from a ".ts" URL was stored uncompressed at 2260
+// bytes where the same bytes named ".js" deflate to 70. A textual content type is authoritative
+// when the server sent one, the extension list decides everything else
+const COMPRESSIBLE_CONTENT_TYPES = ["application/javascript", "application/x-javascript", "application/ecmascript", "application/json", "application/ld+json", "application/manifest+json", "application/xml", "application/xhtml+xml", "application/rss+xml", "application/atom+xml", "image/svg+xml"];
+const TEXT_CONTENT_TYPE_PREFIX = "text/";
 const NO_COMPRESSION_EXTENSIONS = [".jpg", ".jpeg", ".png", ".apng", ".gif", ".webp", ".avif", ".heif", ".heic", ".jxl", ".pdf", ".woff", ".woff2", ".mp4", ".webm", ".avi", ".mpeg", ".mov", ".ts", ".ogv", ".mp3", ".ogg", ".oga", ".weba", ".m4a", ".aac", ".opus", ".flac"];
 const SCRIPT_PATH = "/lib/single-file-zip.min.js";
 // <noscript> is excluded: it is the only tag whose content is raw text when scripting is
@@ -789,10 +795,14 @@ async function addFile(zipWriter, prefixName, data, disableCompression) {
 		// password the resource URLs would be readable while the same map in manifest.json is not
 		options.comment = data.url && data.url.startsWith("data:") ? "data:" : data.url;
 	}
-	if (NO_COMPRESSION_EXTENSIONS.includes(data.extension) || disableCompression) {
+	if (disableCompression || (!isCompressibleContentType(data.contentType) && NO_COMPRESSION_EXTENSIONS.includes(data.extension))) {
 		options.level = 0;
 	}
 	await zipWriter.add(prefixName + data.name, dataReader, options);
+}
+
+function isCompressibleContentType(contentType) {
+	return Boolean(contentType) && (contentType.startsWith(TEXT_CONTENT_TYPE_PREFIX) || COMPRESSIBLE_CONTENT_TYPES.includes(contentType));
 }
 
 async function getContent() {
