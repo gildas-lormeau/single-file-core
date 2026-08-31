@@ -652,13 +652,13 @@ function getHTMLHeadData(pageData, options) {
 	// the canonical link publishes the URL the archive was saved from, for the same reason
 	// the title above is left out of a password-protected archive
 	if (options.insertCanonicalLink && !options.password) {
-		pageContent += "<link rel=canonical href=\"" + options.url + "\">";
+		pageContent += "<link rel=canonical href=\"" + escapeHTML(options.url) + "\">";
 	}
 	if (options.insertMetaNoIndex) {
 		pageContent += "<meta name=robots content=noindex>";
 	}
 	if (pageData.viewport) {
-		pageContent += "<meta name=viewport content=" + JSON.stringify(pageData.viewport) + ">";
+		pageContent += "<meta name=viewport content=\"" + escapeHTML(pageData.viewport) + "\">";
 	}
 	if (options.insertMetaCSP) {
 		const cspContent = "default-src 'none';connect-src 'self' data: blob:;font-src 'self' data: blob:;img-src 'self' data: blob:;style-src 'self' 'unsafe-inline' data: blob:;frame-src 'self' data: blob:;media-src 'self' data: blob:;script-src 'self' 'unsafe-inline' data: blob:;object-src 'self' data: blob:";
