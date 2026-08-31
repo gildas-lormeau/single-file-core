@@ -21,6 +21,13 @@ const bundledTerserOptions = {
 			keep_quoted: "strict",
 			reserved: reservedPropertyNames
 		}
+	},
+	// zip.min.js is inlined into self-extracting pages, which declare windows-1252: a literal
+	// non-ASCII character in the source is re-decoded there, and the CP437 table it belongs to
+	// then maps every legacy entry name to garbage. terser prints the shortest form and turns
+	// an escape back into the character, so the escaping has to be asked for here
+	format: {
+		ascii_only: true
 	}
 };
 
