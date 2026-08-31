@@ -826,11 +826,6 @@ class Processor {
 		});
 	}
 
-	// a media element left without any source can never start, and the attribute
-	// would keep it announcing a playback that never happens. The sources are
-	// dropped whenever they could not be stored, so this is not specific to
-	// blocked videos, and it runs on the final state to leave alone an element
-	// that kept one of several sources
 	removeEmptyMediaAutoplay() {
 		this.doc.querySelectorAll("video[autoplay], audio[autoplay]").forEach(element => {
 			const sourceElements = Array.from(element.querySelectorAll("source"));

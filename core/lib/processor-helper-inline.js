@@ -44,8 +44,6 @@ const EMPTY_URL_SOURCE = /^url\(["']?data:[^,]*,?["']?\)/;
 const LOCAL_SOURCE = "local(";
 const FONT_MAX_LOAD_DELAY = 5000;
 const DUPLICATE_STYLESHEET_ATTRIBUTE_NAME = "data-sf-duplicate-stylesheet-ref";
-// the attributes that say how the link fetched its stylesheet, which the style element now holding
-// that stylesheet has no use for. Everything else identified the element in the page
 const LINK_FETCH_ATTRIBUTE_NAMES = ["rel", "href", "type", "media", "as", "crossorigin", "integrity",
 	"referrerpolicy", "hreflang", "sizes", "imagesrcset", "imagesizes", "fetchpriority"];
 
@@ -166,10 +164,6 @@ function getProcessorHelperClass(utilInstance) {
 				if (stylesheetInfo) {
 					stylesheets.delete(linkElement);
 					const styleElement = doc.createElement("style");
-					// the element is replaced rather than rewritten, so whatever identified it in
-					// the page has to be carried over: an id a script still looks up, a class a
-					// selector still matches. The attributes left out are the ones that describe
-					// the fetch the style element no longer performs
 					Array.from(linkElement.attributes).forEach(({ name, value }) => {
 						if (!LINK_FETCH_ATTRIBUTE_NAMES.includes(name.toLowerCase())) {
 							styleElement.setAttribute(name, value);

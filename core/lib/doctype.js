@@ -21,9 +21,6 @@
  *   Source.
  */
 
-// this module is imported by the script embedded in self-extracting archives, it
-// must stay free of dependencies
-
 export {
 	getDoctypeString
 };

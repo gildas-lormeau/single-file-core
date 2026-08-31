@@ -108,10 +108,6 @@ function getProcessorHelperClass(utilInstance) {
 				linkElement.setAttribute("type", "text/css");
 				const name = "stylesheet_" + resources.stylesheets.size + ".css";
 				linkElement.setAttribute("href", name);
-				// the shared copy is generated from the stylesheet of the element the duplicates were
-				// folded into, not from the text that was captured: that text still names the resources
-				// by their addresses in the original page, which resolve to nothing once the page is
-				// inside the archive
 				const { styleElement, content } = options.inlineStylesheets.get(stylesheetRefIndex);
 				const sharedEntry = entries.find(([key]) => key.element == styleElement);
 				const stylesheet = sharedEntry
@@ -119,10 +115,6 @@ function getProcessorHelperClass(utilInstance) {
 					: cssTree.parse(content, { context: "stylesheet", parseCustomProperty: true });
 				resources.stylesheets.set(resources.stylesheets.size, { name, content: this.generateStylesheetContent(stylesheet, options) });
 				linkElements.set(stylesheetRefIndex, linkElement);
-				// the element the duplicates were folded into is not itself a duplicate, so it is
-				// absent from inlineStylesheetsRefs and would keep its content inline: the archive
-				// would then hold the same stylesheet twice, once as the entry the links point at
-				// and once in the page
 				sharedStyleElements.set(styleElement, stylesheetRefIndex);
 			});
 			for (const [key, stylesheetInfo] of entries) {
@@ -149,10 +141,6 @@ function getProcessorHelperClass(utilInstance) {
 						styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
 					} else {
 						const linkElement = linkElements.get(stylesheetRefIndex).cloneNode(true);
-						// the element is replaced rather than rewritten, so whatever identified it in
-						// the page has to be carried over: an id a script still looks up, a class a
-						// selector still matches. The attributes left out are the ones that describe
-						// the link itself, which the code around here sets
 						Array.from(styleElement.attributes).forEach(({ name, value }) => {
 							if (!LINK_OWN_ATTRIBUTE_NAMES.includes(name.toLowerCase())) {
 								linkElement.setAttribute(name, value);
@@ -191,9 +179,6 @@ function getProcessorHelperClass(utilInstance) {
 						} catch (error) {
 							// ignored
 						}
-						// a sheet already open higher in this import chain must not be entered again: the
-						// ancestors are carried down the branch, not accumulated across the whole document,
-						// so two sibling imports of one sheet are still both resolved
 						if (testValidURL(resourceURL) && !importedStyleSheets.has(resourceURL)) {
 							const mediaQueryListNode = cssTree.find(node, node => node.type == "MediaQueryList");
 							let mediaText, layerName, supportsCondition;
@@ -231,9 +216,6 @@ function getProcessorHelperClass(utilInstance) {
 								stylesheetInfo.stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
 								stylesheet = stylesheetInfo.stylesheet;
 								const ancestorStyleSheets = new Set(importedStyleSheets);
-								// both identities of the sheet are remembered: a redirect makes the URL that was
-								// requested and the URL that answered differ, and an import of either one is the
-								// same cycle
 								ancestorStyleSheets.add(requestedURL);
 								ancestorStyleSheets.add(resourceURL);
 								await this.resolveImportURLs(stylesheetInfo, resourceURL, options, workStylesheet, resources, stylesheets, ancestorStyleSheets);

@@ -102,10 +102,6 @@ class ProcessorHelperCommon {
 			["image, feImage", "xlink:href"],
 			["image, feImage", "href"]
 		];
-		// an inline svg is document content, not a fetched resource: blocking images empties the
-		// references it makes outwards (image, feImage and use are all processed below) and leaves
-		// the markup itself alone. Removing it deleted JS-drawn charts, inline icons, and the
-		// <defs> holding gradients and filters that CSS applies to ordinary HTML elements
 		let resourcePromises = processAttributeArgs.map(([selector, attributeName, removeElementIfMissing, processDuplicates]) =>
 			this.processAttribute(doc, doc.querySelectorAll(selector), attributeName, baseURI, options, "image", resources, removeElementIfMissing, batchRequest, styles, processDuplicates)
 		);
@@ -137,9 +133,6 @@ class ProcessorHelperCommon {
 				resourceElement.setAttribute("data-sf-original-href", originalResourceURL);
 			}
 			let resourceURL = normalizeURL(originalResourceURL);
-			// a reference into the page itself costs no request, so blocking images must not empty
-			// it: normalizeURL drops the fragment, which leaves a bare "#symbol" as the empty path
-			// below and a same-document URL matching options.url
 			if (testValidPath(resourceURL) && !testIgnoredPath(resourceURL)) {
 				resourceElement.setAttribute(attributeName, util.EMPTY_RESOURCE);
 				if (!options.blockImages) {
@@ -257,9 +250,6 @@ class ProcessorHelperCommon {
 		}));
 	}
 
-	// a video or an audio element gets the attribute REMOVED rather than emptied: util.EMPTY_RESOURCE
-	// is inert on an image but not on a media element, which would attempt the load, fail, and sit
-	// in an error state where removing the attribute leaves the poster showing cleanly
 	setAttributeEmpty(resourceElement, attributeName, expectedType) {
 		if (expectedType == "video" || expectedType == "audio") {
 			resourceElement.removeAttribute(attributeName);
@@ -454,11 +444,6 @@ class ProcessorHelperCommon {
 				const key = this.getFontKey(ruleData);
 				const fontInfo = fontsDetails.fonts.get(key);
 				if (fontInfo) {
-					// a face declaring the same descriptors and the same sources as one already kept
-					// cannot change what that one did, and its sources are embedded a second time. A
-					// stylesheet reached from two <link> elements, or imported by two sheets, repeats
-					// every face it carries. The test is made before the await: the sources are read
-					// as they stand for both rules, and processing them is what would interleave
 					const ruleKey = key + " " + this.getPropertyValue(ruleData, "src");
 					if (fontsDetails.emittedFonts.has(ruleKey)) {
 						removedRules.push(cssRule);
@@ -524,10 +509,6 @@ class ProcessorHelperCommon {
 			medias: new Map(),
 			supports: new Map(),
 			layers: new Map(),
-			// the faces already emitted in this cascade context, so a second declaration of one of
-			// them can be dropped instead of embedding the same bytes again. Each media, supports
-			// and layer block gets its own info, so only rules that apply under the same conditions
-			// are ever compared
 			emittedFonts: new Set()
 		};
 	}
