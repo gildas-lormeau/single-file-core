@@ -1255,11 +1255,16 @@ pages can stop at the first row; the files it produces are accepted by every rea
    costs nothing else: the extracted page is written into the document with its own
    doctype (§4.1), so the outer one never governs the restored page.
 
-   The PNG face is the exception, and not by preference: a PNG file MUST begin with
-   its 8-byte signature, so no doctype can precede it and the variant has none. It
-   therefore renders in quirks mode until the extracted page replaces it, which is a
-   real cost of that face rather than a choice, and one reason the question above does
-   not arise there — the doctype is already gone, and with it the unbounded region.
+   The PNG face is the exception, and nothing is available to it either way. A PNG file
+   MUST begin with its 8-byte signature, so no doctype can precede it, and emitting one
+   after the PNG head does not help: those bytes are character data, so the parser has
+   left its initial insertion mode by then and discards a DOCTYPE token outright —
+   measured, a file with one written there is byte-for-byte equivalent in outcome to a
+   file with none, quirks mode and no doctype node in both. The variant therefore
+   renders in quirks mode until the extracted page replaces it. That is a property of
+   putting a PNG signature first, not a writer's choice, so this section states no
+   requirement about it. The question above also does not arise there: the doctype is
+   already gone, and with it that unbounded region.
 
    Then the head elements (the
    `<title>` and the canonical link among them), the CSS and `<body hidden>`,
