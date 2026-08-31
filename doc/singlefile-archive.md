@@ -3,7 +3,7 @@
 **Status: draft.** This document specifies the SingleFile archive, the polyglot file
 format produced by [SingleFile](https://github.com/gildas-lormeau/SingleFile) when it
 saves a page as a ZIP archive. It is written against the reference implementation,
-[single-file-core](https://github.com/gildas-lormeau/single-file-core) 1.5.108
+[single-file-core](https://github.com/gildas-lormeau/single-file-core) 1.5.119
 (`processors/compression/`), and every byte-level statement has been verified on
 generated specimen files.
 
@@ -103,13 +103,15 @@ Three consequences shape everything below:
 
 ### 1.2 Non-goals
 
-- **Forward-only ZIP parsers.** SingleFile archives require central-directory-driven reading (the
-  entries are preceded by non-ZIP bytes). Parsers that stream local headers from
-  offset 0 are out of scope (§7).
+- **Forward-only ZIP parsers.** Every archive with a face requires central-directory-driven
+  reading, since the entries are then preceded by non-ZIP bytes. The variant with no other
+  face is an ordinary ZIP file and streams from offset 0 like any other (§8.1, class A);
+  parsers that require that are out of scope for the rest (§7).
 - **In-place modification by generic ZIP tools.** The face invariants are global:
   the writer picks each hiding tag only after checking the exact bytes it must hide,
-  the recovery payload of universal mode contains a checksum of the whole ZIP
-  region, and the PDF and PNG structures wrap the archive (§5.4). A tool
+  the recovery payload of universal mode contains a checksum of the ZIP region
+  without its comment-length field, and the PDF and PNG structures wrap the
+  archive (§5.4). A tool
   that adds, removes or recompresses entries invalidates them, and most rewriters drop
   the prepended and appended regions outright. A generically rewritten file keeps at
   best its ZIP face. Editing an archive means producing a new one through the writer
@@ -133,7 +135,7 @@ Three consequences shape everything below:
 | **universal mode** | The variant whose HTML face can extract the archive from the *parsed page text*, the text and comment nodes the HTML parser produced, and therefore needs no access to its own raw bytes. Named "universal" because it works from any location, including the `file:` protocol. |
 | **wrapper tag** | The HTML construct that hides a binary region from the HTML parser, `<!--`…`-->` by default (§5.1). |
 | **appended data** | Bytes after the ZIP End Of Central Directory record. Readers tolerate them within the window their EOCD scan already covers: 65557 bytes from the end of the file (the 22-byte record plus the 65535-byte maximum comment length); "the 64 KB window" refers to this. It may be left undeclared or declared as the archive comment; both forms are valid ZIP and readers MUST accept both (§4.2). The recovery payload can be computed before that choice is made because it stops two bytes short of the record, excluding its comment-length field (see *recovered range* below). |
-| **ZIP region** | The contiguous byte range holding the archive proper: from the first local file header the ZIP writer emitted through the last byte of the End Of Central Directory record. It spans the `zip-entries`, `pdf-central-record` (when present) and `central-directory · eocd` blocks of §3, and in the HTML variants it is exactly the content of the last wrapper. It does **not** include `pdf-local-header` or the PDF document, which sit earlier in the file. |
+| **ZIP region** | The contiguous byte range holding the archive proper: from the first local file header the ZIP writer emitted through the last byte of the End Of Central Directory record. It spans the `zip-entries`, `pdf-central-record` (when present) and `central-directory · eocd` blocks of §3, and in the HTML variants it is the content of the last wrapper, exactly so on the element rungs and preceded by the `sfz-data` identifier on the comment rung, which the extractor steps over. It does **not** include `pdf-local-header` or the PDF document, which sit earlier in the file. |
 | **archive** | The *logical* ZIP file: the set of entries the central directory describes, wherever their bytes lie. This is distinct from the ZIP region above, which is a contiguous byte range. Every entry but one has its bytes inside the region; `page.pdf` is the deliberate exception, an entry of the archive whose local header and data sit before the region (§4.2). "Archive" in this document always means the logical file, "ZIP region" always the byte range, and the two differ only in the PDF-with-HTML variants. |
 | **recovered range** | What the universal extractor reproduces (§4.5): the ZIP region minus its last two bytes, the comment-length field of the End Of Central Directory record. That field is the one part of the record whose value depends on what follows the region, so leaving it out is what lets a writer decide the appended-data form after the recovery payload is final (§4.2). The extractor supplies the two bytes itself, as zeroes — the recovered range carries no comment. |
 | **reference writer** | `createArchive()` in single-file-core `processors/compression/compression.js`. |
@@ -164,8 +166,9 @@ include it because the clients producing those variants enable it by default, bu
 `embeddedImage` and `embeddedPdf` compose with a non-universal self-extracting file
 just as well; the extension is then `.zip.html`. The one interaction: `page.pdf` lies
 outside the ZIP region (§1.3), so the page-text extraction path does not recover it
-with the rest and the extractor skips that entry (§4.5); every path that reads raw
-bytes sees it normally. In the last three rows there is no
+with the rest. The extractor therefore filters that entry out unconditionally, on
+every acquisition path including the ones that read raw bytes and could return it
+(§4.5). In the last three rows there is no
 HTML face, so the option does not apply. The *Specimen* column names the measured
 reference files this document cites; §8 records how to regenerate them.
 
@@ -338,9 +341,9 @@ face adds, then the regions the PNG face adds.
 
 | Region | Producer | Present | Contents |
 |---|---|---|---|
-| `html-prologue` | HTML | HTML face | Doctype, the root element start tag, an optional implementation-defined comment, `<meta charset>`, title, optional head elements (canonical link, `robots` meta, viewport, Content-Security-Policy), minimal CSS, `<body hidden>`, wait/error messages, optional table of contents, optional text body (§4.6). The leading comment, the title, the canonical link and the text body are withheld when a password is set (§5.6). In the plain variant an optional UTF-8 BOM MAY precede the doctype (`includeBOM`); universal and PNG variants never carry one. In the PNG variants the region is split: everything through `<body hidden>` is the data of the `tEXt "PNG"` chunk, while the messages, the optional table of contents and the optional text body follow the `tEXt "ZIP"` chunk header; the doctype and the leading comment are dropped. |
+| `html-prologue` | HTML | HTML face | Doctype, the root element start tag, `<meta charset>`, an optional implementation-defined comment, title, optional head elements (canonical link, `robots` meta, viewport, Content-Security-Policy), minimal CSS, `<body hidden>`, wait/error messages, optional table of contents, optional text body (§4.6). The leading comment, the title, the canonical link and the text body are withheld when a password is set (§5.6). In the plain variant an optional UTF-8 BOM MAY precede the doctype (`includeBOM`); universal and PNG variants never carry one. In the PNG variants the region is split: everything through `<body hidden>` is the data of the `tEXt "PNG"` chunk, while the messages, the optional table of contents and the optional text body follow the `tEXt "ZIP"` chunk header; the doctype and the leading comment are dropped. |
 | `bootstrap` | HTML | HTML face | One inline `<script>`: the embedded ZIP reader, the extractor, the display routine, and the content-acquisition logic (§4.1). In universal mode its bytes MUST be pure ASCII, since the declared charset decodes this region like any other and character references do not apply inside script data (§2.1). The wrapper start tag that opens the ZIP region follows it, directly or after a relocated `extra-data`. |
-| `<!--` / `-->` | HTML | HTML face | The wrapper tag pair hiding a binary region from the HTML parser — comment tags by default, another pair when the hidden bytes contain `-->` (§5.1). Drawn at each opening and closing position. The close tag is absent when appended data is prevented (`preventAppendedData`, or the `<plaintext>` wrapper which cannot close): no markup follows the archive and the wrapper runs to end-of-file. That does not mean the file ends at the EOCD — the PNG face's tail still follows, inside the wrapper, where it parses as text (§5.1). |
+| `<!--` / `-->` | HTML | HTML face | The wrapper tag pair hiding a binary region from the HTML parser — comment tags by default, another pair when the hidden bytes defeat them — which `-->` is only the commonest way to do, the full test being `<!--`, `--!>` or a trailing `<!-` (§5.1). Drawn at each opening and closing position. The close tag is absent when appended data is prevented (`preventAppendedData`, or the `<plaintext>` wrapper which cannot close): no markup follows the archive and the wrapper runs to end-of-file. That does not mean the file ends at the EOCD — the PNG face's tail still follows, inside the wrapper, where it parses as text (§5.1). |
 | `zip-entries` | ZIP | always | The archive's local file headers and entry data, written by the ZIP writer. The central directory of an archive written by the reference writer lists `index.html` (the page) first, then `manifest.json` (a JSON description of the archive: original URL, title, save time, resource-to-URL map — informative; the page displays without it), then the resources; the *physical* order of the local headers inside the region is not guaranteed to match, and readers MUST NOT rely on either order — entries are addressed by name (§7.1). |
 | `central-directory · eocd` | ZIP | always | The central-directory records followed by the End Of Central Directory record. All offsets are absolute file positions (§5.3). In the HTML+PDF variants the EOCD accounts for the injected `pdf-central-record` (how the writer achieves that is §6). |
 | `extra-data` | extractor | universal | `<sfz-extra-data>` element holding the base64, deflate-compressed recovery payload (§5.5). It always sits outside the wrapper, so it parses as a real element the extractor can address. Normal placement: after the EOCD, between the wrapper close tag and the end tags. Relocated placement, used when the payload exceeds the 64 KB appended-data window or `preventAppendedData` is set: immediately before the wrapper start tag. In the relocated form the element is followed by space padding: its room is reserved before the archive is written, because the region precedes the ZIP data and resizing it would shift every central-directory offset (§6). Neither placement carries positional meaning — the extractor finds the ZIP region by identifier, not relative to this element (§4.5). |
@@ -410,8 +413,8 @@ The bootstrap script runs at parse time and proceeds in three stages:
    range reading, fetching only the central directory and the entries it needs (a
    large archive displays without downloading the ZIP region in full); otherwise it
    downloads the whole file. When the header probe fails it falls back to page-text
-   extraction; a failure of the full download itself, past the probe, reveals the
-   error message directly. Only when every applicable rung fails does the error
+   extraction; so does a failure of the full download itself, past the probe, which
+   is why the probe leaves the document in place. Only when every applicable rung fails does the error
    message appear, with recovery instructions that differ by variant (§2).
 2. **Extract.** The embedded ZIP reader reads the archive through the ZIP lens
    (§4.2) and rebuilds the page: text entries are decoded, binary entries become
@@ -554,9 +557,12 @@ chunks (ancillary by construction, their type starting lowercase):
   ZIP region and the appended data. The decoder hops over all of it as the data of
   one chunk.
 
-Both chunks carry text the PNG standard does not strictly permit: a `tEXt` text
-string is Latin-1 text, and the payloads here contain NUL bytes — 78 in the
-`tEXt "ZIP"` chunk of the `png` specimen, 101 in the `png-pdf` one. Decoders skip
+The `tEXt "ZIP"` chunk carries text the PNG standard does not strictly permit: a
+`tEXt` text string is Latin-1 text, and its payload contains NUL bytes — 78 in the
+`png` specimen, 101 in the `png-pdf` one. The first chunk is pure printable ASCII in
+the plain `png` specimen, where the doctype and the provenance comment are suppressed
+and the title is escaped to character references; only the `-pdf` variants put NULs
+in it. Decoders skip
 ancillary chunks without inspecting their text, so this passes everywhere tested
 (§8.1). It exercises the PNG tolerance §1.1 lists at its limit: what decoders ignore
 in a `tEXt` chunk is text PNG does not permit.
@@ -698,9 +704,10 @@ backward for its signature the way any ZIP reader finds it. A reader arrives at 
 same number as a ZIP library's prepended-data compensation, which derives it from the
 record's position rather than from the buffer's end. Do not substitute
 `region.length - 22` for `eocdPosition`: the two are equal only when the EOCD is the
-last record in the region, which zip64 and a non-empty archive comment both break.
+last record in the region, which a non-empty archive comment breaks. Zip64 does not —
+its records precede the EOCD, which stays last.
 
-Under zip64 (§5.4) both of those EOCD fields are the `0xFFFFFFFF` sentinel, and the
+Under zip64 (§5.7) both of those EOCD fields are the `0xFFFFFFFF` sentinel, and the
 zip64 end of central directory record carries the real values. Take them from there,
 using the same `eocdPosition` arithmetic against that record's own position — the
 zip64 locator states an absolute offset in the original file, so it needs the shift
@@ -721,10 +728,12 @@ universal mode this cuts its audience in two: a charset-oblivious tool that read
 raw bytes — `grep`, plain-text search — sees intact UTF-8, while any consumer that
 honors the declared `<meta charset>` decodes it as windows-1252 and garbles
 non-ASCII text. That includes the HTML parser itself — harmless there, because the
-region is hidden and replaced (§4.1) — but also HTML-aware indexers. The text body
+region is hidden and replaced (§4.1) — but also HTML-aware indexers. In universal mode the text body
 opens with the page title, for the same raw-byte
 audience — it is the first *text* in the element, which is not necessarily the
 element's first line: the reference writer's serialization puts a newline before it.
+Outside universal mode the title is not repeated there, since the prologue's own
+`<title>` is already readable as bytes.
 
 The `<title>` element takes the opposite route, and so does every other piece of
 prologue text the writer assembles itself. Character references are resolved against
@@ -828,7 +837,7 @@ matching, indistinguishably from the same archive on the comment rung. The same 
 covered a payload holding every byte value, every rung's patterns, and the near-misses
 `]]x>`, `] ]>`, `]>` and `]]`, in both the prologue position and mid-document.
 
-Two things about the ladder *are* required. Whatever order a writer gives the seven
+Two things about the ladder *are* required. Whatever order a writer gives the eight
 closable rungs, it MUST apply the selection test below to every rung it considers, and
 MUST keep `<plaintext>` available as the rung of last resort: §6.2's termination
 argument needs one rung no payload can defeat.
@@ -862,7 +871,7 @@ what differs is how far the ladder goes:
   data double escaped*, where `</script>` does **not** close the element. So a payload
   can hold `<!--` and then `<script`, contain no `</script` anywhere, pass the end test —
   and the wrapper then swallows its own end tag, the extra-data element and the rest of
-  the document. On the other six the start test is genuine conservatism: a nested `<!--`
+  the document. On the other seven the start test is genuine conservatism: a nested `<!--`
   is a parse error inside a comment but does not close it, and the raw-text rungs hold a
   flat run of characters with no states at all, while CDATA sections do not nest. The
   rule is uniform deliberately: the
@@ -944,7 +953,8 @@ and the writer compares its total against 65535 before committing to it. The EOC
 record's own 22 bytes sit inside the window too, giving the 65557-byte figure of §1.3.
 
 Only the extra-data element can outgrow the budget: it carries one 2-bit code per
-newline sequence in the ZIP region — CR LF counts once, for two bytes (§5.5) — so it
+newline sequence in the recovered range — the ZIP region without its comment-length
+field (§4.5), CR LF counting once, for two bytes (§5.5) — so it
 grows with the archive. Newline bytes
 occur at their natural density in compressed and STOREd binary data — about two in
 every 256 bytes — and the codes are compressed and base64-encoded, which measures at
@@ -980,9 +990,11 @@ self-consistent:
   interpreted from the `%PDF-` header, so embedding it needs no rewriting; the writer
   only MUST keep the header inside the scan window (§4.3).
 - **PNG has no offsets, only lengths.** Each chunk declares its data length. The
-  second `tEXt` chunk's length covers the whole archive and the appended data, so it
-  can only be written once the file's final size is known, and the writer patches it
-  in place at the end (§6).
+  `tEXt "ZIP"` chunk's length covers the whole archive, and the appended data too in
+  the variants that have it, so it can only be written once the file's final size is
+  known, and the writer patches it in place at the end (§6). It is the second chunk
+  only when the HTML face is present; without it there is one `tEXt` chunk and no
+  appended data.
 
 The injected `page.pdf` central record exploits a fourth, deliberate discrepancy. It
 is written directly to the output stream, bypassing the ZIP writer's own byte
@@ -1110,15 +1122,18 @@ ZIP tool can verify.
 
 ### 5.7 zip64
 
-The archive uses the zip64 structures whenever the ordinary records cannot express
-it: a central directory starting beyond 4 GiB (the prefix counts toward the offset,
-§5.3), a directory 4 GiB or longer, or 65535 entries or more. The reference writer
+The archive uses the zip64 end of central directory structures whenever the ordinary
+records cannot express it: a central directory starting beyond 4 GiB (the prefix counts
+toward the offset, §5.3), a directory 4 GiB or longer, or 65535 entries or more. A
+single entry of 4 GiB or more also produces zip64 extra fields, in that entry's local
+and central headers, without any zip64 end of central directory record. The reference writer
 never requests zip64 explicitly, so it appears only when reached, and given how large
 that is, effectively never in a saved page.
 
 When it is reached, the EOCD record carries the sentinel values `0xFFFF` and
-`0xFFFFFFFF` in the fields that overflowed, preceded by a zip64 end of central
-directory record and its locator. The `page.pdf` record injection then applies its
+`0xFFFFFFFF`, preceded by a zip64 end of central directory record and its locator.
+The sentinels are not selective: the writer saturates the entry counts, the directory
+size and the directory offset together once zip64 is emitted, whichever one overflowed. The `page.pdf` record injection then applies its
 accounting to the zip64 record instead — entry counts and directory size there, and
 the locator's pointer moved by the record's length — while leaving each saturated
 field at its sentinel. A writer MUST NOT let the injection push a 16-bit or 32-bit
@@ -1207,7 +1222,8 @@ buys. The cost is not evenly spread:
 | Plus universal mode | The recovery payload, the character round trip of §5.5, the appended-data budget of §5.2, and the retry loops of §6.2. This is where the real complexity lives, and it buys opening the file from `file:` with no cooperation |
 | Plus the PDF or PNG face | The header window of §4.3 or the chunk patching of §5.3, plus a second wrapper choice for the embedded payload |
 
-Only the third row needs the retry loops, and only the fourth needs a value that cannot
+The second row already needs a rebuild when the rung changes; the third adds the rest of
+the retry loops, and only the fourth needs a value that cannot
 be computed until the file is otherwise complete. A writer that only wants durable saved
 pages can stop at the first row; the files it produces are accepted by every reader in
 §8.1.
@@ -1219,15 +1235,18 @@ pages can stop at the first row; the files it produces are accepted by every rea
    `tEXt "PDF"` chunk holding the PDF document here, so its header falls inside the
    PDF scan window (§4.3).
 2. **HTML prologue.** With the HTML face, emit the doctype (omitted under the PNG
-   face, which owns the start of the file), the root element start tag, any comment the
-   implementation adds, the `<meta charset>` required by §2.1, the head elements (the
+   face, which owns the start of the file), the root element start tag, the
+   `<meta charset>` required by §2.1, any comment the implementation adds — after the
+   charset declaration, since a comment carrying the page URL has no bound and would
+   otherwise push that declaration out of the first 1024 bytes — the head elements (the
    `<title>` and the canonical link among them), the CSS and `<body hidden>`,
    the wait and error messages, the optional table of contents and text body, and the
    bootstrap script. With a password, five of those are left out: the comment, the
    title, the canonical link, the text body and the entry comments of step 6 (§5.6).
    With the PNG face the head of this region,
    through `<body hidden>`, is the data of the `tEXt "PNG"` chunk and the remainder is
-   emitted after the `tEXt "ZIP"` chunk header in step 12; with the PDF face the
+   emitted after the `tEXt "ZIP"` chunk header, which step 1 has already written and
+   step 12 only patches; with the PDF face the
    region is interrupted by step 3 as well.
 
    Whatever a writer puts in the prologue, closing every element it opens before the
@@ -1237,7 +1256,7 @@ pages can stop at the first row; the files it produces are accepted by every rea
 3. **Embedded PDF.** With the PDF face and the HTML face, the prologue is *split*
    around the PDF, which MUST come early enough for `%PDF-` to start at offset 1024
    or lower (§4.3). Only what a parser needs first precedes it — the doctype, the
-   root element, any leading comment and the charset declaration — and everything
+   root element and the charset declaration — and everything
    else in the head (title, link and meta elements, the stylesheet, `<body hidden>`,
    the messages, the optional table of contents and text body) follows it. Emit the
    wrapper start tag chosen for the PDF payload (§5.1), the hand-built `page.pdf`
@@ -1248,17 +1267,18 @@ pages can stop at the first row; the files it produces are accepted by every rea
    where the format depends on the writer rather than on its own layout. The
    irreducible part of the prefix is small: the root element start tag, the charset
    declaration, the wrapper start tag and the 38-byte local file header for
-   `page.pdf`, plus a minimal doctype — 100 bytes in the reference layout, and a few
-   more with a longer charset label or a wrapper past the first rung (§5.1). But two
+   `page.pdf`, plus a minimal doctype — 92 bytes in the reference layout with a
+   `utf-8` label, 99 with `windows-1252`, and a few more with a wrapper past the first
+   rung (§5.1). But two
    regions ahead of the header have no length the format controls: the doctype, which
    is copied from the saved page and carries its public and system identifiers
    verbatim, and any comment the implementation chooses to write there. Real doctypes
    are small; the longest in common use, XHTML 1.1 with MathML and SVG, is about 140
    bytes. But nothing caps either region, so a writer MUST cap them itself, keeping
-   everything before the local file header inside the remaining budget of roughly 924
-   bytes (879 with the PNG face, whose signature, `IHDR` and first chunk header take
-   the first 45 bytes of the same window, and whose variant drops the doctype in
-   exchange), shortening, dropping or relocating that content instead of emitting a
+   everything before the local file header inside the remaining budget of roughly 930
+   bytes (about 900 with the PNG face, whose signature, `IHDR` and first chunk header
+   take the first 45 bytes of the same window while its variant drops the 15-byte
+   doctype in exchange), shortening, dropping or relocating that content instead of emitting a
    header outside the window. A writer that places nothing of unbounded length before
    the PDF block satisfies the rule by construction and needs no check at all.
 
@@ -1289,9 +1309,10 @@ pages can stop at the first row; the files it produces are accepted by every rea
 8. **Close and patch.** Close the archive, then correct the end of central directory
    record for the injected record: entry counts, directory size, and the zip64
    record and locator when present (§5.7).
-9. **Universal payload.** In universal mode, read back the ZIP region and check it
-   against the current wrapper (§5.1); on a collision, restart (§6.2). Otherwise
-   compute the region's CRC-32 and its newline codes, build and compress the payload,
+9. **Universal payload.** With the HTML face — not only in universal mode, since any
+   self-extracting file needs it — read back the ZIP region and check it against the
+   current wrapper (§5.1); on a collision, restart (§6.2). Then, in universal mode
+   only, compute the region's CRC-32 and its newline codes, build and compress the payload,
    and decide its placement against the budget (§5.2), restarting if the decision
    differs from the current pass.
 10. **Appended run.** Unless appended data is prevented, emit the wrapper end tag,
@@ -1305,7 +1326,7 @@ pages can stop at the first row; the files it produces are accepted by every rea
 
 ### 6.2 The retry loops
 
-Four conditions restart the build from step 1, and each restart carries forward what
+Five conditions restart the build from step 1, and each restart carries forward what
 the failed pass learned. The first three terminate because each of them advances a
 monotone quantity:
 
@@ -1333,11 +1354,22 @@ break that cycle: **the reservation is discarded at most once per build**, and a
 that fits the appended window on a later pass stays in the reservation it already has.
 The file then keeps at most the reservation's own margin of dead padding.
 
+The fifth stands apart from the other four, and terminates trivially because it can
+fire only once: if the end of central directory record cannot be patched to account for
+the injected `page.pdf` record — its signature not where the accounting expects it —
+the writer rebuilds without that record rather than leave a central directory the EOCD
+does not count. That is the restart enforcing §5.7's requirement that the injection
+never leave the two disagreeing, and the rebuilt archive simply has no `page.pdf`
+entry.
+
 Given identical inputs, modification date and archive time, the process is
-deterministic: the same page produces the same bytes, retries included. The archive
-time is a separate input because `manifest.json` records when the archive was made
-(§7.1), so two builds of one page at two moments differ in that entry and in the entry
-sizes around it. A consumer MUST NOT treat the byte identity of two archives of the
+deterministic: the same page produces the same bytes, retries included. `manifest.json`
+records when the archive was made (§7.1), so two builds of one page at two moments
+differ in that entry and in the entry sizes around it. A writer that retries MUST pin
+the archive time across the passes of one build rather than read the clock again on
+each: the reference writer takes it from the clock inside the callback that emits the
+entries, which runs once per pass, so a retried build is reproducible only when that
+clock is frozen — which is what its own determinism test does. A consumer MUST NOT treat the byte identity of two archives of the
 same page as meaningful.
 
 ## 7. Consuming SingleFile archives safely
@@ -1350,8 +1382,10 @@ handles every variant of §2 without knowing which one it has.
 
 - **Read through the central directory.** Locate the End Of Central Directory record
   by scanning backward from the end of the file, then follow its offset. A reader that
-  streams local headers from offset 0 will not find an archive: the file starts with
-  the HTML, PDF or PNG face (§1.2, and §8.1 measures what such readers actually do).
+  streams local headers from offset 0 will not find an archive in any variant that has
+  a face, since the file then starts with the HTML, PDF or PNG face. The variant with
+  no face is an ordinary ZIP file and streams fine (§1.2, and §8.1 measures what such
+  readers actually do).
 - **Tolerate bytes before and after the archive.** They are the other faces, not
   corruption. Offsets are absolute, so no compensation is needed (§5.3).
 - **Accept both forms of appended data.** The bytes after the EOCD record may be raw
@@ -1422,8 +1456,10 @@ alongside it.
 
 ### 7.3 Security considerations
 
-- **Entry names are untrusted.** They derive from a captured page's resource URLs. A
-  reader MUST sanitize them before writing to a filesystem: reject absolute paths and
+- **Entry names are untrusted.** The reference writer's names are a fixed prefix, an
+  index and an extension (§5.8), but nothing in the format requires that, and a writer
+  may name entries after the resources themselves. A reader MUST sanitize them before
+  writing to a filesystem: reject absolute paths and
   `..` segments, and be aware that names may be long, may collide after case folding,
   and may contain characters the local filesystem rejects.
 - **Declared sizes are untrusted.** Do not pre-allocate from the declared uncompressed
@@ -1434,8 +1470,9 @@ alongside it.
   the bootstrap in a privileged one. The format's own display path replaces the
   document with the extracted page, which is not an isolation boundary by itself.
 - **A password protects entry contents only** (§5.6). Entry names, sizes and dates
-  stay readable in the central directory, and a name commonly states the resource's
-  filename. The PNG and PDF faces render the page regardless. A conforming writer
+  stay readable in the central directory, and while the reference writer's names carry
+  no information about the resources (§5.8), another writer's may state their
+  filenames. The PNG and PDF faces render the page regardless. A conforming writer
   withholds the five fields of §5.6, the source URLs among them, but a reader MUST NOT
   read their absence as protection: nothing in the format stops a writer from emitting
   any of them, so an archive of unknown provenance may state every URL in the clear.
@@ -1550,9 +1587,9 @@ The layout is the *universal* row of the byte map (§3).
 | Offset | Bytes | Region |
 |---|---|---|
 | 0 | `<!DOCTYPE html>` | `html-prologue` begins |
-| 16 | `<html data-sfz>` | root element start tag; the attribute is the reference implementation's own marker (§1.3) |
-| 31 | `<meta charset=windows-1252>` | the charset rule, inside the first 1024 bytes (§2.1) |
-| 58 | `<!--` … `-->` (ends at 200) | comment written by the implementation, not part of the format; it follows the charset declaration so it cannot push it out of the prescan window |
+| 15 | `<html data-sfz>` | root element start tag; the attribute is the reference implementation's own marker (§1.3) |
+| 30 | `<meta charset=windows-1252>` | the charset rule, inside the first 1024 bytes (§2.1) |
+| 57 | `<!--` … `-->` (ends at 200) | comment written by the implementation, not part of the format; it follows the charset declaration so it cannot push it out of the prescan window |
 | 200 | `<title>` … `</title>` (ends at 229) | the page title, as numeric character references (§4.6) |
 | 677 | `<style>` | the stylesheet of the blank-page backstop (§4.1) |
 | 855 | `<body hidden>` | start of the blank-page backstop (§4.1) |
@@ -1634,7 +1671,7 @@ multi-byte ones (`utf-8`, `utf-16le`, `utf-16be`, `gbk`, `gb18030`, `big5`, `euc
 `shift_jis`, `euc-kr`, `iso-2022-jp`) decode a lone byte sequence to U+FFFD or to fewer
 than 256 characters.
 The reverse table each one needs ranges from 8 entries (`iso-8859-15`) to 128
-(`koi8-r`, `koi8-u` and `ibm866`); windows-1252 needs 27.
+(`koi8-r`, `koi8-u`, `ibm866` and `x-user-defined`); windows-1252 needs 27.
 
 **That the round trip is charset-independent.** The mechanism of §5.5 — parse, then
 re-encode with the reverse table, restoring newlines from the 2-bit codes and NUL from
@@ -1667,7 +1704,7 @@ predicts.
 | August 2026 | Core 1.5.110: `<svg><![CDATA[` joins the ladder above `<plaintext>` (§5.1) — the one rung whose terminator, `]]>`, real payloads rarely carry. It gives a payload naming every element rung somewhere to go that does not cost the appended-data placement, and moves the self-nesting limit from the fifth level to the sixth |
 | August 2026 | Core 1.5.115: password-protected archives withhold the provenance comment and the canonical link as well (§5.6). Both wrote the page's own URL into the prologue, beside the title that was already withheld, so the address the archive was saved from stayed in the clear |
 | August 2026 | Core 1.5.119: the inlined ZIP library is built ASCII-only, and §2.1 now requires it of any bootstrap. Its CP437 table had been emitted as literal characters, which the page re-decoded as windows-1252, growing the table from 256 entries to 508 and shifting every lookup by 60 — so the one entry read without the UTF-8 flag, `page.pdf`, came back mangled and no archive with a PDF face extracted in any engine (§5.8) |
-| August 2026 | Core 1.5.120: the hand-built `page.pdf` records set the language encoding flag, like every entry the ZIP writer produces (§5.8). Its name is ASCII, so no decoded name changes; what changes is that no entry in an archive is read through CP437 any more, closing the path the 1.5.119 defect surfaced on |
+| August 2026 | Core 1.5.120, unreleased at the time of writing: the hand-built `page.pdf` records set the language encoding flag, like every entry the ZIP writer produces (§5.8). Its name is ASCII, so no decoded name changes; what changes is that no entry in an archive is read through CP437 any more, closing the path the 1.5.119 defect surfaced on |
 
 This document was itself revised in August 2026, against core 1.5.108, after several
 independent reviews. One of them was a reader built from this specification alone, with
