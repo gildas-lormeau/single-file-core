@@ -118,6 +118,7 @@ const COMMENT_LENGTH_FIELD_LENGTH = 2;
 const MAX_APPENDED_DATA_LENGTH = 65535;
 const PDF_ENTRY_FILENAME = "page.pdf";
 const PDF_HEADER_MAX_OFFSET = 1024;
+const CHARSET_DECLARATION_MAX_OFFSET = 1024;
 const MINIMAL_DOCTYPE = "<!DOCTYPE html>";
 const UNHIDDEN_FACE_WARNING_MESSAGE = "SingleFile: the page data contains every HTML tag that could hide an embedded file, the archive was written without its";
 const EMBEDDED_IMAGE_LABEL = "PNG image";
@@ -605,7 +606,14 @@ function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
 	const doctype = options.embeddedImage ? "" : pageData.doctype;
 	const charset = options.extractDataFromPage ? "windows-1252" : "utf-8";
 	const documentStart = "<html data-sfz><meta charset=" + charset + ">";
-	const html = bom + doctype + documentStart;
+	let html = bom + doctype + documentStart;
+	// the doctype is copied verbatim from the captured page and is the one part of the prefix
+	// with no bound: a long one pushes the encoding declaration past the bytes a parser prescans
+	// for it, and in universal mode a page decoded under the wrong charset cannot recover itself.
+	// the embedded PDF branch below applies the same substitution for its own header
+	if (new TextEncoder().encode(html).length > CHARSET_DECLARATION_MAX_OFFSET) {
+		html = bom + MINIMAL_DOCTYPE + documentStart;
+	}
 	// the comment carries the page URL, whose length is unbounded: it is emitted after the
 	// declaration of the character encoding, and after the embedded PDF when there is one, so
 	// that neither the encoding declaration nor the PDF header leaves the first 1024 bytes.

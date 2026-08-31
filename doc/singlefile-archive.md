@@ -1238,7 +1238,12 @@ pages can stop at the first row; the files it produces are accepted by every rea
    face, which owns the start of the file), the root element start tag, the
    `<meta charset>` required by §2.1, any comment the implementation adds — after the
    charset declaration, since a comment carrying the page URL has no bound and would
-   otherwise push that declaration out of the first 1024 bytes — the head elements (the
+   otherwise push that declaration out of the first 1024 bytes. The doctype is the
+   other unbounded region ahead of the declaration, copied from the saved page with its
+   identifiers verbatim, so a writer MUST emit a minimal doctype in its place when
+   keeping it would push the declaration past 1024 bytes; that substitution costs
+   nothing, because the extracted page is written into the document with its own
+   doctype (§4.1). Then the head elements (the
    `<title>` and the canonical link among them), the CSS and `<body hidden>`,
    the wait and error messages, the optional table of contents and text body, and the
    bootstrap script. With a password, five of those are left out: the comment, the

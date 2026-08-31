@@ -121,7 +121,22 @@ function imageResource(url) {
 	const pageData = makePageData(6, 4 * 1024);
 	pageData.doctype = "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"" + "x".repeat(2000) + ".dtd\">";
 	const { bytes } = await runProcess(pageData, options);
-	check("oversized doctype is kept without the pdf face", decodeText(bytes).startsWith(pageData.doctype), true);
+	const text = decodeText(bytes);
+	check("oversized doctype is replaced without the pdf face", text.startsWith("<!DOCTYPE html><html data-sfz>"), true);
+	check("charset declaration stays inside the scan window", charsetDeclarationEnd(text) <= 1024, true);
+}
+
+{
+	const options = makeOptions();
+	const pageData = makePageData(6, 4 * 1024);
+	pageData.doctype = "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">";
+	const { bytes } = await runProcess(pageData, options);
+	check("ordinary doctype is kept verbatim", decodeText(bytes).startsWith(pageData.doctype), true);
+}
+
+function charsetDeclarationEnd(text) {
+	const index = text.indexOf("<meta charset=");
+	return index == -1 ? -1 : index + text.substring(index).indexOf(">") + 1;
 }
 
 function triggerResource(literals) {
