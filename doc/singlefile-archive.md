@@ -1130,15 +1130,16 @@ The archive uses the zip64 end of central directory structures whenever the ordi
 records cannot express it: a central directory starting beyond 4 GiB (the prefix counts
 toward the offset, §5.3), a directory 4 GiB or longer, or 65535 entries or more. A
 single entry of 4 GiB or more also produces zip64 extra fields, in that entry's local
-and central headers, without any zip64 end of central directory record. The reference writer
-never requests zip64 explicitly, so it appears only when reached, and given how large
-that is, effectively never in a saved page.
+and central headers, without any zip64 end of central directory record. The reference
+writer never requests zip64 explicitly, so it appears only when reached, and given how
+large that is, effectively never in a saved page.
 
 When it is reached, the EOCD record carries the sentinel values `0xFFFF` and
 `0xFFFFFFFF`, preceded by a zip64 end of central directory record and its locator.
 The sentinels are not selective: the writer saturates the entry counts, the directory
-size and the directory offset together once zip64 is emitted, whichever one overflowed. The `page.pdf` record injection then applies its
-accounting to the zip64 record instead — entry counts and directory size there, and
+size and the directory offset together once zip64 is emitted, whichever one of them
+overflowed. The `page.pdf` record injection then applies its accounting to the zip64
+record instead — entry counts and directory size there, and
 the locator's pointer moved by the record's length — while leaving each saturated
 field at its sentinel. A writer MUST NOT let the injection push a 16-bit or 32-bit
 field to its sentinel value without emitting the corresponding zip64 record: a count
@@ -1382,8 +1383,8 @@ differ in that entry and in the entry sizes around it. A writer that retries MUS
 the archive time across the passes of one build rather than read the clock again on
 each: the reference writer takes it from the clock inside the callback that emits the
 entries, which runs once per pass, so a retried build is reproducible only when that
-clock is frozen — which is what its own determinism test does. A consumer MUST NOT treat the byte identity of two archives of the
-same page as meaningful.
+clock is frozen — which is what its own determinism test does. A consumer MUST NOT
+treat the byte identity of two archives of the same page as meaningful.
 
 ## 7. Consuming SingleFile archives safely
 

@@ -1,8 +1,12 @@
 # SFZ format harness
 
-Tests for the SingleFile archive writer in `processors/compression/`. They drive
+Tests for the SingleFile archive writer in `processors/compression/`, which drive
 `process()` directly with synthetic page data, so they need no browser and no network.
 The format itself is specified in [`doc/singlefile-archive.md`](../../doc/singlefile-archive.md).
+
+The directory has since taken in suites for code the archive writer does not own — the
+CSS processors, the download filename helpers — because they need the same Deno-with-a-
+DOM-stub setup and there was nowhere else to put them. The table says which is which.
 
 Run them with Deno, from the repository root:
 
@@ -31,6 +35,9 @@ any check failed.
 | `adopted-stylesheets-hook.js` | That the page-world hook answers the adopted-stylesheets request for a CLOSED shadow root, which its host does not expose. |
 | `inlined-functions.js` | That a function serialized into a self-extracting archive names nothing outside itself. An import survives bundling and still reads correctly, and the archive then throws a bare `ReferenceError` and renders nothing. |
 | `pages-archive.js` | That `createPagesArchive` packs several pages into one archive correctly: the first page at the root and the others in folders, the manifest, the symlink a deduplicated entry leaves behind, and the escaping of crawled titles in both tables of contents. |
+| `entry-compression.js` | That an entry is deflated or stored on the content type the server sent, not on the extension alone — a module served as `text/javascript` from a `.ts` URL used to go in uncompressed — and that an unrecognized `application/octet-stream` still stays stored. |
+| `filename-max-length.js` | That `formatFilename` counts the ellipsis as well as the extension in the budget it truncates to, so a filename at `filenameMaxLength` stays at it, and that a limit shorter than the extension does not reach `Blob.slice` with a negative start. |
+| `filename-characters.js` | That `getValidFilename` maps a full-width lookalike one character at a time — `C++` used to be saved as `C＋` — while a run of characters with no lookalike still collapses to a single replacement. |
 | `zip64.js` | That the `page.pdf` record injection accounts for the zip64 end of central directory record (§5.7): all four EOCD fields left at their sentinels, the entry counts and directory size carried in the zip64 record, the directory offset pointing at the injected record, and the archive still readable. The branch runs only past 4 GiB or 65535 entries, so nothing reached it before; the suite forces zip64 through `zipWriter.options` from inside the `writeEntries` callback, with no production lever. |
 | `byte-map.js` | That the byte offsets §8.2 of the specification prints still describe what the writer emits: the prologue order, the doctype and root tag with nothing between them, the identifier's length ahead of the region, absolute EOCD offsets, and the entry order. The specimen §8.2 documents is saved from a live URL and has never been in this repository, so none of its numbers could be checked; three of them were wrong. This builds an equivalent with no network. |
 | `css-fonts-minifier.js` | That `removeUnusedFonts` reads the font families it prunes on correctly: a `var()` family resolved from the values the document declares and not only from the ones the body inherits, every font kept when the value is genuinely undetermined, and a multi-word family name that does not also claim a font named after its own tail. |
