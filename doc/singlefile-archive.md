@@ -690,10 +690,8 @@ offset-following path: its local header lies *before* the region, so its compens
 offset is negative and no reader can seek to it. That offset is the header's own
 position — which §4.3 keeps inside the first 1024 bytes — minus the region's start,
 which lies past the whole bootstrap, so it is negative for every archive and its
-magnitude is essentially the region's start. Do not read a particular value into it:
-it moves with the size of the inlined ZIP library, and stood at −102092 when this
-section was written against a build whose bootstrap was some 47 KB larger than the
-current one. On
+magnitude is essentially the region's start, so it moves with the size of the inlined
+ZIP library and no particular value should be read into it. On
 success the shifted bytes enter the normal extraction path (§4.2).
 
 The shift is a file offset, and a universal-mode reader has no file. It does not need
@@ -1231,9 +1229,9 @@ pages can stop at the first row; the files it produces are accepted by every rea
 
    **Replace it; do not truncate it, and do not drop it.** Truncation is unsafe:
    a cut inside a quoted identifier leaves the tokenizer in the system-identifier
-   state, where it consumes the markup that follows until the next `>`. Measured,
-   that swallows the root element start tag and the `data-sfz` marker on it (§1.3)
-   into the identifier, and the document loses both. Dropping the doctype parses
+   state, where it consumes the markup that follows until the next `>` — swallowing
+   the root element start tag and the `data-sfz` marker on it (§1.3), so the document
+   loses both. Dropping the doctype parses
    cleanly but puts the document in quirks mode, which is the mode the blank-page
    backstop, the wait message and the error message are then rendered under (§4.1) —
    the error message most of all, since it is what a reader sees precisely when
@@ -1242,24 +1240,15 @@ pages can stop at the first row; the files it produces are accepted by every rea
    doctype (§4.1), so the outer one never governs the restored page.
 
    The PNG face is the exception, and nothing is available to it either way. A PNG file
-   MUST begin with its 8-byte signature, so no doctype can precede it, and emitting one
-   after the PNG head does not help: those bytes are character data, so the parser has
-   left its initial insertion mode by then and discards a DOCTYPE token outright —
-   measured, a file with one written there is byte-for-byte equivalent in outcome to a
-   file with none, quirks mode and no doctype node in both. The variant therefore
-   renders in quirks mode until the extracted page replaces it. That is a property of
-   putting a PNG signature first, not a writer's choice, so this section requires
-   nothing about the doctype there.
-
-   Since it buys nothing, a writer MAY simply drop it under this face, and the
-   reference writer does. Emitting one is equally conforming — but then it is content
-   like any other, and the two windows still bind: the charset declaration MUST stay
-   inside its 1024 bytes (§2.1), and with the PDF face `%PDF-` MUST stay inside its
-   own (§4.3). Both are measured from the start of the *file*, which under this face
-   begins 45 bytes before the HTML does — the 8-byte signature, the 25-byte `IHDR`
-   and the 12 bytes of chunk length, type and keyword. A writer that keeps the doctype
-   here therefore has 45 bytes less room than the arithmetic above suggests, and one
-   that drops it has the whole of it back.
+   MUST begin with its 8-byte signature, so no doctype can precede it, and one written
+   after the PNG head is discarded: those bytes are character data, so the parser has
+   left its initial insertion mode and ignores a DOCTYPE token. The variant renders in
+   quirks mode until the extracted page replaces it, whatever the writer does, so this
+   section requires nothing about the doctype there. A writer MAY drop it, as the
+   reference writer does, or keep it — but a kept one is content like any other, and
+   both windows are measured from the start of the *file*, which under this face begins
+   45 bytes before the HTML does: the signature, `IHDR`, and the chunk length, type and
+   keyword. That is 45 bytes less room than the arithmetic above suggests.
 
    Then the head elements (the
    `<title>` and the canonical link among them), the CSS and `<body hidden>`,
@@ -1312,9 +1301,7 @@ pages can stop at the first row; the files it produces are accepted by every rea
    The reference writer does both. Its provenance comment is emitted after the PDF
    block, so the page URL it carries cannot reach the window at all, and the prefix is
    measured before the header is written: when the page's own doctype would push
-   `%PDF-` past 1024, `<!DOCTYPE html>` is emitted in its place. Substituting the
-   doctype changes the bootstrap document's rendering mode, which costs nothing here:
-   the extracted page is written into the document with its own doctype (§4.1). A
+   `%PDF-` past 1024, `<!DOCTYPE html>` is emitted in its place, on step 2's rule. A
    writer that must keep the page doctype has to find the room elsewhere.
 
    Without the HTML face, the PDF is simply the first thing in the file and the
@@ -1618,9 +1605,8 @@ is the set of relations between the rows — the doctype opening the file with t
 element start tag immediately after it, the charset declaration immediately after that
 and the comment immediately after that, the identifier's twelve bytes ahead of the
 region, the EOCD's directory offset being an absolute file position, and the entry
-order. Those are checked on every run by `test/sfz-harness/byte-map.js`, which builds an
-equivalent specimen without a network. Three of the offsets below were wrong by one byte
-until 2026-09-01, for want of exactly that check.
+order. Those are checked by `test/sfz-harness/byte-map.js`, which builds an equivalent
+specimen without a network.
 
 | Offset | Bytes | Region |
 |---|---|---|
