@@ -762,12 +762,17 @@ An implementation-defined comment (§3.1) is the third region outside the rule, 
 only one with no escape available at all. Comment data does not resolve character
 references either, and unlike script data it has no second language of its own to
 escape in: `&#233;` written in a comment stays `&#233;` in every reader, so the escaper
-does not restore the character, it replaces one unreadable form with another. A writer
-therefore MUST NOT put text outside printable ASCII in such a comment in universal
-mode. The bytes are harmless to extraction — the recovery payload covers the ZIP region
-alone, far past the prologue — but they decode as mojibake for the one audience a
-provenance comment has. Restricting the comment, or omitting it, are the only two ways
-to comply; the reference writer's own comment is not passed through its escaper.
+does not restore the character, it replaces one unreadable form with another. The
+reference writer therefore leaves the comment alone and serializes it as UTF-8 with
+the rest of the prologue, deliberately. Its audience is whoever opens the raw file in an
+editor or runs a text tool over it, and those decode the bytes as UTF-8 whatever the
+declaration says; only a browser's raw view, which honors the declared charset, shows
+the text as mojibake in universal mode. The bytes are harmless to extraction, since
+the recovery payload covers the ZIP region alone, far past the prologue. A reader MUST
+NOT rely on decoding this comment through the declared charset, and a writer that
+wants it readable everywhere restricts it to printable ASCII. The page's own copy of
+the comment, inside `index.html`, is UTF-8 in a UTF-8 document and is the one the
+displayed page and the infobar carry.
 
 ## 5. Cross-cutting mechanics
 
