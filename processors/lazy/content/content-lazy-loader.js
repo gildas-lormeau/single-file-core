@@ -33,6 +33,8 @@ const helper = {
 
 const MAX_IDLE_TIMEOUT_CALLS = 10;
 const ATTRIBUTES_MUTATION_TYPE = "attributes";
+const CHILD_LIST_MUTATION_TYPE = "childList";
+const STYLESHEET_TAG_NAMES = ["STYLE", "LINK"];
 
 const browser = globalThis.browser;
 const document = globalThis.document;
@@ -88,24 +90,25 @@ function triggerLazyLoading(options) {
 		let loadingImages;
 		const pendingImages = new Set();
 		const observer = new MutationObserver(async mutations => {
-			mutations = mutations.filter(mutation => mutation.type == ATTRIBUTES_MUTATION_TYPE);
-			if (mutations.length) {
-				const updated = mutations.filter(mutation => {
-					if (mutation.attributeName == "src") {
-						mutation.target.setAttribute(helper.LAZY_SRC_ATTRIBUTE_NAME, mutation.target.src);
-						mutation.target.addEventListener("load", onResourceLoad);
-					}
-					if (mutation.attributeName == "src" || mutation.attributeName == "srcset" ||
-						(mutation.target.tagName && mutation.target.tagName.toUpperCase() == "SOURCE")) {
-						return !mutation.target.classList || !mutation.target.classList.contains(helper.SINGLE_FILE_UI_ELEMENT_CLASS);
-					}
-				});
-				if (updated.length) {
-					loadingImages = true;
-					await deferForceLazyLoadEnd(observer, options, cleanupAndResolve);
-					if (!pendingImages.size) {
-						await deferLazyLoadEnd(observer, options, cleanupAndResolve);
-					}
+			const attributeMutations = mutations.filter(mutation => mutation.type == ATTRIBUTES_MUTATION_TYPE);
+			const insertedStylesheets = mutations.filter(mutation => mutation.type == CHILD_LIST_MUTATION_TYPE &&
+				Array.from(mutation.addedNodes).some(node => node.tagName && STYLESHEET_TAG_NAMES.includes(node.tagName.toUpperCase()) &&
+					(!node.classList || !node.classList.contains(helper.SINGLE_FILE_UI_ELEMENT_CLASS))));
+			const updated = attributeMutations.filter(mutation => {
+				if (mutation.attributeName == "src") {
+					mutation.target.setAttribute(helper.LAZY_SRC_ATTRIBUTE_NAME, mutation.target.src);
+					mutation.target.addEventListener("load", onResourceLoad);
+				}
+				if (mutation.attributeName == "src" || mutation.attributeName == "srcset" ||
+					(mutation.target.tagName && mutation.target.tagName.toUpperCase() == "SOURCE")) {
+					return !mutation.target.classList || !mutation.target.classList.contains(helper.SINGLE_FILE_UI_ELEMENT_CLASS);
+				}
+			});
+			if (updated.length || insertedStylesheets.length) {
+				loadingImages = true;
+				await deferForceLazyLoadEnd(observer, options, cleanupAndResolve);
+				if (!pendingImages.size) {
+					await deferLazyLoadEnd(observer, options, cleanupAndResolve);
 				}
 			}
 		});
