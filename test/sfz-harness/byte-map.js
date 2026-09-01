@@ -103,4 +103,35 @@ for (let index = text.indexOf("PK\x01\x02"); index != -1; index = text.indexOf("
 check("the central directory holds two records", records, 2);
 check("index.html is listed first", text.indexOf("index.html", central) < text.indexOf("manifest.json", central), true);
 
+// §4.2: page.pdf's local header lies before the ZIP region, so the prepended-data compensation
+// a reader of the recovered region applies takes its offset negative. The magnitude is the
+// region's start and moves with the size of the inlined library, so only the relation is checked
+{
+	const pdf = new TextEncoder().encode("%PDF-1.4\n1 0 obj\n<< /X (specimen) >>\nendobj\ntrailer\n<<>>\n%%EOF\n");
+	const restore = freezeDate();
+	const { bytes: pdfBytes } = await runProcess(makeSpecimenPageData(), makeOptions({
+		zipScript,
+		url: "https://example.com/",
+		insertCanonicalLink: false,
+		embeddedPdf: pdf
+	}));
+	restore();
+	const pdfText = new TextDecoder("windows-1252").decode(pdfBytes);
+	const pdfView = new DataView(pdfBytes.buffer, pdfBytes.byteOffset, pdfBytes.byteLength);
+	const pdfRegion = pdfText.indexOf("PK\x03\x04", pdfText.indexOf("<!--sfz-data"));
+	let record = pdfText.indexOf("PK\x01\x02", pdfRegion);
+	let stored;
+	while (record != -1 && stored === undefined) {
+		if (pdfText.substr(record + 46, pdfView.getUint16(record + 28, true)) == "page.pdf") {
+			stored = pdfView.getUint32(record + 42, true);
+		}
+		record = pdfText.indexOf("PK\x01\x02", record + 1);
+	}
+	check("page.pdf is listed in the central directory", stored !== undefined, true);
+	check("its local header sits where the central record says", pdfText.indexOf("PK\x03\x04"), stored);
+	check("its header is inside the PDF scan window", stored < 1024, true);
+	check("its header lies before the ZIP region", stored < pdfRegion, true);
+	check("so the compensated offset is negative", stored - pdfRegion < 0, true);
+}
+
 Deno.exit(failed ? 1 : 0);

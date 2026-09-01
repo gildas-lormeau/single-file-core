@@ -687,7 +687,13 @@ zipfile`, adds `(attempting to process anyway)` and lists both entries, while re
 that compensate silently, such as Python's `zipfile`, show no diagnostic at all. The
 shift also puts `page.pdf` out of the
 offset-following path: its local header lies *before* the region, so its compensated
-offset is negative (−102092 in the `pdf` specimen) and no reader can seek to it. On
+offset is negative and no reader can seek to it. That offset is the header's own
+position — which §4.3 keeps inside the first 1024 bytes — minus the region's start,
+which lies past the whole bootstrap, so it is negative for every archive and its
+magnitude is essentially the region's start. Do not read a particular value into it:
+it moves with the size of the inlined ZIP library, and stood at −102092 when this
+section was written against a build whose bootstrap was some 47 KB larger than the
+current one. On
 success the shifted bytes enter the normal extraction path (§4.2).
 
 The shift is a file offset, and a universal-mode reader has no file. It does not need
