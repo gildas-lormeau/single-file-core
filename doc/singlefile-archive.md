@@ -1352,8 +1352,10 @@ pages can stop at the first row; the files it produces are accepted by every rea
 ### 6.2 The retry loops
 
 Five conditions restart the build from step 1, and each restart carries forward what
-the failed pass learned. The first three terminate because each of them advances a
-monotone quantity:
+the failed pass learned. Nothing a restart changes reaches the entries' bytes: a writer
+may compress them once and copy them into every pass, rewriting only the central
+directory's offsets, which is what the reference writer does. The first three
+terminate because each of them advances a monotone quantity:
 
 - **Wrapper collision** (§5.1): the next pass starts at the next rung of the ladder.
   The ladder is finite and its last rung, `<plaintext>`, is exempt from both selection
@@ -1362,10 +1364,16 @@ monotone quantity:
   ahead of the archive, sized at the measured payload length plus a margin.
 - **Reservation too small**: relocating the payload changes the file's layout, hence
   its offsets, hence the payload, which can grow past the room reserved for it. The
-  next pass reserves the new length plus the same margin. For the loop to terminate,
-  each reservation MUST be strictly larger than the payload that sized it: a margin
-  that can round down to zero lets two passes measure the same length and reserve the
-  same room forever.
+  next pass reserves the new length plus the same margin. This restart fires only
+  when the payload outgrew its reservation and it reserves at least that payload, so
+  every reservation is larger than the one before and the loop cannot revisit a size.
+  What keeps it short is the margin. Shifting the offsets changes a few of the
+  central directory's bytes, which changes the line-ending codes, the deflate output
+  and the base64 rounding, so the payload moves by a few quanta of 4 characters
+  between two layouts: measured between -16 and +20 characters over archives of 8 to
+  2000 entries. A margin smaller than that shift buys a third pass in about one build
+  out of four. The writer reserves the measured length plus 1 % plus 32 characters,
+  which absorbed every shift measured.
 
 The fourth is the converse of the second: a pass that reserved room but then found the
 payload would fit in the appended window discards the reservation and rebuilds without

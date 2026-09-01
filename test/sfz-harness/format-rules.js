@@ -1,6 +1,6 @@
 import "./dom-stub.js";
 import { makePageData, makeOptions, runProcess, mulberry32 } from "./common.js";
-import { ZipReader, BlobReader } from "../../vendor/zip/zip.js";
+import { ZipReader, ZipWriter, BlobReader } from "../../vendor/zip/zip.js";
 
 // the quote is there because the escaper the title shares with the table of contents encodes
 // it for an attribute value, where it matters, and a title has to round-trip through that too
@@ -176,6 +176,39 @@ function countIdentifiers(text) {
 	const text = decodeText(bytes);
 	check("relocated placement carries the identifier", text.includes("<!--sfz-dataPK"), true);
 	check("relocated payload needs no separator node", /<\/sfz-extra-data> +<!--sfz-dataPK/.test(text), true);
+}
+
+// relocating the payload shifts the central directory offsets, which moves the payload length by
+// a few base64 quanta; a reservation margin below that shift costs a third layout in about one
+// build out of four, so a dozen relocations must all settle in two. The image bytes never contain
+// a hyphen, so a wrapper collision cannot add a layout of its own
+{
+	const { appendZip } = ZipWriter.prototype;
+	let layouts = 0;
+	ZipWriter.prototype.appendZip = function (reader) {
+		layouts++;
+		return appendZip.call(this, reader);
+	};
+	let retried = 0;
+	for (let seed = 30; seed < 42; seed++) {
+		const options = makeOptions({ preventAppendedData: true });
+		const pageData = makePageData(seed, 64 * 1024);
+		const rand = mulberry32(seed);
+		for (let index = 0; index < 40; index++) {
+			const content = new Uint8Array(8 * 1024).map(() => {
+				const byte = (rand() * 255) | 0;
+				return byte < 0x2D ? byte : byte + 1;
+			});
+			pageData.resources.images.push({ name: "images/" + index + ".jpg", extension: ".jpg", content, url: "https://example.com/" + index + ".jpg" });
+		}
+		layouts = 0;
+		await runProcess(pageData, options);
+		if (layouts > 2) {
+			retried++;
+		}
+	}
+	ZipWriter.prototype.appendZip = appendZip;
+	check("the reservation margin absorbs the offset shift", retried, 0);
 }
 
 {

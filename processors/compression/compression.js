@@ -414,7 +414,7 @@ function inlineFunction(bootstrapFunction) {
 }
 
 function getReservationSize(length) {
-	return Math.max(length + 1, Math.floor(length * 1.001));
+	return Math.ceil(length * 1.01) + 32;
 }
 
 function getLength(length) {
