@@ -1529,12 +1529,12 @@ only if it affects the bytes the page is built from:
 | The recovered region (universal mode) disagrees with the same bytes read directly, in the EOCD's two comment-length bytes only | Expected, not an error. A recovered region always declares a zero-length comment (§4.5), so it differs here from any archive written in the declared form (§4.2). Compare the two only up to those bytes |
 | The recovered region (universal mode) disagrees with the same bytes read directly, anywhere else | The file is not well-formed, whichever side is at fault, and a reader that has both MUST NOT silently merge them or pick per entry. Prefer the direct read — it is the writer's own output, where the recovered region is a reconstruction of it — and surface the disagreement rather than displaying either as intact |
 
-Anything the format does not constrain, a reader MUST NOT reject: entries may carry
-any extra fields, timestamps or data descriptors a ZIP writer would ordinarily emit,
-and none of it is specified here. The name-encoding flag is constrained — §5.8 requires
-a reader to honor it — but that is a rule about how a name is decoded, not a ground for
-rejecting an entry, so this row applies to it too: either value of the flag is
-something a reader meets and reads.
+Anything the format does not constrain, a reader MUST NOT reject: entries may carry any
+extra fields, timestamps or data descriptors a ZIP writer would ordinarily emit. The few
+this document does constrain — the `0x9901` field of an encrypted entry (§4.2), the
+zip64 records (§5.7), the name-encoding flag (§5.8) — say how an entry is read, not
+whether it is acceptable, so this row covers them too: each is something a reader meets
+and reads.
 
 ## 8. Appendices
 
