@@ -627,7 +627,7 @@ function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
 	// it is left out of a password-protected archive, like the title below: the same URL is
 	// in manifest.json, which is encrypted, so emitting it here would publish what the
 	// password is meant to cover
-	const comment = pageData.comment && !options.embeddedImage && !options.password ? "<!--" + pageData.comment + "-->" : "";
+	const comment = pageData.comment && !options.embeddedImage && !options.password ? "<!--" + escapeCommentData(pageData.comment) + "-->" : "";
 	const htmlHeadData = getHTMLHeadData(pageData, options);
 	let htmlArray, pdfEntry;
 	if (options.embeddedPdf) {
@@ -683,7 +683,11 @@ function getHTMLHeadData(pageData, options) {
 		pageContent += "<meta name=viewport content=\"" + escapeHTML(pageData.viewport) + "\">";
 	}
 	if (options.insertMetaCSP) {
-		const cspContent = "default-src 'none';connect-src 'self' data: blob:;font-src 'self' data: blob:;img-src 'self' data: blob:;style-src 'self' 'unsafe-inline' data: blob:;frame-src 'self' data: blob:;media-src 'self' data: blob:;script-src 'self' 'unsafe-inline' data: blob:;object-src 'self' data: blob:";
+		// form-action and base-uri do not fall back to default-src, so without them a saved page
+		// could still submit a form anywhere and could still have its relative URLs repointed.
+		// Nothing in a saved page submits a form — there is no server left to submit to — and
+		// <base> is removed when the page is captured, so neither costs anything here
+		const cspContent = "default-src 'none';connect-src 'self' data: blob:;font-src 'self' data: blob:;img-src 'self' data: blob:;style-src 'self' 'unsafe-inline' data: blob:;frame-src 'self' data: blob:;media-src 'self' data: blob:;script-src 'self' 'unsafe-inline' data: blob:;object-src 'self' data: blob:;form-action 'none';base-uri 'none'";
 		pageContent += `<meta http-equiv=content-security-policy content=${JSON.stringify(cspContent)}>`;
 	}
 	pageContent += "<style>@keyframes display-wait-message{0%{opacity:0}100%{opacity:1}}body{color:transparent}div{color:initial}body>:not(#sfz-wait-message,#sfz-error-message){display:none}</style>";
@@ -695,6 +699,23 @@ function getHTMLHeadData(pageData, options) {
 // the prelude declares a single-byte charset, and numeric character references are ASCII
 // bytes, so they survive it and any parser decodes them back to the original text. The text
 // body is the exception and stays raw UTF-8, for the byte-reading audience it exists for
+// a comment has no escape mechanism of its own: the parser closes it at the first "-->" or
+// "--!>" and reads everything after as markup, so text reaching it from the page — the infobar
+// template resolves {page-title} and its kind against the captured document — could otherwise
+// introduce elements the save is meant not to contain. A space breaks the run without dropping
+// a character, and the result is stable under a second pass, which matters because SingleFile
+// parses its own comment back when it re-saves an already-saved page
+function escapeCommentData(value) {
+	let data = value.replace(/--(!?)>/g, "--$1 >");
+	if (data.startsWith(">") || data.startsWith("->")) {
+		data = " " + data;
+	}
+	if (data.endsWith("<!-")) {
+		data += " ";
+	}
+	return data;
+}
+
 function escapeHTML(value) {
 	return Array.from(value).map(character => {
 		const codePoint = character.codePointAt(0);

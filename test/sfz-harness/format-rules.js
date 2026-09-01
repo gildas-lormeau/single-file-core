@@ -447,6 +447,42 @@ function readAppendedData(bytes) {
 	check("no trailing bytes when appended data is prevented", trailing, 0);
 }
 
+// a comment cannot escape its own delimiters, so text reaching it from the captured page —
+// the infobar template resolves {page-title} and its kind against the document — would close
+// it early and turn the rest into markup. The page the archive restores carries no scripts by
+// default, and this was the one way to put one back
+{
+	for (const [label, comment] of [
+		["-->", "\n info: --><script>INJECTED</script><!-- \n"],
+		["--!>", "\n info: --!><script>INJECTED</script><!-- \n"],
+		["--->", "\n info: ---><script>INJECTED</script><!-- \n"]
+	]) {
+		const pageData = makePageData(12, 1024);
+		pageData.comment = comment;
+		const { bytes } = await runProcess(pageData, makeOptions());
+		const text = decodeText(bytes);
+		const start = text.indexOf("<!--\n info:");
+		check(`the comment survives ${label} in its content`, start != -1, true);
+		// "--!>" closes a comment too, so the end is the first of either form, not the first "-->"
+		const end = start + text.substring(start).search(/--!?>/);
+		check(`${label} in the comment does not close it early`,
+			text.indexOf("INJECTED") < end, true);
+	}
+	const pageData = makePageData(12, 1024);
+	pageData.comment = "\n info: a-->b \n";
+	const { bytes } = await runProcess(pageData, makeOptions());
+	check("the characters either side of the run are kept",
+		decodeText(bytes).includes("info: a-- >b"), true);
+}
+
+// neither directive falls back to default-src, so each has to be named to have any effect
+{
+	const { bytes } = await runProcess(makePageData(13, 1024), makeOptions({ insertMetaCSP: true }));
+	const policy = decodeText(bytes).match(/content-security-policy content="([^"]*)"/)[1];
+	check("the policy forbids form submission", policy.includes("form-action 'none'"), true);
+	check("the policy forbids a base element", policy.includes("base-uri 'none'"), true);
+}
+
 if (failed) {
 	console.log("FAILED");
 	Deno.exit(1);

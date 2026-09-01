@@ -530,6 +530,10 @@ class Processor {
 				" \n url: " + infobarURL +
 				(this.options.removeSavedDate ? " " : " \n saved date: " + infobarSaveDate) +
 				(infobarContent ? " \n info: " + infobarContent : "") + "\n";
+			// the infobar template resolves {page-title} and its kind against the captured page, so
+			// this text can carry "-->" and close the comment early, turning the rest into markup.
+			// A comment cannot escape its own delimiters, so the run is broken with a space
+			commentText = commentText.replace(/--(!?)>/g, "--$1 >");
 			const commentNode = this.doc.createComment(commentText);
 			this.doc.documentElement.insertBefore(commentNode, this.doc.documentElement.firstChild);
 		}
