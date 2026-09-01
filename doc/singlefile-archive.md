@@ -1658,7 +1658,8 @@ Generated with the command-line client running `single-file-core` against
 results of §8.1 were measured on the 1.5.107 build of the same specimen set, which
 differs only inside the prologue and so falls in the same classes: those are grouped
 by whether bytes precede the archive and follow the EOCD, which no prologue change
-alters. `--compress-content` makes the output an archive; `extract-data-from-page`
+alters. The declared-form results are the exception, `declareAppendedData` being later
+than that build (§8.5); they were measured separately on a build that has it. `--compress-content` makes the output an archive; `extract-data-from-page`
 defaults to true there, so the plain variant has to switch it off:
 
 | Specimen | Command |
