@@ -1144,10 +1144,9 @@ field at its sentinel. A writer MUST NOT let the injection push a 16-bit or 32-b
 field to its sentinel value without emitting the corresponding zip64 record: a count
 of `0xFFFF` sends readers looking for a zip64 record that does not exist.
 
-This combination has been verified on a forced-zip64 build (§8): `page.pdf` is listed
-first by both Info-ZIP and the reference reader, the central directory offset in the
-zip64 record points at the injected record, and extraction produces the same page as
-the non-zip64 build.
+`test/sfz-harness/zip64.js` covers this: the sentinels stay, the counts and the
+directory size land in the zip64 record, its directory offset points at the injected
+record, `page.pdf` is the first record in the directory, and a reader lists every entry.
 
 zip64 does not conflict with universal mode. Its commonest trigger, 65535 entries or
 more, is reached at any archive size, and §4.5 gives the offset arithmetic for a
@@ -1670,7 +1669,7 @@ Two specimens cannot be produced from a URL alone. The **ladder** specimen, whic
 forces the second rung of §5.1, needs a page referencing an image whose stored bytes
 contain `-->`; the archive then wraps in `<script type=sfz-data>`. The **zip64** specimen requires
 an archive past the thresholds of §5.7, so it is produced by calling the writer
-directly with zip64 forced on the ZIP writer.
+directly with zip64 forced on the ZIP writer, as `test/sfz-harness/zip64.js` does.
 
 The measurements quoted elsewhere in this document come from the same harness: the
 payload growth rate of §5.2 (86 KB → 181 bytes, 283 KB → 465, 1.07 MB → 1645, 4.2 MB
