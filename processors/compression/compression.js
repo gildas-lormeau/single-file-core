@@ -616,12 +616,7 @@ function findExtraDataTags(textContent, pageData, options, script, entriesData, 
 	const plaintextTag = EXTRA_DATA_TAGS[indexExtractDataFromPageTags][0] == "<plaintext>";
 	const matchTag = !plaintextTag && (textContent.match(regExpsTag[0]) || textContent.match(regExpsTag[1]));
 	if (matchTag) {
-		if (indexExtractDataFromPageTags < EXTRA_DATA_TAGS.length - 1) {
-			return findExtraDataTags(textContent, pageData, options, script, entriesData, zipWriterOptions, indexExtractDataFromPageTags + 1);
-		} else {
-			options.extractDataFromPage = false;
-			return buildArchive(pageData, options, script, entriesData, zipWriterOptions);
-		}
+		return findExtraDataTags(textContent, pageData, options, script, entriesData, zipWriterOptions, indexExtractDataFromPageTags + 1);
 	} else {
 		options.extractDataFromPageTags = EXTRA_DATA_TAGS[indexExtractDataFromPageTags];
 		if (options.extractDataFromPageTags[0] == "<plaintext>") {
