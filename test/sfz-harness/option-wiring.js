@@ -11,7 +11,6 @@ import { PROCESS_OPTION_NAMES } from "../../processors/compression/compression.j
 // one thing or the other before the suite goes green again
 const INTERNAL_OPTION_NAMES = [
 	// state the module sets on itself between build passes
-	"extraData",
 	"extraDataSize",
 	"extraDataSizeDropped",
 	"extractDataFromPageTags",

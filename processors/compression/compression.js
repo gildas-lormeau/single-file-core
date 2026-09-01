@@ -366,7 +366,6 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 		if (options.extraDataSize >= extraData.length) {
 			pageContent.set(new TextEncoder().encode(extraData), startOffset - extraDataOffset);
 		} else {
-			options.extraData = extraData;
 			options.extraDataSize = getReservationSize(extraData.length);
 			return createArchive(pageData, options, script, writeEntries, lastModDate);
 		}
