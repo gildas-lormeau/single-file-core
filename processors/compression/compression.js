@@ -277,19 +277,12 @@ async function buildArchive(pageData, options, script, entriesData, zipWriterOpt
 			extraData = "<sfz-extra-data>" + base64Encode(deflateRaw(payload)) + "</sfz-extra-data>";
 			if (options.preventAppendedData || extraData.length > MAX_APPENDED_DATA_LENGTH - pageContent.length - endTags.length - (options.embeddedImage ? PNG_IEND_LENGTH + PNG_CHUNK_CRC_LENGTH : 0)) {
 				if (!options.extraDataSize) {
+					options.preventAppendedData = true;
 					options.extraDataSize = getReservationSize(extraData.length);
 					return buildArchive(pageData, options, script, entriesData, zipWriterOptions);
 				}
 			} else {
-				if (options.extraDataSize) {
-					if (!options.extraDataSizeDropped) {
-						options.extraDataSizeDropped = true;
-						options.extraDataSize = undefined;
-						return buildArchive(pageData, options, script, entriesData, zipWriterOptions);
-					}
-				} else {
-					pageContent += extraData;
-				}
+				pageContent += extraData;
 			}
 		}
 		pageContent += endTags;

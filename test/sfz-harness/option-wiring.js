@@ -12,7 +12,6 @@ import { PROCESS_OPTION_NAMES } from "../../processors/compression/compression.j
 const INTERNAL_OPTION_NAMES = [
 	// state the module sets on itself between build passes
 	"extraDataSize",
-	"extraDataSizeDropped",
 	"extractDataFromPageTags",
 	"preventEmbeddedPdfEntry",
 	// supplied by compression-packager.js, which calls createArchive directly

@@ -211,6 +211,34 @@ function countIdentifiers(text) {
 	check("the reservation margin absorbs the offset shift", retried, 0);
 }
 
+// a payload too large for the appended budget is relocated, and relocation is final: the writer
+// then emits no appended run at all, so the file ends at the EOCD like a plain zip. A stored
+// resource made of random newline bytes gives a payload past the budget from a few hundred KB
+{
+	const { appendZip } = ZipWriter.prototype;
+	let layouts = 0;
+	ZipWriter.prototype.appendZip = function (reader) {
+		layouts++;
+		return appendZip.call(this, reader);
+	};
+	const options = makeOptions({ disableCompression: true });
+	const pageData = makePageData(42, 4 * 1024);
+	const rand = mulberry32(42);
+	const newlines = ["\n", "\r", "\r\n"];
+	let content = "";
+	while (content.length < 512 * 1024) {
+		content += newlines[(rand() * 3) | 0];
+	}
+	pageData.resources.stylesheets.push({ name: "newlines.txt", extension: ".txt", content, url: "https://example.com/newlines.txt" });
+	const { bytes } = await runProcess(pageData, options);
+	ZipWriter.prototype.appendZip = appendZip;
+	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+	check("an oversized payload is relocated", options.extraDataSize > 0, true);
+	check("relocation needs a single extra layout", layouts, 2);
+	check("a relocated archive ends at the EOCD", view.getUint32(bytes.length - 22, true), 0x06054b50);
+	check("a relocated archive declares no comment", view.getUint16(bytes.length - 2, true), 0);
+}
+
 {
 	const options = makeOptions({ embeddedPdf: PDF });
 	const pageData = makePageData(15, 4 * 1024);

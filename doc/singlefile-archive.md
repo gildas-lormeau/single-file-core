@@ -990,7 +990,12 @@ element moves in front of the wrapper start tag, ahead of the archive (§3.1). R
 for it MUST be reserved before the ZIP region is written, because inserting bytes
 ahead of the archive would shift every offset the ZIP writer has already committed;
 the reservation is padded with spaces and the real payload is written into it once
-its final size is known (§6).
+its final size is known (§6). Relocation is final for the build, and a relocated
+archive carries no appended run at all: the writer emits neither the wrapper's
+terminator nor the end tags, so the file ends at the EOCD record like a plain ZIP file
+and the readers that reject trailing bytes open it (§8.1). The parser closes the open
+comment or element at end of file, and `</body></html>` are implied, so the page
+renders the same.
 
 ### 5.3 Offset bookkeeping
 
@@ -1343,7 +1348,8 @@ pages can stop at the first row; the files it produces are accepted by every rea
    only, compute the region's CRC-32 and its newline codes, build and compress the payload,
    and decide its placement against the budget (§5.2), restarting if the decision
    differs from the current pass.
-10. **Appended run.** Unless appended data is prevented, emit the wrapper end tag,
+10. **Appended run.** Unless appended data is prevented or the payload is relocated
+    (§5.2), emit the wrapper end tag,
     the extra-data element when it is appended, and `</body></html>` — the end tags
     are omitted under the PNG face, which must end with `IEND`.
 11. **Fill the reservation.** In the relocated placement, write the payload into the
@@ -1356,7 +1362,7 @@ pages can stop at the first row; the files it produces are accepted by every rea
 
 ### 6.2 The retry loops
 
-Five conditions restart the build from step 1, and each restart carries forward what
+Four conditions restart the build from step 1, and each restart carries forward what
 the failed pass learned. Nothing a restart changes reaches the entries' bytes: a writer
 may compress them once and copy them into every pass, rewriting only the central
 directory's offsets, which is what the reference writer does. The first three
@@ -1380,19 +1386,15 @@ terminate because each of them advances a monotone quantity:
   out of four. The writer reserves the measured length plus 1 % plus 32 characters,
   which absorbed every shift measured.
 
-The fourth is the converse of the second: a pass that reserved room but then found the
-payload would fit in the appended window discards the reservation and rebuilds without
-it, so the writer does not leave dead padding in the file. This step is not monotone,
-and it is the only one that could keep the build alive forever: dropping the reservation
-moves
-the archive back, which changes the offsets, which changes the payload that made the
-reservation necessary. A payload lying on the 65535-byte boundary can therefore be too
-large appended and small enough relocated, and the build oscillates. A writer MUST
-break that cycle: **the reservation is discarded at most once per build**, and a payload
-that fits the appended window on a later pass stays in the reservation it already has.
-The file then keeps at most the reservation's own margin of dead padding.
+There is no converse of the second: a pass that reserved room never discards it,
+even when the relocated payload would have fit the appended window. Relocation moves
+the archive, which changes the offsets, which changes the payload that made the
+relocation necessary, so a payload lying on the 65535-byte boundary can be too large
+appended and small enough relocated, and a writer that dropped the reservation could
+rebuild the two placements forever. Relocation is therefore final (§5.2), and the file
+keeps at most the reservation's own margin of dead padding.
 
-The fifth stands apart from the other four, and terminates trivially because it can
+The fourth stands apart from the other three, and terminates trivially because it can
 fire only once: if the end of central directory record cannot be patched to account for
 the injected `page.pdf` record — its signature not where the accounting expects it —
 the writer rebuilds without that record rather than leave a central directory the EOCD
