@@ -31,6 +31,12 @@ export default [
 			],
 			"no-console": [
 				"warn"
+			],
+			"no-empty": [
+				"error",
+				{
+					"allowEmptyCatch": true
+				}
 			]
 		}
 	},
