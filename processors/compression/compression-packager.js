@@ -85,8 +85,6 @@ async function createPagesArchive(pages, options) {
 		extractDataFromPage: options.extractDataFromPage,
 		preventAppendedData: options.preventAppendedData,
 		declareAppendedData: options.declareAppendedData,
-		// the faces belong to the archive and are supplied by the caller: one rendered from a
-		// single page would misrepresent every other page, so nothing is generated here
 		embeddedPdf: options.embeddedPdf,
 		embeddedImage: options.embeddedImage,
 		includeBOM: options.includeBOM,
@@ -114,9 +112,6 @@ async function createPagesArchive(pages, options) {
 						lastModDate: entry.lastModDate
 					});
 				} else {
-					// the duplicate becomes a symlink entry so that external
-					// extractors still produce complete page folders, the router
-					// resolves it from the manifest alias map instead
 					aliases[filename] = canonicalFilename;
 					await zipWriter.add(filename, new TextReader(getRelativePath(filename, canonicalFilename)), {
 						msDosCompatible: false,
@@ -205,8 +200,6 @@ function getTOCPageContent(pages) {
 		escapeUnicodeHTML(TOC_TITLE) + "</h1>" + getTOCGroupContent(rootGroup) + "</main></body></html>";
 }
 
-// nested details/summary groups stay collapsible without scripts on purpose,
-// the page must remain usable after a plain unzip
 function getTOCGroupContent(group) {
 	let content = "";
 	if (group.pages.length) {
@@ -219,15 +212,10 @@ function getTOCGroupContent(group) {
 	return content;
 }
 
-// unlike the prelude TOC below, the stored page is a UTF-8 entry: only the
-// markup delimiters need escaping, but crawled titles remain untrusted
 function escapeUnicodeHTML(value) {
 	return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-// the list of pages in the prelude is the only description of the archive readable without
-// decompressing an entry, for indexing tools that never extract it; the table of contents
-// page stored in the archive is what serves navigation
 function getTOCContent(pages) {
 	return "<nav><ul>" +
 		pages.map(page => "<li><a href=\"" + escapeHTML(page.url) + "\">" + escapeHTML(page.title || page.url) + "</a></li>").join("") +

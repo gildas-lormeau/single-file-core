@@ -31,8 +31,6 @@ async function router(content, { extract, display }) {
 	const PAGES_FILENAME = "sfz-pages.json";
 	const TOC_FILENAME = "sfz-toc.html";
 	const ROUTE_PREFIX = "#sfz/";
-	// "?" cannot start a zip entry path written by the packager, so reserved
-	// routes never collide with page paths
 	const TOC_ROUTE = "?toc";
 	const TARGET_ATTRIBUTE = "data-sfz-target";
 	const TARGET_PSEUDO_CLASS = /:target(?![\w-])/g;
@@ -40,8 +38,6 @@ async function router(content, { extract, display }) {
 	const VISITED_PSEUDO_CLASS = /:visited(?![\w-])/g;
 	const VISITED_DEFAULT_COLOR = "#551a8b";
 	const UNARCHIVED_ATTRIBUTE = "data-sfz-unarchived";
-	// relative units, currentColor and opacity keep the marker legible on any
-	// page theme, and \2197 stays ASCII in the windows-1252 prelude
 	const UNARCHIVED_STYLE = "a[" + UNARCHIVED_ATTRIBUTE + "]::after{content:\" \\2197\";font-size:.75em;opacity:.7}";
 	const UNARCHIVED_TITLE = "Not saved in this archive";
 	const UNARCHIVED_PROTOCOLS = ["http:", "https:"];
@@ -57,7 +53,6 @@ async function router(content, { extract, display }) {
 	try {
 		history.scrollRestoration = "manual";
 	} catch {
-		// ignored
 	}
 	zip.configure({ useWebWorkers: true });
 	const zipReader = new zip.ZipReader(content.readUint8Array ? content : new zip.BlobReader(content));
@@ -84,8 +79,6 @@ async function router(content, { extract, display }) {
 	}
 	return renderRoute(true);
 
-	// document.open() removes the listeners of the document and of its window,
-	// re-attaching identical function references is idempotent
 	function attachListeners() {
 		globalThis.addEventListener("click", interceptClick, true);
 		globalThis.addEventListener("auxclick", interceptClick, true);
@@ -104,8 +97,6 @@ async function router(content, { extract, display }) {
 		const node = findAnchor(event.target);
 		if (node && node.href) {
 			const fragment = getFragment(node.href);
-			// rewritten TOC links are already hash routes, default navigation
-			// triggers hashchange and modified clicks open the deep link natively
 			if (fragment && fragment.startsWith(ROUTE_PREFIX) && stripFragment(node.href) == stripFragment(location.href)) {
 				return;
 			}
@@ -115,13 +106,9 @@ async function router(content, { extract, display }) {
 			}
 			if (path !== undefined) {
 				event.preventDefault();
-				// modified and middle clicks open the archive deep link in a new
-				// tab instead of letting the browser open the live site URL
 				if (event.type == "auxclick" || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
 					globalThis.open(stripFragment(location.href) + ROUTE_PREFIX + path + (fragment || ""));
 				} else {
-					// the fragment stays encoded inside the route hash so that
-					// reloading or sharing the URL comes back to the same page
 					const previousHash = location.hash;
 					location.hash = ROUTE_PREFIX + path + (fragment || "");
 					if (location.hash == previousHash && fragment) {
@@ -140,8 +127,6 @@ async function router(content, { extract, display }) {
 		const entryId = getEntryId();
 		const { routed, path, fragment } = parseRoute();
 		const willRender = routed && path != currentPath && isRenderablePath(path);
-		// the whole render and scroll sequence runs inside the view transition
-		// so that the crossfade ends on the final scroll position
 		if (willRender && document.startViewTransition && pageTransitionEnabled() && !prefersReducedMotion()) {
 			await document.startViewTransition(update).updateCallbackDone;
 		} else {
@@ -238,8 +223,6 @@ async function router(content, { extract, display }) {
 		return path == TOC_ROUTE ? Boolean(tocEntry) : Boolean(pages.find(page => page.path == path));
 	}
 
-	// the cache stores promises so that a click during a hover prefetch awaits
-	// the extraction in flight instead of starting a second one
 	function getPageContent(path) {
 		if (!cache.has(path)) {
 			const contentPromise = extractPageContent(path);
@@ -260,8 +243,6 @@ async function router(content, { extract, display }) {
 		return docContent;
 	}
 
-	// deduplicated resources exist in the zip as symlink stand-ins for external
-	// extractors, they are resolved from the manifest alias map when extracting
 	function getAliasEntries(path) {
 		return Array.from(aliases)
 			.filter(([filename]) => belongsToPage(filename, path))
@@ -284,9 +265,6 @@ async function router(content, { extract, display }) {
 			filename.startsWith(path);
 	}
 
-	// the stored TOC links relative page paths so that it works once unzipped,
-	// in the archive they are rewritten to hash routes: unrewritten links would
-	// resolve against the archive URL and get stamped as unarchived
 	function rewriteTocLinks() {
 		const pathsByUrl = new Map();
 		pages.forEach(page => pathsByUrl.set(new URL(page.path + "index.html", stripFragment(location.href)).href, page.path));
@@ -325,9 +303,6 @@ async function router(content, { extract, display }) {
 		return node;
 	}
 
-	// "auto" approximates the cross-document opt-in of live sites: the transition
-	// runs when the displayed page itself contains an @view-transition rule set
-	// to navigation: auto, so pages without transitions stay instant
 	function pageTransitionEnabled() {
 		if (pageTransitions == "fade") {
 			return true;
@@ -366,7 +341,6 @@ async function router(content, { extract, display }) {
 		try {
 			history.replaceState({ sfzSession: sessionKey, sfzEntry: entryId }, "");
 		} catch {
-			// ignored
 		}
 		return entryId;
 	}
@@ -394,7 +368,6 @@ async function router(content, { extract, display }) {
 			try {
 				element = document.querySelector(path);
 			} catch {
-				// ignored
 			}
 			if (element) {
 				element.scrollTop = top;
@@ -417,9 +390,6 @@ async function router(content, { extract, display }) {
 		return segments.join(">");
 	}
 
-	// the fragment is scrolled to from script because the real fragment is the
-	// route hash, which also means :target never matches in rendered pages; the
-	// :target rules of the page are cloned against a marker attribute instead
 	function scrollToFragment(fragment) {
 		const target = findFragmentTarget(fragment);
 		if (target) {
@@ -447,8 +417,6 @@ async function router(content, { extract, display }) {
 		}
 	}
 
-	// :visited itself is privacy-gated, so visited routes are stamped with an
-	// attribute styled by the page's own :visited rules over a default color
 	function markVisitedLinks() {
 		const styleElement = document.createElement("style");
 		styleElement.textContent = "a[" + VISITED_ATTRIBUTE + "]{color:" + VISITED_DEFAULT_COLOR + "}" +
@@ -462,8 +430,6 @@ async function router(content, { extract, display }) {
 		});
 	}
 
-	// links that leave the archive are stamped so that the reader knows before
-	// clicking; opt-in at packaging time because the marker alters the rendering
 	function markUnarchivedLinks() {
 		const styleElement = document.createElement("style");
 		styleElement.textContent = UNARCHIVED_STYLE;
@@ -497,7 +463,6 @@ async function router(content, { extract, display }) {
 			try {
 				cssText += getPseudoRulesText(styleSheet.cssRules, pseudoRegExp, attributeName);
 			} catch {
-				// ignored
 			}
 		});
 		return cssText;

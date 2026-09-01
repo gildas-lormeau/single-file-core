@@ -27,9 +27,6 @@ export {
 	display
 };
 
-// the functions below are serialized with toString() and pasted into the page the archive
-// generates, where module scope does not exist: everything they call must be declared inside
-// them. An import would survive bundling and then be an undefined free variable at runtime
 async function display(document, docContent, { disableFramePointerEvents, inPlace } = {}) {
 	function getDoctypeString(doc) {
 		const docType = doc.doctype;
@@ -61,15 +58,7 @@ async function display(document, docContent, { disableFramePointerEvents, inPlac
 			element.style.setProperty(pointerEvents, "none", "important");
 		});
 	}
-	// the in-place swap avoids the document churn of document.open() but cannot
-	// change the compat mode and does not execute script elements; it morphs
-	// documentElement instead of replacing it so that document-level childList
-	// observers (e.g. extension content scripts watching for document.open())
-	// do not fire on every rendered page
 	if (inPlace && doc.compatMode == document.compatMode && !doc.querySelector("script")) {
-		// stylesheet links inserted from script are not render-blocking; preload
-		// them while the previous page is still displayed and keep the new page
-		// hidden until they are applied to avoid a flash of unstyled content
 		await Promise.all(Array.from(doc.querySelectorAll("link[rel~=stylesheet][href]")).map(linkElement => new Promise(resolve => {
 			const preloadElement = document.createElement("link");
 			preloadElement.rel = "preload";

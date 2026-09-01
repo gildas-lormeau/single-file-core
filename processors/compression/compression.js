@@ -41,29 +41,12 @@ import {
 
 const { Blob, fetch, TextEncoder, TextDecoder, DOMParser } = globalThis;
 
-// windows-1252 never decodes bytes >= 0x80 into the ASCII range, the scanned patterns are all ASCII
 const TEXT_DECODER = new TextDecoder("windows-1252");
 
-// the extension is only a guess when it comes from the URL, and a wrong one costs the whole
-// gain: a script served as text/javascript from a ".ts" URL was stored uncompressed at 2260
-// bytes where the same bytes named ".js" deflate to 70. A textual content type is authoritative
-// when the server sent one, the extension list decides everything else
 const COMPRESSIBLE_CONTENT_TYPES = ["application/javascript", "application/x-javascript", "application/ecmascript", "application/json", "application/ld+json", "application/manifest+json", "application/xml", "application/xhtml+xml", "application/rss+xml", "application/atom+xml", "image/svg+xml"];
 const TEXT_CONTENT_TYPE_PREFIX = "text/";
 const NO_COMPRESSION_EXTENSIONS = [".jpg", ".jpeg", ".png", ".apng", ".gif", ".webp", ".avif", ".heif", ".heic", ".jxl", ".pdf", ".woff", ".woff2", ".mp4", ".webm", ".avi", ".mpeg", ".mov", ".ts", ".ogv", ".mp3", ".ogg", ".oga", ".weba", ".m4a", ".aac", ".opus", ".flac"];
 const SCRIPT_PATH = "/lib/single-file-zip.min.js";
-// <noscript> is excluded: it is the only tag whose content is raw text when scripting is
-// enabled and markup when it is not, so the archive bytes would be parsed on a page opened
-// without scripting
-// the script and style rungs come first because text extractors drop their content the way
-// they drop a comment: macOS Spotlight indexes the content of every other rung, and textutil
-// also reads the last two. Neither is applied nor executed, the type is neither CSS nor
-// JavaScript. <plaintext> stays last, it is the only rung that cannot be closed
-// the CDATA section sits second to last, and it is the one rung a payload is unlikely to hold
-// the terminator of: every other rung ends on a sequence that real documents carry, which is
-// also why each level of self-nesting burns one. It is low in the ladder only because text
-// extractors read its content; nothing about the parse is weaker. A CDATA section is only a
-// CDATA section in foreign content, hence the <svg> element around it
 const EXTRA_DATA_TAGS = [
 	["<script type=sfz-data>", "</script>"],
 	["<style type=sfz-data>", "</style>"],
@@ -78,8 +61,6 @@ const EMBEDDED_DATA_TAGS = [
 	["<!--", "-->"],
 	...EXTRA_DATA_TAGS,
 ];
-// the identifier the extractor addresses the zip data with; the faces hidden by the same
-// wrapper ladder must never carry it, they are located by byte structure instead
 const DATA_IDENTIFIER = "sfz-data";
 const EXTRA_DATA_REGEXPS = [
 	[/<script/i, /<\/script[\t\n\f\r />]/i],
@@ -88,17 +69,9 @@ const EXTRA_DATA_REGEXPS = [
 	[/<noembed/i, /<\/noembed[\t\n\f\r />]/i],
 	[/<iframe/i, /<\/iframe[\t\n\f\r />]/i],
 	[/<xmp/i, /<\/xmp[\t\n\f\r />]/i],
-	// a CDATA section ends on "]]>" and nothing else, so the terminator is the whole test; the
-	// start pattern is the same conservatism the raw text rungs get, since a nested "<![CDATA["
-	// is text like any other. Trailing brackets are safe: a payload ending "]]" against the
-	// writer's "]]>" gives "]]]]>", and the tokenizer emits the payload's own two before closing
 	[/<!\[CDATA\[/i, /\]\]>/],
 	[/<plaintext/i, /<\/plaintext[\t\n\f\r />]/i]
 ];
-// a comment must also not end with "<!-", the last of the restrictions HTML puts on comment
-// text. The remaining one, that it must not start with ">" or "->", is not a matter of what
-// the payload contains: the zip data starts with the identifier and the PDF with a signature,
-// while the image data starts with a checksum, tested where that checksum is computed
 const EMBEDDED_DATA_REGEXPS = [
 	[/<!--/i, /--!?>|<!-$/i],
 	...EXTRA_DATA_REGEXPS,
@@ -117,9 +90,6 @@ const PNG_IHDR_LENGTH = 25;
 const COMMENT_LENGTH_FIELD_LENGTH = 2;
 const MAX_APPENDED_DATA_LENGTH = 65535;
 const PDF_ENTRY_FILENAME = "page.pdf";
-// PDF readers scan the start of the file for "%PDF-", HTML parsers prescan it for the
-// encoding declaration, and both stop at the same place. The two checks below measure from
-// the start of the FILE, which is not where the HTML starts under the PNG face
 const PRESCAN_WINDOW_LENGTH = 1024;
 const PNG_TEXT_CHUNK_HEADER_LENGTH = 12;
 const MINIMAL_DOCTYPE = "<!DOCTYPE html>";
@@ -135,11 +105,6 @@ const LANGUAGE_ENCODING_FLAG = 0x0800;
 
 const browser = globalThis.browser;
 
-// the options process() accepts from its caller. single-file.js builds its argument from this
-// list instead of a literal, because an option added here and forgotten there is undefined at
-// every call site and the feature silently does nothing: that is how declareAppendedData and
-// includeBOM both shipped inert. Options the module sets on itself between passes, and options
-// the packager supplies, are deliberately absent
 const PROCESS_OPTION_NAMES = [
 	"createRootDirectory",
 	"declareAppendedData",
@@ -168,12 +133,6 @@ export {
 
 async function process(pageData, options, lastModDate = new Date()) {
 	let script;
-	// The worker is configured before anything else, and outside the extension it is turned off
-	// rather than left alone. Given no address, zip.js resolves its default one against the page
-	// being saved, so the browser asks the CAPTURED SITE for a file that site has never heard of:
-	// three 404s in the user's own server logs for every archive, and then a fallback to the main
-	// thread anyway, which is where the work was always going to happen. Choosing the fallback
-	// costs nothing that was ever gained and asks the site for nothing.
 	const extensionContext = Boolean(browser && browser.runtime && browser.runtime.getURL);
 	if (extensionContext) {
 		configure({ workerURI: "/lib/single-file-z-worker.js" });
@@ -199,9 +158,6 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 	if (options.embeddedImage) {
 		options.embeddedImage = new Uint8Array(options.embeddedImage);
 	}
-	// the whole chunk is built before the first byte of the image is written, because building it
-	// is what settles the rung, and the search can end with no rung at all: the image is then left
-	// out altogether rather than written unwrapped
 	let imageChunk;
 	if (options.embeddedImage && options.selfExtractingArchive) {
 		imageChunk = getImageHTMLChunk(pageData, options, lastModDate);
@@ -216,7 +172,6 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 			endTag = imageChunk.endTag;
 			if (imageChunk.startHTMLData.pdfEntry) {
 				pdfEntry = imageChunk.startHTMLData.pdfEntry;
-				// the htmlArray starts after the 4-byte length and the 8-byte type of the tEXt chunk
 				pdfEntry.offset += zipDataWriter.offset + PNG_TEXT_CHUNK_HEADER_LENGTH;
 			}
 			await writeData(zipDataWriter.writable, imageChunk.htmlData);
@@ -241,44 +196,26 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 	} else if (!options.embeddedImage && options.embeddedPdf) {
 		await writeData(zipDataWriter.writable, new Uint8Array(options.embeddedPdf));
 	}
-	// a WritableWriter object is passed instead of the writer so that the ZipWriter
-	// never takes ownership of the stream: preventClose is only honored when the
-	// caller owns the writable, and the HTML suffix still gets written after it;
-	// its size property tells the ZipWriter the offset of the data written so far
 	const startOffset = zipDataWriter.offset;
 	const zipWriter = new ZipWriter({ writable: zipDataWriter.writable, size: startOffset }, { bufferedWrite: true, keepOrder: true, lastModDate, useCompressionStream: true });
 	await writeEntries(zipWriter);
 	if (pdfEntry) {
-		// the record is written where the central directory will start so that the PDF is listed
-		// first; the ZipWriter is unaware of these bytes, so the central directory offset it
-		// stores in the end of central directory record points here
 		new DataView(pdfEntry.centralRecord.buffer).setUint32(42, pdfEntry.offset, true);
 		await writeData(zipDataWriter.writable, pdfEntry.centralRecord);
 	}
 	await zipWriter.close(undefined, { preventClose: true });
 	if (pdfEntry && !patchEndOfCentralDirectory(zipDataWriter, pdfEntry.centralRecord.length)) {
-		// the record cannot be declared in the end of central directory record: rebuild the
-		// archive without it rather than leave a record the directory does not count
 		options.preventEmbeddedPdfEntry = true;
 		return createArchive(pageData, options, script, writeEntries, lastModDate);
 	}
 	const data = zipDataWriter.getData();
-	// the last two bytes of the archive are the comment length field of the end of central
-	// directory record: they are left out of the data the extraction payload describes, so that
-	// declaring the appended data as the archive comment cannot invalidate a payload computed
-	// before that length is known
 	const zipDataEnd = data.length - COMMENT_LENGTH_FIELD_LENGTH;
 	if (options.selfExtractingArchive) {
 		const lfCodes = [];
 		let crc32 = -1;
-		// the wrapper must not be closed by the zip data itself, whether or not the page
-		// carries the data: a premature closer parses the rest of the archive as markup
 		if (!options.extractDataFromPageTags || options.extractDataFromPageTags[0] != "<plaintext>") {
 			const textContent = TEXT_DECODER.decode(data.subarray(startOffset));
 			if (options.extractDataFromPageTags) {
-				// the rung is matched on its start tag, not on the identity of the array holding it:
-				// the option is set from EXTRA_DATA_TAGS internally, but a caller passing an equal
-				// pair of its own would otherwise index the regexps with -1
 				const tagIndex = getExtraDataTagIndex(options.extractDataFromPageTags);
 				const regExpsTag = EXTRA_DATA_REGEXPS[tagIndex];
 				if (textContent.match(regExpsTag[0]) || textContent.match(regExpsTag[1])) {
@@ -319,23 +256,15 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 		}
 		const endTags = options.preventAppendedData || options.embeddedImage ? "" : "</body></html>";
 		if (options.extractDataFromPage) {
-			// payload layout: [crc32, zip data length, LF codes count, 2-bit codes (0=LF, 1=CR, 2=CRLF) packed LSB-first]
 			const words = new Uint32Array(3 + Math.ceil(lfCodes.length / 16));
 			words[0] = crc32;
 			words[1] = zipDataEnd - startOffset;
 			words[2] = lfCodes.length;
 			lfCodes.forEach((lfCode, indexLFCode) => words[3 + (indexLFCode >> 4)] |= lfCode << ((indexLFCode & 15) * 2));
-			// the words are serialized little-endian rather than in host order: the format fixes
-			// the byte order, so a big-endian host writing the view of the array directly would
-			// emit a payload no conforming reader can decode, while still round-tripping against
-			// its own extractor
 			const payload = new Uint8Array(words.length * 4);
 			const payloadView = new DataView(payload.buffer);
 			words.forEach((word, indexWord) => payloadView.setUint32(indexWord * 4, word, true));
 			extraData = "<sfz-extra-data>" + base64Encode(deflateRaw(payload)) + "</sfz-extra-data>";
-			// the bytes appended after the EOCD record (wrapper end tag, extra data, end tags
-			// and, with an embedded image, the tEXt CRC and IEND chunk) must fit the 65535-byte
-			// window readers scan backward to find the EOCD record
 			if (options.preventAppendedData || extraData.length > MAX_APPENDED_DATA_LENGTH - pageContent.length - endTags.length - (options.embeddedImage ? PNG_IEND_LENGTH + PNG_CHUNK_CRC_LENGTH : 0)) {
 				if (!options.extraDataSize) {
 					options.extraDataSize = getReservationSize(extraData.length);
@@ -343,10 +272,6 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 				}
 			} else {
 				if (options.extraDataSize) {
-					// dropping the reservation moves the archive back, which changes the payload
-					// that made it necessary: a payload sitting on the boundary would be too large
-					// appended and small enough relocated, forever. The reservation is dropped at
-					// most once, so the build cannot oscillate between the two placements
 					if (!options.extraDataSizeDropped) {
 						options.extraDataSizeDropped = true;
 						options.extraDataSize = undefined;
@@ -371,8 +296,6 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 		}
 	}
 	if (options.declareAppendedData) {
-		// readers that reject undeclared bytes after the end of central directory record, notably
-		// java.util.zip, accept the file when the same bytes are declared as the archive comment
 		const appendedDataLength = pageContent.length - data.length +
 			(options.embeddedImage ? PNG_CHUNK_CRC_LENGTH + PNG_IEND_LENGTH : 0);
 		if (appendedDataLength && appendedDataLength <= MAX_APPENDED_DATA_LENGTH) {
@@ -414,10 +337,6 @@ function getPDFEntry(embeddedPdf, lastModDate = new Date()) {
 	const localHeaderView = new DataView(localHeader.buffer);
 	localHeaderView.setUint32(0, LOCAL_FILE_HEADER_SIGNATURE, true);
 	localHeaderView.setUint16(4, 20, true);
-	// every other entry is written by the ZIP writer, which sets this flag on all of them: without
-	// it here this record would be the only name in the archive a reader decodes through CP437.
-	// the name is ASCII, where the two encodings agree, so nothing about the decoded name depends
-	// on it, but the legacy path is then never taken at all
 	localHeaderView.setUint16(6, LANGUAGE_ENCODING_FLAG, true);
 	localHeaderView.setUint16(10, dosTime, true);
 	localHeaderView.setUint16(12, dosDate, true);
@@ -455,7 +374,6 @@ function patchEndOfCentralDirectory(zipDataWriter, centralRecordLength) {
 	const offsetLocator = offsetEOCD - 20;
 	let offsetZip64EOCD;
 	if (offsetLocator >= 0 && view.getUint32(offsetLocator, true) == ZIP64_END_OF_CENTRAL_DIR_LOCATOR_SIGNATURE) {
-		// the offset stored in the locator does not account for the PDF record either
 		offsetZip64EOCD = Number(view.getBigUint64(offsetLocator + 8, true)) + centralRecordLength;
 		if (view.getUint32(offsetZip64EOCD, true) != ZIP64_END_OF_CENTRAL_DIR_SIGNATURE) {
 			return false;
@@ -481,14 +399,10 @@ function patchEndOfCentralDirectory(zipDataWriter, centralRecordLength) {
 	return true;
 }
 
-// the functions inlined in the archive lose their newlines, so a line comment would swallow
-// the rest of the script: whole-line comments are removed before the newlines are
 function inlineFunction(bootstrapFunction) {
 	return bootstrapFunction.toString().replace(/^[ \t]*\/\/.*$/gm, "").replace(/\n|\t/g, "");
 }
 
-// the reservation must be strictly larger than the payload it was computed from, otherwise
-// the retry loop can be handed the same size again and oscillate instead of converging
 function getReservationSize(length) {
 	return Math.max(length + 1, Math.floor(length * 1.001));
 }
@@ -530,14 +444,11 @@ async function prependHTMLData(pageData, zipDataWriter, script, options, lastMod
 	if (pageData.tocContent) {
 		pageContent += pageData.tocContent;
 	}
-	// the text body repeats the page content outside the archive, where no password reaches it
 	if (options.insertTextBody && !options.password) {
 		const doc = (new DOMParser()).parseFromString(pageData.content, "text/html");
 		doc.body.querySelectorAll("style, script, noscript").forEach(element => element.remove());
 		let textBody = "";
 		if (options.extractDataFromPage) {
-			// the text body is read as raw bytes by text tools, so the title goes in unencoded;
-			// the < and > escaping below covers it
 			textBody += (pageData.title || "") + "\n\n";
 		}
 		textBody += doc.body.innerText;
@@ -584,14 +495,10 @@ async function prependHTMLData(pageData, zipDataWriter, script, options, lastMod
 	return { extraDataOffset, pdfEntry };
 }
 
-// the extractor finds the zip data by identifier instead of by its position in the tree: an
-// element carries it as an attribute, a comment as the first characters of its data
 function getDataStartTag([startTag]) {
 	if (startTag == "<!--") {
 		return startTag + DATA_IDENTIFIER;
 	}
-	// the attribute belongs to the element that opens the wrapper, which is not always the whole
-	// start tag: the CDATA rung opens with an <svg> and then a markup declaration that takes none
 	const tagEnd = startTag.indexOf(">");
 	return startTag.slice(0, tagEnd) + " id=" + DATA_IDENTIFIER + startTag.slice(tagEnd);
 }
@@ -601,32 +508,15 @@ function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
 	if (options.includeBOM && !options.extractDataFromPage && !options.embeddedImage) {
 		bom = "\ufeff";
 	}
-	// no doctype under the PNG face: the file must open with the PNG signature, and a doctype
-	// written after it is discarded outright, since those bytes are character data and the parser
-	// has left its initial insertion mode by then. Dropping it also removes the only unbounded
-	// contributor to the prefix, which is what leaves both window checks below with room to spare
 	const doctype = options.embeddedImage ? "" : pageData.doctype;
 	const charset = options.extractDataFromPage ? "windows-1252" : "utf-8";
 	const documentStart = "<html data-sfz><meta charset=" + charset + ">";
-	// this array is written at the start of the file, except under the PNG face, where it is the
-	// data of the first tEXt chunk and the signature, IHDR and chunk header precede it. Both
-	// windows are measured from the file, so that distance counts against both
 	const startOffset = options.embeddedImage ?
 		PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH + PNG_TEXT_CHUNK_HEADER_LENGTH : 0;
 	let html = bom + doctype + documentStart;
-	// the doctype is copied verbatim from the captured page and is the one part of the prefix
-	// with no bound: a long one pushes the encoding declaration past the bytes a parser prescans
-	// for it, and in universal mode a page decoded under the wrong charset cannot recover itself.
-	// the embedded PDF branch below applies the same substitution for its own header
 	if (startOffset + new TextEncoder().encode(html).length > PRESCAN_WINDOW_LENGTH) {
 		html = bom + MINIMAL_DOCTYPE + documentStart;
 	}
-	// the comment carries the page URL, whose length is unbounded: it is emitted after the
-	// declaration of the character encoding, and after the embedded PDF when there is one, so
-	// that neither the encoding declaration nor the PDF header leaves the first 1024 bytes.
-	// it is left out of a password-protected archive, like the title below: the same URL is
-	// in manifest.json, which is encrypted, so emitting it here would publish what the
-	// password is meant to cover
 	const comment = pageData.comment && !options.embeddedImage && !options.password ? "<!--" + escapeCommentData(pageData.comment) + "-->" : "";
 	const htmlHeadData = getHTMLHeadData(pageData, options);
 	let htmlArray, pdfEntry;
@@ -643,9 +533,6 @@ function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
 			const [pdfStartTag, pdfEndTag] = EMBEDDED_DATA_TAGS[pdfTagIndex];
 			let htmlArray1 = new TextEncoder().encode(html + pdfStartTag);
 			if (startOffset + htmlArray1.length + localHeader.length > PRESCAN_WINDOW_LENGTH) {
-				// PDF readers only scan the start of the file for the %PDF- header, and the page
-				// doctype is copied verbatim: it is the one part of the prefix with no bound, so a
-				// long one is replaced rather than pushing the header out of the scan window
 				htmlArray1 = new TextEncoder().encode(bom + MINIMAL_DOCTYPE + documentStart + pdfStartTag);
 			}
 			const htmlArray2 = new TextEncoder().encode(pdfEndTag + comment + htmlHeadData + startTag);
@@ -667,12 +554,8 @@ function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
 
 function getHTMLHeadData(pageData, options) {
 	let pageContent = "";
-	// the title is left out of a password-protected archive: manifest.json carries it too and
-	// is encrypted, so emitting it here would publish what the password is meant to cover
 	const title = options.password ? "" : escapeHTML(pageData.title || "");
 	pageContent += "<title>" + title + "</title>";
-	// the canonical link publishes the URL the archive was saved from, for the same reason
-	// the title above is left out of a password-protected archive
 	if (options.insertCanonicalLink && !options.password) {
 		pageContent += "<link rel=canonical href=\"" + escapeHTML(options.url) + "\">";
 	}
@@ -683,10 +566,6 @@ function getHTMLHeadData(pageData, options) {
 		pageContent += "<meta name=viewport content=\"" + escapeHTML(pageData.viewport) + "\">";
 	}
 	if (options.insertMetaCSP) {
-		// form-action and base-uri do not fall back to default-src, so without them a saved page
-		// could still submit a form anywhere and could still have its relative URLs repointed.
-		// Nothing in a saved page submits a form — there is no server left to submit to — and
-		// <base> is removed when the page is captured, so neither costs anything here
 		const cspContent = "default-src 'none';connect-src 'self' data: blob:;font-src 'self' data: blob:;img-src 'self' data: blob:;style-src 'self' 'unsafe-inline' data: blob:;frame-src 'self' data: blob:;media-src 'self' data: blob:;script-src 'self' 'unsafe-inline' data: blob:;object-src 'self' data: blob:;form-action 'none';base-uri 'none'";
 		pageContent += `<meta http-equiv=content-security-policy content=${JSON.stringify(cspContent)}>`;
 	}
@@ -695,16 +574,6 @@ function getHTMLHeadData(pageData, options) {
 	return pageContent;
 }
 
-// the text the writer assembles for the prelude goes through this, wherever it is assembled:
-// the prelude declares a single-byte charset, and numeric character references are ASCII
-// bytes, so they survive it and any parser decodes them back to the original text. The text
-// body is the exception and stays raw UTF-8, for the byte-reading audience it exists for
-// a comment has no escape mechanism of its own: the parser closes it at the first "-->" or
-// "--!>" and reads everything after as markup, so text reaching it from the page — the infobar
-// template resolves {page-title} and its kind against the captured document — could otherwise
-// introduce elements the save is meant not to contain. A space breaks the run without dropping
-// a character, and the result is stable under a second pass, which matters because SingleFile
-// parses its own comment back when it re-saves an already-saved page
 function escapeCommentData(value) {
 	let data = value.replace(/--(!?)>/g, "--$1 >");
 	if (data.startsWith(">") || data.startsWith("->")) {
@@ -746,32 +615,17 @@ function findExtraDataTags(textContent, pageData, options, script, writeEntries,
 	} else {
 		options.extractDataFromPageTags = EXTRA_DATA_TAGS[indexExtractDataFromPageTags];
 		if (options.extractDataFromPageTags[0] == "<plaintext>") {
-			// <plaintext> cannot be closed, the file must end with the zip data
 			options.preventAppendedData = true;
 		}
 		return createArchive(pageData, options, script, writeEntries, lastModDate);
 	}
 }
 
-// a rung is rejected on its end pattern, which terminates the wrapper, and on its start
-// pattern: script data has escape states the raw text rungs do not have, where "<!--"
-// followed by "<script" leaves "</script>" unable to close the element at all
 function findEmbeddedDataTagIndex(text, fromIndex = 0) {
 	const tagIndex = EMBEDDED_DATA_REGEXPS.slice(fromIndex, -1).findIndex(([startRegExp, endRegExp]) => !text.match(startRegExp) && !text.match(endRegExp));
 	return tagIndex == -1 ? -1 : tagIndex + fromIndex;
 }
 
-// a face exists only while a rung can hide it. When the payload names every rung, the older
-// fallback emitted it unwrapped, on the grounds that the page still rendered: but the payload's
-// markup then joins the document, and a payload that is itself an archive contributes an
-// sfz-data node ahead of this file's own. A reader takes that one and extracts it, checksum and
-// all, with nothing to say the archive it returned is not the archive the file was built around.
-// Dropping the face costs a picture; keeping it costs the archive
-// what follows the start tag is the checksum of the chunk carrying it, four bytes only known once
-// the tag is chosen: a comment they open with ">" or "->" is closed by the parser there and then,
-// leaving the image data to be read as markup. Stepping past the comment rung means searching from
-// the next one, not taking it — a rung qualifies on the payload, and the payload had no say in
-// which rung the checksum sent the writer to
 function getImageHTMLChunk(pageData, options, lastModDate) {
 	const embeddedImageText = TEXT_DECODER.decode(getEmbeddedImageData(options.embeddedImage));
 	let tagIndex = findEmbeddedDataTagIndex(embeddedImageText);
@@ -780,12 +634,6 @@ function getImageHTMLChunk(pageData, options, lastModDate) {
 		const startHTMLData = getStartHTMLArray(pageData, options, lastModDate, startTag);
 		const htmlData = new Uint8Array([...getLength(startHTMLData.htmlArray.length + 4), ...[0x74, 0x45, 0x58, 0x74, 0x50, 0x4e, 0x47, 0], ...startHTMLData.htmlArray]);
 		const htmlDataCRC = getCRC32(htmlData, 4);
-		// the wrapper opens before the chunk checksum, so those four bytes and the boundary they
-		// form with the image data are inside it and must pass the same test the image data does.
-		// they are only known once the tag is chosen, which is why the candidate is re-tested here
-		// rather than in the search above: the search advances over the image data, this rejects a
-		// candidate the checksum defeats. Without it a checksum holding the terminator closes the
-		// wrapper and leaves the image data, the chunk framing and the ZIP region to the parser
 		const wrappedText = TEXT_DECODER.decode(htmlDataCRC) + embeddedImageText;
 		if ((tagIndex == 0 && (htmlDataCRC[0] == 0x3e || (htmlDataCRC[0] == 0x2d && htmlDataCRC[1] == 0x3e))) ||
 			findEmbeddedDataTagIndex(wrappedText, tagIndex) != tagIndex) {
@@ -850,8 +698,6 @@ async function addFile(zipWriter, prefixName, data, disableCompression) {
 	const dataReader = typeof data.content == "string" ? new TextReader(data.content) : new BlobReader(new Blob([new Uint8Array(data.content)]));
 	const options = { password: data.password, bufferedWrite: true };
 	if (!data.password) {
-		// entry comments are stored in the central directory, which is never encrypted: with a
-		// password the resource URLs would be readable while the same map in manifest.json is not
 		options.comment = data.url && data.url.startsWith("data:") ? "data:" : data.url;
 	}
 	if (disableCompression || (!isCompressibleContentType(data.contentType) && NO_COMPRESSION_EXTENSIONS.includes(data.extension))) {
@@ -866,7 +712,6 @@ function isCompressibleContentType(contentType) {
 
 async function getContent() {
 	const BASE64_TABLE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-	// the function is inlined in the archive as source, it cannot close over the module scope
 	const DATA_IDENTIFIER = "sfz-data";
 	const { Blob, XMLHttpRequest, NodeFilter, document, zip, location } = globalThis;
 	const characterMap = new Map([
@@ -908,8 +753,6 @@ async function getContent() {
 			const xhr = new XMLHttpRequest();
 			xhr.responseType = "blob";
 			xhr.open("GET", "");
-			// a failure of the full download is recoverable when the page carries the data:
-			// the wait message left the document intact, so the page text can still be read
 			xhr.onerror = () => extractDataFromDocument();
 			xhr.send();
 			xhr.onreadystatechange = () => {
@@ -928,7 +771,6 @@ async function getContent() {
 							getPageData();
 						}
 					} else {
-						// an HTTP error status fires no error event; fall back like a network failure
 						xhr.abort();
 						extractDataFromDocument();
 					}
@@ -972,11 +814,7 @@ async function getContent() {
 		const zipDataElement = document.querySelector("sfz-extra-data");
 		if (zipDataElement) {
 			const inflatedPayload = zip.inflateRaw(base64Decode(zipDataElement.textContent));
-			// a DataView reads the words little-endian whatever the host is, and unlike a typed
-			// array view it needs no 4-byte alignment of the inflated buffer
 			const payload = new DataView(inflatedPayload.buffer, inflatedPayload.byteOffset, inflatedPayload.length & -4);
-			// the zip data is identified, not located: its node can be moved before this runs, so
-			// the walk covers the whole document rather than the subtree the writer put it under
 			const dataElement = document.getElementById(DATA_IDENTIFIER);
 			if (dataElement) {
 				return decodeZipData(dataElement, payload, 0);
@@ -995,9 +833,6 @@ async function getContent() {
 		const expectedCRC32 = payload.getUint32(0, true);
 		const zipDataLength = payload.getUint32(4, true);
 		const lfCodesLength = payload.getUint32(8, true);
-		// the two extra bytes are the comment length field of the end of central directory
-		// record, which the payload does not describe: left at zero they declare no comment,
-		// which is what the recovered data holds
 		const zipData = new Uint8Array(zipDataLength + 2);
 		const { textContent } = dataNode;
 		let offset = 0;
@@ -1009,9 +844,6 @@ async function getContent() {
 				const lfCode = (payload.getUint32(12 + (indexLFCode >> 4) * 4, true) >>> ((indexLFCode & 15) * 2)) & 3;
 				indexLFCode++;
 				if (lfCode == 3) {
-					// the fourth code is unassigned: a payload using it was written against a
-					// later revision of the format, and decoding it as a lone CR would corrupt
-					// the archive silently instead of naming the reason
 					throw new Error("Unsupported newline code in the extracted zip data");
 				} else if (lfCode == 0) {
 					writeByte(10);
