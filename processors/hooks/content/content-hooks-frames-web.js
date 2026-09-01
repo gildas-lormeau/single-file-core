@@ -349,6 +349,7 @@
 			delete globalThis._singleFileImage;
 		}
 		if (!keepZoomLevel) {
+			resetScreenSize();
 			dispatchResizeEvent();
 		}
 	}
