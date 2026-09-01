@@ -761,6 +761,17 @@ is the other region outside this rule, and it is outside for a harder reason —
 data does not resolve character references at all, so the escape must happen in the
 JavaScript source instead (§2.1).
 
+An implementation-defined comment (§3.1) is the third region outside the rule, and the
+only one with no escape available at all. Comment data does not resolve character
+references either, and unlike script data it has no second language of its own to
+escape in: `&#233;` written in a comment stays `&#233;` in every reader, so the escaper
+does not restore the character, it replaces one unreadable form with another. A writer
+therefore MUST NOT put text outside printable ASCII in such a comment in universal
+mode. The bytes are harmless to extraction — the recovery payload covers the ZIP region
+alone, far past the prologue — but they decode as mojibake for the one audience a
+provenance comment has. Restricting the comment, or omitting it, are the only two ways
+to comply; the reference writer's own comment is not passed through its escaper.
+
 ## 5. Cross-cutting mechanics
 
 Section 3 named the regions and §4 read them one reader at a time. What remains are
@@ -1621,7 +1632,7 @@ specimen without a network.
 | 0 | `<!DOCTYPE html>` | `html-prologue` begins |
 | 15 | `<html data-sfz>` | root element start tag; the attribute is the reference implementation's own marker (§1.3) |
 | 30 | `<meta charset=windows-1252>` | the charset rule, inside the first 1024 bytes (§2.1) |
-| 57 | `<!--` … `-->` (ends at 200) | comment written by the implementation, not part of the format; it follows the charset declaration so it cannot push it out of the prescan window |
+| 57 | `<!--` … `-->` (ends at 200) | comment written by the implementation; its content is implementation-defined, but where it may appear is not (§3.1, §4.6, §5.6). It follows the charset declaration so it cannot push it out of the prescan window |
 | 200 | `<title>` … `</title>` (ends at 229) | the page title, as numeric character references (§4.6) |
 | 677 | `<style>` | the stylesheet of the blank-page backstop (§4.1) |
 | 855 | `<body hidden>` | start of the blank-page backstop (§4.1) |
