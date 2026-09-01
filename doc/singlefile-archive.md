@@ -1165,42 +1165,22 @@ captured page. That is a property of this writer, not a guarantee of the format:
 conforming writer may name entries after the resources themselves, and §7.3's rule
 that entry names are untrusted assumes one does.
 
-ZIP resolves it with **bit 11 of the general purpose bit flag**, the language encoding
-flag. Set, the name field is UTF-8. Clear, it is IBM code page 437, the format's
-original encoding. The flag appears in both the local file header and the central
-directory record, and a reader takes it from whichever record it read the name from.
+How a name is encoded is ZIP's own business, not this format's: bit 11 of the general
+purpose bit flag selects UTF-8, and its absence selects the legacy code page. This
+document adds two requirements to that and specifies nothing else about it.
 
-A writer MUST set bit 11 on every entry whose name is not pure ASCII, and SHOULD set
-it on every entry, which is what the reference writer does: the two encodings agree
-over printable ASCII, so setting it unconditionally is safe and removes a decision.
-It also means no entry in the archive is decoded through the legacy table, which is
-worth more than the decision it removes — see the second bullet below.
+**A writer MUST set bit 11 on every entry**, not only on the entries whose names need
+it. The two encodings agree over printable ASCII, so setting it unconditionally costs
+nothing, and it means no name in the archive is decoded through the legacy path at all.
 
-A reader MUST honor the flag rather than assume one encoding. Two failures follow from
-assuming, and they are not symmetric: reading a CP437 name as UTF-8 yields U+FFFD for
-every high byte and loses the name, while reading a UTF-8 name as CP437 yields a
-well-formed wrong name — `café.png` becomes `caf├⌐.png` — which raises nothing and
-propagates silently into a file written to disk.
-
-Two further requirements a reader has to get right:
-
-- **Derive CP437 from the real IBM437 mapping**, not from whatever the platform calls
-  "cp437", for the same reason §5.5 gives for the payload's reverse table. The trap
-  here is the opposite of the payload's: the low half. CP437 has no control characters
-  — its first 32 positions hold the graphic symbols ☺☻♥♦♣♠ and their kind, which sit
-  *before* the ASCII range in the table. An implementation that treats the low half as
-  ASCII gets those 32 positions wrong; worse, one that has the table right but corrupts
-  its low half shifts every lookup after it, so even pure-ASCII names come out mangled.
-  That is not hypothetical: it is how the defect described in §2.1 presented, and it is
-  why that defect was invisible until an entry without the UTF-8 flag existed.
-- **Expect a name whose flag is clear in an archive written before core 1.5.120.** The
-  hand-built `page.pdf` records (§3.1, §6) are the only ones the reference writer does
-  not produce through its ZIP writer, and they set no bit flag at all until that
-  version, so in an older archive that one entry is read through CP437 while every
-  other name in the same file is read as UTF-8. The name is ASCII, where the two agree,
-  so a correct reader sees `page.pdf` either way. The reason to have fixed it is not
-  the decoded name but the path: one flagless entry per archive was enough to keep the
-  legacy table reachable in every reader, and that is where the §2.1 defect surfaced.
+**A reader MUST honor the flag** rather than assume one encoding, and MUST expect to
+meet a clear one in an archive written before core 1.5.120: the hand-built `page.pdf`
+records (§3.1, §6) are the only ones the reference writer does not produce through its
+ZIP writer, and they set no flag at all until that version. In such an archive that
+single entry is decoded as legacy while every other name in the same file is UTF-8.
+Its name is ASCII, where the two encodings agree, so a correct reader sees `page.pdf`
+either way — but a reader that hardcodes UTF-8 on the strength of the other entries has
+not covered it.
 
 A name is not a path. §7.3's rule that entry names are untrusted applies to the decoded
 name, and decoding is the step before that check, not a substitute for it.
