@@ -1262,9 +1262,18 @@ pages can stop at the first row; the files it produces are accepted by every rea
    measured, a file with one written there is byte-for-byte equivalent in outcome to a
    file with none, quirks mode and no doctype node in both. The variant therefore
    renders in quirks mode until the extracted page replaces it. That is a property of
-   putting a PNG signature first, not a writer's choice, so this section states no
-   requirement about it. The question above also does not arise there: the doctype is
-   already gone, and with it that unbounded region.
+   putting a PNG signature first, not a writer's choice, so this section requires
+   nothing about the doctype there.
+
+   Since it buys nothing, a writer MAY simply drop it under this face, and the
+   reference writer does. Emitting one is equally conforming — but then it is content
+   like any other, and the two windows still bind: the charset declaration MUST stay
+   inside its 1024 bytes (§2.1), and with the PDF face `%PDF-` MUST stay inside its
+   own (§4.3). Both are measured from the start of the *file*, which under this face
+   begins 45 bytes before the HTML does — the 8-byte signature, the 25-byte `IHDR`
+   and the 12 bytes of chunk length, type and keyword. A writer that keeps the doctype
+   here therefore has 45 bytes less room than the arithmetic above suggests, and one
+   that drops it has the whole of it back.
 
    Then the head elements (the
    `<title>` and the canonical link among them), the CSS and `<body hidden>`,
