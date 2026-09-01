@@ -117,8 +117,11 @@ const PNG_IHDR_LENGTH = 25;
 const COMMENT_LENGTH_FIELD_LENGTH = 2;
 const MAX_APPENDED_DATA_LENGTH = 65535;
 const PDF_ENTRY_FILENAME = "page.pdf";
-const PDF_HEADER_MAX_OFFSET = 1024;
-const CHARSET_DECLARATION_MAX_OFFSET = 1024;
+// PDF readers scan the start of the file for "%PDF-", HTML parsers prescan it for the
+// encoding declaration, and both stop at the same place. The two checks below measure from
+// the start of the FILE, which is not where the HTML starts under the PNG face
+const PRESCAN_WINDOW_LENGTH = 1024;
+const PNG_TEXT_CHUNK_HEADER_LENGTH = 12;
 const MINIMAL_DOCTYPE = "<!DOCTYPE html>";
 const UNHIDDEN_FACE_WARNING_MESSAGE = "SingleFile: the page data contains every HTML tag that could hide an embedded file, the archive was written without its";
 const EMBEDDED_IMAGE_LABEL = "PNG image";
@@ -214,7 +217,7 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 			if (imageChunk.startHTMLData.pdfEntry) {
 				pdfEntry = imageChunk.startHTMLData.pdfEntry;
 				// the htmlArray starts after the 4-byte length and the 8-byte type of the tEXt chunk
-				pdfEntry.offset += zipDataWriter.offset + 12;
+				pdfEntry.offset += zipDataWriter.offset + PNG_TEXT_CHUNK_HEADER_LENGTH;
 			}
 			await writeData(zipDataWriter.writable, imageChunk.htmlData);
 			await writeData(zipDataWriter.writable, imageChunk.htmlDataCRC);
@@ -603,15 +606,24 @@ function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
 	if (options.includeBOM && !options.extractDataFromPage && !options.embeddedImage) {
 		bom = "\ufeff";
 	}
+	// no doctype under the PNG face: the file must open with the PNG signature, and a doctype
+	// written after it is discarded outright, since those bytes are character data and the parser
+	// has left its initial insertion mode by then. Dropping it also removes the only unbounded
+	// contributor to the prefix, which is what leaves both window checks below with room to spare
 	const doctype = options.embeddedImage ? "" : pageData.doctype;
 	const charset = options.extractDataFromPage ? "windows-1252" : "utf-8";
 	const documentStart = "<html data-sfz><meta charset=" + charset + ">";
+	// this array is written at the start of the file, except under the PNG face, where it is the
+	// data of the first tEXt chunk and the signature, IHDR and chunk header precede it. Both
+	// windows are measured from the file, so that distance counts against both
+	const startOffset = options.embeddedImage ?
+		PNG_SIGNATURE_LENGTH + PNG_IHDR_LENGTH + PNG_TEXT_CHUNK_HEADER_LENGTH : 0;
 	let html = bom + doctype + documentStart;
 	// the doctype is copied verbatim from the captured page and is the one part of the prefix
 	// with no bound: a long one pushes the encoding declaration past the bytes a parser prescans
 	// for it, and in universal mode a page decoded under the wrong charset cannot recover itself.
 	// the embedded PDF branch below applies the same substitution for its own header
-	if (new TextEncoder().encode(html).length > CHARSET_DECLARATION_MAX_OFFSET) {
+	if (startOffset + new TextEncoder().encode(html).length > PRESCAN_WINDOW_LENGTH) {
 		html = bom + MINIMAL_DOCTYPE + documentStart;
 	}
 	// the comment carries the page URL, whose length is unbounded: it is emitted after the
@@ -635,7 +647,7 @@ function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
 		} else {
 			const [pdfStartTag, pdfEndTag] = EMBEDDED_DATA_TAGS[pdfTagIndex];
 			let htmlArray1 = new TextEncoder().encode(html + pdfStartTag);
-			if (htmlArray1.length + localHeader.length > PDF_HEADER_MAX_OFFSET) {
+			if (startOffset + htmlArray1.length + localHeader.length > PRESCAN_WINDOW_LENGTH) {
 				// PDF readers only scan the start of the file for the %PDF- header, and the page
 				// doctype is copied verbatim: it is the one part of the prefix with no bound, so a
 				// long one is replaced rather than pushing the header out of the scan window
