@@ -759,7 +759,15 @@ function getImageHTMLChunk(pageData, options, lastModDate) {
 		const startHTMLData = getStartHTMLArray(pageData, options, lastModDate, startTag);
 		const htmlData = new Uint8Array([...getLength(startHTMLData.htmlArray.length + 4), ...[0x74, 0x45, 0x58, 0x74, 0x50, 0x4e, 0x47, 0], ...startHTMLData.htmlArray]);
 		const htmlDataCRC = getCRC32(htmlData, 4);
-		if (tagIndex == 0 && (htmlDataCRC[0] == 0x3e || (htmlDataCRC[0] == 0x2d && htmlDataCRC[1] == 0x3e))) {
+		// the wrapper opens before the chunk checksum, so those four bytes and the boundary they
+		// form with the image data are inside it and must pass the same test the image data does.
+		// they are only known once the tag is chosen, which is why the candidate is re-tested here
+		// rather than in the search above: the search advances over the image data, this rejects a
+		// candidate the checksum defeats. Without it a checksum holding the terminator closes the
+		// wrapper and leaves the image data, the chunk framing and the ZIP region to the parser
+		const wrappedText = TEXT_DECODER.decode(htmlDataCRC) + embeddedImageText;
+		if ((tagIndex == 0 && (htmlDataCRC[0] == 0x3e || (htmlDataCRC[0] == 0x2d && htmlDataCRC[1] == 0x3e))) ||
+			findEmbeddedDataTagIndex(wrappedText, tagIndex) != tagIndex) {
 			tagIndex = findEmbeddedDataTagIndex(embeddedImageText, tagIndex + 1);
 		} else {
 			return { endTag, startHTMLData, htmlData, htmlDataCRC };
