@@ -31,6 +31,7 @@ any check failed.
 | `adopted-stylesheets-hook.js` | That the page-world hook answers the adopted-stylesheets request for a CLOSED shadow root, which its host does not expose. |
 | `inlined-functions.js` | That a function serialized into a self-extracting archive names nothing outside itself. An import survives bundling and still reads correctly, and the archive then throws a bare `ReferenceError` and renders nothing. |
 | `pages-archive.js` | That `createPagesArchive` packs several pages into one archive correctly: the first page at the root and the others in folders, the manifest, the symlink a deduplicated entry leaves behind, and the escaping of crawled titles in both tables of contents. |
+| `byte-map.js` | That the byte offsets §8.2 of the specification prints still describe what the writer emits: the prologue order, the doctype and root tag with nothing between them, the identifier's length ahead of the region, absolute EOCD offsets, and the entry order. The specimen §8.2 documents is saved from a live URL and has never been in this repository, so none of its numbers could be checked; three of them were wrong. This builds an equivalent with no network. |
 | `css-fonts-minifier.js` | That `removeUnusedFonts` reads the font families it prunes on correctly: a `var()` family resolved from the values the document declares and not only from the ones the body inherits, every font kept when the value is genuinely undetermined, and a multi-word family name that does not also claim a font named after its own tail. |
 
 ## The tools

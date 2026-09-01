@@ -1605,6 +1605,17 @@ Offsets in `universal.sfz.html` (123077 bytes, two entries, saved from `example.
 with the §8.3 command, against core 1.5.108).
 The layout is the *universal* row of the byte map (§3).
 
+These numbers are one capture, not a contract. Everything from the bootstrap onward
+moves whenever the inlined ZIP library changes size, so treat the table as an
+illustration of the shape and not as values to compare a file against. What *is* fixed
+is the set of relations between the rows — the doctype opening the file with the root
+element start tag immediately after it, the charset declaration immediately after that
+and the comment immediately after that, the identifier's twelve bytes ahead of the
+region, the EOCD's directory offset being an absolute file position, and the entry
+order. Those are checked on every run by `test/sfz-harness/byte-map.js`, which builds an
+equivalent specimen without a network. Three of the offsets below were wrong by one byte
+until 2026-09-01, for want of exactly that check.
+
 | Offset | Bytes | Region |
 |---|---|---|
 | 0 | `<!DOCTYPE html>` | `html-prologue` begins |
