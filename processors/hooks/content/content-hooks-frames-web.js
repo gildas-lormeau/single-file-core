@@ -322,7 +322,7 @@
 							const rootBounds = getBoundingClientRectDefined ? rootBoundingRect : docBoundingRect;
 							const time = 0;
 							return { target, intersectionRatio, boundingClientRect, intersectionRect: boundingClientRect, isIntersecting, rootBounds, time };
-						}).filter(params => params.boundingClientRect.width && params.boundingClientRect.height);
+						}).filter(params => params.boundingClientRect.width && params.boundingClientRect.height > 1);
 						if (params.length) {
 							observer.callback.call(intersectionObserver, params, intersectionObserver);
 						}
