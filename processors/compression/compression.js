@@ -552,16 +552,12 @@ async function prependHTMLData(pageData, zipDataWriter, script, options, lastMod
 		textBody = textBody.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n +/g, "\n").replace(/\n\n\n+/g, "\n\n").trim();
 		pageContent += "\n<main hidden>\n" + textBody + "\n</main>\n";
 	}
-	const displayOptions = {
-		insertEmbeddedImage: Boolean(options.embeddedImage),
-		insertEmbeddedScreenshotImage: Boolean(options.embeddedScreenshotImage)
-	};
 	const bootstrapBody = options.multiPageArchive ?
 		"(" + inlineFunction(router) + ")(content,{extract:" +
 		inlineFunction(extract) + ",display:" +
 		inlineFunction(display) + "})" :
 		"(" + inlineFunction(extract) + ")(content,{prompt}).then(({docContent}) => " +
-		inlineFunction(display) + "(document,docContent," + JSON.stringify(displayOptions) + "))";
+		inlineFunction(display) + "(document,docContent))";
 	script = "<script>" +
 		script +
 		"document.currentScript.remove();" +

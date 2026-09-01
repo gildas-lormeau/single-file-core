@@ -17,7 +17,6 @@ const INTERNAL_OPTION_NAMES = [
 	"extractDataFromPageTags",
 	"preventEmbeddedPdfEntry",
 	// supplied by compression-packager.js, which calls createArchive directly
-	"embeddedScreenshotImage",
 	"multiPageArchive",
 	// read for the root directory name, but no caller has ever passed it
 	"tabId",
