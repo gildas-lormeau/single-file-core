@@ -295,16 +295,13 @@ the bootstrap through a minifier MUST configure it to emit ASCII only.
 
 The consequence of getting this wrong is worse than the mojibake a raw title produces,
 and that is the reason for the MUST. A garbled title is visible; a garbled string
-inside the extractor is not. The reference writer shipped exactly this defect: its
-inlined ZIP library carried a CP437 lookup table as literal characters, the page
-re-decoded them as windows-1252, and the table grew from 256 entries to 508, shifting
-every lookup past the first 32 by 60 positions. Only names decoded through that table
-were affected — the ones whose UTF-8 flag was clear (§5.8), which in an archive of that
-era meant `page.pdf` alone — and that was enough: its name is what the extractor matches
-to skip it, so no archive with a PDF face extracted in any engine, while the page itself
-looked correct. `page.pdf` now carries the flag like every other entry, so an archive
-written by a current version has no name on that path at all; the requirement stands
-regardless, because it is the bootstrap that is at stake and not one table inside it.
+inside the extractor is not. A lookup table is the sharpest case. Emitted as literal
+characters, a CP437 table is re-decoded as windows-1252 and grows from 256 entries to
+508, shifting every lookup past the first 32 by 60 positions — and nothing about the
+page looks wrong, because the damage is confined to names the table decodes. Under
+§5.8 that can be a single entry, and one is enough when it is the entry the extractor
+matches by name. The requirement is on the whole bootstrap rather than on any table
+inside it, because a minifier does not know which strings are load-bearing.
 
 ### 2.2 File name conventions
 
@@ -806,12 +803,11 @@ case-insensitively: `</XMP>` and `</Script ` close their elements just as `</xmp
 as the end ones. A stored, uncompressed resource is the realistic source of an
 upper-case one.
 
-Every rung hides its content unconditionally. `<noscript>` has the right terminator
-and was once a rung itself (§8.5), but it is the one construct whose content is raw
-text only while scripting is enabled and markup when it is not, so on a page opened
-without scripting the archive bytes would reach the tree builder as tags. The rungs
-below it hide the same payloads at no extra cost, so it was removed rather than
-demoted.
+Every rung hides its content unconditionally, which is why `<noscript>` is not one. It
+has the right terminator, but it is the one construct whose content is raw text only
+while scripting is enabled and markup when it is not, so on a page opened without
+scripting the archive bytes would reach the tree builder as tags. The rungs below it
+hide the same payloads at no extra cost, so there is nothing to weigh against that.
 
 The order under the comment is not arbitrary. Every rung hides its content from an HTML
 parser, but text extractors differ, and the ZIP region is large enough that the
@@ -896,10 +892,7 @@ what differs is how far the ladder goes:
   rule is uniform deliberately: the
   exemption would save one pattern match per rung on bytes already in memory, at the
   cost of a special case an implementer has to remember correctly about the single rung
-  where forgetting it destroys the document. An earlier draft offered exactly that
-  latitude, in the broader form "a writer MAY skip the start test outside universal
-  mode", and the reference writer's PDF and PNG faces took it and shipped the bug
-  (§8.5).
+  where forgetting it destroys the document.
 - **The PDF and PNG payloads** apply the same two tests, for the same reason — a face
   that took the `<script>` rung on a payload holding `<!--` and `<script` would swallow
   the rest of the document, title, bootstrap and extra-data element included — but the
@@ -1195,9 +1188,9 @@ nothing, and it means no name in the archive is decoded through the legacy path 
 
 **A reader MUST honor the flag** rather than assume one encoding, and MUST expect to
 meet a clear one: the hand-built `page.pdf` records (§3.1, §6) are the only ones the
-reference writer does not produce through its ZIP writer, and older writers set no flag
-on them at all (§8.5). In such an archive that single entry is decoded as legacy while
-every other name in the same file is UTF-8.
+reference writer does not produce through its ZIP writer, and an archive may carry them
+with no flag set at all. That single entry is then decoded as legacy while every other
+name in the same file is UTF-8.
 Its name is ASCII, where the two encodings agree, so a correct reader sees `page.pdf`
 either way — but a reader that hardcodes UTF-8 on the strength of the other entries has
 not covered it.
@@ -1538,10 +1531,10 @@ only if it affects the bytes the page is built from:
 
 Anything the format does not constrain, a reader MUST NOT reject: entries may carry
 any extra fields, timestamps or data descriptors a ZIP writer would ordinarily emit,
-and none of it is specified here. The name-encoding flag used to be listed here too,
-and is not: §5.8 requires a reader to honor it. That is a rule about how a name is
-decoded, not a ground for rejecting an entry, so this row still applies to it — either
-value of the flag is something a reader meets and reads.
+and none of it is specified here. The name-encoding flag is constrained — §5.8 requires
+a reader to honor it — but that is a rule about how a name is decoded, not a ground for
+rejecting an entry, so this row applies to it too: either value of the flag is
+something a reader meets and reads.
 
 ## 8. Appendices
 
@@ -1682,9 +1675,7 @@ entry comment, the optional text body or table of contents (§4.6), a UTF-8 BOM,
 in it. Two omissions matter more than the rest, because they are the parts of §5.1 a
 writer is most likely to get wrong: no specimen defeats a rung by its **start**
 pattern, and none defeats one with an **upper-case** pattern. A writer that tested only
-end patterns, or matched them case-sensitively, produces every specimen here unchanged
-— and the first of those two mistakes is one the reference writer actually shipped
-(§8.5).
+end patterns, or matched them case-sensitively, produces every specimen here unchanged.
 
 Two specimens cannot be produced from a URL alone. The **ladder** specimen, which
 forces the second rung of §5.1, needs a page referencing an image whose stored bytes
