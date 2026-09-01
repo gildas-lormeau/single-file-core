@@ -27,6 +27,7 @@ import {
 	BlobReader,
 	TextReader,
 	ZipWriter,
+	Uint8ArrayReader,
 	Uint8ArrayWriter
 } from "./../../vendor/zip/zip.js";
 import {
@@ -152,6 +153,15 @@ async function process(pageData, options, lastModDate = new Date()) {
 }
 
 async function createArchive(pageData, options, script, writeEntries, lastModDate = new Date()) {
+	const zipWriterOptions = { bufferedWrite: true, keepOrder: true, lastModDate, useCompressionStream: true };
+	const entriesWriter = new ZipWriter(new Uint8ArrayWriter(), zipWriterOptions);
+	await writeEntries(entriesWriter);
+	const entriesData = await entriesWriter.close();
+	return buildArchive(pageData, options, script, entriesData, zipWriterOptions);
+}
+
+async function buildArchive(pageData, options, script, entriesData, zipWriterOptions) {
+	const { lastModDate } = zipWriterOptions;
 	const zipDataWriter = new Uint8ArrayWriter();
 	zipDataWriter.init();
 	let extraDataOffset, extraData, embeddedImageDataOffset, endTag, pdfEntry;
@@ -197,8 +207,8 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 		await writeData(zipDataWriter.writable, new Uint8Array(options.embeddedPdf));
 	}
 	const startOffset = zipDataWriter.offset;
-	const zipWriter = new ZipWriter({ writable: zipDataWriter.writable, size: startOffset }, { bufferedWrite: true, keepOrder: true, lastModDate, useCompressionStream: true });
-	await writeEntries(zipWriter);
+	const zipWriter = new ZipWriter({ writable: zipDataWriter.writable, size: startOffset }, zipWriterOptions);
+	await zipWriter.appendZip(new Uint8ArrayReader(entriesData));
 	if (pdfEntry) {
 		new DataView(pdfEntry.centralRecord.buffer).setUint32(42, pdfEntry.offset, true);
 		await writeData(zipDataWriter.writable, pdfEntry.centralRecord);
@@ -206,7 +216,7 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 	await zipWriter.close(undefined, { preventClose: true });
 	if (pdfEntry && !patchEndOfCentralDirectory(zipDataWriter, pdfEntry.centralRecord.length)) {
 		options.preventEmbeddedPdfEntry = true;
-		return createArchive(pageData, options, script, writeEntries, lastModDate);
+		return buildArchive(pageData, options, script, entriesData, zipWriterOptions);
 	}
 	const data = zipDataWriter.getData();
 	const zipDataEnd = data.length - COMMENT_LENGTH_FIELD_LENGTH;
@@ -219,12 +229,12 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 				const tagIndex = getExtraDataTagIndex(options.extractDataFromPageTags);
 				const regExpsTag = EXTRA_DATA_REGEXPS[tagIndex];
 				if (textContent.match(regExpsTag[0]) || textContent.match(regExpsTag[1])) {
-					return findExtraDataTags(textContent, pageData, options, script, writeEntries, lastModDate, tagIndex + 1);
+					return findExtraDataTags(textContent, pageData, options, script, entriesData, zipWriterOptions, tagIndex + 1);
 				}
 			} else {
 				const [startRegExp, endRegExp] = EMBEDDED_DATA_REGEXPS[0];
 				if (textContent.match(startRegExp) || textContent.match(endRegExp)) {
-					return findExtraDataTags(textContent, pageData, options, script, writeEntries, lastModDate);
+					return findExtraDataTags(textContent, pageData, options, script, entriesData, zipWriterOptions);
 				}
 			}
 		}
@@ -268,14 +278,14 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 			if (options.preventAppendedData || extraData.length > MAX_APPENDED_DATA_LENGTH - pageContent.length - endTags.length - (options.embeddedImage ? PNG_IEND_LENGTH + PNG_CHUNK_CRC_LENGTH : 0)) {
 				if (!options.extraDataSize) {
 					options.extraDataSize = getReservationSize(extraData.length);
-					return createArchive(pageData, options, script, writeEntries, lastModDate);
+					return buildArchive(pageData, options, script, entriesData, zipWriterOptions);
 				}
 			} else {
 				if (options.extraDataSize) {
 					if (!options.extraDataSizeDropped) {
 						options.extraDataSizeDropped = true;
 						options.extraDataSize = undefined;
-						return createArchive(pageData, options, script, writeEntries, lastModDate);
+						return buildArchive(pageData, options, script, entriesData, zipWriterOptions);
 					}
 				} else {
 					pageContent += extraData;
@@ -292,7 +302,7 @@ async function createArchive(pageData, options, script, writeEntries, lastModDat
 			pageContent.set(new TextEncoder().encode(extraData), startOffset - extraDataOffset);
 		} else {
 			options.extraDataSize = getReservationSize(extraData.length);
-			return createArchive(pageData, options, script, writeEntries, lastModDate);
+			return buildArchive(pageData, options, script, entriesData, zipWriterOptions);
 		}
 	}
 	if (options.declareAppendedData) {
@@ -601,23 +611,23 @@ function getExtraDataTagIndex(extractDataFromPageTags) {
 	return tagIndex;
 }
 
-function findExtraDataTags(textContent, pageData, options, script, writeEntries, lastModDate, indexExtractDataFromPageTags = 0) {
+function findExtraDataTags(textContent, pageData, options, script, entriesData, zipWriterOptions, indexExtractDataFromPageTags = 0) {
 	const regExpsTag = EXTRA_DATA_REGEXPS[indexExtractDataFromPageTags];
 	const plaintextTag = EXTRA_DATA_TAGS[indexExtractDataFromPageTags][0] == "<plaintext>";
 	const matchTag = !plaintextTag && (textContent.match(regExpsTag[0]) || textContent.match(regExpsTag[1]));
 	if (matchTag) {
 		if (indexExtractDataFromPageTags < EXTRA_DATA_TAGS.length - 1) {
-			return findExtraDataTags(textContent, pageData, options, script, writeEntries, lastModDate, indexExtractDataFromPageTags + 1);
+			return findExtraDataTags(textContent, pageData, options, script, entriesData, zipWriterOptions, indexExtractDataFromPageTags + 1);
 		} else {
 			options.extractDataFromPage = false;
-			return createArchive(pageData, options, script, writeEntries, lastModDate);
+			return buildArchive(pageData, options, script, entriesData, zipWriterOptions);
 		}
 	} else {
 		options.extractDataFromPageTags = EXTRA_DATA_TAGS[indexExtractDataFromPageTags];
 		if (options.extractDataFromPageTags[0] == "<plaintext>") {
 			options.preventAppendedData = true;
 		}
-		return createArchive(pageData, options, script, writeEntries, lastModDate);
+		return buildArchive(pageData, options, script, entriesData, zipWriterOptions);
 	}
 }
 
