@@ -807,7 +807,7 @@ as the end ones. A stored, uncompressed resource is the realistic source of an
 upper-case one.
 
 Every rung hides its content unconditionally. `<noscript>` has the right terminator
-and was a rung until core 1.5.108, but it is the one construct whose content is raw
+and was once a rung itself (§8.5), but it is the one construct whose content is raw
 text only while scripting is enabled and markup when it is not, so on a page opened
 without scripting the archive bytes would reach the tree builder as tags. The rungs
 below it hide the same payloads at no extra cost, so it was removed rather than
@@ -1194,10 +1194,10 @@ it. The two encodings agree over printable ASCII, so setting it unconditionally 
 nothing, and it means no name in the archive is decoded through the legacy path at all.
 
 **A reader MUST honor the flag** rather than assume one encoding, and MUST expect to
-meet a clear one in an archive written before core 1.5.120: the hand-built `page.pdf`
-records (§3.1, §6) are the only ones the reference writer does not produce through its
-ZIP writer, and they set no flag at all until that version. In such an archive that
-single entry is decoded as legacy while every other name in the same file is UTF-8.
+meet a clear one: the hand-built `page.pdf` records (§3.1, §6) are the only ones the
+reference writer does not produce through its ZIP writer, and older writers set no flag
+on them at all (§8.5). In such an archive that single entry is decoded as legacy while
+every other name in the same file is UTF-8.
 Its name is ASCII, where the two encodings agree, so a correct reader sees `page.pdf`
 either way — but a reader that hardcodes UTF-8 on the strength of the other entries has
 not covered it.
@@ -1614,7 +1614,7 @@ measured except Apple's `ditto`.
 ### 8.2 Anatomy of a small archive
 
 Offsets in `universal.sfz.html` (123077 bytes, two entries, saved from `example.com`
-with the §8.3 command, against core 1.5.108).
+with the §8.3 command, on the build named there).
 The layout is the *universal* row of the byte map (§3).
 
 These numbers are one capture, not a contract. Everything from the bootstrap onward
