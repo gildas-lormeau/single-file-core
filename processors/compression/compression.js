@@ -703,6 +703,7 @@ async function addPageResources(zipWriter, pageData, options, prefixName, url) {
 		Promise.all(Object.keys(pageData.resources).map(async resourceType =>
 			Promise.all(pageData.resources[resourceType].map(data => {
 				if (resourceType == "frames") {
+					data.archiveTime = pageData.archiveTime;
 					return addPageResources(zipWriter, data, options, prefixName + data.name, data.url);
 				} else {
 					return addFile(zipWriter, prefixName, data, options.disableCompression);

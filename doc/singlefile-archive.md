@@ -1521,8 +1521,8 @@ handles every variant of §2 without knowing which one it has.
   8601 string), the entry name of the page as `indexFilename` and the resource-to-URL
   map as `resources`. The page displays without any of it, and a reader MUST NOT require
   the entry or any field of it. `indexFilename` names the page relative to the
-  manifest's own directory, not as a full entry name. A frame's manifest carries no
-  `archiveTime`. The set of fields is not closed: a reader
+  manifest's own directory, not as a full entry name. A frame's manifest carries the
+  same `archiveTime` as the page's. The set of fields is not closed: a reader
   MUST ignore what it does not recognize.
 - **Expect a `page.pdf` entry whose data lies outside the archive proper** (§4.2). It
   is an ordinary STORE entry at an ordinary offset, so nothing special is needed to
