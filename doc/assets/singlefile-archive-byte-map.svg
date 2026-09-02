@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2110 1332" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
-<rect width="2110" height="1332" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2110 1218" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+<rect width="2110" height="1218" fill="#ffffff"/>
 <text x="16" y="24" font-size="15" font-weight="600" fill="#1c2733">SingleFile archive byte map</text>
 <rect x="16" y="36" width="12" height="12" rx="2" fill="#3d7dbf"/>
 <text x="32" y="46" font-size="11" fill="#3a4652">HTML markup</text>
@@ -62,8 +62,8 @@
 <text x="967" y="316.5" font-size="10.5" fill="#ffffff" text-anchor="middle">&lt;/body&gt;&lt;/html&gt;</text>
 <path d="M 412 343 v 5 H 758 v -5" stroke="#3d7dbf" stroke-width="1.5" fill="none"/>
 <text x="585" y="360" font-size="9.5" fill="#3d7dbf" text-anchor="middle">wrapper comment content</text>
-<text x="16" y="402" font-size="12.5" font-weight="600" fill="#1c2733">universal, relocated extra-data (payload &gt; 64 KB)</text>
-<text x="390.6" y="402" font-size="11" fill="#68727c">u.zip.html · windows-1252 · derived from the writer rules; payload too large for a small specimen</text>
+<text x="16" y="402" font-size="12.5" font-weight="600" fill="#1c2733">universal, relocated extra-data (payload &gt; 64 KB, or appended data disallowed)</text>
+<text x="609.3" y="402" font-size="11" fill="#68727c">u.zip.html · windows-1252 · nothing after the eocd; the wrapper comment never closes · the oversized-payload case is derived from the writer rules</text>
 <rect x="16" y="410" width="140" height="34" rx="3" fill="#3d7dbf"/>
 <text x="86" y="430.5" font-size="10.5" fill="#ffffff" text-anchor="middle">html-prologue</text>
 <rect x="158" y="410" width="190" height="34" rx="3" fill="#28568a"/>
@@ -71,7 +71,6 @@
 <text x="253" y="430.5" font-size="10.5" fill="#ffffff" text-anchor="middle">bootstrap</text>
 <rect x="350" y="410" width="140" height="34" rx="3" fill="#8f62b8" opacity="0.3"/>
 <rect x="350" y="410" width="98" height="34" rx="3" fill="#8f62b8"/>
-<path d="M 476 409 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
 <text x="399" y="430.5" font-size="10.5" fill="#ffffff" text-anchor="middle">extra-data</text>
 <rect x="492" y="410" width="60" height="34" rx="3" fill="#3d7dbf"/>
 <text x="522" y="430.5" font-size="8.5" fill="#ffffff" text-anchor="middle">&lt;!--sfz-data</text>
@@ -80,219 +79,198 @@
 <text x="649" y="430.5" font-size="10.5" fill="#ffffff" text-anchor="middle">zip-entries</text>
 <rect x="746" y="410" width="154" height="34" rx="3" fill="#b06f1d"/>
 <text x="823" y="430.5" font-size="10.5" fill="#ffffff" text-anchor="middle">central-directory · eocd</text>
-<rect x="902" y="410" width="113" height="34" rx="3" fill="#3d7dbf"/>
-<text x="958.5" y="430.5" font-size="10.5" fill="#ffffff" text-anchor="middle">--&gt;&lt;/body&gt;&lt;/html&gt;</text>
 <path d="M 554 457 v 5 H 900 v -5" stroke="#3d7dbf" stroke-width="1.5" fill="none"/>
-<text x="727" y="474" font-size="9.5" fill="#3d7dbf" text-anchor="middle">wrapper comment content</text>
-<text x="16" y="516" font-size="12.5" font-weight="600" fill="#1c2733">universal, relocated extra-data (appended data disallowed)</text>
-<text x="457.20000000000005" y="516" font-size="11" fill="#68727c">u.zip.html · windows-1252 · nothing after the eocd; the wrapper comment never closes</text>
-<rect x="16" y="524" width="140" height="34" rx="3" fill="#3d7dbf"/>
-<text x="86" y="544.5" font-size="10.5" fill="#ffffff" text-anchor="middle">html-prologue</text>
-<rect x="158" y="524" width="190" height="34" rx="3" fill="#28568a"/>
-<path d="M 334 523 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
-<text x="253" y="544.5" font-size="10.5" fill="#ffffff" text-anchor="middle">bootstrap</text>
-<rect x="350" y="524" width="140" height="34" rx="3" fill="#8f62b8" opacity="0.3"/>
-<rect x="350" y="524" width="98" height="34" rx="3" fill="#8f62b8"/>
-<text x="399" y="544.5" font-size="10.5" fill="#ffffff" text-anchor="middle">extra-data</text>
-<rect x="492" y="524" width="60" height="34" rx="3" fill="#3d7dbf"/>
-<text x="522" y="544.5" font-size="8.5" fill="#ffffff" text-anchor="middle">&lt;!--sfz-data</text>
-<rect x="554" y="524" width="190" height="34" rx="3" fill="#e8a33d"/>
-<path d="M 730 523 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
-<text x="649" y="544.5" font-size="10.5" fill="#ffffff" text-anchor="middle">zip-entries</text>
-<rect x="746" y="524" width="154" height="34" rx="3" fill="#b06f1d"/>
-<text x="823" y="544.5" font-size="10.5" fill="#ffffff" text-anchor="middle">central-directory · eocd</text>
-<path d="M 554 571 v 5 H 900 v -5" stroke="#3d7dbf" stroke-width="1.5" fill="none"/>
-<text x="727" y="588" font-size="9.5" fill="#3d7dbf" text-anchor="middle">wrapper comment content (the comment never closes)</text>
-<text x="16" y="630" font-size="12.5" font-weight="600" fill="#1c2733">+ PDF face</text>
-<text x="102" y="630" font-size="11" fill="#68727c">u.zip.html · page.pdf listed first in the central directory</text>
-<rect x="16" y="638" width="95" height="34" rx="3" fill="#3d7dbf"/>
-<text x="63.5" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">html-prologue</text>
-<rect x="113" y="638" width="60" height="34" rx="3" fill="#3d7dbf"/>
-<text x="143" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">&lt;!--</text>
-<rect x="175" y="638" width="107" height="34" rx="3" fill="#e8a33d"/>
-<text x="228.5" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pdf-local-header</text>
-<rect x="284" y="638" width="140" height="34" rx="3" fill="#c14f4f"/>
-<path d="M 410 637 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
-<text x="354" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pdf-document</text>
-<rect x="426" y="638" width="60" height="34" rx="3" fill="#3d7dbf"/>
-<text x="456" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">--&gt;</text>
-<rect x="488" y="638" width="136" height="34" rx="3" fill="#3d7dbf"/>
-<text x="556" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">html-prologue (cont.)</text>
-<rect x="626" y="638" width="140" height="34" rx="3" fill="#28568a"/>
-<path d="M 752 637 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
-<text x="696" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">bootstrap</text>
-<rect x="768" y="638" width="60" height="34" rx="3" fill="#3d7dbf"/>
-<text x="798" y="658.5" font-size="8.5" fill="#ffffff" text-anchor="middle">&lt;!--sfz-data</text>
-<rect x="830" y="638" width="95" height="34" rx="3" fill="#e8a33d"/>
-<path d="M 911 637 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
-<text x="877.5" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">zip-entries</text>
-<rect x="927" y="638" width="119" height="34" rx="3" fill="#b06f1d"/>
-<text x="986.5" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pdf-central-record</text>
-<rect x="1048" y="638" width="154" height="34" rx="3" fill="#b06f1d"/>
-<text x="1125" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">central-directory · eocd</text>
-<rect x="1204" y="638" width="60" height="34" rx="3" fill="#3d7dbf"/>
-<text x="1234" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">--&gt;</text>
-<rect x="1266" y="638" width="95" height="34" rx="3" fill="#8f62b8"/>
-<text x="1313.5" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">extra-data</text>
-<rect x="1363" y="638" width="96" height="34" rx="3" fill="#3d7dbf"/>
-<text x="1411" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">&lt;/body&gt;&lt;/html&gt;</text>
-<path d="M 175 685 v 5 H 424 v -5" stroke="#3d7dbf" stroke-width="1.5" fill="none"/>
-<text x="299.5" y="702" font-size="9.5" fill="#3d7dbf" text-anchor="middle">wrapper comment content</text>
-<path d="M 830 685 v 5 H 1202 v -5" stroke="#3d7dbf" stroke-width="1.5" fill="none"/>
-<text x="1016" y="702" font-size="9.5" fill="#3d7dbf" text-anchor="middle">wrapper comment content</text>
-<text x="16" y="744" font-size="12.5" font-weight="600" fill="#1c2733">+ PNG face</text>
-<text x="102" y="744" font-size="11" fill="#68727c">u.zip.html · well-formed PNG chunk layout; no &lt;/body&gt;&lt;/html&gt; because IEND must end the file</text>
-<rect x="16" y="752" width="130" height="34" rx="3" fill="#4f9b63"/>
-<text x="81" y="772.5" font-size="10.5" fill="#ffffff" text-anchor="middle">png-signature · IHDR</text>
-<rect x="148" y="752" width="72" height="34" rx="3" fill="#4f9b63"/>
-<text x="184" y="772.5" font-size="10.5" fill="#ffffff" text-anchor="middle">tEXt "PNG"</text>
-<rect x="222" y="752" width="95" height="34" rx="3" fill="#3d7dbf"/>
-<text x="269.5" y="772.5" font-size="10.5" fill="#ffffff" text-anchor="middle">html-prologue</text>
-<rect x="319" y="752" width="60" height="34" rx="3" fill="#3d7dbf"/>
-<text x="349" y="772.5" font-size="10.5" fill="#ffffff" text-anchor="middle">&lt;!--</text>
-<rect x="381" y="752" width="140" height="34" rx="3" fill="#4f9b63"/>
-<path d="M 507 751 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
-<text x="451" y="772.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pixel-data chunks</text>
-<rect x="523" y="752" width="95" height="34" rx="3" fill="#4f9b63"/>
-<text x="570.5" y="772.5" font-size="10.5" fill="#ffffff" text-anchor="middle">tEXt "ZIP"</text>
-<rect x="620" y="752" width="60" height="34" rx="3" fill="#3d7dbf"/>
-<text x="650" y="772.5" font-size="10.5" fill="#ffffff" text-anchor="middle">--&gt;</text>
-<rect x="682" y="752" width="136" height="34" rx="3" fill="#3d7dbf"/>
-<text x="750" y="772.5" font-size="10.5" fill="#ffffff" text-anchor="middle">html-prologue (cont.)</text>
-<rect x="820" y="752" width="140" height="34" rx="3" fill="#28568a"/>
-<path d="M 946 751 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
-<text x="890" y="772.5" font-size="10.5" fill="#ffffff" text-anchor="middle">bootstrap</text>
-<rect x="962" y="752" width="60" height="34" rx="3" fill="#3d7dbf"/>
-<text x="992" y="772.5" font-size="8.5" fill="#ffffff" text-anchor="middle">&lt;!--sfz-data</text>
-<rect x="1024" y="752" width="140" height="34" rx="3" fill="#e8a33d"/>
-<path d="M 1150 751 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
-<text x="1094" y="772.5" font-size="10.5" fill="#ffffff" text-anchor="middle">zip-entries</text>
-<rect x="1166" y="752" width="154" height="34" rx="3" fill="#b06f1d"/>
-<text x="1243" y="772.5" font-size="10.5" fill="#ffffff" text-anchor="middle">central-directory · eocd</text>
-<rect x="1322" y="752" width="60" height="34" rx="3" fill="#3d7dbf"/>
-<text x="1352" y="772.5" font-size="10.5" fill="#ffffff" text-anchor="middle">--&gt;</text>
-<rect x="1384" y="752" width="95" height="34" rx="3" fill="#8f62b8"/>
-<text x="1431.5" y="772.5" font-size="10.5" fill="#ffffff" text-anchor="middle">extra-data</text>
-<rect x="1481" y="752" width="72" height="34" rx="3" fill="#4f9b63"/>
-<text x="1517" y="772.5" font-size="10.5" fill="#ffffff" text-anchor="middle">crc · IEND</text>
-<path d="M 381 799 v 5 H 618 v -5" stroke="#3d7dbf" stroke-width="1.5" fill="none"/>
-<text x="499.5" y="816" font-size="9.5" fill="#3d7dbf" text-anchor="middle">wrapper comment content</text>
-<path d="M 1024 799 v 5 H 1320 v -5" stroke="#3d7dbf" stroke-width="1.5" fill="none"/>
-<text x="1172" y="816" font-size="9.5" fill="#3d7dbf" text-anchor="middle">wrapper comment content</text>
-<path d="M 222 823 v 5 H 379 v -5" stroke="#4f9b63" stroke-width="1.5" fill="none"/>
-<text x="300.5" y="840" font-size="9.5" fill="#4f9b63" text-anchor="middle">tEXt "PNG" chunk data</text>
-<path d="M 620 823 v 5 H 1479 v -5" stroke="#4f9b63" stroke-width="1.5" fill="none"/>
-<text x="1049.5" y="840" font-size="9.5" fill="#4f9b63" text-anchor="middle">tEXt "ZIP" chunk data (declared length covers everything up to the trailing CRC)</text>
-<text x="16" y="882" font-size="12.5" font-weight="600" fill="#1c2733">+ PNG + PDF (all four faces)</text>
-<text x="235.20000000000002" y="882" font-size="11" fill="#68727c">u.zip.html · PDF inside the HTML inside the tEXt chunk</text>
-<rect x="16" y="890" width="130" height="34" rx="3" fill="#4f9b63"/>
-<text x="81" y="910.5" font-size="10.5" fill="#ffffff" text-anchor="middle">png-signature · IHDR</text>
-<rect x="148" y="890" width="72" height="34" rx="3" fill="#4f9b63"/>
-<text x="184" y="910.5" font-size="10.5" fill="#ffffff" text-anchor="middle">tEXt "PNG"</text>
-<rect x="222" y="890" width="95" height="34" rx="3" fill="#3d7dbf"/>
-<text x="269.5" y="910.5" font-size="10.5" fill="#ffffff" text-anchor="middle">html-prologue</text>
-<rect x="319" y="890" width="60" height="34" rx="3" fill="#3d7dbf"/>
-<text x="349" y="910.5" font-size="10.5" fill="#ffffff" text-anchor="middle">&lt;!--</text>
-<rect x="381" y="890" width="107" height="34" rx="3" fill="#e8a33d"/>
-<text x="434.5" y="910.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pdf-local-header</text>
-<rect x="490" y="890" width="140" height="34" rx="3" fill="#c14f4f"/>
-<path d="M 616 889 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
-<text x="560" y="910.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pdf-document</text>
-<rect x="632" y="890" width="60" height="34" rx="3" fill="#3d7dbf"/>
-<text x="662" y="910.5" font-size="10.5" fill="#ffffff" text-anchor="middle">--&gt;</text>
-<rect x="694" y="890" width="136" height="34" rx="3" fill="#3d7dbf"/>
-<text x="762" y="910.5" font-size="10.5" fill="#ffffff" text-anchor="middle">html-prologue (cont.)</text>
-<rect x="832" y="890" width="60" height="34" rx="3" fill="#3d7dbf"/>
-<text x="862" y="910.5" font-size="10.5" fill="#ffffff" text-anchor="middle">&lt;!--</text>
-<rect x="894" y="890" width="113" height="34" rx="3" fill="#4f9b63"/>
-<path d="M 993 889 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
-<text x="950.5" y="910.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pixel-data chunks</text>
-<rect x="1009" y="890" width="72" height="34" rx="3" fill="#4f9b63"/>
-<text x="1045" y="910.5" font-size="10.5" fill="#ffffff" text-anchor="middle">tEXt "ZIP"</text>
-<rect x="1083" y="890" width="60" height="34" rx="3" fill="#3d7dbf"/>
-<text x="1113" y="910.5" font-size="10.5" fill="#ffffff" text-anchor="middle">--&gt;</text>
-<rect x="1145" y="890" width="136" height="34" rx="3" fill="#3d7dbf"/>
-<text x="1213" y="910.5" font-size="10.5" fill="#ffffff" text-anchor="middle">html-prologue (cont.)</text>
-<rect x="1283" y="890" width="95" height="34" rx="3" fill="#28568a"/>
-<path d="M 1364 889 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
-<text x="1330.5" y="910.5" font-size="10.5" fill="#ffffff" text-anchor="middle">bootstrap</text>
-<rect x="1380" y="890" width="60" height="34" rx="3" fill="#3d7dbf"/>
-<text x="1410" y="910.5" font-size="8.5" fill="#ffffff" text-anchor="middle">&lt;!--sfz-data</text>
-<rect x="1442" y="890" width="140" height="34" rx="3" fill="#e8a33d"/>
-<path d="M 1568 889 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
-<text x="1512" y="910.5" font-size="10.5" fill="#ffffff" text-anchor="middle">zip-entries</text>
-<rect x="1584" y="890" width="119" height="34" rx="3" fill="#b06f1d"/>
-<text x="1643.5" y="910.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pdf-central-record</text>
-<rect x="1705" y="890" width="154" height="34" rx="3" fill="#b06f1d"/>
-<text x="1782" y="910.5" font-size="10.5" fill="#ffffff" text-anchor="middle">central-directory · eocd</text>
-<rect x="1861" y="890" width="60" height="34" rx="3" fill="#3d7dbf"/>
-<text x="1891" y="910.5" font-size="10.5" fill="#ffffff" text-anchor="middle">--&gt;</text>
-<rect x="1923" y="890" width="95" height="34" rx="3" fill="#8f62b8"/>
-<text x="1970.5" y="910.5" font-size="10.5" fill="#ffffff" text-anchor="middle">extra-data</text>
-<rect x="2020" y="890" width="72" height="34" rx="3" fill="#4f9b63"/>
-<text x="2056" y="910.5" font-size="10.5" fill="#ffffff" text-anchor="middle">crc · IEND</text>
-<path d="M 381 937 v 5 H 630 v -5" stroke="#3d7dbf" stroke-width="1.5" fill="none"/>
-<text x="505.5" y="954" font-size="9.5" fill="#3d7dbf" text-anchor="middle">wrapper comment content</text>
-<path d="M 894 937 v 5 H 1081 v -5" stroke="#3d7dbf" stroke-width="1.5" fill="none"/>
-<text x="987.5" y="954" font-size="9.5" fill="#3d7dbf" text-anchor="middle">wrapper comment content</text>
-<path d="M 1442 937 v 5 H 1859 v -5" stroke="#3d7dbf" stroke-width="1.5" fill="none"/>
-<text x="1650.5" y="954" font-size="9.5" fill="#3d7dbf" text-anchor="middle">wrapper comment content</text>
-<path d="M 222 961 v 5 H 892 v -5" stroke="#4f9b63" stroke-width="1.5" fill="none"/>
-<text x="557" y="978" font-size="9.5" fill="#4f9b63" text-anchor="middle">tEXt "PNG" chunk data</text>
-<path d="M 1083 961 v 5 H 2018 v -5" stroke="#4f9b63" stroke-width="1.5" fill="none"/>
-<text x="1550.5" y="978" font-size="9.5" fill="#4f9b63" text-anchor="middle">tEXt "ZIP" chunk data (declared length covers everything up to the trailing CRC)</text>
-<text x="16" y="1020" font-size="12.5" font-weight="600" fill="#1c2733">PDF face without HTML</text>
-<text x="183.4" y="1020" font-size="11" fill="#68727c">zip · the PDF is prepended data; page.pdf is not an archive entry</text>
-<rect x="16" y="1028" width="190" height="34" rx="3" fill="#c14f4f"/>
-<path d="M 192 1027 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
-<text x="111" y="1048.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pdf-document</text>
-<rect x="208" y="1028" width="190" height="34" rx="3" fill="#e8a33d"/>
-<path d="M 384 1027 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
-<text x="303" y="1048.5" font-size="10.5" fill="#ffffff" text-anchor="middle">zip-entries</text>
-<rect x="400" y="1028" width="154" height="34" rx="3" fill="#b06f1d"/>
-<text x="477" y="1048.5" font-size="10.5" fill="#ffffff" text-anchor="middle">central-directory · eocd</text>
-<text x="16" y="1108" font-size="12.5" font-weight="600" fill="#1c2733">PNG face without HTML</text>
-<text x="183.4" y="1108" font-size="11" fill="#68727c">zip · PNG chunk layout, no markup</text>
+<text x="727" y="474" font-size="9.5" fill="#3d7dbf" text-anchor="middle">wrapper comment content (the comment never closes)</text>
+<text x="16" y="516" font-size="12.5" font-weight="600" fill="#1c2733">+ PDF face</text>
+<text x="102" y="516" font-size="11" fill="#68727c">u.zip.html · page.pdf listed first in the central directory</text>
+<rect x="16" y="524" width="95" height="34" rx="3" fill="#3d7dbf"/>
+<text x="63.5" y="544.5" font-size="10.5" fill="#ffffff" text-anchor="middle">html-prologue</text>
+<rect x="113" y="524" width="60" height="34" rx="3" fill="#3d7dbf"/>
+<text x="143" y="544.5" font-size="10.5" fill="#ffffff" text-anchor="middle">&lt;!--</text>
+<rect x="175" y="524" width="107" height="34" rx="3" fill="#e8a33d"/>
+<text x="228.5" y="544.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pdf-local-header</text>
+<rect x="284" y="524" width="140" height="34" rx="3" fill="#c14f4f"/>
+<path d="M 410 523 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="354" y="544.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pdf-document</text>
+<rect x="426" y="524" width="60" height="34" rx="3" fill="#3d7dbf"/>
+<text x="456" y="544.5" font-size="10.5" fill="#ffffff" text-anchor="middle">--&gt;</text>
+<rect x="488" y="524" width="136" height="34" rx="3" fill="#3d7dbf"/>
+<text x="556" y="544.5" font-size="10.5" fill="#ffffff" text-anchor="middle">html-prologue (cont.)</text>
+<rect x="626" y="524" width="140" height="34" rx="3" fill="#28568a"/>
+<path d="M 752 523 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="696" y="544.5" font-size="10.5" fill="#ffffff" text-anchor="middle">bootstrap</text>
+<rect x="768" y="524" width="60" height="34" rx="3" fill="#3d7dbf"/>
+<text x="798" y="544.5" font-size="8.5" fill="#ffffff" text-anchor="middle">&lt;!--sfz-data</text>
+<rect x="830" y="524" width="95" height="34" rx="3" fill="#e8a33d"/>
+<path d="M 911 523 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="877.5" y="544.5" font-size="10.5" fill="#ffffff" text-anchor="middle">zip-entries</text>
+<rect x="927" y="524" width="119" height="34" rx="3" fill="#b06f1d"/>
+<text x="986.5" y="544.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pdf-central-record</text>
+<rect x="1048" y="524" width="154" height="34" rx="3" fill="#b06f1d"/>
+<text x="1125" y="544.5" font-size="10.5" fill="#ffffff" text-anchor="middle">central-directory · eocd</text>
+<rect x="1204" y="524" width="60" height="34" rx="3" fill="#3d7dbf"/>
+<text x="1234" y="544.5" font-size="10.5" fill="#ffffff" text-anchor="middle">--&gt;</text>
+<rect x="1266" y="524" width="95" height="34" rx="3" fill="#8f62b8"/>
+<text x="1313.5" y="544.5" font-size="10.5" fill="#ffffff" text-anchor="middle">extra-data</text>
+<rect x="1363" y="524" width="96" height="34" rx="3" fill="#3d7dbf"/>
+<text x="1411" y="544.5" font-size="10.5" fill="#ffffff" text-anchor="middle">&lt;/body&gt;&lt;/html&gt;</text>
+<path d="M 175 571 v 5 H 424 v -5" stroke="#3d7dbf" stroke-width="1.5" fill="none"/>
+<text x="299.5" y="588" font-size="9.5" fill="#3d7dbf" text-anchor="middle">wrapper comment content</text>
+<path d="M 830 571 v 5 H 1202 v -5" stroke="#3d7dbf" stroke-width="1.5" fill="none"/>
+<text x="1016" y="588" font-size="9.5" fill="#3d7dbf" text-anchor="middle">wrapper comment content</text>
+<text x="16" y="630" font-size="12.5" font-weight="600" fill="#1c2733">+ PNG face</text>
+<text x="102" y="630" font-size="11" fill="#68727c">u.zip.html · well-formed PNG chunk layout; no &lt;/body&gt;&lt;/html&gt; because IEND must end the file</text>
+<rect x="16" y="638" width="130" height="34" rx="3" fill="#4f9b63"/>
+<text x="81" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">png-signature · IHDR</text>
+<rect x="148" y="638" width="72" height="34" rx="3" fill="#4f9b63"/>
+<text x="184" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">tEXt "PNG"</text>
+<rect x="222" y="638" width="95" height="34" rx="3" fill="#3d7dbf"/>
+<text x="269.5" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">html-prologue</text>
+<rect x="319" y="638" width="60" height="34" rx="3" fill="#3d7dbf"/>
+<text x="349" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">&lt;!--</text>
+<rect x="381" y="638" width="140" height="34" rx="3" fill="#4f9b63"/>
+<path d="M 507 637 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="451" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pixel-data chunks</text>
+<rect x="523" y="638" width="95" height="34" rx="3" fill="#4f9b63"/>
+<text x="570.5" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">tEXt "ZIP"</text>
+<rect x="620" y="638" width="60" height="34" rx="3" fill="#3d7dbf"/>
+<text x="650" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">--&gt;</text>
+<rect x="682" y="638" width="136" height="34" rx="3" fill="#3d7dbf"/>
+<text x="750" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">html-prologue (cont.)</text>
+<rect x="820" y="638" width="140" height="34" rx="3" fill="#28568a"/>
+<path d="M 946 637 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="890" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">bootstrap</text>
+<rect x="962" y="638" width="60" height="34" rx="3" fill="#3d7dbf"/>
+<text x="992" y="658.5" font-size="8.5" fill="#ffffff" text-anchor="middle">&lt;!--sfz-data</text>
+<rect x="1024" y="638" width="140" height="34" rx="3" fill="#e8a33d"/>
+<path d="M 1150 637 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="1094" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">zip-entries</text>
+<rect x="1166" y="638" width="154" height="34" rx="3" fill="#b06f1d"/>
+<text x="1243" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">central-directory · eocd</text>
+<rect x="1322" y="638" width="60" height="34" rx="3" fill="#3d7dbf"/>
+<text x="1352" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">--&gt;</text>
+<rect x="1384" y="638" width="95" height="34" rx="3" fill="#8f62b8"/>
+<text x="1431.5" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">extra-data</text>
+<rect x="1481" y="638" width="72" height="34" rx="3" fill="#4f9b63"/>
+<text x="1517" y="658.5" font-size="10.5" fill="#ffffff" text-anchor="middle">crc · IEND</text>
+<path d="M 381 685 v 5 H 618 v -5" stroke="#3d7dbf" stroke-width="1.5" fill="none"/>
+<text x="499.5" y="702" font-size="9.5" fill="#3d7dbf" text-anchor="middle">wrapper comment content</text>
+<path d="M 1024 685 v 5 H 1320 v -5" stroke="#3d7dbf" stroke-width="1.5" fill="none"/>
+<text x="1172" y="702" font-size="9.5" fill="#3d7dbf" text-anchor="middle">wrapper comment content</text>
+<path d="M 222 709 v 5 H 379 v -5" stroke="#4f9b63" stroke-width="1.5" fill="none"/>
+<text x="300.5" y="726" font-size="9.5" fill="#4f9b63" text-anchor="middle">tEXt "PNG" chunk data</text>
+<path d="M 620 709 v 5 H 1479 v -5" stroke="#4f9b63" stroke-width="1.5" fill="none"/>
+<text x="1049.5" y="726" font-size="9.5" fill="#4f9b63" text-anchor="middle">tEXt "ZIP" chunk data (declared length covers everything up to the trailing CRC)</text>
+<text x="16" y="768" font-size="12.5" font-weight="600" fill="#1c2733">+ PNG + PDF (all four faces)</text>
+<text x="235.20000000000002" y="768" font-size="11" fill="#68727c">u.zip.html · PDF inside the HTML inside the tEXt chunk</text>
+<rect x="16" y="776" width="130" height="34" rx="3" fill="#4f9b63"/>
+<text x="81" y="796.5" font-size="10.5" fill="#ffffff" text-anchor="middle">png-signature · IHDR</text>
+<rect x="148" y="776" width="72" height="34" rx="3" fill="#4f9b63"/>
+<text x="184" y="796.5" font-size="10.5" fill="#ffffff" text-anchor="middle">tEXt "PNG"</text>
+<rect x="222" y="776" width="95" height="34" rx="3" fill="#3d7dbf"/>
+<text x="269.5" y="796.5" font-size="10.5" fill="#ffffff" text-anchor="middle">html-prologue</text>
+<rect x="319" y="776" width="60" height="34" rx="3" fill="#3d7dbf"/>
+<text x="349" y="796.5" font-size="10.5" fill="#ffffff" text-anchor="middle">&lt;!--</text>
+<rect x="381" y="776" width="107" height="34" rx="3" fill="#e8a33d"/>
+<text x="434.5" y="796.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pdf-local-header</text>
+<rect x="490" y="776" width="140" height="34" rx="3" fill="#c14f4f"/>
+<path d="M 616 775 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="560" y="796.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pdf-document</text>
+<rect x="632" y="776" width="60" height="34" rx="3" fill="#3d7dbf"/>
+<text x="662" y="796.5" font-size="10.5" fill="#ffffff" text-anchor="middle">--&gt;</text>
+<rect x="694" y="776" width="136" height="34" rx="3" fill="#3d7dbf"/>
+<text x="762" y="796.5" font-size="10.5" fill="#ffffff" text-anchor="middle">html-prologue (cont.)</text>
+<rect x="832" y="776" width="60" height="34" rx="3" fill="#3d7dbf"/>
+<text x="862" y="796.5" font-size="10.5" fill="#ffffff" text-anchor="middle">&lt;!--</text>
+<rect x="894" y="776" width="113" height="34" rx="3" fill="#4f9b63"/>
+<path d="M 993 775 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="950.5" y="796.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pixel-data chunks</text>
+<rect x="1009" y="776" width="72" height="34" rx="3" fill="#4f9b63"/>
+<text x="1045" y="796.5" font-size="10.5" fill="#ffffff" text-anchor="middle">tEXt "ZIP"</text>
+<rect x="1083" y="776" width="60" height="34" rx="3" fill="#3d7dbf"/>
+<text x="1113" y="796.5" font-size="10.5" fill="#ffffff" text-anchor="middle">--&gt;</text>
+<rect x="1145" y="776" width="136" height="34" rx="3" fill="#3d7dbf"/>
+<text x="1213" y="796.5" font-size="10.5" fill="#ffffff" text-anchor="middle">html-prologue (cont.)</text>
+<rect x="1283" y="776" width="95" height="34" rx="3" fill="#28568a"/>
+<path d="M 1364 775 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="1330.5" y="796.5" font-size="10.5" fill="#ffffff" text-anchor="middle">bootstrap</text>
+<rect x="1380" y="776" width="60" height="34" rx="3" fill="#3d7dbf"/>
+<text x="1410" y="796.5" font-size="8.5" fill="#ffffff" text-anchor="middle">&lt;!--sfz-data</text>
+<rect x="1442" y="776" width="140" height="34" rx="3" fill="#e8a33d"/>
+<path d="M 1568 775 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="1512" y="796.5" font-size="10.5" fill="#ffffff" text-anchor="middle">zip-entries</text>
+<rect x="1584" y="776" width="119" height="34" rx="3" fill="#b06f1d"/>
+<text x="1643.5" y="796.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pdf-central-record</text>
+<rect x="1705" y="776" width="154" height="34" rx="3" fill="#b06f1d"/>
+<text x="1782" y="796.5" font-size="10.5" fill="#ffffff" text-anchor="middle">central-directory · eocd</text>
+<rect x="1861" y="776" width="60" height="34" rx="3" fill="#3d7dbf"/>
+<text x="1891" y="796.5" font-size="10.5" fill="#ffffff" text-anchor="middle">--&gt;</text>
+<rect x="1923" y="776" width="95" height="34" rx="3" fill="#8f62b8"/>
+<text x="1970.5" y="796.5" font-size="10.5" fill="#ffffff" text-anchor="middle">extra-data</text>
+<rect x="2020" y="776" width="72" height="34" rx="3" fill="#4f9b63"/>
+<text x="2056" y="796.5" font-size="10.5" fill="#ffffff" text-anchor="middle">crc · IEND</text>
+<path d="M 381 823 v 5 H 630 v -5" stroke="#3d7dbf" stroke-width="1.5" fill="none"/>
+<text x="505.5" y="840" font-size="9.5" fill="#3d7dbf" text-anchor="middle">wrapper comment content</text>
+<path d="M 894 823 v 5 H 1081 v -5" stroke="#3d7dbf" stroke-width="1.5" fill="none"/>
+<text x="987.5" y="840" font-size="9.5" fill="#3d7dbf" text-anchor="middle">wrapper comment content</text>
+<path d="M 1442 823 v 5 H 1859 v -5" stroke="#3d7dbf" stroke-width="1.5" fill="none"/>
+<text x="1650.5" y="840" font-size="9.5" fill="#3d7dbf" text-anchor="middle">wrapper comment content</text>
+<path d="M 222 847 v 5 H 892 v -5" stroke="#4f9b63" stroke-width="1.5" fill="none"/>
+<text x="557" y="864" font-size="9.5" fill="#4f9b63" text-anchor="middle">tEXt "PNG" chunk data</text>
+<path d="M 1083 847 v 5 H 2018 v -5" stroke="#4f9b63" stroke-width="1.5" fill="none"/>
+<text x="1550.5" y="864" font-size="9.5" fill="#4f9b63" text-anchor="middle">tEXt "ZIP" chunk data (declared length covers everything up to the trailing CRC)</text>
+<text x="16" y="906" font-size="12.5" font-weight="600" fill="#1c2733">PDF face without HTML</text>
+<text x="183.4" y="906" font-size="11" fill="#68727c">zip · the PDF is prepended data; page.pdf is not an archive entry</text>
+<rect x="16" y="914" width="190" height="34" rx="3" fill="#c14f4f"/>
+<path d="M 192 913 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="111" y="934.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pdf-document</text>
+<rect x="208" y="914" width="190" height="34" rx="3" fill="#e8a33d"/>
+<path d="M 384 913 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="303" y="934.5" font-size="10.5" fill="#ffffff" text-anchor="middle">zip-entries</text>
+<rect x="400" y="914" width="154" height="34" rx="3" fill="#b06f1d"/>
+<text x="477" y="934.5" font-size="10.5" fill="#ffffff" text-anchor="middle">central-directory · eocd</text>
+<text x="16" y="994" font-size="12.5" font-weight="600" fill="#1c2733">PNG face without HTML</text>
+<text x="183.4" y="994" font-size="11" fill="#68727c">zip · PNG chunk layout, no markup</text>
+<rect x="16" y="1002" width="130" height="34" rx="3" fill="#4f9b63"/>
+<text x="81" y="1022.5" font-size="10.5" fill="#ffffff" text-anchor="middle">png-signature · IHDR</text>
+<rect x="148" y="1002" width="140" height="34" rx="3" fill="#4f9b63"/>
+<path d="M 274 1001 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="218" y="1022.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pixel-data chunks</text>
+<rect x="290" y="1002" width="95" height="34" rx="3" fill="#4f9b63"/>
+<text x="337.5" y="1022.5" font-size="10.5" fill="#ffffff" text-anchor="middle">tEXt "ZIP"</text>
+<rect x="387" y="1002" width="140" height="34" rx="3" fill="#e8a33d"/>
+<path d="M 513 1001 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="457" y="1022.5" font-size="10.5" fill="#ffffff" text-anchor="middle">zip-entries</text>
+<rect x="529" y="1002" width="154" height="34" rx="3" fill="#b06f1d"/>
+<text x="606" y="1022.5" font-size="10.5" fill="#ffffff" text-anchor="middle">central-directory · eocd</text>
+<rect x="685" y="1002" width="72" height="34" rx="3" fill="#4f9b63"/>
+<text x="721" y="1022.5" font-size="10.5" fill="#ffffff" text-anchor="middle">crc · IEND</text>
+<path d="M 387 1049 v 5 H 683 v -5" stroke="#4f9b63" stroke-width="1.5" fill="none"/>
+<text x="535" y="1066" font-size="9.5" fill="#4f9b63" text-anchor="middle">tEXt "ZIP" chunk data (declared length covers everything up to the trailing CRC)</text>
+<text x="16" y="1108" font-size="12.5" font-weight="600" fill="#1c2733">PNG + PDF faces without HTML</text>
+<text x="235.20000000000002" y="1108" font-size="11" fill="#68727c">zip · the PDF is the data of its own tEXt chunk; page.pdf is not an archive entry</text>
 <rect x="16" y="1116" width="130" height="34" rx="3" fill="#4f9b63"/>
 <text x="81" y="1136.5" font-size="10.5" fill="#ffffff" text-anchor="middle">png-signature · IHDR</text>
-<rect x="148" y="1116" width="140" height="34" rx="3" fill="#4f9b63"/>
-<path d="M 274 1115 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
-<text x="218" y="1136.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pixel-data chunks</text>
-<rect x="290" y="1116" width="95" height="34" rx="3" fill="#4f9b63"/>
-<text x="337.5" y="1136.5" font-size="10.5" fill="#ffffff" text-anchor="middle">tEXt "ZIP"</text>
-<rect x="387" y="1116" width="140" height="34" rx="3" fill="#e8a33d"/>
-<path d="M 513 1115 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
-<text x="457" y="1136.5" font-size="10.5" fill="#ffffff" text-anchor="middle">zip-entries</text>
-<rect x="529" y="1116" width="154" height="34" rx="3" fill="#b06f1d"/>
-<text x="606" y="1136.5" font-size="10.5" fill="#ffffff" text-anchor="middle">central-directory · eocd</text>
-<rect x="685" y="1116" width="72" height="34" rx="3" fill="#4f9b63"/>
-<text x="721" y="1136.5" font-size="10.5" fill="#ffffff" text-anchor="middle">crc · IEND</text>
-<path d="M 387 1163 v 5 H 683 v -5" stroke="#4f9b63" stroke-width="1.5" fill="none"/>
-<text x="535" y="1180" font-size="9.5" fill="#4f9b63" text-anchor="middle">tEXt "ZIP" chunk data (declared length covers everything up to the trailing CRC)</text>
-<text x="16" y="1222" font-size="12.5" font-weight="600" fill="#1c2733">PNG + PDF faces without HTML</text>
-<text x="235.20000000000002" y="1222" font-size="11" fill="#68727c">zip · the PDF is the data of its own tEXt chunk; page.pdf is not an archive entry</text>
-<rect x="16" y="1230" width="130" height="34" rx="3" fill="#4f9b63"/>
-<text x="81" y="1250.5" font-size="10.5" fill="#ffffff" text-anchor="middle">png-signature · IHDR</text>
-<rect x="148" y="1230" width="72" height="34" rx="3" fill="#4f9b63"/>
-<text x="184" y="1250.5" font-size="10.5" fill="#ffffff" text-anchor="middle">tEXt "PDF"</text>
-<rect x="222" y="1230" width="140" height="34" rx="3" fill="#c14f4f"/>
-<path d="M 348 1229 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
-<text x="292" y="1250.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pdf-document</text>
-<rect x="364" y="1230" width="140" height="34" rx="3" fill="#4f9b63"/>
-<path d="M 490 1229 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
-<text x="434" y="1250.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pixel-data chunks</text>
-<rect x="506" y="1230" width="95" height="34" rx="3" fill="#4f9b63"/>
-<text x="553.5" y="1250.5" font-size="10.5" fill="#ffffff" text-anchor="middle">tEXt "ZIP"</text>
-<rect x="603" y="1230" width="140" height="34" rx="3" fill="#e8a33d"/>
-<path d="M 729 1229 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
-<text x="673" y="1250.5" font-size="10.5" fill="#ffffff" text-anchor="middle">zip-entries</text>
-<rect x="745" y="1230" width="154" height="34" rx="3" fill="#b06f1d"/>
-<text x="822" y="1250.5" font-size="10.5" fill="#ffffff" text-anchor="middle">central-directory · eocd</text>
-<rect x="901" y="1230" width="72" height="34" rx="3" fill="#4f9b63"/>
-<text x="937" y="1250.5" font-size="10.5" fill="#ffffff" text-anchor="middle">crc · IEND</text>
-<path d="M 222 1277 v 5 H 362 v -5" stroke="#4f9b63" stroke-width="1.5" fill="none"/>
-<text x="292" y="1294" font-size="9.5" fill="#4f9b63" text-anchor="middle">tEXt "PDF" chunk data</text>
-<path d="M 603 1277 v 5 H 899 v -5" stroke="#4f9b63" stroke-width="1.5" fill="none"/>
-<text x="751" y="1294" font-size="9.5" fill="#4f9b63" text-anchor="middle">tEXt "ZIP" chunk data (declared length covers everything up to the trailing CRC)</text>
-<text x="16" y="1326" font-size="9.5" fill="#68727c">Widths are schematic, not proportional; hatched ends mark elided bytes; the lighter tail of a block is reserved space that may stay unused.</text>
+<rect x="148" y="1116" width="72" height="34" rx="3" fill="#4f9b63"/>
+<text x="184" y="1136.5" font-size="10.5" fill="#ffffff" text-anchor="middle">tEXt "PDF"</text>
+<rect x="222" y="1116" width="140" height="34" rx="3" fill="#c14f4f"/>
+<path d="M 348 1115 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="292" y="1136.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pdf-document</text>
+<rect x="364" y="1116" width="140" height="34" rx="3" fill="#4f9b63"/>
+<path d="M 490 1115 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="434" y="1136.5" font-size="10.5" fill="#ffffff" text-anchor="middle">pixel-data chunks</text>
+<rect x="506" y="1116" width="95" height="34" rx="3" fill="#4f9b63"/>
+<text x="553.5" y="1136.5" font-size="10.5" fill="#ffffff" text-anchor="middle">tEXt "ZIP"</text>
+<rect x="603" y="1116" width="140" height="34" rx="3" fill="#e8a33d"/>
+<path d="M 729 1115 l -6 36 m 5 -36 l -6 36" stroke="#ffffff" stroke-width="2.2" fill="none"/>
+<text x="673" y="1136.5" font-size="10.5" fill="#ffffff" text-anchor="middle">zip-entries</text>
+<rect x="745" y="1116" width="154" height="34" rx="3" fill="#b06f1d"/>
+<text x="822" y="1136.5" font-size="10.5" fill="#ffffff" text-anchor="middle">central-directory · eocd</text>
+<rect x="901" y="1116" width="72" height="34" rx="3" fill="#4f9b63"/>
+<text x="937" y="1136.5" font-size="10.5" fill="#ffffff" text-anchor="middle">crc · IEND</text>
+<path d="M 222 1163 v 5 H 362 v -5" stroke="#4f9b63" stroke-width="1.5" fill="none"/>
+<text x="292" y="1180" font-size="9.5" fill="#4f9b63" text-anchor="middle">tEXt "PDF" chunk data</text>
+<path d="M 603 1163 v 5 H 899 v -5" stroke="#4f9b63" stroke-width="1.5" fill="none"/>
+<text x="751" y="1180" font-size="9.5" fill="#4f9b63" text-anchor="middle">tEXt "ZIP" chunk data (declared length covers everything up to the trailing CRC)</text>
+<text x="16" y="1212" font-size="9.5" fill="#68727c">Widths are schematic, not proportional; hatched ends mark elided bytes; the lighter tail of a block is reserved space that may stay unused.</text>
 </svg>
