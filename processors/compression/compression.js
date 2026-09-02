@@ -93,6 +93,9 @@ const MAX_APPENDED_DATA_LENGTH = 65535;
 const PDF_ENTRY_FILENAME = "page.pdf";
 const PRESCAN_WINDOW_LENGTH = 1024;
 const PNG_TEXT_CHUNK_HEADER_LENGTH = 12;
+const PNG_ZIP_CHUNK_TYPE_KEYWORD = new Uint8Array([0x74, 0x45, 0x58, 0x74, 0x5a, 0x49, 0x50, 0]);
+const MAX_HIDDEN_PNG_CHUNK_LENGTH = 0x2D000000;
+const WRAPPER_PATTERN_WINDOW_LENGTH = 12;
 const MINIMAL_DOCTYPE = "<!DOCTYPE html>";
 const UNHIDDEN_FACE_WARNING_MESSAGE = "SingleFile: the page data contains every HTML tag that could hide an embedded file, the archive was written without its";
 const EMBEDDED_IMAGE_LABEL = "PNG image";
@@ -194,7 +197,7 @@ async function buildArchive(pageData, options, script, entriesData, zipWriterOpt
 		await writeData(zipDataWriter.writable, embeddedImageData);
 		await writeData(zipDataWriter.writable, new Uint8Array(4));
 		embeddedImageDataOffset = zipDataWriter.offset;
-		await writeData(zipDataWriter.writable, new Uint8Array([0x74, 0x45, 0x58, 0x74, 0x5a, 0x49, 0x50, 0]));
+		await writeData(zipDataWriter.writable, PNG_ZIP_CHUNK_TYPE_KEYWORD);
 		if (options.selfExtractingArchive) {
 			await writeData(zipDataWriter.writable, new TextEncoder().encode(endTag));
 		}
@@ -301,12 +304,16 @@ async function buildArchive(pageData, options, script, entriesData, zipWriterOpt
 	if (options.declareAppendedData) {
 		const appendedDataLength = pageContent.length - data.length +
 			(options.embeddedImage ? PNG_CHUNK_CRC_LENGTH + PNG_IEND_LENGTH : 0);
-		if (appendedDataLength && appendedDataLength <= MAX_APPENDED_DATA_LENGTH) {
+		if (appendedDataLength && appendedDataLength <= MAX_APPENDED_DATA_LENGTH && isDeclaredLengthHidden(pageContent, zipDataEnd, appendedDataLength, options)) {
 			new DataView(pageContent.buffer, pageContent.byteOffset).setUint16(zipDataEnd, appendedDataLength, true);
 		}
 	}
 	if (options.embeddedImage) {
-		pageContent.set(getLength(zipDataWriter.offset - embeddedImageDataOffset - 4), embeddedImageDataOffset - 4);
+		const chunkLength = zipDataWriter.offset - embeddedImageDataOffset - 4;
+		if (options.selfExtractingArchive && chunkLength >= MAX_HIDDEN_PNG_CHUNK_LENGTH) {
+			throw new Error("SingleFile: the embedded PNG chunk is too large to be hidden from the HTML parser");
+		}
+		pageContent.set(getLength(chunkLength), embeddedImageDataOffset - 4);
 		return new Blob([
 			pageContent,
 			getCRC32(pageContent, embeddedImageDataOffset),
@@ -315,6 +322,18 @@ async function buildArchive(pageData, options, script, entriesData, zipWriterOpt
 	} else {
 		return new Blob([pageContent], { type: "application/octet-stream" });
 	}
+}
+
+function isDeclaredLengthHidden(pageContent, zipDataEnd, appendedDataLength, options) {
+	if (options.extractDataFromPageTags && options.extractDataFromPageTags[0] == "<plaintext>") {
+		return true;
+	}
+	const tail = pageContent.slice(zipDataEnd - WRAPPER_PATTERN_WINDOW_LENGTH, zipDataEnd + COMMENT_LENGTH_FIELD_LENGTH);
+	new DataView(tail.buffer).setUint16(WRAPPER_PATTERN_WINDOW_LENGTH, appendedDataLength, true);
+	const tagIndex = options.extractDataFromPageTags ? getExtraDataTagIndex(options.extractDataFromPageTags) + 1 : 0;
+	const [startRegExp, endRegExp] = EMBEDDED_DATA_REGEXPS[tagIndex];
+	const tailText = TEXT_DECODER.decode(tail);
+	return !tailText.match(startRegExp) && !tailText.match(endRegExp);
 }
 
 function getCRC32(data, indexData = 0) {
@@ -625,7 +644,8 @@ function findEmbeddedDataTagIndex(text, fromIndex = 0) {
 }
 
 function getImageHTMLChunk(pageData, options, lastModDate) {
-	const embeddedImageText = TEXT_DECODER.decode(getEmbeddedImageData(options.embeddedImage));
+	const embeddedImageText = TEXT_DECODER.decode(getEmbeddedImageData(options.embeddedImage)) +
+		TEXT_DECODER.decode(new Uint8Array(4)) + TEXT_DECODER.decode(PNG_ZIP_CHUNK_TYPE_KEYWORD);
 	let tagIndex = findEmbeddedDataTagIndex(embeddedImageText);
 	while (tagIndex != -1) {
 		const [startTag, endTag] = EMBEDDED_DATA_TAGS[tagIndex];

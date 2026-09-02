@@ -977,16 +977,18 @@ writer hides and in every variant that hides one. Every rejection restarts the b
 (§6): the wrapper choice changes the bytes preceding the archive, so the archive must
 be rewritten at its new position.
 
-Two fields are patched after that check and are not checked again. The `tEXt "ZIP"`
-length field sits inside the pixel-data wrapper, with the fixed `tEXt` type and
-`ZIP` keyword after it, and is written last (§6.1, step 12); the EOCD comment-length
-field sits at the end of the ZIP region and is patched under the declared form (step
-11). Neither can complete a pattern in a file under about 755 MB. The length is
-big-endian and the central-directory offset before the comment-length field is
-little-endian, so in both places a pattern byte would have to be the most significant
-byte of a size, and the smallest pattern byte, `-` at 0x2D, puts that size past
-0x2D000000. The reference writer's pixel-data test leaves the twelve header bytes
-after the chunks out for the same reason.
+Two fields are patched after that check. The EOCD comment-length field sits at the
+end of the ZIP region and is patched under the declared form (§6.1, step 11); the
+writer tests the bytes around it again with the final value in place and keeps the raw
+form when that value would complete a pattern, since the raw form is always valid. The
+`tEXt "ZIP"` length field sits inside the pixel-data wrapper, with the fixed `tEXt`
+type and `ZIP` keyword after it, and is written last (step 12). The header is tested
+with the rest of the payload, the length as zeros, which cannot join a pattern; the
+real length is big-endian, so a pattern byte in it would have to be the most
+significant byte of the chunk's size, and the smallest byte any pattern contains, `-`
+at 0x2D, puts that size at 0x2D000000 bytes, about 755 MB. The writer refuses to
+build a self-extracting PNG variant whose chunk reaches that size rather than
+re-check the field.
 
 ### 5.2 The appended-data budget
 
@@ -1402,7 +1404,8 @@ pages can stop at the first row; the files it produces are accepted by every rea
 11. **Fill the reservation.** In the relocated placement, write the payload into the
     space reserved in step 4; if it no longer fits, restart (§6.2). Under
     `declareAppendedData` (§4.2), the EOCD's comment-length field is patched here too,
-    the appended run's length now being final.
+    the appended run's length now being final, unless the value would complete a
+    pattern of the current wrapper, in which case the raw form stays (§5.1).
 12. **PNG tail.** With the PNG face, patch the `tEXt "ZIP"` chunk's length field, now
     that the total size is known, compute that chunk's CRC over everything from its
     type to the last byte written, and append the CRC and the `IEND` chunk.
