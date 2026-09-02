@@ -775,7 +775,13 @@ async function getContent() {
 				}
 			};
 			if (aborted) {
-				xhr.onload = () => resolve(xhr.response);
+				xhr.onload = () => {
+					if (xhr.status === 200) {
+						resolve(xhr.response);
+					} else {
+						extractDataFromDocument();
+					}
+				};
 			}
 		}
 	});
