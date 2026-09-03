@@ -63,6 +63,8 @@ const CONTENT_TYPE_EXTENSIONS = {
 	"font/collection": ".ttc"
 };
 const CONTENT_TYPE_OCTET_STREAM = "application/octet-stream";
+const CONTENT_TYPES_HTML = ["text/html", "application/xhtml+xml"];
+const EXPECTED_TYPES_MEDIA = ["font", "image", "video", "audio"];
 
 const URL = globalThis.URL;
 const DOMParser = globalThis.DOMParser;
@@ -308,7 +310,7 @@ function getInstance(utilOptions) {
 			charset = options.charset;
 		}
 		if (options.asBinary) {
-			if (response.status >= 400) {
+			if (response.status >= 400 || (EXPECTED_TYPES_MEDIA.includes(options.expectedType) && CONTENT_TYPES_HTML.includes(contentType))) {
 				return getFetchResponse(resourceURL, options);
 			}
 			try {
