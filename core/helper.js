@@ -407,7 +407,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 							data.markedElements.push(element);
 						}
 					}
-					if (options.removeUnusedFonts) {
+					if (options.removeUnusedFonts && doc.defaultView) {
 						getUsedFont(computedStyle, data.usedFonts);
 						getUsedFont(getComputedStyle(win, element, ":first-letter"), data.usedFonts);
 						getUsedFont(getComputedStyle(win, element, ":before"), data.usedFonts);
