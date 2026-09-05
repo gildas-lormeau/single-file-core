@@ -100,14 +100,14 @@ async function createPagesArchive(pages, options) {
 			const zipReader = new ZipReader(new Uint8ArrayReader(await pages[pageIndex].getData()));
 			for (const entry of await zipReader.getEntries()) {
 				const filename = pagePath + entry.filename;
-				const rawData = await entry.getData(new Uint8ArrayWriter(), { passThrough: true, checkSignature: false });
+				const rawData = await entry.getData(new Uint8ArrayWriter(), { passThrough: true, checkCrc32: false });
 				const canonicalFilename = writtenEntries && findDuplicate(writtenEntries, filename, entry, rawData);
 				if (canonicalFilename === undefined) {
 					await zipWriter.add(filename, new Uint8ArrayReader(rawData), {
 						passThrough: true,
 						compressionMethod: entry.compressionMethod,
 						uncompressedSize: entry.uncompressedSize,
-						signature: entry.signature,
+						crc32: entry.crc32,
 						comment: entry.comment,
 						lastModDate: entry.lastModDate
 					});
@@ -139,7 +139,7 @@ function findDuplicate(writtenEntries, filename, entry, rawData) {
 	if (entry.directory || !entry.uncompressedSize) {
 		return;
 	}
-	const key = [entry.compressionMethod, entry.uncompressedSize, entry.signature, rawData.length].join(":");
+	const key = [entry.compressionMethod, entry.uncompressedSize, entry.crc32, rawData.length].join(":");
 	const candidates = writtenEntries.get(key);
 	if (candidates) {
 		const match = candidates.find(candidate => equalData(candidate.rawData, rawData));
