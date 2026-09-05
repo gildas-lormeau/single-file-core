@@ -276,15 +276,10 @@
 				};
 			});
 		}
-		let zoomFactorX, zoomFactorY;
-		if (keepZoomLevel) {
-			zoomFactorX = clientHeight / scrollHeight;
-			zoomFactorY = clientWidth / scrollWidth;
-		} else {
-			zoomFactorX = (clientHeight + globalThis.scrollY) / scrollHeight;
-			zoomFactorY = (clientWidth + globalThis.scrollX) / scrollWidth;
-		}
-		const zoomFactor = Math.min(zoomFactorX, zoomFactorY);
+		const verticalZoomFactor = clientHeight / scrollHeight;
+		const horizontalZoomFactor = clientWidth / scrollWidth;
+		const zoomFactor = Math.min(verticalZoomFactor, horizontalZoomFactor);
+		const scrollPosition = { x: globalThis.scrollX, y: globalThis.scrollY };
 		if (zoomFactor < 1) {
 			const transform = document.documentElement.style.getPropertyValue("transform");
 			const transformPriority = document.documentElement.style.getPropertyPriority("transform");
@@ -292,8 +287,10 @@
 			const transformOriginPriority = document.documentElement.style.getPropertyPriority("transform-origin");
 			const minHeight = document.documentElement.style.getPropertyValue("min-height");
 			const minHeightPriority = document.documentElement.style.getPropertyPriority("min-height");
-			document.documentElement.style.setProperty("transform-origin", (zoomFactorX < 1 ? "50%" : "0") + " " + (zoomFactorY < 1 ? "50%" : "0") + " 0", "important");
-			document.documentElement.style.setProperty("transform", "scale3d(" + zoomFactor + ", " + zoomFactor + ", 1)", "important");
+			const horizontalOrigin = horizontalZoomFactor < 1 ? "0" : "50%";
+			const translation = "translate(" + (horizontalOrigin == "0" ? scrollPosition.x : 0) + "px, " + scrollPosition.y + "px) ";
+			document.documentElement.style.setProperty("transform-origin", horizontalOrigin + " 0 0", "important");
+			document.documentElement.style.setProperty("transform", translation + "scale3d(" + zoomFactor + ", " + zoomFactor + ", 1)", "important");
 			document.documentElement.style.setProperty("min-height", (100 / zoomFactor) + "vh", "important");
 			dispatchResizeEvent();
 			if (keepZoomLevel) {
