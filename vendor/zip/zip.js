@@ -486,7 +486,7 @@ function getDataView(array) {
 // Every table MUST stay a PACKED_SMI array: build with array literals (not `new Array(n)`,
 // which is HOLEY) and store the signed int32 XOR result (no `>>> 0`). An unsigned or holey
 // table becomes a V8 FixedDoubleArray whose every hot-loop lookup unboxes a double (~1.6x
-// slower). Signedness is irrelevant to the result — the reads mask/shift it and the final
+// slower). Signedness is irrelevant to the result: the reads mask/shift it and the final
 // `~crc` normalizes it. Do NOT reintroduce `>>> 0` here or switch to `new Array(256)`.
 const T = [[], [], [], [], [], [], [], []];
 for (let n = 0; n < 256; n++) {
@@ -1454,8 +1454,7 @@ misc.hmacSha1 = class {
 const GET_RANDOM_VALUES_SUPPORTED = typeof crypto != UNDEFINED_TYPE && typeof crypto.getRandomValues == FUNCTION_TYPE;
 
 const ERR_INVALID_PASSWORD = "Invalid password";
-const ERR_INVALID_SIGNATURE = "Invalid signature";
-const ERR_INVALID_AUTHENTICATION_CODE = ERR_INVALID_SIGNATURE;
+const ERR_INVALID_AUTHENTICATION_CODE = "Invalid authentication code";
 const ERR_ABORT_CHECK_PASSWORD = "zipjs-abort-check-password";
 const ERR_UNSUPPORTED_CRYPTO_API = "Crypto API not supported";
 
@@ -2029,6 +2028,7 @@ function toCompatibleWritable(writable) {
 const ERR_INVALID_CODEC_DEFINITION = "Invalid codec definition";
 const ERR_RESERVED_COMPRESSION_METHOD = "Reserved compression method";
 const ERR_INVALID_CODEC_MODULE = "Invalid codec module";
+const ERR_UNSUPPORTED_COMPRESSION = "Compression method not supported";
 
 const RESERVED_COMPRESSION_METHODS = [
 	COMPRESSION_METHOD_STORE,
@@ -2128,8 +2128,7 @@ async function ensureCodecStreams(format, codecURI) {
 
 const ERR_INVALID_UNCOMPRESSED_SIZE = "Invalid uncompressed size";
 const ERR_INVALID_COMPRESSED_DATA = "Invalid compressed data";
-const ERR_INVALID_CRC32 = ERR_INVALID_SIGNATURE;
-const ERR_UNSUPPORTED_COMPRESSION$2 = "Compression method not supported";
+const ERR_INVALID_CRC32 = "Invalid CRC32";
 const FORMAT_DEFLATE_RAW = "deflate-raw";
 const FORMAT_DEFLATE64_RAW = "deflate64-raw";
 const FORMAT_GZIP = "gzip";
@@ -2397,7 +2396,7 @@ function setReadable(stream, readable, flush) {
 
 function createCodecStream(CodecStreamClass, format, options) {
 	if (!CodecStreamClass) {
-		throw new Error(ERR_UNSUPPORTED_COMPRESSION$2);
+		throw new Error(ERR_UNSUPPORTED_COMPRESSION);
 	}
 	return new CodecStreamClass(format, options);
 }
@@ -3468,21 +3467,14 @@ async function terminateWorkers() {
  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* global TextDecoder */
-
-const CP437 = "\0☺☻♥♦♣♠•◘○◙♂♀♪♫☼►◄↕‼¶§▬↨↑↓→←∟↔▲▼ !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~⌂ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒáíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ ".split("");
-const VALID_CP437 = CP437.length == 256;
+const CP437 = "\0\u263A\u263B\u2665\u2666\u2663\u2660\u2022\u25D8\u25CB\u25D9\u2642\u2640\u266A\u266B\u263C\u25BA\u25C4\u2195\u203C\u00B6\u00A7\u25AC\u21A8\u2191\u2193\u2192\u2190\u221F\u2194\u25B2\u25BC !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\u2302\u00C7\u00FC\u00E9\u00E2\u00E4\u00E0\u00E5\u00E7\u00EA\u00EB\u00E8\u00EF\u00EE\u00EC\u00C4\u00C5\u00C9\u00E6\u00C6\u00F4\u00F6\u00F2\u00FB\u00F9\u00FF\u00D6\u00DC\u00A2\u00A3\u00A5\u20A7\u0192\u00E1\u00ED\u00F3\u00FA\u00F1\u00D1\u00AA\u00BA\u00BF\u2310\u00AC\u00BD\u00BC\u00A1\u00AB\u00BB\u2591\u2592\u2593\u2502\u2524\u2561\u2562\u2556\u2555\u2563\u2551\u2557\u255D\u255C\u255B\u2510\u2514\u2534\u252C\u251C\u2500\u253C\u255E\u255F\u255A\u2554\u2569\u2566\u2560\u2550\u256C\u2567\u2568\u2564\u2565\u2559\u2558\u2552\u2553\u256B\u256A\u2518\u250C\u2588\u2584\u258C\u2590\u2580\u03B1\u00DF\u0393\u03C0\u03A3\u03C3\u00B5\u03C4\u03A6\u0398\u03A9\u03B4\u221E\u03C6\u03B5\u2229\u2261\u00B1\u2265\u2264\u2320\u2321\u00F7\u2248\u00B0\u2219\u00B7\u221A\u207F\u00B2\u25A0\u00A0".split("");
 
 function decodeCP437(stringValue) {
-	if (VALID_CP437) {
-		let result = "";
-		for (let indexCharacter = 0; indexCharacter < stringValue.length; indexCharacter++) {
-			result += CP437[stringValue[indexCharacter]];
-		}
-		return result;
-	} else {
-		return new TextDecoder().decode(stringValue);
+	let result = "";
+	for (let indexCharacter = 0; indexCharacter < stringValue.length; indexCharacter++) {
+		result += CP437[stringValue[indexCharacter]];
 	}
+	return result;
 }
 
 /*
@@ -4548,8 +4540,6 @@ const PROPERTY_NAME_CREATION_DATE = "creationDate";
 const PROPERTY_NAME_RAW_CREATION_DATE = "rawCreationDate";
 const PROPERTY_NAME_INTERNAL_FILE_ATTRIBUTES = "internalFileAttributes";
 const PROPERTY_NAME_EXTERNAL_FILE_ATTRIBUTES = "externalFileAttributes";
-const PROPERTY_NAME_DEPRECATED_INTERNAL_FILE_ATTRIBUTES = "internalFileAttribute";
-const PROPERTY_NAME_DEPRECATED_EXTERNAL_FILE_ATTRIBUTES = "externalFileAttribute";
 const PROPERTY_NAME_MSDOS_ATTRIBUTES_RAW = "msdosAttributesRaw";
 const PROPERTY_NAME_MSDOS_ATTRIBUTES = "msdosAttributes";
 const PROPERTY_NAME_MS_DOS_COMPATIBLE = "msDosCompatible";
@@ -4608,8 +4598,6 @@ const PROPERTY_NAMES = [
 	PROPERTY_NAME_DISK_NUMBER_START,
 	PROPERTY_NAME_INTERNAL_FILE_ATTRIBUTES,
 	PROPERTY_NAME_EXTERNAL_FILE_ATTRIBUTES,
-	PROPERTY_NAME_DEPRECATED_INTERNAL_FILE_ATTRIBUTES,
-	PROPERTY_NAME_DEPRECATED_EXTERNAL_FILE_ATTRIBUTES,
 	PROPERTY_NAME_MSDOS_ATTRIBUTES_RAW,
 	PROPERTY_NAME_MSDOS_ATTRIBUTES,
 	PROPERTY_NAME_MS_DOS_COMPATIBLE,
@@ -4697,7 +4685,6 @@ const ERR_LOCAL_FILE_HEADER_NOT_FOUND = "Local file header not found";
 const ERR_EXTRAFIELD_ZIP64_NOT_FOUND = "Zip64 extra field not found";
 const ERR_ENCRYPTED = "File contains encrypted entry";
 const ERR_UNSUPPORTED_ENCRYPTION = "Encryption method not supported";
-const ERR_UNSUPPORTED_COMPRESSION$1 = "Compression method not supported";
 const ERR_SPLIT_ZIP_FILE = "Split zip file";
 const ERR_OVERLAPPING_ENTRY = "Overlapping entry found";
 const ERR_ENTRY_DATA_OUT_OF_BOUNDS = "Entry data out of bounds";
@@ -4716,6 +4703,7 @@ const WARNING_UNKNOWN_ZIP64_EXTENSIBLE_DATA = "unknown zip64 extensible data";
 const WARNING_WRAPPED_ENTRIES_COUNT = "wrapped entries count";
 const WARNING_APPENDED_DATA = "appended data";
 const WARNING_PREPENDED_DATA = "prepended data";
+const WARNING_PREPENDED_CENTRAL_DIRECTORY = "prepended central directory";
 const WARNING_TRAILING_CENTRAL_DIRECTORY_DATA = "trailing central directory data";
 const WARNING_DUPLICATE_FILENAME = "duplicate filename";
 const WARNING_MISMATCHED_ZIP64_END_OF_CENTRAL_DIRECTORY = "mismatched zip64 end of central directory record";
@@ -4809,6 +4797,7 @@ class ZipReader {
 		let diskNumber = getUint16$1(endOfDirectoryView, 6);
 		let filesLength = getUint16$1(endOfDirectoryView, 10);
 		let prependedDataLength = 0;
+		let prependedCentralDirectory;
 		let startOffset;
 		let zip64EndOfDirectory;
 		let zip64EndOfDirectoryVersion2;
@@ -4912,6 +4901,7 @@ class ZipReader {
 					directoryDataOffset = expectedDirectoryDataOffset;
 					if (directoryDataOffset > originalDirectoryDataOffset) {
 						prependedDataLength += directoryDataOffset - originalDirectoryDataOffset;
+						prependedCentralDirectory = storedPointsAtDirectory;
 					}
 					directoryArray = await readUint8Array(reader, directoryDataOffset, directoryDataLength);
 					directoryView = getDataView(directoryArray);
@@ -5075,8 +5065,6 @@ class ZipReader {
 				sticky,
 				symlink,
 				unixExternalUpper,
-				internalFileAttribute: fileEntry.internalFileAttributes,
-				externalFileAttribute: fileEntry.externalFileAttributes,
 				executable,
 				directory: modeIsDir || upperIsDir || (msDosCompatible && msdosAttributes.directory) || fileEntry.filename.endsWith(DIRECTORY_SIGNATURE),
 				zipCrypto: fileEntry.encrypted && !fileEntry.extraFieldAES
@@ -5138,6 +5126,9 @@ class ZipReader {
 		}
 		if (prependedDataLength || (filesLength && startOffset > SPLIT_ZIP_FILE_SIGNATURE_LENGTH)) {
 			addWarning(warnings, WARNING_PREPENDED_DATA);
+		}
+		if (prependedCentralDirectory) {
+			addWarning(warnings, WARNING_PREPENDED_CENTRAL_DIRECTORY);
 		}
 		if (extractPrependedData) {
 			zipReader.prependedData = startOffset > splitZipSignatureLength ?
@@ -5272,7 +5263,7 @@ class ZipEntry {
 		rawPassword = rawPassword && rawPassword.length && rawPassword;
 		if (extraFieldAES) {
 			if (extraFieldAES.originalCompressionMethod != COMPRESSION_METHOD_AES) {
-				throw new Error(ERR_UNSUPPORTED_COMPRESSION$1);
+				throw new Error(ERR_UNSUPPORTED_COMPRESSION);
 			}
 		}
 		if (dataArray.length < HEADER_SIZE || getUint32$1(dataView, 0) != LOCAL_FILE_HEADER_SIGNATURE) {
@@ -5328,7 +5319,7 @@ class ZipEntry {
 		}
 		const registeredCodec = passThrough ? UNDEFINED_VALUE : getRegisteredCodec(compressionMethod);
 		if (compressionMethod != COMPRESSION_METHOD_STORE && compressionMethod != COMPRESSION_METHOD_DEFLATE && compressionMethod != COMPRESSION_METHOD_DEFLATE_64 && !registeredCodec && !passThrough) {
-			throw new Error(ERR_UNSUPPORTED_COMPRESSION$1);
+			throw new Error(ERR_UNSUPPORTED_COMPRESSION);
 		}
 		if (encrypted) {
 			if (!zipCrypto && (extraFieldAES.strength < 1 || extraFieldAES.strength > 3)) {
@@ -6180,14 +6171,13 @@ var zipReader = /*#__PURE__*/Object.freeze({
 	ERR_INVALID_FILENAME_VALIDATION: ERR_INVALID_FILENAME_VALIDATION,
 	ERR_INVALID_MAX_APPENDED_DATA_SIZE: ERR_INVALID_MAX_APPENDED_DATA_SIZE,
 	ERR_INVALID_PASSWORD: ERR_INVALID_PASSWORD,
-	ERR_INVALID_SIGNATURE: ERR_INVALID_SIGNATURE,
 	ERR_INVALID_STRICTNESS: ERR_INVALID_STRICTNESS,
 	ERR_INVALID_UNCOMPRESSED_SIZE: ERR_INVALID_UNCOMPRESSED_SIZE,
 	ERR_LOCAL_FILE_HEADER_NOT_FOUND: ERR_LOCAL_FILE_HEADER_NOT_FOUND,
 	ERR_OVERLAPPING_ENTRY: ERR_OVERLAPPING_ENTRY,
 	ERR_SPLIT_ZIP_FILE: ERR_SPLIT_ZIP_FILE,
 	ERR_UNSAFE_FILENAME: ERR_UNSAFE_FILENAME,
-	ERR_UNSUPPORTED_COMPRESSION: ERR_UNSUPPORTED_COMPRESSION$1,
+	ERR_UNSUPPORTED_COMPRESSION: ERR_UNSUPPORTED_COMPRESSION,
 	ERR_UNSUPPORTED_ENCRYPTION: ERR_UNSUPPORTED_ENCRYPTION,
 	ERR_UNSUPPORTED_UINT64: ERR_UNSUPPORTED_UINT64,
 	ERR_WORKER_STARTUP_TIMEOUT: ERR_WORKER_STARTUP_TIMEOUT,
@@ -6199,6 +6189,7 @@ var zipReader = /*#__PURE__*/Object.freeze({
 	WARNING_MISMATCHED_LOCAL_FILE_HEADER_COMPRESSION_METHOD: WARNING_MISMATCHED_LOCAL_FILE_HEADER_COMPRESSION_METHOD,
 	WARNING_MISMATCHED_LOCAL_FILE_HEADER_CRC32_OR_SIZES: WARNING_MISMATCHED_LOCAL_FILE_HEADER_CRC32_OR_SIZES,
 	WARNING_MISMATCHED_ZIP64_END_OF_CENTRAL_DIRECTORY: WARNING_MISMATCHED_ZIP64_END_OF_CENTRAL_DIRECTORY,
+	WARNING_PREPENDED_CENTRAL_DIRECTORY: WARNING_PREPENDED_CENTRAL_DIRECTORY,
 	WARNING_PREPENDED_DATA: WARNING_PREPENDED_DATA,
 	WARNING_TRAILING_CENTRAL_DIRECTORY_DATA: WARNING_TRAILING_CENTRAL_DIRECTORY_DATA,
 	WARNING_UNKNOWN_VERSION: WARNING_UNKNOWN_VERSION,
@@ -6254,7 +6245,6 @@ const ERR_INVALID_EXTRAFIELD = "Invalid extra field (must be a Map)";
 const ERR_INVALID_EXTRAFIELD_TYPE = "Invalid extra field type (must be integer 0..65535)";
 const ERR_INVALID_EXTRAFIELD_DATA_TYPE = "Invalid extra field data (must be a Uint8Array)";
 const ERR_INVALID_EXTRAFIELD_DATA = "Extra field data exceeds 64KB";
-const ERR_UNSUPPORTED_COMPRESSION = "Compression method not supported";
 const MIN_UNIX_TIME = -2147483648;
 const MAX_UNIX_TIME = 2147483647;
 const MIN_NTFS_TIME = BigInt(0);
@@ -6694,9 +6684,7 @@ async function addFile(zipWriter, name, reader, options) {
 	Object.assign(fileEntry, {
 		name,
 		comment,
-		extraField,
-		[PROPERTY_NAME_DEPRECATED_INTERNAL_FILE_ATTRIBUTES]: fileEntry.internalFileAttributes,
-		[PROPERTY_NAME_DEPRECATED_EXTERNAL_FILE_ATTRIBUTES]: fileEntry.externalFileAttributes
+		extraField
 	});
 	return new Entry(fileEntry);
 }
@@ -6743,7 +6731,7 @@ function resolveAttributes(zipWriter, name, options) {
 	if (versionMadeBy > MAX_16_BITS) {
 		throw new Error(ERR_INVALID_VERSION);
 	}
-	let externalFileAttributes = getAliasedOptionValue(zipWriter, options, PROPERTY_NAME_EXTERNAL_FILE_ATTRIBUTES, PROPERTY_NAME_DEPRECATED_EXTERNAL_FILE_ATTRIBUTES);
+	let externalFileAttributes = getOptionValue(zipWriter, options, PROPERTY_NAME_EXTERNAL_FILE_ATTRIBUTES);
 	const externalFileAttributesProvided = externalFileAttributes !== UNDEFINED_VALUE;
 	if (!externalFileAttributesProvided) {
 		externalFileAttributes = 0;
@@ -6853,7 +6841,7 @@ function resolveMetadata(zipWriter, name, options) {
 	const rawLastModDate = getOptionValue(zipWriter, options, PROPERTY_NAME_RAW_LAST_MODIFICATION_DATE);
 	const lastAccessDate = getDateOptionValue(zipWriter, options, PROPERTY_NAME_LAST_ACCESS_DATE);
 	const creationDate = getDateOptionValue(zipWriter, options, PROPERTY_NAME_CREATION_DATE);
-	const internalFileAttributes = getAliasedOptionValue(zipWriter, options, PROPERTY_NAME_INTERNAL_FILE_ATTRIBUTES, PROPERTY_NAME_DEPRECATED_INTERNAL_FILE_ATTRIBUTES, 0);
+	const internalFileAttributes = getOptionValue(zipWriter, options, PROPERTY_NAME_INTERNAL_FILE_ATTRIBUTES, 0);
 	const passThrough = getOptionValue(zipWriter, options, OPTION_PASS_THROUGH);
 	const password = getOptionValue(zipWriter, options, OPTION_PASSWORD);
 	const rawPassword = getOptionValue(zipWriter, options, OPTION_RAW_PASSWORD);
@@ -8247,16 +8235,6 @@ function getFunctionOptionValue(zipWriter, options, name) {
 	return checkFunctionOption(getOptionValue(zipWriter, options, name));
 }
 
-function getAliasedOptionValue(zipWriter, options, name, deprecatedName, defaultValue) {
-	const value = getAliasedValue(options, name, deprecatedName);
-	const result = value === UNDEFINED_VALUE ? getAliasedValue(zipWriter.options, name, deprecatedName) : value;
-	return result === UNDEFINED_VALUE ? defaultValue : result;
-}
-
-function getAliasedValue(options, name, deprecatedName) {
-	return options[name] === UNDEFINED_VALUE ? options[deprecatedName] : options[name];
-}
-
 function getNumberOptionValue(zipWriter, options, name, defaultValue) {
 	return toNumber(getOptionValue(zipWriter, options, name, defaultValue));
 }
@@ -8515,7 +8493,7 @@ function formatSupported(StreamClass, format) {
  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-const VERSION = "2.8.61";
+const VERSION = "2.11.1";
 
 /*
  Copyright (c) 2025 Gildas Lormeau. All rights reserved.
@@ -9709,4 +9687,4 @@ try {
 }
 catch (e) { }
 
-export { BlobReader, BlobWriter, Data64URIReader, Data64URIWriter, ERR_AMBIGUOUS_ARCHIVE, ERR_BAD_FORMAT, ERR_CENTRAL_DIRECTORY_NOT_FOUND, ERR_DUPLICATED_NAME, ERR_ENCRYPTED, ERR_ENCRYPTED_CENTRAL_DIRECTORY, ERR_ENTRY_DATA_OUT_OF_BOUNDS, ERR_EOCDR_LOCATOR_ZIP64_NOT_FOUND, ERR_EOCDR_NOT_FOUND, ERR_EXTRAFIELD_ZIP64_NOT_FOUND, ERR_HTTP_RANGE, ERR_HTTP_RESOURCE_CHANGED, ERR_INVALID_AUTHENTICATION_CODE, ERR_INVALID_CODEC_DEFINITION, ERR_INVALID_CODEC_MODULE, ERR_INVALID_COMMENT, ERR_INVALID_COMMENT_TYPE, ERR_INVALID_COMPRESSED_DATA, ERR_INVALID_CRC32, ERR_INVALID_DATE, ERR_INVALID_ENCRYPTION_STRENGTH, ERR_INVALID_ENTRY_COMMENT, ERR_INVALID_ENTRY_COMMENT_TYPE, ERR_INVALID_ENTRY_NAME, ERR_INVALID_EXTRAFIELD, ERR_INVALID_EXTRAFIELD_DATA, ERR_INVALID_EXTRAFIELD_DATA_TYPE, ERR_INVALID_EXTRAFIELD_TYPE, ERR_INVALID_FILENAME_VALIDATION, ERR_INVALID_FUNCTION_OPTION, ERR_INVALID_GID, ERR_INVALID_LEVEL, ERR_INVALID_MAX_APPENDED_DATA_SIZE, ERR_INVALID_MAX_WORKERS, ERR_INVALID_MSDOS_ATTRIBUTES, ERR_INVALID_MSDOS_DATA, ERR_INVALID_PASSWORD, ERR_INVALID_PASSWORD_TYPE, ERR_INVALID_SIGNAL, ERR_INVALID_SIGNATURE, ERR_INVALID_SIGNATURE_DATA, ERR_INVALID_STRICTNESS, ERR_INVALID_UID, ERR_INVALID_UNCOMPRESSED_SIZE, ERR_INVALID_UNIX_EXTRA_FIELD_TYPE, ERR_INVALID_UNIX_ID_SIZE, ERR_INVALID_UNIX_MODE, ERR_INVALID_VERSION, ERR_ITERATOR_COMPLETED_TOO_SOON, ERR_LOCAL_FILE_HEADER_NOT_FOUND, ERR_OVERLAPPING_ENTRY, ERR_RESERVED_COMPRESSION_METHOD, ERR_SPLIT_ZIP_FILE, ERR_UNDEFINED_COMPRESSION_METHOD, ERR_UNDEFINED_READER, ERR_UNDEFINED_UNCOMPRESSED_SIZE, ERR_UNDETERMINED_SIZE, ERR_UNSAFE_FILENAME, ERR_UNSUPPORTED_COMPRESSION$1 as ERR_UNSUPPORTED_COMPRESSION, ERR_UNSUPPORTED_CONTEXT, ERR_UNSUPPORTED_CRYPTO_API, ERR_UNSUPPORTED_ENCRYPTION, ERR_UNSUPPORTED_ENCRYPTION_PASS_THROUGH, ERR_UNSUPPORTED_ENCRYPTION_USDZ, ERR_UNSUPPORTED_FORMAT, ERR_UNSUPPORTED_UINT64, ERR_WORKER_STARTUP_TIMEOUT, ERR_WRITER_NOT_INITIALIZED, ERR_ZIP_NOT_EMPTY, HttpRangeReader, HttpReader, Reader, SplitDataReader, SplitDataWriter, TextReader, TextWriter, Uint8ArrayReader, Uint8ArrayWriter, VERSION, WARNING_APPENDED_DATA, WARNING_COMPRESSED_PATCHED_DATA, WARNING_DUPLICATE_FILENAME, WARNING_MALFORMED_EXTRA_FIELD, WARNING_MISMATCHED_LOCAL_FILE_HEADER_BIT_FLAG, WARNING_MISMATCHED_LOCAL_FILE_HEADER_COMPRESSION_METHOD, WARNING_MISMATCHED_LOCAL_FILE_HEADER_CRC32_OR_SIZES, WARNING_MISMATCHED_ZIP64_END_OF_CENTRAL_DIRECTORY, WARNING_PREPENDED_DATA, WARNING_TRAILING_CENTRAL_DIRECTORY_DATA, WARNING_UNKNOWN_VERSION, WARNING_UNKNOWN_ZIP64_EXTENSIBLE_DATA, WARNING_UNSORTED_CENTRAL_DIRECTORY, WARNING_WRAPPED_ENTRIES_COUNT, Writer, ZipReader, ZipReaderStream, ZipWriter, ZipWriterStream, configure, createBlobTempStream, createOPFSTempStream, createSyncAccessHandleTempStream, deflateSync as deflateRaw, getMimeType, getRegisteredCodecs, getSupportedCompressionMethods, inflateSync as inflateRaw, initStream, isZipFile, readUint8Array, registerCodec, resetConfiguration, terminateWorkers, unregisterCodec };
+export { BlobReader, BlobWriter, Data64URIReader, Data64URIWriter, ERR_AMBIGUOUS_ARCHIVE, ERR_BAD_FORMAT, ERR_CENTRAL_DIRECTORY_NOT_FOUND, ERR_DUPLICATED_NAME, ERR_ENCRYPTED, ERR_ENCRYPTED_CENTRAL_DIRECTORY, ERR_ENTRY_DATA_OUT_OF_BOUNDS, ERR_EOCDR_LOCATOR_ZIP64_NOT_FOUND, ERR_EOCDR_NOT_FOUND, ERR_EXTRAFIELD_ZIP64_NOT_FOUND, ERR_HTTP_RANGE, ERR_HTTP_RESOURCE_CHANGED, ERR_INVALID_AUTHENTICATION_CODE, ERR_INVALID_CODEC_DEFINITION, ERR_INVALID_CODEC_MODULE, ERR_INVALID_COMMENT, ERR_INVALID_COMMENT_TYPE, ERR_INVALID_COMPRESSED_DATA, ERR_INVALID_CRC32, ERR_INVALID_DATE, ERR_INVALID_ENCRYPTION_STRENGTH, ERR_INVALID_ENTRY_COMMENT, ERR_INVALID_ENTRY_COMMENT_TYPE, ERR_INVALID_ENTRY_NAME, ERR_INVALID_EXTRAFIELD, ERR_INVALID_EXTRAFIELD_DATA, ERR_INVALID_EXTRAFIELD_DATA_TYPE, ERR_INVALID_EXTRAFIELD_TYPE, ERR_INVALID_FILENAME_VALIDATION, ERR_INVALID_FUNCTION_OPTION, ERR_INVALID_GID, ERR_INVALID_LEVEL, ERR_INVALID_MAX_APPENDED_DATA_SIZE, ERR_INVALID_MAX_WORKERS, ERR_INVALID_MSDOS_ATTRIBUTES, ERR_INVALID_MSDOS_DATA, ERR_INVALID_PASSWORD, ERR_INVALID_PASSWORD_TYPE, ERR_INVALID_SIGNAL, ERR_INVALID_SIGNATURE_DATA, ERR_INVALID_STRICTNESS, ERR_INVALID_UID, ERR_INVALID_UNCOMPRESSED_SIZE, ERR_INVALID_UNIX_EXTRA_FIELD_TYPE, ERR_INVALID_UNIX_ID_SIZE, ERR_INVALID_UNIX_MODE, ERR_INVALID_VERSION, ERR_ITERATOR_COMPLETED_TOO_SOON, ERR_LOCAL_FILE_HEADER_NOT_FOUND, ERR_OVERLAPPING_ENTRY, ERR_RESERVED_COMPRESSION_METHOD, ERR_SPLIT_ZIP_FILE, ERR_UNDEFINED_COMPRESSION_METHOD, ERR_UNDEFINED_READER, ERR_UNDEFINED_UNCOMPRESSED_SIZE, ERR_UNDETERMINED_SIZE, ERR_UNSAFE_FILENAME, ERR_UNSUPPORTED_COMPRESSION, ERR_UNSUPPORTED_CONTEXT, ERR_UNSUPPORTED_CRYPTO_API, ERR_UNSUPPORTED_ENCRYPTION, ERR_UNSUPPORTED_ENCRYPTION_PASS_THROUGH, ERR_UNSUPPORTED_ENCRYPTION_USDZ, ERR_UNSUPPORTED_FORMAT, ERR_UNSUPPORTED_UINT64, ERR_WORKER_STARTUP_TIMEOUT, ERR_WRITER_NOT_INITIALIZED, ERR_ZIP_NOT_EMPTY, HttpRangeReader, HttpReader, Reader, SplitDataReader, SplitDataWriter, TextReader, TextWriter, Uint8ArrayReader, Uint8ArrayWriter, VERSION, WARNING_APPENDED_DATA, WARNING_COMPRESSED_PATCHED_DATA, WARNING_DUPLICATE_FILENAME, WARNING_MALFORMED_EXTRA_FIELD, WARNING_MISMATCHED_LOCAL_FILE_HEADER_BIT_FLAG, WARNING_MISMATCHED_LOCAL_FILE_HEADER_COMPRESSION_METHOD, WARNING_MISMATCHED_LOCAL_FILE_HEADER_CRC32_OR_SIZES, WARNING_MISMATCHED_ZIP64_END_OF_CENTRAL_DIRECTORY, WARNING_PREPENDED_CENTRAL_DIRECTORY, WARNING_PREPENDED_DATA, WARNING_TRAILING_CENTRAL_DIRECTORY_DATA, WARNING_UNKNOWN_VERSION, WARNING_UNKNOWN_ZIP64_EXTENSIBLE_DATA, WARNING_UNSORTED_CENTRAL_DIRECTORY, WARNING_WRAPPED_ENTRIES_COUNT, Writer, ZipReader, ZipReaderStream, ZipWriter, ZipWriterStream, configure, createBlobTempStream, createOPFSTempStream, createSyncAccessHandleTempStream, deflateSync as deflateRaw, getMimeType, getRegisteredCodecs, getSupportedCompressionMethods, inflateSync as inflateRaw, initStream, isZipFile, readUint8Array, registerCodec, resetConfiguration, terminateWorkers, unregisterCodec };

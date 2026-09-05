@@ -8,7 +8,7 @@
 	},
 	"devDependencies": {
 		"@rollup/plugin-terser": "1.0.0",
-		"@zip.js/zip.js": "2.8.61",
+		"@zip.js/zip.js": "2.11.1",
 		"rollup": "4.62.4",
 		"terser": "5.50.0"
 	}
