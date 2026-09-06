@@ -27,7 +27,7 @@ any check failed.
 
 | Script | What it covers |
 |---|---|
-| `format-rules.js` | The rules of the format: charset round trip, the wrapper-tag ladder and its selection tests, the identifier, appended-data placement and declaration, password scope, the PDF and PNG faces. |
+| `format-rules.js` | The rules of the format: the charset declaration and the doctype cap that keeps it inside the scan window, the wrapper-tag ladder and its selection tests, the identifier, appended-data placement and declaration, password scope, the PDF and PNG faces. |
 | `stored-trigger.js` | That a stored (uncompressed) entry whose bytes contain a rung's pattern moves the writer to the right rung. |
 | `check-determinism.js` | That the same inputs produce the same bytes, and that the levers which should change the output do. |
 | `option-wiring.js` | That every option `compression.js` reads is either declared as a caller option or classified as internal, and that `single-file.js` still builds its argument from that declaration. Guards the layer the other suites sit below. |
@@ -40,6 +40,7 @@ any check failed.
 | `filename-characters.js` | That `getValidFilename` maps a full-width lookalike one character at a time — `C++` used to be saved as `C＋` — while a run of characters with no lookalike still collapses to a single replacement. |
 | `zip64.js` | That the `page.pdf` record injection accounts for the zip64 end of central directory record (§5.7): all four EOCD fields left at their sentinels, the entry counts and directory size carried in the zip64 record, the directory offset pointing at the injected record, and the archive still readable. The branch runs only past 4 GiB or 65535 entries, so nothing reached it before; the suite forces zip64 through `zipWriter.options` from inside the `writeEntries` callback, with no production lever. |
 | `byte-map.js` | That the byte offsets §8.2 of the specification prints still describe what the writer emits: the prologue order, the doctype and root tag with nothing between them, the identifier's length ahead of the region, absolute EOCD offsets, and the entry order. The specimen §8.2 documents is saved from a live URL and has never been in this repository, so none of its numbers could be checked; three of them were wrong. This builds an equivalent with no network. |
+| `charset-round-trip.js` | That the encoding tables §8.4 prints still describe the WHATWG index: which 20 of the 38 encodings carry all 256 byte values through a decode injectively, the sizes of the reverse tables they need, and the five windows-1252 positions a platform codec of the same name leaves undefined. It also re-derives the reverse table the extractor ships as a literal, which no build step checks and which corrupts one byte per occurrence when wrong. |
 | `css-fonts-minifier.js` | That `removeUnusedFonts` reads the font families it prunes on correctly: a `var()` family resolved from the values the document declares and not only from the ones the body inherits, every font kept when the value is genuinely undetermined, and a multi-word family name that does not also claim a font named after its own tail. |
 
 ## The tools

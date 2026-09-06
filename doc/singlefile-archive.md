@@ -735,6 +735,23 @@ zip64 locator states an absolute offset in the original file, so it needs the sh
 this formula produces and cannot be used to find it. A reader that instead uses the
 sentinels arithmetically gets a shift in the billions, with no diagnostic.
 
+Which leaves the record itself to be located without the offset that normally points at
+it. Scan backward from the locator for the `PK\x06\x06` signature and confirm each
+candidate against the record's own size field, the 8 bytes at `p + 4`, which by
+definition excludes the leading 12:
+
+```
+p + 12 + size == locatorPosition
+```
+
+A well-formed archive puts the record immediately before the locator, where it is 56
+bytes long if it carries no extensible data sector, so `locatorPosition - 56` is worth
+testing before scanning at all. The confirmation matters on the archives that miss:
+past the record the scan walks back through the central directory, whose file names and
+extra fields are arbitrary bytes, and past that through entry data, and a four-byte
+signature turns up in bytes nothing constrains. The test settles each candidate against
+the record's own field, so it needs no offset it does not already have.
+
 ### 4.6 Text tools
 
 The optional text body (`insertTextBody`) addresses one more consumer: software that
@@ -972,22 +989,24 @@ limit of what the CDATA rung buys here — its value is that real payloads rarel
 above states a MUST rather than a quality-of-implementation preference — exhaustion is
 reachable by construction, not only by a payload built to provoke it.
 
-The check MUST be made against the payload's final bytes, for every payload the
-writer hides and in every variant that hides one. Every rejection restarts the build
-(§6): the wrapper choice changes the bytes preceding the archive, so the archive must
-be rewritten at its new position.
+The selection test above — both patterns, on every rung the writer considers — MUST
+be applied to the payload's bytes in their final form, for every payload the writer
+hides and in every variant that hides one. *Final* is the whole of the requirement:
+bytes the writer has yet to settle have not been tested. Every rejection restarts the build (§6):
+the wrapper choice changes the bytes preceding the archive, so the archive must be
+rewritten at its new position.
 
-Two fields are patched after that check. The EOCD comment-length field sits at the
-end of the ZIP region and is patched under the declared form (§6.1, step 11); the
-writer tests the bytes around it again with the final value in place and keeps the raw
-form when that value would complete a pattern, since the raw form is always valid. The
-`tEXt "ZIP"` length field sits inside the pixel-data wrapper, with the fixed `tEXt`
-type and `ZIP` keyword after it, and is written last (step 12). The header is tested
-with the rest of the payload, the length as zeros, which cannot join a pattern; the
-real length is big-endian, so a pattern byte in it would have to be the most
-significant byte of the chunk's size, and the smallest byte any pattern contains, `-`
-at 0x2D, puts that size at 0x2D000000 bytes, about 755 MB. The writer refuses to
-build a self-extracting PNG variant whose chunk reaches that size rather than
+Two fields are patched after that test, and each needs one of its own. The EOCD
+comment-length field sits at the end of the ZIP region and is patched under the
+declared form (§6.1, step 11); the writer tests the bytes around it again with the
+final value in place and keeps the raw form when that value would complete a pattern,
+since the raw form is always valid. The `tEXt "ZIP"` length field sits inside the pixel-data wrapper,
+with the fixed `tEXt` type and `ZIP` keyword after it, and is written last (step 12).
+The header is tested with the rest of the payload, the length as zeros, which cannot
+join a pattern; the real length is big-endian, so a pattern byte in it would have to be
+the most significant byte of the chunk's size, and the smallest byte any pattern
+contains, `-` at 0x2D, puts that size at 0x2D000000 bytes, about 755 MB. The writer
+refuses to build a self-extracting PNG variant whose chunk reaches that size rather than
 re-check the field.
 
 ### 5.2 The appended-data budget
@@ -1043,6 +1062,15 @@ self-consistent:
   file positions (§4.2), so a reader of the *whole file* never needs prepended-data
   compensation — the repair by which a reader recomputes offsets that disagree with
   the file size. A reader of the recovered ZIP region alone does need it (§4.5).
+
+  The alternative, offsets relative to the start of the region, is not a compatibility
+  problem in itself: a reader that compensates arrives at the same entries, and 7-Zip
+  opens such a file when told the type. What absolute offsets buy is the step before
+  that. The file is a valid archive read as it stands, so it survives format
+  auto-detection — 7-Zip reports a base of 0 and a physical size covering the whole
+  file — and the compensation is confined to the one path that cannot avoid it,
+  universal-mode recovery. Nothing in the format depends on the choice; a writer using
+  the other form produces files this document's readers still open.
 - **PDF offsets are header-relative.** The document's own cross-reference offsets are
   interpreted from the `%PDF-` header, so embedding it needs no rewriting; the writer
   only MUST keep the header inside the scan window (§4.3).
@@ -1766,7 +1794,10 @@ of §5.7.
 
 ### 8.4 The charset round trip, measured
 
-Two claims of §2.1 were verified.
+Two claims of §2.1 were verified. The first is re-derived on every run by
+`test/sfz-harness/charset-round-trip.js`, which reads the tables below out of the
+runtime's own decoders rather than trusting this section, and checks the reverse table
+the extractor ships against the one the rule of §5.5 produces.
 
 **Which encodings qualify.** Decoding all 256 byte values through each encoding
 defined by the WHATWG standard shows 20 that are injective and never produce U+FFFD:
