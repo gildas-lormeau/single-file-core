@@ -239,6 +239,55 @@ function countIdentifiers(text) {
 	check("a relocated archive declares no comment", view.getUint16(bytes.length - 2, true), 0);
 }
 
+function makeNewlinePageData(seed, newlineCount) {
+	const pageData = makePageData(seed, 4 * 1024);
+	const rand = mulberry32(seed);
+	const newlines = ["\n", "\r", "\r\n"];
+	let content = "";
+	for (let index = 0; index < newlineCount; index++) {
+		content += newlines[(rand() * 3) | 0];
+	}
+	pageData.resources.stylesheets.push({ name: "newlines.txt", extension: ".txt", content, url: "https://example.com/newlines.txt" });
+	return pageData;
+}
+
+// libarchive gives up looking for the end of central directory record 16383 bytes from the end of
+// the file, so the default budget is 16361 appended bytes: that window minus the 22-byte record.
+// This fixture's payload lands between the default and the 65535-byte comment ceiling, which is
+// the range the old budget kept appended and bsdtar could not open
+{
+	const wide = makeOptions({ disableCompression: true, maxAppendedDataLength: 65535 });
+	const { bytes: wideBytes } = await runProcess(makeNewlinePageData(43, 80 * 1000), wide);
+	const wideTail = readAppendedData(wideBytes).trailing;
+	check("a wider budget keeps the payload appended", wide.extraDataSize, undefined);
+	check("the fixture overflows the default budget", wideTail > 16361, true);
+	check("the fixture fits the comment ceiling", wideTail <= 65535, true);
+
+	const byDefault = makeOptions({ disableCompression: true });
+	const { bytes } = await runProcess(makeNewlinePageData(43, 80 * 1000), byDefault);
+	check("the default budget relocates the payload", byDefault.extraDataSize > 0, true);
+	check("the default budget keeps the record in libarchive's window", readAppendedData(bytes).trailing <= 16361, true);
+
+	const fitting = makeOptions({ disableCompression: true, maxAppendedDataLength: wideTail });
+	await runProcess(makeNewlinePageData(43, 80 * 1000), fitting);
+	check("a budget matching the run to the byte keeps it appended", fitting.extraDataSize, undefined);
+
+	const tight = makeOptions({ disableCompression: true, maxAppendedDataLength: wideTail - 1 });
+	await runProcess(makeNewlinePageData(43, 80 * 1000), tight);
+	check("one byte below the run relocates it", tight.extraDataSize > 0, true);
+}
+
+// the budget and the comment ceiling are two different limits, and only the second is a property
+// of the format. A budget raised past 65535 produces a run the comment-length field cannot hold,
+// which setUint16 would write back modulo 65536: the writer leaves it undeclared instead
+{
+	const options = makeOptions({ disableCompression: true, declareAppendedData: true, maxAppendedDataLength: Number.MAX_SAFE_INTEGER });
+	const { bytes } = await runProcess(makeNewlinePageData(44, 320 * 1000), options);
+	const { declared, trailing } = readAppendedData(bytes);
+	check("a run past the comment ceiling stays appended", trailing > 65535, true);
+	check("a run past the comment ceiling is left undeclared", declared, 0);
+}
+
 {
 	const options = makeOptions({ embeddedPdf: PDF });
 	const pageData = makePageData(15, 4 * 1024);

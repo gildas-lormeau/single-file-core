@@ -136,7 +136,7 @@ Three consequences shape everything below:
 | **region** | A byte range with a single producer, named in §3. Regions are the units the rest of this document reasons about; a region can appear in several pieces — `html-prologue` resumes after the embedded PDF document in the PDF variants, and after the `tEXt "ZIP"` chunk header in the PNG ones, so with all four faces it comes in three. |
 | **universal mode** | The variant whose HTML face can extract the archive from the *parsed page text*, the text and comment nodes the HTML parser produced, and therefore needs no access to its own raw bytes. Named "universal" because it works from any location, including the `file:` protocol. |
 | **wrapper tag** | The HTML construct that hides a binary region from the HTML parser, `<!--`…`-->` by default (§5.1). |
-| **appended data** | Bytes after the ZIP End Of Central Directory record. Readers tolerate them within the window their EOCD scan already covers: 65557 bytes from the end of the file (the 22-byte record plus the 65535-byte maximum comment length); "the 64 KB window" refers to this. It may be left undeclared or declared as the archive comment; both forms are valid ZIP and readers MUST accept both (§4.2). The recovery payload can be computed before that choice is made because it stops two bytes short of the record, excluding its comment-length field (see *recovered range* below). |
+| **appended data** | Bytes after the ZIP End Of Central Directory record. A reader tolerates them as far back as its EOCD scan reaches, and how far that is varies by an order of magnitude: 65557 bytes from the end of the file for Python `zipfile` (the 22-byte record plus the 65535-byte maximum comment length), but 16383 for libarchive and 32768 for perl `Archive::Zip` (§8.1). No reader's window is guaranteed, so a writer keeps its own narrower budget (§5.2). The format's one hard limit is the 65535-byte comment field, and it binds only a run the writer declares (§4.2). It may be left undeclared or declared as the archive comment; both forms are valid ZIP and readers MUST accept both (§4.2). The recovery payload can be computed before that choice is made because it stops two bytes short of the record, excluding its comment-length field (see *recovered range* below). |
 | **ZIP region** | The contiguous byte range holding the archive proper: from the first local file header the ZIP writer emitted through the last byte of the End Of Central Directory record. It spans the `zip-entries`, `pdf-central-record` (when present) and `central-directory · eocd` blocks of §3, and in the HTML variants it is the content of the last wrapper, exactly so on the element rungs and preceded by the `sfz-data` identifier on the comment rung, which the extractor steps over. It does **not** include `pdf-local-header` or the PDF document, which sit earlier in the file. |
 | **archive** | The *logical* ZIP file: the set of entries the central directory describes, wherever their bytes lie. This is distinct from the ZIP region above, which is a contiguous byte range. Every entry but one has its bytes inside the region; `page.pdf` is the deliberate exception, an entry of the archive whose local header and data sit before the region (§4.2). "Archive" in this document always means the logical file, "ZIP region" always the byte range, and the two differ only in the PDF-with-HTML variants. |
 | **recovered range** | What the universal extractor reproduces (§4.5): the ZIP region minus its last two bytes, the comment-length field of the End Of Central Directory record. That field is the one part of the record whose value depends on what follows the region, so leaving it out is what lets a writer decide the appended-data form after the recovery payload is final (§4.2). The extractor supplies the two bytes itself, as zeroes — the recovered range carries no comment. |
@@ -174,8 +174,9 @@ every acquisition path including the ones that read raw bytes and could return i
 HTML face, so the option does not apply. The *Specimen* column names the measured
 reference files this document cites; §8 records how to regenerate them.
 
-Other writer options shape the file without adding a face: `preventAppendedData` and
-`declareAppendedData` (§4.2, §5.2), `includeBOM` (§3.1), `insertTextBody` (§4.6),
+Other writer options shape the file without adding a face: `preventAppendedData`,
+`declareAppendedData` and `maxAppendedDataLength` (§4.2, §5.2), `includeBOM` (§3.1),
+`insertTextBody` (§4.6),
 `password` (§5.6), `createRootDirectory` (§7.1), and the head-element switches
 `insertCanonicalLink`, `insertMetaNoIndex` and `insertMetaCSP` (§3.1).
 
@@ -328,7 +329,8 @@ the same way: only a universal file carries an `<sfz-extra-data>` element.
 
 Unless a row states otherwise, the layouts below are measured from specimen files
 saved from `example.com` (the generation commands are in §8). The relocated row covers
-two cases with one layout, `preventAppendedData` and a payload over 64 KB: the first is
+two cases with one layout, `preventAppendedData` and a payload over the appended-data
+budget (§5.2): the first is
 measured on the relocated specimen, the second derived from the writer rules, because
 such a payload requires an archive too large for a readable specimen. The figure below shows
 the regions and their order; the glossary of §3.1 is the normative list, and it states
@@ -353,7 +355,7 @@ face adds, then the regions the PNG face adds.
 | `<!--` / `-->` | HTML | HTML face | The wrapper tag pair hiding a binary region from the HTML parser — comment tags by default, another pair when the hidden bytes defeat them — which `-->` is only the commonest way to do, the full test being `<!--`, `--!>`, a trailing `<!-` and, for the PNG payload, a leading `>` or `->` (§5.1). Drawn at each opening and closing position. The close tag is absent whenever the recovery payload is relocated (§5.2): under `preventAppendedData`, when the payload outgrows the appended-data budget, or on the `<plaintext>` wrapper which cannot close. No markup then follows the archive and the wrapper runs to end-of-file. That does not mean the file ends at the EOCD — the PNG face's tail still follows, inside the wrapper, where it parses as text (§5.1). |
 | `zip-entries` | ZIP | always | The archive's local file headers and entry data, written by the ZIP writer. The central directory of an archive written by the reference writer lists `index.html` (the page) first, then `manifest.json` (a JSON description of the archive: original URL, title, save time, resource-to-URL map — informative; the page displays without it), then the resources; the *physical* order of the local headers inside the region is not guaranteed to match, and readers MUST NOT rely on either order — entries are addressed by name (§7.1). |
 | `central-directory · eocd` | ZIP | always | The central-directory records followed by the End Of Central Directory record. All offsets are absolute file positions (§5.3). In the HTML+PDF variants the EOCD accounts for the injected `pdf-central-record` (how the writer achieves that is §6). |
-| `extra-data` | extractor | universal | `<sfz-extra-data>` element holding the base64, deflate-compressed recovery payload (§5.5). It always sits outside the wrapper, so it parses as a real element the extractor can address. Normal placement: after the EOCD, between the wrapper close tag and the end tags. Relocated placement, used when the payload exceeds the 64 KB appended-data window or `preventAppendedData` is set: immediately before the wrapper start tag. In the relocated form the element is followed by space padding: its room is reserved before the archive is written, because the region precedes the ZIP data and resizing it would shift every central-directory offset (§6). Neither placement carries positional meaning — the extractor finds the ZIP region by identifier, not relative to this element (§4.5). |
+| `extra-data` | extractor | universal | `<sfz-extra-data>` element holding the base64, deflate-compressed recovery payload (§5.5). It always sits outside the wrapper, so it parses as a real element the extractor can address. Normal placement: after the EOCD, between the wrapper close tag and the end tags. Relocated placement, used when the payload exceeds the appended-data budget (§5.2) or `preventAppendedData` is set: immediately before the wrapper start tag. In the relocated form the element is followed by space padding: its room is reserved before the archive is written, because the region precedes the ZIP data and resizing it would shift every central-directory offset (§6). Neither placement carries positional meaning — the extractor finds the ZIP region by identifier, not relative to this element (§4.5). |
 | `</body></html>` | HTML | HTML face | The end tags closing the document after the wrapper close tag. Omitted whenever the recovery payload is relocated (§5.2), and in the PNG variants so the file can end with the PNG tail. |
 | `pdf-local-header` | ZIP | PDF face with HTML | The hand-built local file header for `page.pdf` (STORE, checksum precomputed, language encoding flag set as on every other entry — §5.8), written immediately before the PDF document so ZIP readers see an ordinary entry whose data is the PDF (§6). |
 | `pdf-document` | PDF | PDF face | The raw PDF bytes. With the HTML face, wrapped together with `pdf-local-header` in a wrapper tag pair inside `html-prologue`, placed so `%PDF-` starts at offset 1024 or lower — the range PDF readers search for the header, which is what lets a PDF document start after other bytes at all (§4.3). Without the HTML face and without the PNG face, the file simply *starts* with the PDF document, as prepended data the ZIP face tolerates; `page.pdf` is then not an archive entry at all — no local header, no central record. |
@@ -366,7 +368,7 @@ face adds, then the regions the PNG face adds.
 | `crc · IEND` | PNG | PNG face | The `tEXt "ZIP"` chunk's CRC, computed once the archive bytes are final (§6), followed by the empty `IEND` chunk — the last bytes of the file (PNG requires `IEND` to end the stream, which is why the PNG variants drop the end tags). |
 
 The reader-by-reader interpretation of these regions is §4; the mechanics that keep
-them from colliding (wrapper-tag selection, checksums, offsets, the 64 KB budget) are
+them from colliding (wrapper-tag selection, checksums, offsets, the appended-data budget) are
 §5.
 
 ## 4. Reader lenses
@@ -447,10 +449,12 @@ path the plain variant's error message describes.
 ### 4.2 The ZIP reader
 
 The ZIP face is read from the end. A reader locates the End Of Central Directory
-record by scanning backward from end-of-file; the format guarantees it lies within
-the window every reader must already scan to support archive comments (§1.3,
-*appended data*), because everything after it — wrapper close tag, extra-data, end
-tags, PNG tail — fits the appended-data budget (§5.2). Accepting *undeclared* bytes
+record by scanning backward from end-of-file, and how far back it scans is the one
+reader property the format cannot assume (§1.3, *appended data*). Everything the
+writer emits after the record — wrapper close tag, extra-data, end tags, PNG tail —
+fits the appended-data budget of §5.2, and the reference writer sizes that budget to
+the narrowest scan measured in §8.1, so the record stays reachable for every reader
+listed there. Accepting *undeclared* bytes
 in that window is itself a customary tolerance (§1.1): the ZIP specification
 documents the comment, not trailing junk. From the EOCD
 the reader jumps to the central directory and reads only what it references;
@@ -509,6 +513,14 @@ addition, and it is the only form some
 readers accept at all: `java.util.zip`, and therefore Android and most JVM tooling,
 rejects an archive with undeclared trailing bytes outright (§8.1). A writer SHOULD
 offer both and default to raw.
+
+The declared form carries a ceiling the raw form does not. The comment length is a
+16-bit field, so a run longer than 65535 bytes cannot be declared at all. A writer
+whose appended-data budget (§5.2) is raised past that ceiling MUST leave such a run
+undeclared rather than write its length back modulo 65536, and readers that accept
+only the declared form then reject the file with no diagnostic. The budget and the
+ceiling are two separate limits, and a writer that exposes the first as an option
+SHOULD say so where it documents it.
 
 Neither form constrains the other faces, and universal mode supports both, because
 the recovery payload describes the recovered range rather than the whole region: the
@@ -1011,16 +1023,32 @@ re-check the field.
 
 ### 5.2 The appended-data budget
 
-Everything the writer emits after the EOCD record MUST fit in 65535 bytes — the
-maximum length a ZIP archive comment may declare, and therefore the distance beyond
-the record that every reader's backward scan already covers (§1.3). The appended run is:
+The run the writer emits after the EOCD record has two limits, and only one of them
+comes from the format. A run *declared* as the archive comment MUST fit in 65535
+bytes, the largest value a comment-length field can hold (§4.2). A run left *raw* has
+no format limit at all: the bytes are outside the archive, and nothing in ZIP bounds
+them. What bounds both in practice is the reader. Locating the EOCD record means
+scanning backward from end-of-file, and the searches measured in §8.1 stop at 16383
+bytes for libarchive, 32768 for perl `Archive::Zip` and 65557 for Python `zipfile`, so
+a run sized to the comment ceiling is already invisible to the narrowest of them. A
+writer therefore keeps a *budget*, sized to the readers it means to satisfy rather
+than to the format. The appended run is:
 
 ```
 wrapper close tag + extra-data element + end tags + (PNG face: 4-byte chunk CRC + 12-byte IEND)
 ```
 
-and the writer compares its total against 65535 before committing to it. The EOCD
-record's own 22 bytes sit inside the window too, giving the 65557-byte figure of §1.3.
+and the writer compares its total against that budget before committing to it. The
+EOCD record's own 22 bytes sit inside a reader's window as well, which is what turns a
+65535-byte run into the 65557 bytes of §1.3 and the reference writer's budget into
+libarchive's 16383.
+
+The reference writer exposes the budget as `maxAppendedDataLength` and defaults it to
+16361 bytes: libarchive's window less the 22 bytes of the record, which is the largest
+run behind which every reader of §8.1 still finds the record. A writer MAY choose
+another value. Raising it above 65535 leaves the run undeclarable: it is emitted, and
+it is still valid ZIP, but no comment length can cover it, and §4.2 says what that
+costs.
 
 Only the extra-data element can outgrow the budget: it carries one 2-bit code per
 newline sequence in the recovered range — the ZIP region without its comment-length
@@ -1028,9 +1056,9 @@ field (§4.5), CR LF counting once, for two bytes (§5.5) — so it
 grows with the archive. Newline bytes
 occur at their natural density in compressed and STOREd binary data — about two in
 every 256 bytes — and the codes are compressed and base64-encoded, which measures at
-one byte of element per 650 bytes of archive at scale (§8). The budget is therefore
-exhausted at an archive of roughly 40 MB, so the relocated placement is rare in
-practice. That ratio is the large-archive limit and must not be used to size a
+one byte of element per 650 bytes of archive at scale (§8). The default budget is
+therefore exhausted at an archive of roughly 10 MB, and the 65535-byte ceiling at
+roughly 40 MB, so the relocated placement is uncommon in practice. That ratio is the large-archive limit and must not be used to size a
 particular file: deflate's overhead is a fixed cost spread over a growing payload, so
 small archives are far less efficient. Measured on exact byte counts, a 6099-byte region
 needs 69 bytes of element — a ratio of 88 — and a 74057-byte region needs 189, a ratio
@@ -1467,7 +1495,7 @@ terminate because each of them advances a monotone quantity:
 There is no converse of the second: a pass that reserved room never discards it,
 even when the relocated payload would have fit the appended window. Relocation moves
 the archive, which changes the offsets, which changes the payload that made the
-relocation necessary, so a payload lying on the 65535-byte boundary can be too large
+relocation necessary, so a payload lying on the budget boundary can be too large
 appended and small enough relocated, and a writer that dropped the reservation could
 rebuild the two placements forever. Relocation is therefore final (§5.2), and the file
 keeps at most the reservation's own margin of dead padding.
@@ -1622,7 +1650,7 @@ only if it affects the bytes the page is built from:
 | An entry's CRC-32 or AES authentication code does not match | **SHOULD** fail for that entry, and MUST NOT present a page rebuilt from it as intact |
 | `page.pdf` was reconstructed from the parsed page and its CRC-32 does not match | **MUST** discard the reconstruction (§4.5). The bytes are a guess about newlines the recovery payload does not describe, and the checksum is the only thing that tests it — unlike the row above, there is no read to have gone wrong, only an inference |
 | Bytes outside the archive proper — before the first local file header, after the EOCD record, or between an entry's data and the next header | **MUST** tolerate: they are the other faces (§7.1). The gap in the middle is not hypothetical: with the PDF face the bootstrap lies between `page.pdf`'s data and the ZIP region |
-| The appended run exceeds the 65535-byte budget (§5.2) | Not a reader's problem: if the EOCD record was found, the archive is readable. Readers MAY warn |
+| The appended run exceeds the 65535-byte ceiling (§5.2) | Not a reader's problem: if the EOCD record was found, the archive is readable. Readers MAY warn |
 | A `tEXt` chunk CRC does not match, or a chunk holds bytes PNG does not permit (§4.4) | Irrelevant to extraction; a reader of the archive MAY ignore both |
 | `page.pdf` is present but its data does not begin with `%PDF-` | Not an error. The entry is data like any other |
 | `index.html` is present without `manifest.json` | **MUST** still extract (§7.1) |
@@ -1662,10 +1690,19 @@ and is class C.
 | Info-ZIP `unzip`, `zipinfo` | ✔ | ✔ | ✔ | Lists and extracts every variant. AES entries are skipped — `need PK compat. v5.1 (can do v4.5)` — a limitation of the tool, not of the file; `page.pdf` still extracts because it is never encrypted |
 | Python `zipfile` | ✔ | ✔ | ✔ | Lists and extracts every variant |
 | 7-Zip (`7zz`) | ✔ | ✔ | ✔ | Lists and extracts every variant, AES included |
-| libarchive `bsdtar`, seekable input | ✔ | ✔ | ✔ | Lists and extracts every variant |
+| libarchive `bsdtar`, seekable input | ✔ | ✔ | ✔ | Lists and extracts every variant. Its EOCD scan is the narrowest measured, so a class-C file whose appended run pushes the record past 16383 bytes from the end is rejected with `Unrecognized archive format`; §5.2's default budget is sized to this window, and the ✔ holds for files that respect it |
 | libarchive `bsdtar`, piped input | ✔ | ✘ | ✘ | `Unrecognized archive format` — the forward-only case of §1.2, measured |
 | Java `java.util.zip` (`jar tf`) | ✔ | ✔ | ✘ | `zip END header not found` whenever bytes follow the EOCD undeclared. Declaring them as the archive comment makes the same file open, measured on every class-C variant (§4.2) |
 | macOS `ditto -x -k` | ✔ | ✘ | ✘ | `Couldn't read PKZip signature` — requires a local file header at offset 0, so prepended data alone defeats it |
+
+The backward scans behind the class-C column differ by an order of magnitude, and they
+are what §5.2's budget is sized against. Measured by padding a working archive until
+the record fell out of reach, the largest distance from end-of-file at which each
+reader still finds the EOCD record is: libarchive 16383, perl `Archive::Zip` 32768,
+Python `zipfile` 65557, zip.js 65536, Info-ZIP `unzip` 68000, and 7-Zip beyond 1 MiB,
+which scans the whole file. libarchive binds, and its window less the 22-byte record
+is the 16361-byte default budget of §5.2. macOS `ditto` is not on this axis at all: it
+requires a local file header at offset 0 whatever the tail looks like.
 
 The cost of the declared form was measured on the same tools: it is a display cost, not
 a compatibility one. An archive whose trailing bytes are declared as the comment has
@@ -1741,7 +1778,7 @@ specimen without a network.
 | 123006 | `<sfz-extra-data>` … `</sfz-extra-data>` | recovery payload, appended placement (§5.2); 24 base64 characters for this archive |
 | 123063 | `</body></html>` | end tags; end of file at 123077 |
 
-The appended run is 74 bytes, well inside the 65535-byte budget (§5.2). The ZIP region
+The appended run is 74 bytes, well inside the 16361-byte default budget (§5.2). The ZIP region
 is the 998 bytes from 122005 to 123003; the universal extractor reproduces the first 996
 of them and supplies the last two itself (§1.3).
 
@@ -1775,7 +1812,7 @@ These specimens are deliberately small, and a reader tested only against them is
 undertested: they are all flat archives of two or three entries. None
 exercises a root directory, `frames/<n>/` nesting, a second `index.html`, a `data:`-URL
 entry comment, the optional text body (§4.6), a UTF-8 BOM, zip64
-(§5.7), a payload past the 64 KB budget, or a relocated reservation with padding left
+(§5.7), a payload past the appended-data budget, or a relocated reservation with padding left
 in it. Two omissions matter more than the rest, because they are the parts of §5.1 a
 writer is most likely to get wrong: no specimen defeats a rung by its **start**
 pattern, and none defeats one with an **upper-case** pattern. A writer that tested only
@@ -1847,6 +1884,7 @@ predicts.
 | August 2026 | Core 1.5.115: password-protected archives withhold the provenance comment and the canonical link as well (§5.6). Both wrote the page's own URL into the prologue, beside the title that was already withheld, so the address the archive was saved from stayed in the clear |
 | August 2026 | Core 1.5.119: the inlined ZIP library is built ASCII-only, and §2.1 now requires it of any bootstrap. Its CP437 table had been emitted as literal characters, which the page re-decoded as windows-1252, growing the table from 256 entries to 508 and shifting every lookup by 60 — so the one entry read without the UTF-8 flag, `page.pdf`, came back mangled and no archive with a PDF face extracted in any engine (§5.8) |
 | August 2026 | Core 1.5.120: the hand-built `page.pdf` records set the language encoding flag, like every entry the ZIP writer produces (§5.8). Its name is ASCII, so no decoded name changes; what changes is that no entry in an archive is read through CP437 any more, closing the path the 1.5.119 defect surfaced on |
+| September 2026 | Core 1.5.126: the appended-data budget becomes the `maxAppendedDataLength` writer option and its default drops from 65535 to 16361 bytes, so the EOCD record stays inside libarchive's scan and `bsdtar` opens archives it used to reject (§5.2, §8.1). The 65535-byte comment ceiling is now a separate limit, stated in §4.2: a budget raised past it produces a run that cannot be declared |
 
 This document was itself revised in August 2026, against core 1.5.108, after several
 independent reviews. One of them was a reader built from this specification alone, with

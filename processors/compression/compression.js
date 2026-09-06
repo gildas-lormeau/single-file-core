@@ -89,7 +89,8 @@ const PNG_CHUNK_CRC_LENGTH = 4;
 const PNG_SIGNATURE_LENGTH = 8;
 const PNG_IHDR_LENGTH = 25;
 const COMMENT_LENGTH_FIELD_LENGTH = 2;
-const MAX_APPENDED_DATA_LENGTH = 65535;
+const MAX_ZIP_COMMENT_LENGTH = 65535;
+const DEFAULT_MAX_APPENDED_DATA_LENGTH = 16361;
 const PDF_ENTRY_FILENAME = "page.pdf";
 const PRESCAN_WINDOW_LENGTH = 1024;
 const PNG_TEXT_CHUNK_HEADER_LENGTH = 12;
@@ -121,6 +122,7 @@ const PROCESS_OPTION_NAMES = [
 	"insertMetaCSP",
 	"insertMetaNoIndex",
 	"insertTextBody",
+	"maxAppendedDataLength",
 	"password",
 	"preventAppendedData",
 	"selfExtractingArchive",
@@ -278,7 +280,7 @@ async function buildArchive(pageData, options, script, entriesData, zipWriterOpt
 			const payloadView = new DataView(payload.buffer);
 			words.forEach((word, indexWord) => payloadView.setUint32(indexWord * 4, word, true));
 			extraData = "<sfz-extra-data>" + base64Encode(deflateRaw(payload)) + "</sfz-extra-data>";
-			if (options.preventAppendedData || extraData.length > MAX_APPENDED_DATA_LENGTH - pageContent.length - endTags.length - (options.embeddedImage ? PNG_IEND_LENGTH + PNG_CHUNK_CRC_LENGTH : 0)) {
+			if (options.preventAppendedData || extraData.length > getMaxAppendedDataLength(options) - pageContent.length - endTags.length - (options.embeddedImage ? PNG_IEND_LENGTH + PNG_CHUNK_CRC_LENGTH : 0)) {
 				if (!options.extraDataSize) {
 					options.preventAppendedData = true;
 					options.extraDataSize = getReservationSize(extraData.length);
@@ -304,7 +306,7 @@ async function buildArchive(pageData, options, script, entriesData, zipWriterOpt
 	if (options.declareAppendedData) {
 		const appendedDataLength = pageContent.length - data.length +
 			(options.embeddedImage ? PNG_CHUNK_CRC_LENGTH + PNG_IEND_LENGTH : 0);
-		if (appendedDataLength && appendedDataLength <= MAX_APPENDED_DATA_LENGTH && isDeclaredLengthHidden(pageContent, zipDataEnd, appendedDataLength, options)) {
+		if (appendedDataLength && appendedDataLength <= MAX_ZIP_COMMENT_LENGTH && isDeclaredLengthHidden(pageContent, zipDataEnd, appendedDataLength, options)) {
 			new DataView(pageContent.buffer, pageContent.byteOffset).setUint16(zipDataEnd, appendedDataLength, true);
 		}
 	}
@@ -322,6 +324,10 @@ async function buildArchive(pageData, options, script, entriesData, zipWriterOpt
 	} else {
 		return new Blob([pageContent], { type: "application/octet-stream" });
 	}
+}
+
+function getMaxAppendedDataLength(options) {
+	return options.maxAppendedDataLength === undefined ? DEFAULT_MAX_APPENDED_DATA_LENGTH : options.maxAppendedDataLength;
 }
 
 function isDeclaredLengthHidden(pageContent, zipDataEnd, appendedDataLength, options) {
