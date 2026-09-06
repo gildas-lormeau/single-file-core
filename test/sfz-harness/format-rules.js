@@ -1,5 +1,5 @@
 import "./dom-stub.js";
-import { makePageData, makeOptions, runProcess, mulberry32 } from "./common.js";
+import { makePageData, makeOptions, runProcess, mulberry32, freezeDate } from "./common.js";
 import { ZipReader, ZipWriter, BlobReader } from "../../vendor/zip/zip.js";
 
 // the quote is there because the escaper the title shares with the table of contents encodes
@@ -254,27 +254,37 @@ function makeNewlinePageData(seed, newlineCount) {
 // libarchive gives up looking for the end of central directory record 16383 bytes from the end of
 // the file, so the default budget is 16361 appended bytes: that window minus the 22-byte record.
 // This fixture's payload lands between the default and the 65535-byte comment ceiling, which is
-// the range the old budget kept appended and bsdtar could not open
+// the range the old budget kept appended and bsdtar could not open.
+// The Date must be frozen: `archiveTime` (compression.js:155) puts an ISO timestamp in the
+// archive, whose milliseconds move a few newline bytes in and out of the recovered range and
+// therefore change the payload length build to build. The boundary checks below compare a budget
+// against a run measured in an EARLIER build, so without freezing they are off by a few bytes one
+// run in three. check-determinism.js asserts both halves of that
 {
-	const wide = makeOptions({ disableCompression: true, maxAppendedDataLength: 65535 });
-	const { bytes: wideBytes } = await runProcess(makeNewlinePageData(43, 80 * 1000), wide);
-	const wideTail = readAppendedData(wideBytes).trailing;
-	check("a wider budget keeps the payload appended", wide.extraDataSize, undefined);
-	check("the fixture overflows the default budget", wideTail > 16361, true);
-	check("the fixture fits the comment ceiling", wideTail <= 65535, true);
+	const restoreDate = freezeDate();
+	try {
+		const wide = makeOptions({ disableCompression: true, maxAppendedDataLength: 65535 });
+		const { bytes: wideBytes } = await runProcess(makeNewlinePageData(43, 80 * 1000), wide);
+		const wideTail = readAppendedData(wideBytes).trailing;
+		check("a wider budget keeps the payload appended", wide.extraDataSize, undefined);
+		check("the fixture overflows the default budget", wideTail > 16361, true);
+		check("the fixture fits the comment ceiling", wideTail <= 65535, true);
 
-	const byDefault = makeOptions({ disableCompression: true });
-	const { bytes } = await runProcess(makeNewlinePageData(43, 80 * 1000), byDefault);
-	check("the default budget relocates the payload", byDefault.extraDataSize > 0, true);
-	check("the default budget keeps the record in libarchive's window", readAppendedData(bytes).trailing <= 16361, true);
+		const byDefault = makeOptions({ disableCompression: true });
+		const { bytes } = await runProcess(makeNewlinePageData(43, 80 * 1000), byDefault);
+		check("the default budget relocates the payload", byDefault.extraDataSize > 0, true);
+		check("the default budget keeps the record in libarchive's window", readAppendedData(bytes).trailing <= 16361, true);
 
-	const fitting = makeOptions({ disableCompression: true, maxAppendedDataLength: wideTail });
-	await runProcess(makeNewlinePageData(43, 80 * 1000), fitting);
-	check("a budget matching the run to the byte keeps it appended", fitting.extraDataSize, undefined);
+		const fitting = makeOptions({ disableCompression: true, maxAppendedDataLength: wideTail });
+		await runProcess(makeNewlinePageData(43, 80 * 1000), fitting);
+		check("a budget matching the run to the byte keeps it appended", fitting.extraDataSize, undefined);
 
-	const tight = makeOptions({ disableCompression: true, maxAppendedDataLength: wideTail - 1 });
-	await runProcess(makeNewlinePageData(43, 80 * 1000), tight);
-	check("one byte below the run relocates it", tight.extraDataSize > 0, true);
+		const tight = makeOptions({ disableCompression: true, maxAppendedDataLength: wideTail - 1 });
+		await runProcess(makeNewlinePageData(43, 80 * 1000), tight);
+		check("one byte below the run relocates it", tight.extraDataSize > 0, true);
+	} finally {
+		restoreDate();
+	}
 }
 
 // the budget and the comment ceiling are two different limits, and only the second is a property
