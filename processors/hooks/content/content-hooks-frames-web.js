@@ -412,6 +412,7 @@
 			}
 		};
 		document.fonts.delete.toString = function () { return "function delete() { [native code] }"; };
+		setFunctionName(document.fonts.delete, "delete");
 		const clearFonts = document.fonts.clear;
 		document.fonts.clear = function () {
 			try {
@@ -423,16 +424,16 @@
 			}
 		};
 		document.fonts.clear.toString = function () { return "function clear() { [native code] }"; };
+		setFunctionName(document.fonts.clear, "clear");
 	}
 
 	if (globalThis.IntersectionObserver) {
 		const origIntersectionObserver = globalThis.IntersectionObserver;
-		globalThis.IntersectionObserver = function IntersectionObserver() {
+		globalThis.IntersectionObserver = function IntersectionObserver(callback) {
 			try {
 				const intersectionObserver = new origIntersectionObserver(...arguments);
 				const observeIntersection = origIntersectionObserver.prototype.observe || intersectionObserver.observe;
 				const unobserveIntersection = origIntersectionObserver.prototype.unobserve || intersectionObserver.unobserve;
-				const callback = arguments[0];
 				const options = arguments[1];
 				if (observeIntersection) {
 					intersectionObserver.observe = function (targetElement) {
@@ -450,6 +451,7 @@
 						}
 					};
 					intersectionObserver.observe.toString = function () { return "function observe() { [native code] }"; };
+					setFunctionName(intersectionObserver.observe, "observe");
 				}
 				if (unobserveIntersection) {
 					intersectionObserver.unobserve = function (targetElement) {
@@ -471,6 +473,7 @@
 						}
 					};
 					intersectionObserver.unobserve.toString = function () { return "function unobserve() { [native code] }"; };
+					setFunctionName(intersectionObserver.unobserve, "unobserve");
 				}
 				observers.set(intersectionObserver, { callback, options });
 				return intersectionObserver;
@@ -496,6 +499,7 @@
 		}
 	};
 	CSSStyleSheet.prototype.replaceSync.toString = function () { return "function replaceSync() { [native code] }"; };
+	setFunctionName(CSSStyleSheet.prototype.replaceSync, "replaceSync");
 	const orginalReplace = CSSStyleSheet.prototype.replace;
 	CSSStyleSheet.prototype.replace = async function (text) {
 		try {
@@ -508,10 +512,11 @@
 		}
 	};
 	CSSStyleSheet.prototype.replace.toString = function () { return "function replace() { [native code] }"; };
+	setFunctionName(CSSStyleSheet.prototype.replace, "replace");
 	const originalInsertRule = CSSStyleSheet.prototype.insertRule;
-	CSSStyleSheet.prototype.insertRule = function (rule, index) {
+	CSSStyleSheet.prototype.insertRule = function (rule) {
 		try {
-			const result = originalInsertRule.apply(this, [rule, index]);
+			const result = originalInsertRule.apply(this, [rule, arguments[1]]);
 			adoptedStylesheetsData.delete(this);
 			return result;
 		} catch (error) {
@@ -520,6 +525,7 @@
 		}
 	};
 	CSSStyleSheet.prototype.insertRule.toString = function () { return "function insertRule() { [native code] }"; };
+	setFunctionName(CSSStyleSheet.prototype.insertRule, "insertRule");
 	const originalDeleteRule = CSSStyleSheet.prototype.deleteRule;
 	CSSStyleSheet.prototype.deleteRule = function (index) {
 		try {
@@ -532,6 +538,7 @@
 		}
 	};
 	CSSStyleSheet.prototype.deleteRule.toString = function () { return "function deleteRule() { [native code] }"; };
+	setFunctionName(CSSStyleSheet.prototype.deleteRule, "deleteRule");
 
 	// the listener below is reached through the host element, and a closed shadow root is
 	// not reachable from it, so the roots are recorded as they are created
