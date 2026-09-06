@@ -753,11 +753,7 @@ async function getContent() {
 	});
 	return new Promise((resolve, reject) => {
 		let aborted = false;
-		if (location.protocol == "file:") {
-			extractDataFromDocument();
-		} else {
-			getPageData();
-		}
+		getPageData();
 
 		async function extractDataFromDocument() {
 			try {
