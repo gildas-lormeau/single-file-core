@@ -390,13 +390,13 @@ function guessMIMEType(expectedType, buffer) {
 		if (compareBytes([255, 255, 255, 255], [0, 0, 2, 0])) {
 			return "image/x-icon";
 		}
-		if (compareBytes([255, 255], [78, 77])) {
+		if (compareBytes([255, 255], [66, 77])) {
 			return "image/bmp";
 		}
 		if (compareBytes([255, 255, 255, 255, 255, 255], [71, 73, 70, 56, 57, 97])) {
 			return "image/gif";
 		}
-		if (compareBytes([255, 255, 255, 255, 255, 255], [71, 73, 70, 56, 59, 97])) {
+		if (compareBytes([255, 255, 255, 255, 255, 255], [71, 73, 70, 56, 55, 97])) {
 			return "image/gif";
 		}
 		if (compareBytes([255, 255, 255, 255, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255], [82, 73, 70, 70, 0, 0, 0, 0, 87, 69, 66, 80, 86, 80])) {
@@ -434,7 +434,7 @@ function guessMIMEType(expectedType, buffer) {
 		if (compareBytes([0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255], [0, 0, 0, 0, 102, 116, 121, 112, 105, 115, 111, 109])) {
 			return "video/mp4";
 		}
-		if (compareBytes([255, 255, 255, 255, 0, 0, 0, 0, 255, 255, 255, 255], [82, 73, 70, 70, 0, 0, 0, 0, 87, 65, 86, 69])) {
+		if (compareBytes([255, 255, 255, 255, 0, 0, 0, 0, 255, 255, 255, 255], [82, 73, 70, 70, 0, 0, 0, 0, 65, 86, 73, 32])) {
 			return "video/x-msvideo";
 		}
 		if (compareBytes([255, 255, 255, 255], [0, 0, 1, 179]) || compareBytes([255, 255, 255, 255], [0, 0, 1, 186])) {
@@ -443,18 +443,18 @@ function guessMIMEType(expectedType, buffer) {
 		if (compareBytes([255, 255, 255, 255], [79, 103, 103, 83])) {
 			return "video/ogg";
 		}
-		if (compareBytes([255], [71])) {
-			return "video/mp2t";
-		}
 		if (compareBytes([255, 255, 255, 255], [26, 69, 223, 163])) {
 			return "video/webm";
 		}
 		if (compareBytes([0, 0, 0, 0, 255, 255, 255, 255, 255, 255], [0, 0, 0, 0, 102, 116, 121, 112, 51, 103])) {
 			return "video/3gpp";
 		}
+		if (compareBytes([255], [71])) {
+			return "video/mp2t";
+		}
 	}
 	if (expectedType == "audio") {
-		if (compareBytes([255, 255], [255, 249]) || compareBytes([255, 255], [255, 254])) {
+		if (compareBytes([255, 255], [255, 241]) || compareBytes([255, 255], [255, 249]) || compareBytes([255, 255], [255, 254])) {
 			return "audio/aac";
 		}
 		if (compareBytes([255, 255, 255, 255], [77, 84, 104, 100])) {
