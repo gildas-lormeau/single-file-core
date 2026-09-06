@@ -293,6 +293,9 @@ function preProcessDoc(doc, win, options) {
 }
 
 function markInvalidNesting(doc) {
+	if (!doc.body) {
+		return;
+	}
 	addTrackIds(doc.body);
 	const verificationDoc = parseDocContent(serialize(doc));
 	const markedMap = buildTrackIdMap(doc.body);
