@@ -177,7 +177,7 @@ function initRequestSync(message) {
 	if (!TOP_WINDOW) {
 		windowId = globalThis.frameId = message.windowId;
 	}
-	processFrames(document, message.options, windowId, sessionId);
+	processFrames(document, message.options, windowId, sessionId, false);
 	if (!TOP_WINDOW) {
 		sendInitResponse({ frames: [getFrameData(document, globalThis, windowId, message.options, message.scrolling)], sessionId, requestedFrameId: document.documentElement.dataset.requestedFrameId && windowId });
 		delete document.documentElement.dataset.requestedFrameId;
@@ -190,7 +190,7 @@ async function initRequestAsync(message) {
 	if (!TOP_WINDOW) {
 		windowId = globalThis.frameId = message.windowId;
 	}
-	processFrames(document, message.options, windowId, sessionId);
+	processFrames(document, message.options, windowId, sessionId, message.waitForFrames !== false);
 	if (!TOP_WINDOW) {
 		sendInitResponse({ frames: [getFrameData(document, globalThis, windowId, message.options, message.scrolling)], sessionId, requestedFrameId: document.documentElement.dataset.requestedFrameId && windowId });
 		delete document.documentElement.dataset.requestedFrameId;
@@ -254,15 +254,15 @@ function initResponse(message) {
 		}
 	}
 }
-function processFrames(doc, options, parentWindowId, sessionId) {
+function processFrames(doc, options, parentWindowId, sessionId, waitForFrames) {
 	const frameElements = getFrames(doc);
-	processFramesAsync(doc, frameElements, options, parentWindowId, sessionId);
+	processFramesAsync(doc, frameElements, options, parentWindowId, sessionId, waitForFrames);
 	if (frameElements.length) {
-		processFramesSync(doc, frameElements, options, parentWindowId, sessionId);
+		processFramesSync(doc, frameElements, options, parentWindowId, sessionId, waitForFrames);
 	}
 }
 
-function processFramesAsync(doc, frameElements, options, parentWindowId, sessionId) {
+function processFramesAsync(doc, frameElements, options, parentWindowId, sessionId, waitForFrames) {
 	const frames = [];
 	let requestTimeouts;
 	if (sessions.get(sessionId)) {
@@ -280,17 +280,18 @@ function processFramesAsync(doc, frameElements, options, parentWindowId, session
 	frameElements.forEach((frameElement, frameIndex) => {
 		const windowId = parentWindowId + WINDOW_ID_SEPARATOR + frameIndex;
 		try {
-			sendMessage(frameElement.contentWindow, { method: INIT_REQUEST_MESSAGE, windowId, sessionId, options, scrolling: frameElement.scrolling });
+			sendMessage(frameElement.contentWindow, { method: INIT_REQUEST_MESSAGE, windowId, sessionId, options, scrolling: frameElement.scrolling, waitForFrames });
 			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			// ignored
 		}
-		requestTimeouts[windowId] = globalThis.setTimeout(() => sendInitResponse({ frames: [{ windowId, processed: true }], sessionId }), TIMEOUT_INIT_REQUEST_MESSAGE);
+		setFrameFallback(sessionId, windowId, () => getSrcdocFrameData(frameElement, windowId, options, sessionId));
+		requestTimeouts[windowId] = globalThis.setTimeout(() => sendInitResponse({ frames: [getFrameFallback(sessionId, windowId) || { windowId, processed: true }], sessionId }), TIMEOUT_INIT_REQUEST_MESSAGE);
 	});
 	delete doc.documentElement.dataset.requestedFrameId;
 }
 
-function processFramesSync(doc, frameElements, options, parentWindowId, sessionId) {
+function processFramesSync(doc, frameElements, options, parentWindowId, sessionId, waitForFrames) {
 	const frames = [];
 	frameElements.forEach((frameElement, frameIndex) => {
 		const windowId = parentWindowId + WINDOW_ID_SEPARATOR + frameIndex;
@@ -303,20 +304,24 @@ function processFramesSync(doc, frameElements, options, parentWindowId, sessionI
 		} catch (error) {
 			// ignored
 		}
-		const srcdoc = frameElement.getAttribute("srcdoc");
-		if (!frameDoc && srcdoc) {
-			const doc = new DOMParser().parseFromString(srcdoc, "text/html");
-			frameDoc = doc;
-			frameWindow = globalThis;
-		}
 		if (frameDoc) {
 			try {
 				clearFrameTimeout("requestTimeouts", sessionId, windowId);
-				processFrames(frameDoc, options, windowId, sessionId);
+				processFrames(frameDoc, options, windowId, sessionId, waitForFrames);
 				frames.push(getFrameData(frameDoc, frameWindow, windowId, options, frameElement.scrolling));
 				// eslint-disable-next-line no-unused-vars
 			} catch (error) {
 				frames.push({ windowId, processed: true });
+			}
+		} else if (!waitForFrames) {
+			// the frame is cross-origin or sandboxed, so its document is out of reach. Re-parsing
+			// srcdoc is the only source left here, and it is markup only: no script has run and
+			// nothing is rendered. When there is time to wait, the fallback is kept for the frames
+			// that never answer instead, so a frame that does answer wins with its rendered data
+			const fallbackFrameData = getFrameFallback(sessionId, windowId);
+			if (fallbackFrameData) {
+				clearFrameTimeout("requestTimeouts", sessionId, windowId);
+				frames.push(fallbackFrameData);
 			}
 		}
 	});
@@ -338,7 +343,39 @@ function clearFrameTimeout(type, sessionId, windowId) {
 function createFrameResponseTimeout(sessionId, windowId) {
 	const session = sessions.get(sessionId);
 	if (session && session.responseTimeouts) {
-		session.responseTimeouts[windowId] = globalThis.setTimeout(() => sendInitResponse({ frames: [{ windowId: windowId, processed: true }], sessionId: sessionId }), TIMEOUT_INIT_RESPONSE_MESSAGE);
+		session.responseTimeouts[windowId] = globalThis.setTimeout(() => sendInitResponse({ frames: [getFrameFallback(sessionId, windowId) || { windowId, processed: true }], sessionId: sessionId }), TIMEOUT_INIT_RESPONSE_MESSAGE);
+	}
+}
+
+function setFrameFallback(sessionId, windowId, getFallbackFrameData) {
+	const session = sessions.get(sessionId);
+	if (session) {
+		if (!session.frameFallbacks) {
+			session.frameFallbacks = {};
+		}
+		session.frameFallbacks[windowId] = getFallbackFrameData;
+	}
+}
+
+function getFrameFallback(sessionId, windowId) {
+	const session = sessions.get(sessionId);
+	const getFallbackFrameData = session && session.frameFallbacks && session.frameFallbacks[windowId];
+	if (getFallbackFrameData) {
+		return getFallbackFrameData();
+	}
+}
+
+function getSrcdocFrameData(frameElement, windowId, options, sessionId) {
+	const srcdoc = frameElement.getAttribute("srcdoc");
+	if (srcdoc) {
+		try {
+			const frameDoc = new DOMParser().parseFromString(srcdoc, "text/html");
+			processFrames(frameDoc, options, windowId, sessionId, false);
+			return getFrameData(frameDoc, globalThis, windowId, options, frameElement.scrolling);
+			// eslint-disable-next-line no-unused-vars
+		} catch (error) {
+			// ignored
+		}
 	}
 }
 
