@@ -240,7 +240,7 @@ function getInstance(utilOptions) {
 			startTime = Date.now();
 			log("  // STARTED download url =", resourceURL, "asBinary =", options.asBinary);
 		}
-		if (options.blockMixedContent && /^https:/i.test(options.baseURI) && !/^https:/i.test(resourceURL)) {
+		if (options.blockMixedContent && /^https:/i.test(options.baseURI) && !/^https:/i.test(resourceURL) && !/^blob:https:/i.test(resourceURL)) {
 			return getFetchResponse(resourceURL, options);
 		}
 		if (options.networkTimeout) {
