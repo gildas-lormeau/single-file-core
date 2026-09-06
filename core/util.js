@@ -69,11 +69,6 @@ const EXPECTED_TYPES_MEDIA = ["font", "image", "video", "audio"];
 const URL = globalThis.URL;
 const DOMParser = globalThis.DOMParser;
 const Blob = globalThis.Blob;
-const fetch = (url, options) => {
-	options.cache = "force-cache";
-	options.referrerPolicy = "strict-origin-when-cross-origin";
-	return globalThis.fetch(url, options);
-};
 const TextDecoder = globalThis.TextDecoder;
 const URLSearchParams = globalThis.URLSearchParams;
 
@@ -83,8 +78,8 @@ export {
 
 function getInstance(utilOptions) {
 	utilOptions = utilOptions || {};
-	utilOptions.fetch = utilOptions.fetch || fetch;
-	utilOptions.frameFetch = utilOptions.frameFetch || utilOptions.fetch || fetch;
+	utilOptions.fetch = utilOptions.fetch || ((url, options) => globalThis.fetch(url, { ...options, cache: "force-cache", referrerPolicy: "strict-origin-when-cross-origin" }));
+	utilOptions.frameFetch = utilOptions.frameFetch || utilOptions.fetch;
 	return {
 		getDoctypeString,
 		getFilenameExtension(resourceURL, replacedCharacters, replacementCharacter, replacementCharacters) {
