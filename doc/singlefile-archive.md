@@ -1079,6 +1079,14 @@ trailing bytes open it (§8.1). The parser closes the open
 comment or element at end of file, and `</body></html>` are implied, so the page
 renders the same.
 
+Relocation is not a move at constant size, and it can end either way. Two effects pull
+against each other: the room the writer sets aside, which in the reference writer is
+`Math.ceil(length * 1.01) + 32` bytes — a percentage of the payload plus a constant, so
+the constant dominates a small payload and the percentage a large one — and the 17 bytes
+of wrapper terminator and end tags it stops emitting. Measured on three files the net ran
+from 9 bytes saved to 190 bytes spent, so a writer sizing a file should quote that range
+rather than a single figure.
+
 ### 5.3 Offset bookkeeping
 
 Three coordinate systems coexist in one file, and the format's job is to keep each
