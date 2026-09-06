@@ -405,7 +405,7 @@ class ProcessorHelperCommon {
 			}
 			sheetIndex++;
 		});
-		processFontDetails(fontsDetails);
+		processFontDetails(fontsDetails, fonts);
 		await Promise.all([...stylesheets].map(async ([, stylesheetInfo], sheetIndex) => {
 			if (stylesheetInfo.stylesheet) {
 				const cssRules = stylesheetInfo.stylesheet.children;
