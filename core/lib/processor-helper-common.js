@@ -443,16 +443,10 @@ class ProcessorHelperCommon {
 			} else if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
 				const key = this.getFontKey(ruleData);
 				const fontInfo = fontsDetails.fonts.get(key);
-				if (fontInfo) {
-					const ruleKey = key + " " + this.getPropertyValue(ruleData, "src");
-					if (fontsDetails.emittedFonts.has(ruleKey)) {
+				if (fontInfo && fontsDetails.lastRules.get(key) == ruleData) {
+					const keptRule = await this.processFontFaceRule(ruleData, fontInfo, fonts, fontTests, stats);
+					if (!keptRule) {
 						removedRules.push(cssRule);
-					} else {
-						fontsDetails.emittedFonts.add(ruleKey);
-						const keptRule = await this.processFontFaceRule(ruleData, fontInfo, fonts, fontTests, stats);
-						if (!keptRule) {
-							removedRules.push(cssRule);
-						}
 					}
 				} else {
 					removedRules.push(cssRule);
@@ -490,6 +484,7 @@ class ProcessorHelperCommon {
 					fontInfo = [];
 					mediaFontsDetails.fonts.set(fontKey, fontInfo);
 				}
+				mediaFontsDetails.lastRules.set(fontKey, ruleData);
 				const src = this.getPropertyValue(ruleData, "src");
 				if (src) {
 					const fontSources = src.match(REGEXP_URL_FUNCTION);
@@ -517,7 +512,7 @@ class ProcessorHelperCommon {
 			medias: new Map(),
 			supports: new Map(),
 			layers: new Map(),
-			emittedFonts: new Set()
+			lastRules: new Map()
 		};
 	}
 
