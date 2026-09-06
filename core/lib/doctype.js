@@ -38,9 +38,6 @@ function getDoctypeString(doc) {
 		} else if (docType.systemId) {
 			docTypeString += " SYSTEM \"" + docType.systemId + "\"";
 		}
-		if (docType.internalSubset) {
-			docTypeString += " [" + docType.internalSubset + "]";
-		}
 		docTypeString += ">";
 	}
 	return docTypeString;
