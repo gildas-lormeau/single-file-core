@@ -264,7 +264,7 @@ function getInstance(utilOptions) {
 					// eslint-disable-next-line no-unused-vars
 				} catch (error) {
 					response = await Promise.race([
-						fetchResource(resourceURL, { headers: { accept } }),
+						fetchResource(resourceURL, { referrer: options.resourceReferrer, headers: { accept } }),
 						networkTimeoutPromise
 					]);
 				}
