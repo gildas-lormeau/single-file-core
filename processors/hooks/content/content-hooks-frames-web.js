@@ -245,36 +245,41 @@
 			}
 		}
 		if (!globalThis._singleFileImage) {
-			const Image = globalThis.Image;
-			globalThis._singleFileImage = globalThis.Image;
-			globalThis.__defineGetter__("Image", function () {
-				return function () {
-					const image = new Image(...arguments);
-					const result = new Image(...arguments);
-					result.__defineSetter__("src", value => {
-						image.src = value;
-						document.dispatchEvent(new CustomEvent(LOAD_IMAGE_EVENT, { detail: image.src }));
-					});
-					result.__defineGetter__("src", () => image.src);
-					result.__defineSetter__("srcset", value => {
-						document.dispatchEvent(new CustomEvent(LOAD_IMAGE_EVENT));
-						image.srcset = value;
-					});
-					result.__defineGetter__("srcset", () => image.srcset);
-					result.__defineGetter__("height", () => image.height);
-					result.__defineGetter__("width", () => image.width);
-					result.__defineGetter__("naturalHeight", () => image.naturalHeight);
-					result.__defineGetter__("naturalWidth", () => image.naturalWidth);
-					if (image.decode) {
-						result.__defineGetter__("decode", () => () => image.decode());
-					}
-					image.onload = image.onloadend = image.onerror = event => {
-						document.dispatchEvent(new CustomEvent(IMAGE_LOADED_EVENT, { detail: image.src }));
-						result.dispatchEvent(new Event(event.type, event));
-					};
-					return result;
+			const NativeImage = globalThis.Image;
+			globalThis._singleFileImage = NativeImage;
+			const ImageWrapper = function Image() {
+				const image = new NativeImage(...arguments);
+				const result = new NativeImage(...arguments);
+				result.__defineSetter__("src", value => {
+					image.src = value;
+					document.dispatchEvent(new CustomEvent(LOAD_IMAGE_EVENT, { detail: image.src }));
+				});
+				result.__defineGetter__("src", () => image.src);
+				result.__defineSetter__("srcset", value => {
+					document.dispatchEvent(new CustomEvent(LOAD_IMAGE_EVENT));
+					image.srcset = value;
+				});
+				result.__defineGetter__("srcset", () => image.srcset);
+				result.__defineGetter__("height", () => image.height);
+				result.__defineGetter__("width", () => image.width);
+				result.__defineGetter__("naturalHeight", () => image.naturalHeight);
+				result.__defineGetter__("naturalWidth", () => image.naturalWidth);
+				if (image.decode) {
+					const decode = function decode() { return image.decode(); };
+					decode.toString = function () { return "function decode() { [native code] }"; };
+					setFunctionName(decode, "decode");
+					result.__defineGetter__("decode", () => decode);
+				}
+				image.onload = image.onloadend = image.onerror = event => {
+					document.dispatchEvent(new CustomEvent(IMAGE_LOADED_EVENT, { detail: image.src }));
+					result.dispatchEvent(new Event(event.type, event));
 				};
-			});
+				return result;
+			};
+			ImageWrapper.prototype = NativeImage.prototype;
+			ImageWrapper.toString = function () { return "function Image() { [native code] }"; };
+			setFunctionName(ImageWrapper, "Image");
+			globalThis.__defineGetter__("Image", () => ImageWrapper);
 		}
 		const verticalZoomFactor = clientHeight / scrollHeight;
 		const horizontalZoomFactor = clientWidth / scrollWidth;
