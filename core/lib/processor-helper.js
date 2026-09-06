@@ -574,6 +574,9 @@ function getProcessorHelperClass(utilInstance) {
 			removedNodes.forEach(node => ruleData.block.children.remove(node));
 			const srcDeclaration = ruleData.block.children.filter(node => node.property == "src").tail;
 			if (srcDeclaration) {
+				if (!fontInfo.length) {
+					return false;
+				}
 				fontInfo.reverse();
 				try {
 					srcDeclaration.data.value = cssTree.parse(fontInfo.map(fontSource => fontSource.src).join(","), { context: "value", parseCustomProperty: true });
@@ -582,6 +585,7 @@ function getProcessorHelperClass(utilInstance) {
 					// ignored
 				}
 			}
+			return true;
 		}
 	};
 }

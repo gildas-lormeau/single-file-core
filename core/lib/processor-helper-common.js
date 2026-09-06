@@ -449,7 +449,10 @@ class ProcessorHelperCommon {
 						removedRules.push(cssRule);
 					} else {
 						fontsDetails.emittedFonts.add(ruleKey);
-						await this.processFontFaceRule(ruleData, fontInfo, fonts, fontTests, stats);
+						const keptRule = await this.processFontFaceRule(ruleData, fontInfo, fonts, fontTests, stats);
+						if (!keptRule) {
+							removedRules.push(cssRule);
+						}
 					}
 				} else {
 					removedRules.push(cssRule);

@@ -648,6 +648,9 @@ function getProcessorHelperClass(utilInstance) {
 					}
 				}
 				stats.fonts.discarded -= fontInfo.length;
+				if (!fontInfo.length) {
+					return false;
+				}
 				fontInfo.reverse();
 				try {
 					srcDeclaration.data.value = cssTree.parse(fontInfo.map(fontSource => fontSource.src).join(","), { context: "value", parseCustomProperty: true });
@@ -656,6 +659,7 @@ function getProcessorHelperClass(utilInstance) {
 					// ignored
 				}
 			}
+			return true;
 		}
 	};
 }
