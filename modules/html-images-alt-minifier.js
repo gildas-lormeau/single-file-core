@@ -83,15 +83,15 @@ function getSourceSrcData(sources) {
 function setSrc(srcData, imgElement, pictureElement) {
 	if (srcData.src) {
 		imgElement.setAttribute("src", srcData.src);
-		imgElement.setAttribute("srcset", "");
-		imgElement.setAttribute("sizes", "");
+		imgElement.removeAttribute("srcset");
+		imgElement.removeAttribute("sizes");
 	} else {
 		imgElement.setAttribute("src", EMPTY_RESOURCE);
 		if (srcData.srcset) {
 			imgElement.setAttribute("srcset", srcData.srcset);
 		} else {
-			imgElement.setAttribute("srcset", "");
-			imgElement.setAttribute("sizes", "");
+			imgElement.removeAttribute("srcset");
+			imgElement.removeAttribute("sizes");
 		}
 	}
 	if (pictureElement) {

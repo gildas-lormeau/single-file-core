@@ -243,9 +243,16 @@ class ProcessorHelperCommon {
 						return serializeSrcset([Object.assign({}, srcsetValue, { url: resourceURL })]);
 					}
 				}));
-				resourceElement.setAttribute("srcset", srcsetValues.filter(srcsetValue => srcsetValue).join(", "));
+				const newSrcset = srcsetValues.filter(srcsetValue => srcsetValue).join(", ");
+				if (newSrcset) {
+					resourceElement.setAttribute("srcset", newSrcset);
+				} else {
+					resourceElement.removeAttribute("srcset");
+					resourceElement.removeAttribute("sizes");
+				}
 			} else {
-				resourceElement.setAttribute("srcset", "");
+				resourceElement.removeAttribute("srcset");
+				resourceElement.removeAttribute("sizes");
 			}
 		}));
 	}
@@ -267,6 +274,7 @@ class ProcessorHelperCommon {
 		element.style.setProperty("background-size", style && style["background-size"] ? style["background-size"] : "100% 100%", "important");
 		element.style.setProperty("background-origin", "content-box", "important");
 		element.style.setProperty("background-repeat", "no-repeat", "important");
+		element.style.setProperty("background-attachment", "scroll", "important");
 	}
 
 	async getStylesheetContent(resourceURL, options) {

@@ -1361,6 +1361,11 @@ class Processor {
 				}
 			}
 		}));
+		frameElements.forEach(frameElement => {
+			if (!frameElement.getAttribute("src") && !frameElement.getAttribute("srcdoc") && !frameElement.getAttribute("data")) {
+				frameElement.removeAttribute("sandbox");
+			}
+		});
 
 		async function initializeProcessor(frameData, frameElement, frameWindowId, batchRequest, options) {
 			options.insertSingleFileComment = false;
