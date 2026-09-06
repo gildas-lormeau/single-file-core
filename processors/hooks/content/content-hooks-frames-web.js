@@ -242,6 +242,8 @@
 					}
 					return boundingRect;
 				};
+				Element.prototype.getBoundingClientRect.toString = function () { return "function getBoundingClientRect() { [native code] }"; };
+				setFunctionName(Element.prototype.getBoundingClientRect, "getBoundingClientRect");
 			}
 		}
 		if (!globalThis._singleFileImage) {
@@ -376,9 +378,10 @@
 
 	if (globalThis.CSS && globalThis.CSS.paintWorklet && globalThis.CSS.paintWorklet.addModule) {
 		const addModule = globalThis.CSS.paintWorklet.addModule;
-		globalThis.CSS.paintWorklet.addModule = function (moduleURL, options) {
+		globalThis.CSS.paintWorklet.addModule = function (moduleURL) {
 			try {
 				const result = addModule.apply(globalThis.CSS.paintWorklet, arguments);
+				const options = arguments[1];
 				moduleURL = new URL(moduleURL, document.baseURI).href;
 				document.dispatchEvent(new CustomEvent(NEW_WORKLET_EVENT, { detail: { moduleURL, options } }));
 				return result;
@@ -387,6 +390,8 @@
 				throw error;
 			}
 		};
+		globalThis.CSS.paintWorklet.addModule.toString = function () { return "function addModule() { [native code] }"; };
+		setFunctionName(globalThis.CSS.paintWorklet.addModule, "addModule");
 	}
 
 	if (globalThis.FontFace) {
