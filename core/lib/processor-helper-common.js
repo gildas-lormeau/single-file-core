@@ -449,12 +449,17 @@ class ProcessorHelperCommon {
 				await this.processFontFaceRules(ruleData.block.children, sheetIndex, fontsDetails.layers.get("layer-" + sheetIndex + "-" + layerIndex + "-" + layerText), fonts, fontTests, stats);
 				layerIndex++;
 			} else if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
-				const key = this.getFontKey(ruleData);
-				const fontInfo = fontsDetails.fonts.get(key);
-				if (fontInfo && fontsDetails.lastRules.get(key) == ruleData) {
-					const keptRule = await this.processFontFaceRule(ruleData, fontInfo, fonts, fontTests, stats);
-					if (!keptRule) {
+				const fontInfo = fontsDetails.fonts.get(ruleData);
+				if (fontInfo) {
+					const ruleKey = this.getFontKey(ruleData) + " " + this.getPropertyValue(ruleData, "src");
+					if (fontsDetails.emittedFonts.has(ruleKey)) {
 						removedRules.push(cssRule);
+					} else {
+						fontsDetails.emittedFonts.add(ruleKey);
+						const keptRule = await this.processFontFaceRule(ruleData, fontInfo, fonts, fontTests, stats);
+						if (!keptRule) {
+							removedRules.push(cssRule);
+						}
 					}
 				} else {
 					removedRules.push(cssRule);
@@ -486,28 +491,18 @@ class ProcessorHelperCommon {
 				layerIndex++;
 				this.getFontsDetails(doc, ruleData.block.children, sheetIndex, fontsDetails);
 			} else if (ruleData.type == "Atrule" && ruleData.name == "font-face" && ruleData.block && ruleData.block.children) {
-				const fontKey = this.getFontKey(ruleData);
-				let fontInfo = mediaFontsDetails.fonts.get(fontKey);
-				if (!fontInfo) {
-					fontInfo = [];
-					mediaFontsDetails.fonts.set(fontKey, fontInfo);
-				}
-				mediaFontsDetails.lastRules.set(fontKey, ruleData);
+				const fontInfo = [];
+				mediaFontsDetails.fonts.set(ruleData, fontInfo);
 				const src = this.getPropertyValue(ruleData, "src");
 				if (src) {
 					const fontSources = src.match(REGEXP_URL_FUNCTION);
 					if (fontSources) {
-						const ruleSources = [];
 						fontSources.forEach(source => {
 							if (fontInfo.includes(source)) {
 								fontInfo.splice(fontInfo.indexOf(source), 1);
 							}
-							if (ruleSources.includes(source)) {
-								ruleSources.splice(ruleSources.indexOf(source), 1);
-							}
-							ruleSources.unshift(source);
+							fontInfo.unshift(source);
 						});
-						ruleSources.forEach(source => fontInfo.push(source));
 					}
 				}
 			}
@@ -520,7 +515,7 @@ class ProcessorHelperCommon {
 			medias: new Map(),
 			supports: new Map(),
 			layers: new Map(),
-			lastRules: new Map()
+			emittedFonts: new Set()
 		};
 	}
 
