@@ -497,7 +497,8 @@ class ProcessorHelperCommon {
 				if (src) {
 					const fontSources = src.match(REGEXP_URL_FUNCTION);
 					if (fontSources) {
-						fontSources.forEach(source => {
+						fontSources.forEach(fontSource => {
+							const source = fontSource.match(REGEXP_FONT_SRC)[1];
 							if (fontInfo.includes(source)) {
 								fontInfo.splice(fontInfo.indexOf(source), 1);
 							}

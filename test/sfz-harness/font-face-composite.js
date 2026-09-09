@@ -108,10 +108,10 @@ const ranges = await run(RANGES);
 check("faces split by unicode-range are all kept", ranges.processed.length, 2);
 check("each range keeps its own source", ranges.processed.map(rule => rule.sources), [["url(latin.woff2)format(\"woff2\")"], ["url(greek.woff2)format(\"woff2\")"]]);
 
-// a rule declaring the same source twice still contributes it once, in the position its later
-// declaration gives it. The sources are compared as the raw text the value is split into, and that
-// text carries the separating comma, so the dedup only fires when neither occurrence is the last
-// source in the list; the second case below pins that limit rather than claiming it is right
+// a rule declaring the same source twice contributes it once, in the position its later declaration
+// gives it. The sources are compared after the separating comma is stripped, so a repeat is
+// recognised wherever it sits: the value is split by a regexp that keeps that comma, and comparing
+// the raw pieces made the last source in a list unequal to the same source anywhere before it
 const REPEATED = `
 	@font-face{font-family:repeat;src:url(a.woff) format("woff"),url(b.woff) format("woff"),url(a.woff) format("woff"),url(c.woff) format("woff");font-weight:400}`;
 
@@ -122,7 +122,10 @@ const REPEATED_LAST = `
 	@font-face{font-family:repeat;src:url(a.woff) format("woff"),url(b.woff) format("woff"),url(a.woff) format("woff");font-weight:400}`;
 
 const repeatedLast = await run(REPEATED_LAST);
-check("a repeat in last position is not recognised, the comma is part of the compared text", (sourcesOf(repeatedLast.processed, 0) || []).length, 3);
+check("a repeat in last position is recognised too", (sourcesOf(repeatedLast.processed, 0) || []).length, 2);
+// the list is held in reverse of the order it is written back in, so the entry the rule declares
+// last comes first here: a.woff keeps the position its second declaration gives it
+check("the repeat keeps the position of its later declaration", sourcesOf(repeatedLast.processed, 0), ["url(a.woff)format(\"woff\")", "url(b.woff)format(\"woff\")"]);
 
 if (failures) {
 	console.log("\n" + failures + " check(s) failed");
