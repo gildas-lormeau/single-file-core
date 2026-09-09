@@ -40,9 +40,7 @@ import {
 	router
 } from "./compression-router.js";
 
-const { Blob, fetch, TextEncoder, TextDecoder, DOMParser } = globalThis;
-
-const TEXT_DECODER = new TextDecoder("windows-1252");
+const { Blob, fetch, TextEncoder, DOMParser } = globalThis;
 
 const COMPRESSIBLE_CONTENT_TYPES = ["application/javascript", "application/x-javascript", "application/ecmascript", "application/json", "application/ld+json", "application/manifest+json", "application/xml", "application/xhtml+xml", "application/rss+xml", "application/atom+xml", "image/svg+xml"];
 const TEXT_CONTENT_TYPE_PREFIX = "text/";
@@ -63,19 +61,20 @@ const EMBEDDED_DATA_TAGS = [
 	...EXTRA_DATA_TAGS,
 ];
 const DATA_IDENTIFIER = "sfz-data";
-const EXTRA_DATA_REGEXPS = [
-	[/<script/i, /<\/script[\t\n\f\r />]/i],
-	[/<style/i, /<\/style[\t\n\f\r />]/i],
-	[/<noframes/i, /<\/noframes[\t\n\f\r />]/i],
-	[/<noembed/i, /<\/noembed[\t\n\f\r />]/i],
-	[/<iframe/i, /<\/iframe[\t\n\f\r />]/i],
-	[/<xmp/i, /<\/xmp[\t\n\f\r />]/i],
-	[/<!\[CDATA\[/i, /\]\]>/],
-	[/<plaintext/i, /<\/plaintext[\t\n\f\r />]/i]
+const TAG_NAME_TERMINATORS = "\t\n\f\r />";
+const EXTRA_DATA_PATTERNS = [
+	[["<script"], ["</script", TAG_NAME_TERMINATORS]],
+	[["<style"], ["</style", TAG_NAME_TERMINATORS]],
+	[["<noframes"], ["</noframes", TAG_NAME_TERMINATORS]],
+	[["<noembed"], ["</noembed", TAG_NAME_TERMINATORS]],
+	[["<iframe"], ["</iframe", TAG_NAME_TERMINATORS]],
+	[["<xmp"], ["</xmp", TAG_NAME_TERMINATORS]],
+	[["<![CDATA["], ["]]>"]],
+	[["<plaintext"], ["</plaintext", TAG_NAME_TERMINATORS]]
 ];
-const EMBEDDED_DATA_REGEXPS = [
-	[/<!--/i, /--!?>|<!-$/i],
-	...EXTRA_DATA_REGEXPS,
+const EMBEDDED_DATA_PATTERNS = [
+	[["<!--"], ["-->"], ["--!>"], ["<!-", undefined, true]],
+	...EXTRA_DATA_PATTERNS,
 ];
 const CRC32_TABLE = new Uint32Array(256).map((_, indexTable) => {
 	let crc = indexTable;
@@ -228,18 +227,14 @@ async function buildArchive(pageData, options, script, entriesData, zipWriterOpt
 		const lfCodes = [];
 		let crc32 = -1;
 		if (!options.extractDataFromPageTags || options.extractDataFromPageTags[0] != "<plaintext>") {
-			const textContent = TEXT_DECODER.decode(data.subarray(startOffset));
+			const zipData = data.subarray(startOffset);
 			if (options.extractDataFromPageTags) {
 				const tagIndex = getExtraDataTagIndex(options.extractDataFromPageTags);
-				const regExpsTag = EXTRA_DATA_REGEXPS[tagIndex];
-				if (textContent.match(regExpsTag[0]) || textContent.match(regExpsTag[1])) {
-					return findExtraDataTags(textContent, pageData, options, script, entriesData, zipWriterOptions, tagIndex + 1);
+				if (containsDataPattern(zipData, EXTRA_DATA_PATTERNS[tagIndex])) {
+					return findExtraDataTags(zipData, pageData, options, script, entriesData, zipWriterOptions, tagIndex + 1);
 				}
-			} else {
-				const [startRegExp, endRegExp] = EMBEDDED_DATA_REGEXPS[0];
-				if (textContent.match(startRegExp) || textContent.match(endRegExp)) {
-					return findExtraDataTags(textContent, pageData, options, script, entriesData, zipWriterOptions);
-				}
+			} else if (containsDataPattern(zipData, EMBEDDED_DATA_PATTERNS[0])) {
+				return findExtraDataTags(zipData, pageData, options, script, entriesData, zipWriterOptions);
 			}
 		}
 		if (options.extractDataFromPage) {
@@ -336,9 +331,7 @@ function isDeclaredLengthHidden(pageContent, zipDataEnd, appendedDataLength, opt
 	const tail = pageContent.slice(zipDataEnd - WRAPPER_PATTERN_WINDOW_LENGTH, zipDataEnd + COMMENT_LENGTH_FIELD_LENGTH);
 	new DataView(tail.buffer).setUint16(WRAPPER_PATTERN_WINDOW_LENGTH, appendedDataLength, true);
 	const tagIndex = options.extractDataFromPageTags ? getExtraDataTagIndex(options.extractDataFromPageTags) + 1 : 0;
-	const [startRegExp, endRegExp] = EMBEDDED_DATA_REGEXPS[tagIndex];
-	const tailText = TEXT_DECODER.decode(tail);
-	return !tailText.match(startRegExp) && !tailText.match(endRegExp);
+	return !containsDataPattern(tail, EMBEDDED_DATA_PATTERNS[tagIndex]);
 }
 
 function getCRC32(data, indexData = 0) {
@@ -549,8 +542,7 @@ function getStartHTMLArray(pageData, options, lastModDate, startTag = "") {
 		const embeddedPdf = new Uint8Array(options.embeddedPdf);
 		pdfEntry = options.preventEmbeddedPdfEntry ? undefined : getPDFEntry(embeddedPdf, lastModDate);
 		const localHeader = pdfEntry ? pdfEntry.localHeader : new Uint8Array(0);
-		const embeddedPdfText = TEXT_DECODER.decode(localHeader) + TEXT_DECODER.decode(embeddedPdf);
-		const pdfTagIndex = findEmbeddedDataTagIndex(embeddedPdfText);
+		const pdfTagIndex = findEmbeddedDataTagIndex(concatArrays(localHeader, embeddedPdf));
 		if (pdfTagIndex == -1) {
 			dropUnhiddenFace(options, "embeddedPdf", EMBEDDED_PDF_LABEL);
 			pdfEntry = undefined;
@@ -626,12 +618,11 @@ function getExtraDataTagIndex(extractDataFromPageTags) {
 	return tagIndex;
 }
 
-function findExtraDataTags(textContent, pageData, options, script, entriesData, zipWriterOptions, indexExtractDataFromPageTags = 0) {
-	const regExpsTag = EXTRA_DATA_REGEXPS[indexExtractDataFromPageTags];
+function findExtraDataTags(zipData, pageData, options, script, entriesData, zipWriterOptions, indexExtractDataFromPageTags = 0) {
 	const plaintextTag = EXTRA_DATA_TAGS[indexExtractDataFromPageTags][0] == "<plaintext>";
-	const matchTag = !plaintextTag && (textContent.match(regExpsTag[0]) || textContent.match(regExpsTag[1]));
+	const matchTag = !plaintextTag && containsDataPattern(zipData, EXTRA_DATA_PATTERNS[indexExtractDataFromPageTags]);
 	if (matchTag) {
-		return findExtraDataTags(textContent, pageData, options, script, entriesData, zipWriterOptions, indexExtractDataFromPageTags + 1);
+		return findExtraDataTags(zipData, pageData, options, script, entriesData, zipWriterOptions, indexExtractDataFromPageTags + 1);
 	} else {
 		options.extractDataFromPageTags = EXTRA_DATA_TAGS[indexExtractDataFromPageTags];
 		if (options.extractDataFromPageTags[0] == "<plaintext>") {
@@ -641,24 +632,93 @@ function findExtraDataTags(textContent, pageData, options, script, entriesData, 
 	}
 }
 
-function findEmbeddedDataTagIndex(text, fromIndex = 0) {
-	const tagIndex = EMBEDDED_DATA_REGEXPS.slice(fromIndex, -1).findIndex(([startRegExp, endRegExp]) => !text.match(startRegExp) && !text.match(endRegExp));
+function findEmbeddedDataTagIndex(data, fromIndex = 0) {
+	const tagIndex = EMBEDDED_DATA_PATTERNS.slice(fromIndex, -1).findIndex(patterns => !containsDataPattern(data, patterns));
 	return tagIndex == -1 ? -1 : tagIndex + fromIndex;
 }
 
+function containsDataPattern(data, patterns) {
+	const patternsByCharCode = new Map();
+	for (const pattern of patterns) {
+		const [text, , atEnd] = pattern;
+		if (atEnd) {
+			if (matchesDataPatternAt(data, pattern, data.length - text.length)) {
+				return true;
+			}
+		} else {
+			const charCode = text.charCodeAt(0);
+			indexPatternByCharCode(patternsByCharCode, charCode, pattern);
+			const alternateCharCode = getAlternateCharCode(charCode);
+			if (alternateCharCode != -1) {
+				indexPatternByCharCode(patternsByCharCode, alternateCharCode, pattern);
+			}
+		}
+	}
+	for (const [charCode, candidates] of patternsByCharCode) {
+		for (let index = data.indexOf(charCode); index != -1; index = data.indexOf(charCode, index + 1)) {
+			for (let indexCandidate = 0; indexCandidate < candidates.length; indexCandidate++) {
+				if (matchesDataPatternAt(data, candidates[indexCandidate], index)) {
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
+function indexPatternByCharCode(patternsByCharCode, charCode, pattern) {
+	if (!patternsByCharCode.has(charCode)) {
+		patternsByCharCode.set(charCode, []);
+	}
+	patternsByCharCode.get(charCode).push(pattern);
+}
+
+function matchesDataPatternAt(data, [text, terminators], index) {
+	const textLength = text.length;
+	if (index < 0 || index + textLength > data.length) {
+		return false;
+	}
+	for (let indexText = 0; indexText < textLength; indexText++) {
+		const charCode = text.charCodeAt(indexText);
+		const code = data[index + indexText];
+		if (code != charCode && code != getAlternateCharCode(charCode)) {
+			return false;
+		}
+	}
+	return terminators === undefined || isTerminatorCode(terminators, data[index + textLength]);
+}
+
+function isTerminatorCode(terminators, code) {
+	return code !== undefined && terminators.includes(String.fromCharCode(code));
+}
+
+function getAlternateCharCode(charCode) {
+	const lowerCharCode = charCode | 0x20;
+	return lowerCharCode >= 0x61 && lowerCharCode <= 0x7a ? charCode ^ 0x20 : -1;
+}
+
+function concatArrays(...arrays) {
+	const result = new Uint8Array(arrays.reduce((length, array) => length + array.length, 0));
+	let offset = 0;
+	arrays.forEach(array => {
+		result.set(array, offset);
+		offset += array.length;
+	});
+	return result;
+}
+
 function getImageHTMLChunk(pageData, options, lastModDate) {
-	const embeddedImageText = TEXT_DECODER.decode(getEmbeddedImageData(options.embeddedImage)) +
-		TEXT_DECODER.decode(new Uint8Array(4)) + TEXT_DECODER.decode(PNG_ZIP_CHUNK_TYPE_KEYWORD);
-	let tagIndex = findEmbeddedDataTagIndex(embeddedImageText);
+	const embeddedImageData = concatArrays(getEmbeddedImageData(options.embeddedImage), new Uint8Array(4), PNG_ZIP_CHUNK_TYPE_KEYWORD);
+	let tagIndex = findEmbeddedDataTagIndex(embeddedImageData);
 	while (tagIndex != -1) {
 		const [startTag, endTag] = EMBEDDED_DATA_TAGS[tagIndex];
 		const startHTMLData = getStartHTMLArray(pageData, options, lastModDate, startTag);
 		const htmlData = new Uint8Array([...getLength(startHTMLData.htmlArray.length + 4), ...[0x74, 0x45, 0x58, 0x74, 0x50, 0x4e, 0x47, 0], ...startHTMLData.htmlArray]);
 		const htmlDataCRC = getCRC32(htmlData, 4);
-		const wrappedText = TEXT_DECODER.decode(htmlDataCRC) + embeddedImageText;
+		const wrappedData = concatArrays(htmlDataCRC, embeddedImageData);
 		if ((tagIndex == 0 && (htmlDataCRC[0] == 0x3e || (htmlDataCRC[0] == 0x2d && htmlDataCRC[1] == 0x3e))) ||
-			findEmbeddedDataTagIndex(wrappedText, tagIndex) != tagIndex) {
-			tagIndex = findEmbeddedDataTagIndex(embeddedImageText, tagIndex + 1);
+			findEmbeddedDataTagIndex(wrappedData, tagIndex) != tagIndex) {
+			tagIndex = findEmbeddedDataTagIndex(embeddedImageData, tagIndex + 1);
 		} else {
 			return { endTag, startHTMLData, htmlData, htmlDataCRC };
 		}
