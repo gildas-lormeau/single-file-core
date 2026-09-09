@@ -432,9 +432,13 @@ const ALL_FACE_RUNGS = "<!--sfz-data<script<style<noframes<noembed<iframe<xmp<![
 	check("no page.pdf entry is left behind", entries.some(entry => entry.filename.endsWith("page.pdf")), false);
 }
 
-// page.pdf is the only record the writer builds by hand, so it is the only place the
-// language encoding flag can go missing: without it a reader decodes that one name
-// through CP437 while reading every other name in the same archive as UTF-8
+// page.pdf is the only record the writer builds by hand, so it is the only place the language
+// encoding flag can disagree with the rest of the archive, and a reader would then decode that one
+// name through a different path than every other name in the same file. Which way the flag goes is
+// the ZIP writer's business, not this format's: it sets bit 11 only when a name or a comment holds
+// a byte outside printable ASCII, so every name in this fixture is flagless. What is asserted here
+// is the agreement, so this still fails if the hand-built record diverges and still passes if the
+// writer changes its rule again
 {
 	const options = makeOptions({ embeddedPdf: PDF });
 	const pageData = makePageData(23, 4 * 1024);
@@ -443,11 +447,14 @@ const ALL_FACE_RUNGS = "<!--sfz-data<script<style<noframes<noembed<iframe<xmp<![
 	const zipReader = new ZipReader(new BlobReader(new Blob([bytes])));
 	const entries = await zipReader.getEntries();
 	await zipReader.close();
-	check("the pdf entry is listed", entries.some(entry => entry.filename == "page.pdf"), true);
-	check("every central record declares utf-8 names", entries.every(entry => entry.filenameUTF8), true);
+	const pdfEntry = entries.find(entry => entry.filename == "page.pdf");
+	check("the pdf entry is listed", Boolean(pdfEntry), true);
+	check("the hand-built central record declares its name like the records the writer produces",
+		entries.every(entry => Boolean(entry.filenameUTF8) == Boolean(pdfEntry.filenameUTF8)), true);
 	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-	const localFlags = entries.map(entry => view.getUint16(entry.offset + 6, true));
-	check("every local header declares utf-8 names", localFlags.every(flags => Boolean(flags & 0x0800)), true);
+	const localFlags = new Map(entries.map(entry => [entry.filename, view.getUint16(entry.offset + 6, true) & 0x0800]));
+	check("the hand-built local header declares its name like the headers the writer produces",
+		[...localFlags.values()].every(flag => flag == localFlags.get("page.pdf")), true);
 }
 
 {

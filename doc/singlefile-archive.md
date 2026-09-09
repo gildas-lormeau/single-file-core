@@ -357,7 +357,7 @@ face adds, then the regions the PNG face adds.
 | `central-directory · eocd` | ZIP | always | The central-directory records followed by the End Of Central Directory record. All offsets are absolute file positions (§5.3). In the HTML+PDF variants the EOCD accounts for the injected `pdf-central-record` (how the writer achieves that is §6). |
 | `extra-data` | extractor | universal | `<sfz-extra-data>` element holding the base64, deflate-compressed recovery payload (§5.5). It always sits outside the wrapper, so it parses as a real element the extractor can address. Normal placement: after the EOCD, between the wrapper close tag and the end tags. Relocated placement, used when the payload exceeds the appended-data budget (§5.2) or `preventAppendedData` is set: immediately before the wrapper start tag. In the relocated form the element is followed by space padding: its room is reserved before the archive is written, because the region precedes the ZIP data and resizing it would shift every central-directory offset (§6). Neither placement carries positional meaning — the extractor finds the ZIP region by identifier, not relative to this element (§4.5). |
 | `</body></html>` | HTML | HTML face | The end tags closing the document after the wrapper close tag. Omitted whenever the recovery payload is relocated (§5.2), and in the PNG variants so the file can end with the PNG tail. |
-| `pdf-local-header` | ZIP | PDF face with HTML | The hand-built local file header for `page.pdf` (STORE, checksum precomputed, language encoding flag set as on every other entry — §5.8), written immediately before the PDF document so ZIP readers see an ordinary entry whose data is the PDF (§6). |
+| `pdf-local-header` | ZIP | PDF face with HTML | The hand-built local file header for `page.pdf` (STORE, checksum precomputed, language encoding flag left clear as on every other ASCII name — §5.8), written immediately before the PDF document so ZIP readers see an ordinary entry whose data is the PDF (§6). |
 | `pdf-document` | PDF | PDF face | The raw PDF bytes. With the HTML face, wrapped together with `pdf-local-header` in a wrapper tag pair inside `html-prologue`, placed so `%PDF-` starts at offset 1024 or lower — the range PDF readers search for the header, which is what lets a PDF document start after other bytes at all (§4.3). Without the HTML face and without the PNG face, the file simply *starts* with the PDF document, as prepended data the ZIP face tolerates; `page.pdf` is then not an archive entry at all — no local header, no central record. |
 | `pdf-central-record` | ZIP | PDF face with HTML | The central-directory record for `page.pdf`, injected *before* the writer's own central directory. The start of the central directory is the one place a record can be added without moving any offset the writer already committed, and it makes `page.pdf` the first entry ZIP tools list (§6). |
 | `png-signature · IHDR` | PNG | PNG face | The 8-byte PNG signature and the `IHDR` chunk declaring the source image's dimensions — the first 33 bytes of the file. |
@@ -1291,18 +1291,26 @@ How a name is encoded is ZIP's own business, not this format's: bit 11 of the ge
 purpose bit flag selects UTF-8, and its absence selects the legacy code page. This
 document adds two requirements to that and specifies nothing else about it.
 
-**A writer MUST set bit 11 on every entry**, not only on the entries whose names need
-it. The two encodings agree over printable ASCII, so setting it unconditionally costs
-nothing, and it means no name in the archive is decoded through the legacy path at all.
+**A writer MUST set bit 11 whenever a name or a comment needs it**, and the rule for
+when it does is ZIP's, not this format's: an encoded name or comment holding a byte
+outside printable ASCII needs it, one holding only printable ASCII does not, since the
+two encodings agree there. Control characters count as needing it, the legacy code page
+mapping them to graphic characters rather than to themselves. Setting it on names that
+do not need it is allowed and used to be required here; it was dropped because readers
+disagree about the flag more than they disagree about ASCII, so the safest name is the
+one that does not exercise the question. A writer MUST NOT set it on a name it then
+encodes in the legacy code page, which is the one combination that is simply wrong.
 
 **A reader MUST honor the flag** rather than assume one encoding, and MUST expect to
-meet a clear one: the hand-built `page.pdf` records (§3.1, §6) are the only ones the
-reference writer does not produce through its ZIP writer, and an archive may carry them
-with no flag set at all. That single entry is then decoded as legacy while every other
-name in the same file is UTF-8.
-Its name is ASCII, where the two encodings agree, so a correct reader sees `page.pdf`
-either way — but a reader that hardcodes UTF-8 on the strength of the other entries has
-not covered it.
+meet a clear one — which, in an archive from the reference writer, is most of them:
+that writer percent-encodes every name it produces, so every name is printable ASCII
+and carries no flag, while an entry comment holding the original URL of a resource can
+carry one when that URL is not ASCII. The hand-built `page.pdf` records (§3.1, §6) are
+the only ones the reference writer does not produce through its ZIP writer, and they
+follow the same rule: `page.pdf` is ASCII, so they carry no flag either, and no entry
+in the archive is decoded differently from the rest. Archives written before this rule
+was relaxed carry the flag on every entry instead. Both decode identically, which is
+the point, but a reader that hardcodes either answer meets the other one eventually.
 
 A name is not a path. §7.3's rule that entry names are untrusted applies to the decoded
 name, and decoding is the step before that check, not a substitute for it.
@@ -1399,7 +1407,7 @@ pages can stop at the first row; the files it produces are accepted by every rea
    wrapper start tag chosen for the PDF payload (§5.1), the hand-built `page.pdf`
    local file header, the PDF document, the wrapper end tag, and record the local
    header's absolute position; then resume the prologue. The reference writer's
-   header declares version 2.0, the language encoding flag alone, method STORE, the
+   header declares version 2.0, no general purpose bit flag, method STORE, the
    build's modification date in DOS form, the precomputed CRC-32, the document's
    length as both sizes, and no extra field; its central record adds a Unix
    "made by" version and external attributes of a regular file, mode 0644.
@@ -1892,6 +1900,7 @@ predicts.
 | August 2026 | Core 1.5.115: password-protected archives withhold the provenance comment and the canonical link as well (§5.6). Both wrote the page's own URL into the prologue, beside the title that was already withheld, so the address the archive was saved from stayed in the clear |
 | August 2026 | Core 1.5.119: the inlined ZIP library is built ASCII-only, and §2.1 now requires it of any bootstrap. Its CP437 table had been emitted as literal characters, which the page re-decoded as windows-1252, growing the table from 256 entries to 508 and shifting every lookup by 60 — so the one entry read without the UTF-8 flag, `page.pdf`, came back mangled and no archive with a PDF face extracted in any engine (§5.8) |
 | August 2026 | Core 1.5.120: the hand-built `page.pdf` records set the language encoding flag, like every entry the ZIP writer produces (§5.8). Its name is ASCII, so no decoded name changes; what changes is that no entry in an archive is read through CP437 any more, closing the path the 1.5.119 defect surfaced on |
+| September 2026 | §5.8 no longer requires bit 11 on every entry, deferring to ZIP's own rule: the flag is set when a name or a comment holds a byte outside printable ASCII, and left clear otherwise, because readers disagree about the flag more than they disagree about ASCII. The reference writer's names are all percent-encoded, so in practice none of them carries it now, and the hand-built `page.pdf` records follow the writer instead of overriding it — reversing the 1.5.120 row below, whose reason was that `page.pdf` would otherwise be the only entry read through the legacy path. It no longer is: every name in the archive takes the same path again, the other one |
 | September 2026 | Core 1.5.126: the appended-data budget becomes the `maxAppendedDataLength` writer option and its default drops from 65535 to 16361 bytes, so the EOCD record stays inside libarchive's scan and `bsdtar` opens archives it used to reject (§5.2, §8.1). The 65535-byte comment ceiling is now a separate limit, stated in §4.2: a budget raised past it produces a run that cannot be declared |
 
 This document was itself revised in August 2026, against core 1.5.108, after several
