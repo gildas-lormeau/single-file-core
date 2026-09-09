@@ -15,12 +15,13 @@
 import "./dom-stub.js";
 import { makePageData, makeOptions, runProcess } from "./common.js";
 import { createPagesArchive } from "../../processors/compression/compression-packager.js";
-import { ZipReader, BlobReader, TextWriter } from "../../vendor/zip/zip.js";
+import { ZipReader, ZipWriter, BlobReader, TextReader, TextWriter, Uint8ArrayWriter } from "../../vendor/zip/zip.js";
 
 // a title as it comes back from a crawl: the quote closes the href it is written into, the angle
 // bracket opens an element, and the ampersand is what a naive escaper double-encodes
 const HOSTILE_TITLE = "Intro & \"start\" <b>";
 const SYMLINK_UNIX_MODE = 0o120777;
+const SOURCE_DATE = new Date("2021-03-04T05:06:08Z");
 
 let failed = false;
 
@@ -89,6 +90,42 @@ const pages = [
 		(await readEntry(entries, "pages/2/styles.css")).includes("font-family"), true);
 }
 
+// Every entry is copied with passThrough, i.e. its stored bytes are written back without being
+// decompressed, so everything that DESCRIBES those bytes has to travel with them. Forwarding a
+// subset does not make a partial copy, it makes a corrupt one: the writer cannot tell that a
+// compression method it did not choose describes data it is about to store verbatim.
+//
+// The pages the rest of this file uses cannot show that, because they are written by the same
+// writer with the same defaults as the archive they are copied into, so every value the copy
+// drops is replaced by the one it had. This page carries values the packager's own defaults do
+// not produce. It is the first page, so it is copied to the root under its own names.
+{
+	const metadataPages = [await makeMetadataPage(), pages[1]];
+	const sourceEntries = await readArchive(await metadataPages[0].getData());
+	const entries = await readArchive(await createPagesArchive(metadataPages, packagerOptions()));
+	const copied = [...sourceEntries.keys()].filter(filename => entries.has(filename));
+	check("every entry of the first page is copied", copied.length, sourceEntries.size);
+	for (const property of ["comment", "compressionMethod", "uncompressedSize", "crc32", "filenameUTF8", "externalFileAttributes", "versionMadeBy", "internalFileAttributes", "uid", "gid", "directory"]) {
+		check("a copied entry keeps its " + property,
+			copied.every(filename => entries.get(filename)[property] === sourceEntries.get(filename)[property]), true);
+	}
+	for (const property of ["lastModDate", "creationDate", "lastAccessDate"]) {
+		check("a copied entry keeps its " + property,
+			copied.every(filename => dateOf(entries.get(filename)[property]) === dateOf(sourceEntries.get(filename)[property])), true);
+	}
+	// the level bits say how hard the deflater tried, and a copy that drops them reports the
+	// packager's default instead of the level the entry was actually written at
+	check("a copied entry keeps the deflate level it was written at",
+		copied.every(filename => entries.get(filename).bitFlag.level === sourceEntries.get(filename).bitFlag.level), true);
+	// zip.js rebuilds the fields it interprets itself, so what has to survive is the rest
+	check("a copied entry keeps an extra field zip.js does not interpret",
+		extraFieldOf(entries.get("styles.css")), extraFieldOf(sourceEntries.get("styles.css")));
+	const sameBytes = await Promise.all(copied.map(async filename => equalData(
+		await readRawData(entries.get(filename)),
+		await readRawData(sourceEntries.get(filename)))));
+	check("a copied entry holds the bytes it was read from", sameBytes.every(Boolean), true);
+}
+
 {
 	const entries = await readArchive(await createPagesArchive(pages, packagerOptions({ tocPage: true })));
 	const toc = await readEntry(entries, "sfz-toc.html");
@@ -150,6 +187,39 @@ async function makePage(seed, { url, title, originalUrls }) {
 	return { url, title, originalUrls, getData: async () => bytes };
 }
 
+// a page archive holding, on purpose, nothing the packager's own writer would produce by default:
+// a directory record, a name that needs the language encoding flag, a stored entry beside one
+// deflated at the highest level, unix ownership, an extra field zip.js does not interpret, and
+// dates outside the one the packager pins on its writer
+async function makeMetadataPage() {
+	const zipWriter = new ZipWriter(new Uint8ArrayWriter(), { lastModDate: SOURCE_DATE });
+	await zipWriter.add("folder/", null, { directory: true, comment: "a folder" });
+	await zipWriter.add("styles.css", new TextReader("body{font-family:serif}"), {
+		level: 9,
+		comment: "https://example.com/café.css",
+		creationDate: SOURCE_DATE,
+		lastAccessDate: SOURCE_DATE,
+		internalFileAttributes: 1,
+		msDosCompatible: false,
+		unixMode: 0o100755,
+		uid: 501,
+		gid: 20,
+		extraField: new Map([[0x7777, new Uint8Array([1, 2, 3, 4])]])
+	});
+	await zipWriter.add("café.txt", new TextReader("un café"), { level: 0 });
+	const bytes = await zipWriter.close();
+	return { url: "https://example.com/metadata.html", title: "Metadata", getData: async () => bytes };
+}
+
+function dateOf(value) {
+	return value === undefined ? undefined : value.getTime();
+}
+
+function extraFieldOf(entry) {
+	const value = entry.extraField && entry.extraField.get(0x7777);
+	return value ? value.data.join(",") : undefined;
+}
+
 function packagerOptions(overrides = {}) {
 	return {
 		selfExtractingArchive: true,
@@ -168,6 +238,14 @@ async function readArchive(bytes) {
 
 function readEntry(entries, filename) {
 	return entries.get(filename).getData(new TextWriter());
+}
+
+function readRawData(entry) {
+	return entry.getData(new Uint8ArrayWriter(), { passThrough: true, checkCrc32: false });
+}
+
+function equalData(dataLeft, dataRight) {
+	return dataLeft.length == dataRight.length && dataLeft.every((value, index) => value == dataRight[index]);
 }
 
 function check(label, actual, expected) {

@@ -100,16 +100,12 @@ async function createPagesArchive(pages, options) {
 			const zipReader = new ZipReader(new Uint8ArrayReader(await pages[pageIndex].getData()));
 			for (const entry of await zipReader.getEntries()) {
 				const filename = pagePath + entry.filename;
-				const rawData = await entry.getData(new Uint8ArrayWriter(), { passThrough: true, checkCrc32: false });
+				const rawData = entry.directory ? undefined : await entry.getData(new Uint8ArrayWriter(), { passThrough: true, checkCrc32: false });
 				const canonicalFilename = writtenEntries && findDuplicate(writtenEntries, filename, entry, rawData);
 				if (canonicalFilename === undefined) {
-					await zipWriter.add(filename, new Uint8ArrayReader(rawData), {
+					await zipWriter.add(filename, entry.directory ? null : new Uint8ArrayReader(rawData), {
 						passThrough: true,
-						compressionMethod: entry.compressionMethod,
-						uncompressedSize: entry.uncompressedSize,
-						crc32: entry.crc32,
-						comment: entry.comment,
-						lastModDate: entry.lastModDate
+						entry
 					});
 				} else {
 					aliases[filename] = canonicalFilename;
