@@ -33,7 +33,7 @@ function check(label, actual, expected) {
 	const options = makeOptions();
 	const pageData = makePageData(2, 64 * 1024);
 	pageData.resources.images.push(storedResource("photo.jpg",
-		["-->", "</noscript>", "</noframes>", "</noembed>", "</script>", "</style>", "</iframe>", "</xmp>", "]]>"]));
+		["-->", "</script>", "</style>", "</noframes>", "</noembed>", "</iframe>", "</xmp>", "]]>"]));
 	const result = await runProcess(pageData, options);
 	check("all closers exhaust to", result.fallbackTag, "<plaintext>");
 	check("all closers keep extraction", result.extractionDisabled, false);
