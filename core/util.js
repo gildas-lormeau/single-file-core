@@ -63,6 +63,8 @@ const CONTENT_TYPE_EXTENSIONS = {
 	"font/collection": ".ttc"
 };
 const CONTENT_TYPE_OCTET_STREAM = "application/octet-stream";
+const TRANSPORT_STREAM_SYNC_BYTE = 71;
+const TRANSPORT_STREAM_PACKET_SIZE = 188;
 const CONTENT_TYPES_HTML = ["text/html", "application/xhtml+xml"];
 const EXPECTED_TYPES_MEDIA = ["font", "image", "video", "audio"];
 
@@ -295,11 +297,11 @@ function getInstance(utilOptions) {
 		} catch (error) {
 			// ignored
 		}
-		if (!contentType || (contentType == CONTENT_TYPE_OCTET_STREAM && options.asBinary)) {
-			contentType = guessMIMEType(options.expectedType, buffer);
-			if (!contentType) {
-				contentType = options.contentType ? options.contentType : options.asBinary ? CONTENT_TYPE_OCTET_STREAM : "";
-			}
+		const guessedContentType = guessMIMEType(options.expectedType, buffer);
+		if (guessedContentType) {
+			contentType = guessedContentType;
+		} else if (!contentType || (contentType == CONTENT_TYPE_OCTET_STREAM && options.asBinary)) {
+			contentType = options.contentType ? options.contentType : options.asBinary ? CONTENT_TYPE_OCTET_STREAM : "";
 		}
 		if (!charset && options.charset) {
 			charset = options.charset;
@@ -403,6 +405,24 @@ function guessMIMEType(expectedType, buffer) {
 		if (compareBytes([255, 255, 255], [255, 216, 255])) {
 			return "image/jpeg";
 		}
+		if (compareBytes([0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255], [0, 0, 0, 0, 102, 116, 121, 112, 97, 118, 105, 102]) ||
+			compareBytes([0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255], [0, 0, 0, 0, 102, 116, 121, 112, 97, 118, 105, 115])) {
+			return "image/avif";
+		}
+		if (compareBytes([0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255], [0, 0, 0, 0, 102, 116, 121, 112, 104, 101, 105, 99]) ||
+			compareBytes([0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255], [0, 0, 0, 0, 102, 116, 121, 112, 104, 101, 105, 120]) ||
+			compareBytes([0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255], [0, 0, 0, 0, 102, 116, 121, 112, 104, 101, 118, 99]) ||
+			compareBytes([0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255], [0, 0, 0, 0, 102, 116, 121, 112, 104, 101, 118, 120])) {
+			return "image/heic";
+		}
+		if (compareBytes([255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255], [0, 0, 0, 12, 74, 88, 76, 32, 13, 10, 135, 10]) ||
+			compareBytes([255, 255], [255, 10])) {
+			return "image/jxl";
+		}
+		if (compareBytes([255, 255, 255, 255], [73, 73, 42, 0]) ||
+			compareBytes([255, 255, 255, 255], [77, 77, 0, 42])) {
+			return "image/tiff";
+		}
 	}
 	if (expectedType == "font") {
 		if (compareBytes([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255],
@@ -444,7 +464,7 @@ function guessMIMEType(expectedType, buffer) {
 		if (compareBytes([0, 0, 0, 0, 255, 255, 255, 255, 255, 255], [0, 0, 0, 0, 102, 116, 121, 112, 51, 103])) {
 			return "video/3gpp";
 		}
-		if (compareBytes([255], [71])) {
+		if (isTransportStream()) {
 			return "video/mp2t";
 		}
 	}
@@ -473,6 +493,14 @@ function guessMIMEType(expectedType, buffer) {
 		if (compareBytes([0, 0, 0, 0, 255, 255, 255, 255, 255, 255], [0, 0, 0, 0, 102, 116, 121, 112, 51, 103])) {
 			return "audio/3gpp";
 		}
+	}
+
+	function isTransportStream() {
+		const value = new Uint8Array(buffer);
+		return value.length > TRANSPORT_STREAM_PACKET_SIZE * 2 &&
+			value[0] == TRANSPORT_STREAM_SYNC_BYTE &&
+			value[TRANSPORT_STREAM_PACKET_SIZE] == TRANSPORT_STREAM_SYNC_BYTE &&
+			value[TRANSPORT_STREAM_PACKET_SIZE * 2] == TRANSPORT_STREAM_SYNC_BYTE;
 	}
 
 	function compareBytes(mask, pattern) {
