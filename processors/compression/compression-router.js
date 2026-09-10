@@ -202,7 +202,7 @@ async function router(content, { extract, display }) {
 	function parseRoute() {
 		const hash = location.hash;
 		const routed = !hash || hash.startsWith(ROUTE_PREFIX);
-		let path = pages[0].path;
+		let path = routed && tocEntry ? TOC_ROUTE : pages[0].path;
 		let fragment;
 		if (routed && hash) {
 			({ path, fragment } = parseRouteHash(hash));
