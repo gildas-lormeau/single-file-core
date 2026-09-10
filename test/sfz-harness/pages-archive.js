@@ -13,7 +13,7 @@
 //   - the titles written into the table of contents are CRAWLED, so they are attacker-controlled
 //     text going into an href attribute and into element content. Both escapers are checked here.
 import "./dom-stub.js";
-import { makePageData, makeOptions, runProcess } from "./common.js";
+import { makePageData, makeOptions, runProcess, freezeDate } from "./common.js";
 import { createPagesArchive } from "../../processors/compression/compression-packager.js";
 import { ZipReader, ZipWriter, BlobReader, TextReader, TextWriter, Uint8ArrayWriter } from "../../vendor/zip/zip.js";
 
@@ -173,6 +173,33 @@ const pages = [
 		prelude.includes("<a href=\"https://example.com/docs/intro.html\">Intro &#38; &#34;start&#34; &#60;b&#62;</a>"), true);
 	check("the prelude is not written when the page list is not asked for",
 		new TextDecoder("windows-1252").decode(await createPagesArchive(pages, packagerOptions())).includes("<nav><ul>"), false);
+}
+
+// the options handed to the archive writer are DERIVED from PROCESS_OPTION_NAMES, not hand-listed.
+// The hand copy carried eleven names and silently dropped maxAppendedDataLength, so
+// --max-appended-data-length did nothing on any multi-page save and nothing failed for months.
+// A one-byte budget has to reach the writer, where it is indistinguishable from refusing to append
+{
+	const unfreeze = freezeDate();
+	try {
+		const budgeted = await createPagesArchive(pages, packagerOptions({ maxAppendedDataLength: 1 }));
+		const prevented = await createPagesArchive(pages, packagerOptions({ preventAppendedData: true }));
+		const unbudgeted = await createPagesArchive(pages, packagerOptions());
+		check("a one-byte appended-data budget reaches the archive writer", equalData(budgeted, prevented), true);
+		check("and appending is what the writer does without one", equalData(unbudgeted, prevented), false);
+	} finally {
+		unfreeze();
+	}
+}
+
+// `password` is the one name the derivation must NOT forward. An encrypted multi-page archive
+// cannot be written yet, and forwarding the password would half-ship it: the writer would start
+// withholding the prologue's title as if the archive were encrypted, while the table of contents
+// and every entry comment — each one a resource URL — kept riding in that same cleartext prologue
+{
+	const prologue = new TextDecoder("windows-1252").decode(await createPagesArchive(pages, packagerOptions({ password: "secret" })));
+	check("a password is not forwarded to the archive writer",
+		prologue.includes("<title>Intro &#38; &#34;start&#34; &#60;b&#62;</title>"), true);
 }
 
 console.log(failed ? "\nsome checks FAILED" : "\nall checks passed");

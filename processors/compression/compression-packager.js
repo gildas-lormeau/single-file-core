@@ -32,7 +32,8 @@ import {
 } from "./../../vendor/zip/zip.js";
 import {
 	createArchive,
-	escapeHTML
+	escapeHTML,
+	PROCESS_OPTION_NAMES
 } from "./compression.js";
 
 const browser = globalThis.browser;
@@ -46,6 +47,13 @@ const TOC_STYLE = "body{font-family:system-ui,sans-serif;margin:2em auto;max-wid
 	"summary{cursor:pointer;font-weight:bold;margin:.5em 0}" +
 	"details{padding-left:1em}ul{margin:.25em 0;padding-left:1.5em}" +
 	"@media(prefers-color-scheme:dark){body{background-color:#111;color:#eee}a{color:#8ab4f8}a:visited{color:#c58af9}}";
+const ARCHIVE_EXCLUDED_OPTION_NAMES = [
+	"createRootDirectory",
+	"disableCompression",
+	"insertTextBody",
+	"password",
+	"url"
+];
 const COMMENT_HEADER = "Page saved with SingleFile";
 const SYMLINK_UNIX_MODE = 0o120777;
 
@@ -80,18 +88,11 @@ async function createPagesArchive(pages, options) {
 	};
 	const archiveOptions = {
 		url: pages[0].url,
-		multiPageArchive: true,
-		selfExtractingArchive: options.selfExtractingArchive,
-		extractDataFromPage: options.extractDataFromPage,
-		preventAppendedData: options.preventAppendedData,
-		declareAppendedData: options.declareAppendedData,
-		embeddedPdf: options.embeddedPdf,
-		embeddedImage: options.embeddedImage,
-		includeBOM: options.includeBOM,
-		insertMetaCSP: options.insertMetaCSP,
-		insertCanonicalLink: options.insertCanonicalLink,
-		insertMetaNoIndex: options.insertMetaNoIndex
+		multiPageArchive: true
 	};
+	PROCESS_OPTION_NAMES
+		.filter(name => !ARCHIVE_EXCLUDED_OPTION_NAMES.includes(name) && !(name in archiveOptions))
+		.forEach(name => archiveOptions[name] = options[name]);
 	const writtenEntries = options.dedupPages ? new Map() : undefined;
 	const aliases = {};
 	const blob = await createArchive(pageData, archiveOptions, options.zipScript, async zipWriter => {
