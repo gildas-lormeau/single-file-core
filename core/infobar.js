@@ -75,6 +75,21 @@ const INFOBAR_STYLES = `
   animation-iteration-count: 2;
 }
 
+.infobar:not(:focus-within):not(.infobar-focus)::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border: 2px solid #dd6a00;
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  animation-name: ripple;
+  animation-duration: 3s;
+  animation-timing-function: ease-out;
+  animation-delay: 2s;
+  animation-iteration-count: 3;
+}
+
 .infobar:valid, .infobar:not(:focus-within):not(.infobar-focus) .infobar-content {
   display: none;
 }
@@ -130,6 +145,24 @@ const INFOBAR_STYLES = `
   }
   50% {
 	background-color: #dd6a00;
+  }
+}
+
+@keyframes ripple {
+  0% {
+	transform: scale(1);
+	opacity: 1;
+  }
+  45%, 100% {
+	transform: scale(2);
+	opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .infobar,
+  .infobar:not(:focus-within):not(.infobar-focus)::after {
+	animation-name: none;
   }
 }
 
