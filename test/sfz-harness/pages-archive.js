@@ -4,9 +4,11 @@
 //
 // Three of its rules are worth stating, because they look arbitrary in the code:
 //
-//   - the first page is stored at the ROOT and the others under pages/N/. The root page is what a
-//     reader opens, so it cannot be moved into a folder without changing every relative URL the
-//     capture already resolved.
+//   - the first page is stored at the ROOT and the others under pages/N/, unless
+//     createRootDirectory asks for a folder for the first page too. A page's resources travel with
+//     it, so either layout resolves; what the root buys is a reader who unzips the archive and
+//     opens index.html without being told where to look, and what it costs is that the first page
+//     shares the root with the archive's own files.
 //   - a duplicate entry becomes a SYMLINK rather than being dropped. The router resolves it from
 //     the alias map in the manifest and never reads it, but a plain unzip has to produce complete
 //     page folders, and only a symlink gives both.
@@ -44,6 +46,37 @@ const pages = [
 	// crawler did not settle on leaves the archive
 	check("the manifest keeps the urls a page was reached by",
 		(manifest.pages[0].originalUrls || []).join(" "), "https://example.com/docs/");
+}
+
+// createRootDirectory gives the first page a folder of its own. Without it the first page is
+// written at the root, mixed in with the archive's own files, which is the reason the router needs
+// a special case at all: belongsToPage() has to read "everything not under pages/ and not named
+// sfz-*" as the first page. With every page under pages/N/ that rule is a plain prefix match.
+{
+	const entries = await readArchive(await createPagesArchive(pages, packagerOptions({ createRootDirectory: true, tocPage: true })));
+	const manifest = JSON.parse(await readEntry(entries, "sfz-pages.json"));
+	const toc = await readEntry(entries, "sfz-toc.html");
+	check("the first page is stored in a folder of its own when a root directory is asked for",
+		entries.has("pages/1/index.html"), true);
+	check("and the first page is no longer at the root", entries.has("index.html"), false);
+	check("the manifest names the folder of the first page too",
+		manifest.pages.map(page => page.path).join(" "), "pages/1/ pages/2/");
+	check("the table of contents links to the first page in its folder",
+		toc.includes("href=\"pages/1/index.html\""), true);
+	// the archive's own files stay at the root whatever the option says: the router finds them by
+	// exact name, and an archive whose sfz-pages.json moved stops being read as multi-page at all
+	check("the archive's own files are the only thing left at the root",
+		[...entries.keys()].filter(filename => !filename.includes("/")).sort().join(" "),
+		"sfz-pages.json sfz-toc.html");
+}
+
+// deduplication writes the link target relative to the folder the repeated entry sits in. With the
+// first page at the root that walk never has a common prefix to drop; with both pages in folders it
+// has to climb out of one and back into the other, which nothing exercised before
+{
+	const entries = await readArchive(await createPagesArchive(pages, packagerOptions({ createRootDirectory: true, dedupPages: true })));
+	check("a repeated entry points across folders at the one that was kept",
+		await readEntry(entries, "pages/2/styles.css"), "../1/styles.css");
 }
 
 // the router reads these two out of the manifest, and "auto" is the absence of a choice rather

@@ -67,7 +67,7 @@ async function createPagesArchive(pages, options) {
 	}
 	const manifest = {
 		pages: pages.map((page, pageIndex) => ({
-			path: getPagePath(pageIndex),
+			path: getPagePath(pageIndex, options.createRootDirectory),
 			url: page.url,
 			originalUrls: page.originalUrls,
 			title: page.title
@@ -97,7 +97,7 @@ async function createPagesArchive(pages, options) {
 	const aliases = {};
 	const blob = await createArchive(pageData, archiveOptions, options.zipScript, async zipWriter => {
 		for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
-			const pagePath = getPagePath(pageIndex);
+			const pagePath = getPagePath(pageIndex, options.createRootDirectory);
 			const zipReader = new ZipReader(new Uint8ArrayReader(await pages[pageIndex].getData()));
 			for (const entry of await zipReader.getEntries()) {
 				const filename = pagePath + entry.filename;
@@ -163,8 +163,8 @@ function getRelativePath(filename, targetFilename) {
 	return "../".repeat(baseSegments.length) + targetSegments.join("/");
 }
 
-function getPagePath(pageIndex) {
-	return pageIndex == 0 ? "" : PAGES_PREFIX + (pageIndex + 1) + "/";
+function getPagePath(pageIndex, createRootDirectory) {
+	return pageIndex == 0 && !createRootDirectory ? "" : PAGES_PREFIX + (pageIndex + 1) + "/";
 }
 
 function getComment(url, options) {

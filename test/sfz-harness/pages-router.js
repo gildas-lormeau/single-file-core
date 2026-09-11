@@ -20,6 +20,7 @@ import * as zip from "../../vendor/zip/zip.js";
 const ARCHIVE_URL = "https://example.com/archive.html";
 
 let failed = false;
+let openedEntries;
 
 const pages = [
 	await makePage(1, { url: "https://example.com/docs/intro.html", title: "Intro" }),
@@ -50,6 +51,28 @@ const withoutTOC = await createPagesArchive(pages, packagerOptions());
 	check("a hash that is not a route opens the first page", content, "page at \"\"");
 }
 
+// createRootDirectory moves the first page into pages/1/, so the landing rule has to come from the
+// manifest rather than from the root. belongsToPage() also leaves its special case behind: while
+// the first page is at the root it can only be described as "everything not under pages/ and not
+// named sfz-*", and a page in a folder is selected by prefix like any other. The entries handed to
+// extract are the assertion, because a landing path alone would still read right if that selection
+// silently picked up the archive's own files
+{
+	const rooted = await createPagesArchive(pages, packagerOptions({ createRootDirectory: true }));
+	const content = await open(rooted);
+	check("an archive with a root directory opens on the first page in its folder", content, "page at \"pages/1/\"");
+	check("and the router hands it only the entries of that folder",
+		openedEntries.join(" "), "pages/1/index.html pages/1/manifest.json pages/1/styles.css");
+}
+
+{
+	const rooted = await createPagesArchive(pages, packagerOptions({ createRootDirectory: true, tocPage: true }));
+	check("an archive with a root directory still opens on its table of contents",
+		(await open(rooted)).includes("<h1>Table of contents</h1>"), true);
+	check("and a route still names a page in it",
+		await open(rooted, "#sfz/pages/1/"), "page at \"pages/1/\"");
+}
+
 console.log(failed ? "\nsome checks FAILED" : "\nall checks passed");
 Deno.exit(failed ? 1 : 0);
 
@@ -60,7 +83,10 @@ async function open(bytes, hash = "") {
 	let displayed;
 	installEnvironment(hash);
 	await router(new Blob([bytes]), {
-		extract: (content, { pagePath }) => ({ docContent: "page at " + JSON.stringify(pagePath) }),
+		extract: (content, { entries, pagePath }) => {
+			openedEntries = entries.map(entry => entry.filename).sort();
+			return { docContent: "page at " + JSON.stringify(pagePath) };
+		},
 		display: (document, docContent) => displayed = docContent
 	});
 	return displayed;
