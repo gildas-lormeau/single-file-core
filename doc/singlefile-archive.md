@@ -1079,13 +1079,31 @@ trailing bytes open it (§8.1). The parser closes the open
 comment or element at end of file, and `</body></html>` are implied, so the page
 renders the same.
 
-Relocation is not a move at constant size, and it can end either way. Two effects pull
-against each other: the room the writer sets aside, which in the reference writer is
-`Math.ceil(length * 1.01) + 32` bytes — a percentage of the payload plus a constant, so
-the constant dominates a small payload and the percentage a large one — and the 17 bytes
-of wrapper terminator and end tags it stops emitting. Measured on three files the net ran
-from 9 bytes saved to 190 bytes spent, so a writer sizing a file should quote that range
-rather than a single figure.
+Relocation moves the element rather than copying it, but it is not a move at constant
+size, and wherever there is an element to move it costs bytes. The appended placement
+emits the wrapper terminator, the element and the end tags, the element plus 17; the
+relocated placement emits none of those and reserves room ahead of the archive instead,
+`Math.ceil(length * 1.01) + 32` bytes in the reference writer, where *length* is the
+element with its tags. The net is that reservation less the element and less the 17
+bytes, so about one percent of the element plus fifteen: what relocation costs is the
+margin, not a second copy. Measured on elements from 61 to 17577 bytes the formula holds
+to within a few bytes, the residual being the element itself changing length between the
+two passes, since the reservation lengthens the prologue and moves every
+central-directory offset with it. The wrapper rung sets the constant: fifteen bytes
+behind a comment, nine behind `</script>` or `]]></svg>`, six behind `</plaintext>`.
+With extraction disabled there is no element and nothing is reserved, so suppressing the
+appended run drops those 17 bytes and nothing else.
+
+The two cases a writer meets differ by an order of magnitude, and the budget is what
+separates them. A relocation forced by `preventAppendedData` acts on whatever element
+exists, which on a small archive is small: 16 bytes on a 2848-byte ZIP region, 35 bytes
+on a 1.3 MB one. A relocation the budget triggers cannot be cheap, because it happens
+only once the element no longer fits: at the default 16361 that means an element past
+16344 bytes, and 185 bytes measured on a 12.7 MB region is near the least it can cost.
+It keeps rising from there, since a relocated element sits in the prologue and no comment
+ceiling bounds it — at the ratio above, a 40 MB archive carries roughly 57 KB of element
+and costs roughly 590 bytes. A writer sizing a file should compute the cost from the
+element it produced rather than quote any of these figures.
 
 ### 5.3 Offset bookkeeping
 
