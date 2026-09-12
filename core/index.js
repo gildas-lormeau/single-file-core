@@ -464,7 +464,7 @@ class Processor {
 			content = await util.getContent(this.baseURI, {
 				inline: !this.options.compressContent,
 				maxResourceSize: this.options.maxResourceSize,
-				maxResourceSizeEnabled: this.options.maxResourceSizeEnabled,
+				maxResourceSizeEnabled: this.options.maxResourceSizeEnabled && !this.options.rootDocument,
 				charset,
 				frameId: this.options.windowId,
 				resourceReferrer: this.options.resourceReferrer,
