@@ -31,6 +31,7 @@ const DEBUG = false;
 const Set = globalThis.Set;
 const Map = globalThis.Map;
 const JSON = globalThis.JSON;
+const URL = globalThis.URL;
 
 let util;
 
@@ -421,6 +422,9 @@ const SHADOWROOT_DELEGATES_FOCUS = "shadowrootdelegatesfocus";
 const SHADOWROOT_CLONABLE = "shadowrootclonable";
 const SHADOWROOT_SERIALIZABLE = "shadowrootserializable";
 const SCRIPT_OPTIONS = "data-single-file-options";
+const JAVASCRIPT_URI_PROTOCOL = "javascript:";
+const DISABLED_SCRIPT_URI = "javascript:void(0)";
+const SCRIPT_URI_ATTRIBUTE_NAMES = ["href", "src", "action", "formaction", "data"];
 const UTF8_CHARSET = "utf-8";
 const TAINTED_CANVAS_WARNING_MESSAGE = "SingleFile: canvas elements tainted by a cross-origin resource, dropped from the page:";
 
@@ -497,7 +501,7 @@ class Processor {
 		}
 		this.workStyleElement = this.doc.createElement("style");
 		this.doc.body.appendChild(this.workStyleElement);
-		this.onEventAttributeNames = getOnEventAttributeNames(this.doc);
+		this.onEventAttributeNames = new Set(getOnEventAttributeNames(this.doc));
 	}
 
 	finalize() {
@@ -852,18 +856,16 @@ class Processor {
 	}
 
 	removeEmbedScripts() {
-		const JAVASCRIPT_URI_PREFIX = "javascript:";
-		const DISABLED_SCRIPT = "javascript:void(0)";
-		this.onEventAttributeNames.forEach(attributeName => this.doc.querySelectorAll("[" + attributeName + "]").forEach(element => element.removeAttribute(attributeName)));
-		this.doc.querySelectorAll("[href]").forEach(element => {
-			if (element.href && element.href.match && element.href.trim().startsWith(JAVASCRIPT_URI_PREFIX)) {
-				element.setAttribute("href", DISABLED_SCRIPT);
-			}
-		});
-		this.doc.querySelectorAll("[src]").forEach(element => {
-			if (element.src && element.src.trim().startsWith(JAVASCRIPT_URI_PREFIX)) {
-				element.setAttribute("src", DISABLED_SCRIPT);
-			}
+		this.doc.querySelectorAll("*").forEach(element => {
+			Array.from(element.attributes).forEach(attribute => {
+				const localName = attribute.localName || attribute.name;
+				const attributeName = localName.toLowerCase();
+				if (this.onEventAttributeNames.has(attributeName)) {
+					element.removeAttributeNS(attribute.namespaceURI, localName);
+				} else if (SCRIPT_URI_ATTRIBUTE_NAMES.includes(attributeName) && isScriptURI(attribute.value)) {
+					element.setAttributeNS(attribute.namespaceURI, attribute.name, DISABLED_SCRIPT_URI);
+				}
+			});
 		});
 		const scriptElements = this.doc.querySelectorAll("script:not([type=\"application/ld+json\"]):not([" + SCRIPT_OPTIONS + "])");
 		this.stats.set("discarded", "scripts", scriptElements.length);
@@ -1706,6 +1708,14 @@ function normalizeURL(url) {
 		return url;
 	} else {
 		return url.split("#")[0];
+	}
+}
+
+function isScriptURI(value) {
+	try {
+		return new URL(value).protocol == JAVASCRIPT_URI_PROTOCOL;
+	} catch {
+		return false;
 	}
 }
 
