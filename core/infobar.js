@@ -141,28 +141,28 @@ const INFOBAR_STYLES = `
 
 @keyframes flash {
   0%, 100% {
-	background-color: #737373;
+    background-color: #737373;
   }
   50% {
-	background-color: #dd6a00;
+    background-color: #dd6a00;
   }
 }
 
 @keyframes ripple {
   0% {
-	transform: scale(1);
-	opacity: 1;
+    transform: scale(1);
+    opacity: 1;
   }
   45%, 100% {
-	transform: scale(2);
-	opacity: 0;
+    transform: scale(2);
+    opacity: 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .infobar,
   .infobar:not(:focus-within):not(.infobar-focus)::after {
-	animation-name: none;
+    animation-name: none;
   }
 }
 
