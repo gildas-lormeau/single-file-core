@@ -56,5 +56,19 @@ export default [
 		rules: {
 			"no-console": "off"
 		}
+	},
+	{
+		files: ["test/capture/**", "test/run.js"],
+		languageOptions: {
+			globals: {
+				Deno: "readonly",
+				Response: "readonly",
+				TextDecoder: "readonly",
+				URL: "readonly"
+			}
+		},
+		rules: {
+			"no-console": "off"
+		}
 	}
 ];

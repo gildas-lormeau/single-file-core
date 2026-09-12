@@ -14,7 +14,14 @@ Run them with Deno, from the repository root:
 npm test
 ```
 
-or one at a time:
+which is [`test/run.js`](../run.js), the runner for every suite under `test/`. It takes
+name filters, so this directory alone is:
+
+```
+deno run --allow-read --allow-run test/run.js sfz-harness
+```
+
+or one at a time, which needs no runner:
 
 ```
 deno run --allow-read test/sfz-harness/format-rules.js
@@ -42,12 +49,16 @@ any check failed.
 | `filename-characters.js` | That `getValidFilename` maps a full-width lookalike one character at a time — `C++` used to be saved as `C＋` — while a run of characters with no lookalike still collapses to a single replacement. |
 | `zip64.js` | That the `page.pdf` record injection accounts for the zip64 end of central directory record (§5.7): all four EOCD fields left at their sentinels, the entry counts and directory size carried in the zip64 record, the directory offset pointing at the injected record, and the archive still readable. The branch runs only past 4 GiB or 65535 entries, so nothing reached it before; the suite forces zip64 through `zipWriter.options` from inside the `writeEntries` callback, with no production lever. |
 | `byte-map.js` | That the byte offsets §8.2 of the specification prints still describe what the writer emits: the prologue order, the doctype and root tag with nothing between them, the identifier's length ahead of the region, absolute EOCD offsets, and the entry order. The specimen §8.2 documents is saved from a live URL and has never been in this repository, so none of its numbers could be checked; three of them were wrong. This builds an equivalent with no network. |
+| `relocation-cost.js` | That the figures §5.2 prints for relocating the extra-data element reconstruct. Two of the three came from live captures and did not: the paragraph subtracted the terminator and the end tags from the reservation without subtracting the element, which the appended placement carries too, so it over-counted by the whole element. This pins the corrected arithmetic — the cost is the reservation margin alone, it is positive on every rung whenever an element exists, and the only way relocation saves bytes is to have no element to relocate. |
 | `charset-round-trip.js` | That the encoding tables §8.4 prints still describe the WHATWG index: which 20 of the 38 encodings carry all 256 byte values through a decode injectively, the sizes of the reverse tables they need, and the five windows-1252 positions a platform codec of the same name leaves undefined. It also re-derives the reverse table the extractor ships as a literal, which no build step checks and which corrupts one byte per occurrence when wrong. |
 | `css-fonts-minifier.js` | That `removeUnusedFonts` reads the font families it prunes on correctly: a `var()` family resolved from the values the document declares and not only from the ones the body inherits, every font kept when the value is genuinely undetermined, and a multi-word family name that does not also claim a font named after its own tail. |
+| `font-face-composite.js` | That several `@font-face` rules declaring the same family with the same style descriptors are one composite face and not a stack where the last rule wins, which is what CSS Fonts 4 §5.2 and §4.5.1 say: both members are kept with their own sources, faces split by `unicode-range` are all kept, an outright duplicate rule is emitted once, and a source repeated inside one rule is listed once, at the position of its later declaration. |
 
 ## The tools
 
-Not tests — they print, they do not assert, and CI does not run them.
+Not tests — they print, they do not assert, and CI does not run them. The runner skips
+them by name, in the `NOT_SUITES` list of [`test/run.js`](../run.js). Everything else in
+this directory IS run, so a new file is either a suite or a line in that list.
 
 | Script | Use |
 |---|---|

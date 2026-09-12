@@ -2,3 +2,5 @@
 /test/*
 !/test/fixtures/
 !/test/sfz-harness/
+!/test/capture/
+!/test/run.js
