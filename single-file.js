@@ -91,7 +91,7 @@ async function getPageData(options = {}, initOptions, doc, win) {
 	}
 	options.doc = doc;
 	options.win = win;
-	options.insertCanonicalLink = true;
+	options.insertCanonicalLink = options.insertCanonicalLink === undefined ? true : options.insertCanonicalLink;
 
 	const externalOnProgress = options.onprogress;
 	options.onprogress = async event => {
