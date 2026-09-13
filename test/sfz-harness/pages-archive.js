@@ -249,8 +249,8 @@ async function makePage(seed, { url, title, originalUrls }) {
 
 // a page archive holding, on purpose, nothing the packager's own writer would produce by default:
 // a directory record, a name that needs the language encoding flag, a stored entry beside one
-// deflated at the highest level, unix ownership, an extra field zip.js does not interpret, and
-// dates outside the one the packager pins on its writer
+// deflated at the highest level, unix ownership, a non-default version-made-by spec byte, an
+// extra field zip.js does not interpret, and dates outside the one the packager pins on its writer
 async function makeMetadataPage() {
 	const zipWriter = new ZipWriter(new Uint8ArrayWriter(), { lastModDate: SOURCE_DATE });
 	await zipWriter.add("folder/", null, { directory: true, comment: "a folder" });
@@ -261,6 +261,9 @@ async function makeMetadataPage() {
 		lastAccessDate: SOURCE_DATE,
 		internalFileAttributes: 1,
 		msDosCompatible: false,
+		// only the high byte is rewritten to host Unix, so the 0x32 spec byte survives and the
+		// copied value differs from the 0x0300 both writers land on by default
+		versionMadeBy: 0x0332,
 		unixMode: 0o100755,
 		uid: 501,
 		gid: 20,
