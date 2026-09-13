@@ -1,4 +1,4 @@
-const { Array, Object, String, Number, BigInt, Math, Date, Map, Set, Response, URL, Error, Uint8Array, Uint16Array, Uint32Array, DataView, Blob, Promise, TextEncoder, TextDecoder, crypto, btoa, TransformStream, ReadableStream, WritableStream, CompressionStream, DecompressionStream, navigator, Worker, setTimeout, clearTimeout } = typeof globalThis !== 'undefined' ? globalThis : this || self;
+const { Array, Object, String, Number, BigInt, Math, Date, Map, Set, Response, URL, Error, Uint8Array, Uint16Array, Uint32Array, DataView, Blob, Promise, TextEncoder, TextDecoder, crypto, btoa, TransformStream, ReadableStream, WritableStream, CompressionStream, DecompressionStream, navigator, Worker, setTimeout, clearTimeout } = typeof globalThis !== 'undefined' ? globalThis : self;
 
 /*
  Copyright (c) 2022 Gildas Lormeau. All rights reserved.
