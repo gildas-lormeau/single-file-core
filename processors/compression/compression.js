@@ -132,7 +132,8 @@ export {
 	process,
 	createArchive,
 	escapeHTML,
-	PROCESS_OPTION_NAMES
+	PROCESS_OPTION_NAMES,
+	DEFAULT_MAX_APPENDED_DATA_LENGTH
 };
 
 async function process(pageData, options, lastModDate = new Date()) {
