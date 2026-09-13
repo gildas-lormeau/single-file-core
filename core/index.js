@@ -161,7 +161,7 @@ const STAGES = [{
 		{ action: "cleanupPage" }
 	],
 	parallel: [
-		{ option: "enableMaff", action: "insertMAFFMetaData" },
+		{ option: "readMaffMetadata", action: "readMAFFMetaData" },
 		{ action: "setDocInfo" }
 	]
 }, {
@@ -452,7 +452,7 @@ class Processor {
 	initialize() {
 		this.options.saveDate = new Date();
 		this.options.saveUrl = this.options.url;
-		if (this.options.enableMaff) {
+		if (this.options.readMaffMetadata) {
 			this.maffMetaDataPromise = this.batchRequest.addURL(util.resolveURL("index.rdf", this.options.baseURI || this.options.url), { expectedType: "document" });
 		}
 		this.maxResources = this.batchRequest.getMaxResources();
@@ -680,7 +680,7 @@ class Processor {
 			optionsElement.type = "application/json";
 			optionsElement.setAttribute(SCRIPT_OPTIONS, "");
 			optionsElement.textContent = JSON.stringify({
-				saveUrl: this.options.url,
+				saveUrl: this.options.saveUrl,
 				saveDate: this.options.saveDate.getTime(),
 				visitDate: (this.options.visitDate || this.options.saveDate).getTime(),
 				filenameTemplate: this.options.filenameTemplate,
@@ -1649,7 +1649,7 @@ class Processor {
 		this.doc.documentElement.style.removeProperty("-sf-min-height");
 	}
 
-	async insertMAFFMetaData() {
+	async readMAFFMetaData() {
 		const maffMetaData = await this.maffMetaDataPromise;
 		if (maffMetaData && maffMetaData.content) {
 			const NAMESPACE_RDF = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
@@ -1657,7 +1657,10 @@ class Processor {
 			const originalURLElement = maffDoc.querySelector("RDF > Description > originalurl");
 			const archiveTimeElement = maffDoc.querySelector("RDF > Description > archivetime");
 			if (originalURLElement) {
-				this.options.saveUrl = originalURLElement.getAttributeNS(NAMESPACE_RDF, "resource");
+				const value = originalURLElement.getAttributeNS(NAMESPACE_RDF, "resource");
+				if (value) {
+					this.options.saveUrl = value;
+				}
 			}
 			if (archiveTimeElement) {
 				const value = archiveTimeElement.getAttributeNS(NAMESPACE_RDF, "resource");
