@@ -215,30 +215,30 @@
 		const scrollingElement = document.scrollingElement || document.documentElement;
 		const clientHeight = scrollingElement.clientHeight;
 		const clientWidth = scrollingElement.clientWidth;
-		const scrollHeight = Math.max(scrollingElement.scrollHeight - clientHeight, clientHeight);
-		const scrollWidth = Math.max(scrollingElement.scrollWidth - clientWidth, clientWidth);
+		const maxScrollY = Math.max(scrollingElement.scrollHeight - clientHeight, clientHeight);
+		const maxScrollX = Math.max(scrollingElement.scrollWidth - clientWidth, clientWidth);
 		document.querySelectorAll("[loading=lazy]").forEach(element => {
 			element.loading = "eager";
 			element.setAttribute(LAZY_LOAD_ATTRIBUTE, "");
 		});
-		scrollingElement.__defineGetter__("clientHeight", () => scrollHeight);
-		scrollingElement.__defineGetter__("clientWidth", () => scrollWidth);
-		screen.__defineGetter__("height", () => scrollHeight);
-		screen.__defineGetter__("width", () => scrollWidth);
+		scrollingElement.__defineGetter__("clientHeight", () => maxScrollY);
+		scrollingElement.__defineGetter__("clientWidth", () => maxScrollX);
+		screen.__defineGetter__("height", () => maxScrollY);
+		screen.__defineGetter__("width", () => maxScrollX);
 		globalThis._singleFile_innerHeight = globalThis.innerHeight;
 		globalThis._singleFile_innerWidth = globalThis.innerWidth;
-		globalThis.__defineGetter__("innerHeight", () => scrollHeight);
-		globalThis.__defineGetter__("innerWidth", () => scrollWidth);
+		globalThis.__defineGetter__("innerHeight", () => maxScrollY);
+		globalThis.__defineGetter__("innerWidth", () => maxScrollX);
 		if (!keepZoomLevel) {
 			if (!globalThis._singleFile_getBoundingClientRect) {
 				globalThis._singleFile_getBoundingClientRect = Element.prototype.getBoundingClientRect;
 				Element.prototype.getBoundingClientRect = function () {
 					const boundingRect = globalThis._singleFile_getBoundingClientRect.call(this);
 					if (this == scrollingElement) {
-						boundingRect.__defineGetter__("height", () => scrollHeight);
-						boundingRect.__defineGetter__("bottom", () => scrollHeight + boundingRect.top);
-						boundingRect.__defineGetter__("width", () => scrollWidth);
-						boundingRect.__defineGetter__("right", () => scrollWidth + boundingRect.left);
+						boundingRect.__defineGetter__("height", () => maxScrollY);
+						boundingRect.__defineGetter__("bottom", () => maxScrollY + boundingRect.top);
+						boundingRect.__defineGetter__("width", () => maxScrollX);
+						boundingRect.__defineGetter__("right", () => maxScrollX + boundingRect.left);
 					}
 					return boundingRect;
 				};
@@ -283,8 +283,8 @@
 			setFunctionName(ImageWrapper, "Image");
 			globalThis.__defineGetter__("Image", () => ImageWrapper);
 		}
-		const verticalZoomFactor = clientHeight / scrollHeight;
-		const horizontalZoomFactor = clientWidth / scrollWidth;
+		const verticalZoomFactor = clientHeight / maxScrollY;
+		const horizontalZoomFactor = clientWidth / maxScrollX;
 		const zoomFactor = Math.min(verticalZoomFactor, horizontalZoomFactor);
 		const scrollPosition = { x: globalThis.scrollX, y: globalThis.scrollY };
 		if (zoomFactor < 1) {
