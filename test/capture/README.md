@@ -29,10 +29,13 @@ deno run --allow-read test/capture/resource-cap.js
 `common.js` and `dom.js` are named in the runner's `NOT_SUITES` list because they assert
 nothing. Every other `.js` file here is run.
 
-Unlike the SFZ harness, these download `@b-fuze/deno-dom` from JSR, so a cold cache needs network.
-The version is pinned in `dom.js` and `deno.lock` carries its integrity hash, so a cold run fetches
-that exact build or fails. `test/*` is ignored by `.gitignore` with one exception per directory, so a
-new test directory needs its own `!` line or nothing in it is ever committed.
+Unlike the SFZ harness, these need `happy-dom`, which is a devDependency, so `npm install` has to
+have been run before `npm test`. The version is pinned in `dom.js` as well as in `package.json`. The
+runner grants each suite `--allow-env` on top of `--allow-read`, for one reason only: happy-dom pulls
+`ws`, whose `buffer-util.js` reads `process.env` at module scope. Nothing in a suite needs it.
+
+`test/*` is ignored by `.gitignore` with one exception per directory, so a new test directory needs
+its own `!` line or nothing in it is ever committed.
 
 ## The suites
 
@@ -63,18 +66,22 @@ Anything that reads a live document: `preProcessDoc`, `removeHiddenElements` and
 and the `getComputedStyle` callers in `core/infobar.js` and `modules/css-fonts-minifier.js`. Leave
 those options off here. The browser rigs in `single-file-cli` and `single-file-tests` cover them.
 
-deno-dom is not a browser parser. It materializes a whole `NodeList` when `children` is read, and
-`buildTrackIdMap` walks the tree child by child, so a fixture with 100k siblings overflows the stack.
-Size a fixture with long text in few elements.
+happy-dom is not a browser. `buildTrackIdMap` walks the tree child by child, so a fixture with 100k
+siblings overflows the stack — size a fixture with long text in few elements.
 
-It also exposes content attributes but almost none of the IDL properties that reflect them, and core
-reads the properties. `dom.js` shims `media`, which reflects its attribute verbatim in both
-directions. `link.rel` and `link.href` are missing the same way and are deliberately NOT shimmed,
-because `href` reflects an absolute URL in a browser rather than the attribute, so a naive getter
-would make a test pass for the wrong reason. The consequence is real: a fixture containing
-`<link rel=stylesheet>` throws in `resolveHrefs` (`element.rel.includes` on undefined) before the
-capture reaches anything worth asserting. Until a faithful shim exists, external stylesheets belong
-to the browser suites.
+It has no layout, so everything in the paragraph above about `getComputedStyle` still holds. And what
+it does implement of CSSOM ignores media queries: a rule inside `<style media="print">` computes as
+applied on the screen medium, measured in happy-dom and jsdom alike. A test asserting that a
+print-only rule does *not* apply would pass for the wrong reason.
+
+XML is not usable either. happy-dom accepts `"text/xml"` where deno-dom threw, but it matches neither
+`RDF > Description > originalurl` by local name nor an RDF prefix through `getAttributeNS`, which is
+why `maff-metadata.js` still stubs `DOMParser` for that one mime type.
+
+No DOM available under Deno exposes `on*` IDL properties — zero enumerable keys in both happy-dom and
+deno-dom — so `removeEmbedScripts` sees an empty handler-attribute set here and a handler fixture
+would pass whatever the code did. `script-uri-sanitization.js` says so where it checks the other
+half.
 
 ## Adding a case
 

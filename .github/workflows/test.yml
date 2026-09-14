@@ -17,7 +17,12 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      # the suites drive the writer directly, with no browser and no network
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      # the capture suites import happy-dom, a devDependency, so node_modules has to exist first
+      - run: npm ci
+      # the suites drive core directly, with no browser and no network
       - run: npm test
   lint:
     name: 'Lint'

@@ -84,7 +84,9 @@ async function findSuites() {
 
 async function runSuite(suite) {
 	const command = new Deno.Command(Deno.execPath(), {
-		args: ["run", "--allow-read", new URL(suite, import.meta.url).pathname],
+		// --allow-env is for happy-dom, which pulls ws, whose buffer-util.js reads process.env at
+		// module scope. Nothing in a suite needs it; widen no further than this.
+		args: ["run", "--allow-read", "--allow-env", new URL(suite, import.meta.url).pathname],
 		stdout: "piped",
 		stderr: "piped"
 	});

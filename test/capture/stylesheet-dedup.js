@@ -12,6 +12,7 @@
 import { captureArchive, html } from "./common.js";
 
 const PAGE_URL = "https://example.com/dedup.html";
+const SHEET_URL = "https://example.com/external.css";
 const SHARED = "p { color: rgb(1, 2, 3) }";
 const UNIQUE = "h1 { color: rgb(9, 9, 9) }";
 const OTHER = "em { color: rgb(4, 5, 6) }";
@@ -74,11 +75,7 @@ let failed = false;
 	check("so both links still point at the archived file", countMatches(content, /href="stylesheet_0\.css"/g), 2);
 }
 
-// Two separate duplicate groups are numbered from the same counter and must not collide, which is
-// the closest this harness can get to the numbering question. A fixture mixing these with an
-// external <link rel=stylesheet> would cover it better, but core reads element.rel and element.href
-// and deno-dom implements neither, so such a fixture throws in resolveHrefs before reaching the
-// helper at all. See dom.js for why href in particular is not shimmed.
+// Two separate duplicate groups are numbered from the same counter and must not collide.
 {
 	const page = html("<p>body</p>",
 		style(SHARED) + style(OTHER) + style(SHARED) + style(OTHER));
@@ -89,6 +86,24 @@ let failed = false;
 	check("numbered from zero", names.join(), "stylesheet_0.css,stylesheet_1.css");
 	check("with a link for every copy", countMatches(content, /rel="stylesheet"/g), 4);
 	check("and nothing left inline", countMatches(content, /<style>/g), 0);
+}
+
+// An external sheet is numbered from the same counter as the shared ones, and the shared ones are
+// created first, before the loop over entries reaches the <link>. A collision here would make two
+// different stylesheets share a name in the archive and one of them would be lost.
+{
+	const page = html("<p>body</p>",
+		"<link rel=\"stylesheet\" href=\"external.css\">" + style(SHARED) + style(SHARED));
+	const { content, resources } = await captureArchive({
+		[PAGE_URL]: { body: page },
+		[SHEET_URL]: { body: OTHER, contentType: "text/css" }
+	}, { url: PAGE_URL, content: page });
+	const names = resources.stylesheets.map(stylesheet => stylesheet.name);
+	check("the shared file and the external one both exist", resources.stylesheets.length, 2);
+	check("under distinct names", new Set(names).size, 2);
+	check("the shared file is numbered first", names[0], "stylesheet_0.css");
+	check("the external one after it", names[1], "stylesheet_1.css");
+	check("and the external link points at its own file", content.includes("href=\"stylesheet_1.css\""), true);
 }
 
 if (failed) {

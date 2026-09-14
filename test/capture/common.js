@@ -82,9 +82,8 @@ function frameData(windowId, baseURI, content) {
 	return { ...EMPTY_DOC_DATA, windowId, baseURI, content, scrollPosition: { x: 0, y: 0 } };
 }
 
-// deno-dom materializes a whole NodeList when children is read, and buildTrackIdMap walks the tree
-// child by child, so a fixture with 100k siblings overflows the stack. Size a fixture with long text
-// in few elements, never with many elements.
+// buildTrackIdMap walks the tree child by child, so a fixture with 100k siblings overflows the
+// stack. Size a fixture with long text in few elements, never with many elements.
 function html(body, head = "") {
 	return "<!DOCTYPE html><html><head>" + head + "</head><body>" + body + "</body></html>";
 }

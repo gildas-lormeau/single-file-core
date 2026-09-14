@@ -1,8 +1,10 @@
 import "./dom.js";
 
-// core/util.js captures globalThis.DOMParser when it loads, and deno-dom throws on "text/xml", so
-// the MAFF metadata could not be parsed here at all. This substitutes a stub for that one mime type,
-// installed before common.js imports core, the same ordering constraint dom.js itself documents.
+// core/util.js captures globalThis.DOMParser when it loads, and no DOM available under Deno parses
+// this metadata usefully: deno-dom threw outright on "text/xml", and happy-dom accepts it but then
+// matches neither `RDF > Description > originalurl` by local name nor the RDF prefix through
+// getAttributeNS, both measured. So this substitutes a stub for that one mime type, installed before
+// common.js imports core, the same ordering constraint dom.js itself documents.
 //
 // What the stub stands for and what it does not. The two defects fixed alongside this suite are both
 // about what core does with what the parser HANDS BACK — an attribute that came back null, and which
@@ -53,10 +55,10 @@ const HOST_PAGE = html("<h1>host</h1><iframe src=\"" + FRAME_URL + "\" " + WIN_I
 //
 // The attribute order here is not incidental. saveFilenameTemplateData() assigns `.type` before it
 // calls setAttribute, so a faithful DOM serializes type first, and core's own selector is
-// `script[type="application/json"][data-single-file-options]`. deno-dom does not reflect `.type`, so
-// under this harness the block comes out as `<script data-single-file-options>` with no type at all
-// — output a browser never produces, and which that selector does not match. Match on either order
-// rather than pinning the test to one serializer's behaviour.
+// `script[type="application/json"][data-single-file-options]`. deno-dom did not reflect `.type`, so
+// under that parser the block came out as `<script data-single-file-options>` with no type at all —
+// output a browser never produces, and which that selector does not match. Matching on either order
+// keeps the test off any one serializer's behaviour.
 const OPTIONS_BLOCK = /<script[^>]*\bdata-single-file-options\b[^>]*>([^<]*)<\/script>/;
 
 let fixtureIndex = 0;

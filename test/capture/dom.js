@@ -3,41 +3,28 @@
 // reads globalThis.window, then calls init() and new MutationObserver(init) at module scope. That
 // hook belongs to the page world and does nothing useful here; it only has to load without throwing.
 // Import this module first and import single-file.js dynamically, the way common.js does.
-import { DOMParser, Document, Element } from "jsr:@b-fuze/deno-dom@0.1.56";
+//
+// happy-dom rather than deno-dom, because core reads IDL properties and deno-dom implements almost
+// none of them. Three of those gaps needed shims here, and the fourth was not noticed until it broke
+// a suite: deno-dom does not reflect `.type`, so saveFilenameTemplateData() produced a
+// `<script data-single-file-options>` carrying no type at all, which core's own
+// `script[type="application/json"][data-single-file-options]` selector does not match. The harness
+// was agreeing with itself and disagreeing with every browser. happy-dom reflects `type`, `media`,
+// `rel` and `href`, resolves `href` against the base the way a browser does, keeps `xlink:href`, and
+// implements both NS attribute methods, so no shim is needed for any of it.
+import { Window } from "npm:happy-dom@20.14.5";
 
-globalThis.DOMParser = DOMParser;
-globalThis.Document = Document;
+const window = new Window();
+
+globalThis.DOMParser = window.DOMParser;
+globalThis.Document = window.Document;
+globalThis.Element = window.Element;
 globalThis.window = globalThis;
+
+// happy-dom has a real MutationObserver, and that is the reason not to use it: the hook above
+// observes the document and re-runs init() on every mutation a capture makes. It has nothing to do
+// here, and the stub keeps it from being called once per mutation for the length of a capture.
 globalThis.MutationObserver = class {
 	observe() { }
 	disconnect() { }
 };
-
-// deno-dom implements neither of these, so removeEmbedScripts throws here and nowhere else. Mapping
-// them onto the qualified-name methods is faithful for what deno-dom can represent, which is only
-// null-namespace attributes: it drops the prefix of xlink:href and lowercases nothing, so the
-// namespaced and mixed-case cases cannot be written as a fixture at all. Those are covered by the
-// browser suite in single-file-cli, which drives a real DOM.
-Element.prototype.setAttributeNS = function (namespaceURI, qualifiedName, value) {
-	this.setAttribute(qualifiedName, value);
-};
-Element.prototype.removeAttributeNS = function (namespaceURI, localName) {
-	this.removeAttribute(localName);
-};
-
-// deno-dom exposes content attributes but almost none of the IDL properties that reflect them, so
-// `style.media` and `link.media` read undefined here and a fixture could not carry a media query at
-// all. resolveStylesheetsURLs is the only caller (core/index.js:1284) and media reflects its
-// attribute verbatim, with "" when absent, so this shim is faithful for both elements. `link.rel`
-// and `link.href` are missing the same way and are NOT shimmed: href reflects an ABSOLUTE url in a
-// browser, not the attribute, so a naive getter would make a test pass for the wrong reason.
-// It reflects both ways: replaceStylesheets assigns linkElement.media, which writes the attribute.
-Object.defineProperty(Element.prototype, "media", {
-	configurable: true,
-	get() {
-		return this.getAttribute("media") || "";
-	},
-	set(value) {
-		this.setAttribute("media", value);
-	}
-});

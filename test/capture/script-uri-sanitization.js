@@ -55,8 +55,9 @@ for (const [label, value] of OBFUSCATIONS) {
 
 // The other half of removeEmbedScripts, kept here so that a rewrite of the attribute walk cannot drop
 // it silently. Only the script elements can be checked from here: the event handler attribute names
-// come from enumerating the on* IDL properties of an element, and deno-dom implements none of them,
-// so the set is empty in this harness and a handler fixture would pass whatever the code did. The
+// come from enumerating the on* IDL properties of an element, and no DOM available under Deno
+// exposes them: measured at zero enumerable on* keys in both deno-dom and happy-dom. The set is
+// therefore empty in this harness and a handler fixture would pass whatever the code did. The
 // browser suite in single-file-cli covers the handlers.
 {
 	const scripts = await capture({}, { url: PAGE_URL, content: html("<script>alert(1)</script><svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(2)</script></svg>"), ...BLOCK });
