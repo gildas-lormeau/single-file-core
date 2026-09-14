@@ -48,11 +48,16 @@ const PAGE = html("<h1>page</h1>");
 const FRAME_PAGE = html("<h1>frame</h1>");
 const HOST_PAGE = html("<h1>host</h1><iframe src=\"" + FRAME_URL + "\" " + WIN_ID_ATTRIBUTE_NAME + "=\"0.1\"></iframe>");
 
-// The canonical link would be the obvious place to read the recovered url, but deno-dom reflects
-// neither the href nor the type property, so core's `element.href = ...` leaves no attribute behind.
-// Two observables survive that: the SingleFile comment, which core builds from options.saveUrl, and
-// the embedded options block, which is where the second defect lives.
-const OPTIONS_BLOCK = /<script data-single-file-options[^>]*>([^<]*)<\/script>/;
+// Two observables carry the recovered url: the SingleFile comment, which core builds from
+// options.saveUrl, and the embedded options block, which is where the second defect lives.
+//
+// The attribute order here is not incidental. saveFilenameTemplateData() assigns `.type` before it
+// calls setAttribute, so a faithful DOM serializes type first, and core's own selector is
+// `script[type="application/json"][data-single-file-options]`. deno-dom does not reflect `.type`, so
+// under this harness the block comes out as `<script data-single-file-options>` with no type at all
+// — output a browser never produces, and which that selector does not match. Match on either order
+// rather than pinning the test to one serializer's behaviour.
+const OPTIONS_BLOCK = /<script[^>]*\bdata-single-file-options\b[^>]*>([^<]*)<\/script>/;
 
 let fixtureIndex = 0;
 
