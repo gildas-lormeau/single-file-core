@@ -130,7 +130,7 @@ function triggerLazyLoading(options) {
 					clearAsyncTimeout("idleTimeout");
 					await setIdleTimeout(Math.max(500, delay / 2));
 				}
-			}, delay, options.loadDeferredContentNativeTimeout);
+			}, delay);
 		}
 
 		function onResourceLoad(event) {
@@ -167,14 +167,14 @@ function triggerLazyLoading(options) {
 }
 
 async function deferLazyLoadEnd(observer, options, resolve) {
-	await setAsyncTimeout("loadTimeout", () => lazyLoadEnd(observer, options, resolve), options.loadDeferredContentMaxIdleTime, options.loadDeferredContentNativeTimeout);
+	await setAsyncTimeout("loadTimeout", () => lazyLoadEnd(observer, options, resolve), options.loadDeferredContentMaxIdleTime);
 }
 
 async function deferForceLazyLoadEnd(observer, options, resolve) {
 	await setAsyncTimeout("maxTimeout", async () => {
 		await clearAsyncTimeout("loadTimeout");
 		await lazyLoadEnd(observer, options, resolve);
-	}, options.loadDeferredContentMaxIdleTime * 10, options.loadDeferredContentNativeTimeout);
+	}, options.loadDeferredContentMaxIdleTime * 10);
 }
 
 async function lazyLoadEnd(observer, options, resolve) {
@@ -183,12 +183,12 @@ async function lazyLoadEnd(observer, options, resolve) {
 	await setAsyncTimeout("endTimeout", async () => {
 		await clearAsyncTimeout("maxTimeout");
 		resolve();
-	}, options.loadDeferredContentMaxIdleTime / 2, options.loadDeferredContentNativeTimeout);
+	}, options.loadDeferredContentMaxIdleTime / 2);
 	observer.disconnect();
 }
 
-async function setAsyncTimeout(type, callback, delay, forceNativeTimeout) {
-	if (browser && browser.runtime && browser.runtime.sendMessage && !forceNativeTimeout) {
+async function setAsyncTimeout(type, callback, delay) {
+	if (browser && browser.runtime && browser.runtime.sendMessage) {
 		if (!timeouts.get(type) || !timeouts.get(type).pending) {
 			const timeoutData = { callback, pending: true };
 			timeouts.set(type, timeoutData);

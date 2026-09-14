@@ -13,8 +13,7 @@ const DEPRECATED_NAMES = {
 	loadDeferredImagesBlockStorage: "loadDeferredContentBlockStorage",
 	loadDeferredImagesKeepZoomLevel: "loadDeferredContentKeepZoomLevel",
 	loadDeferredImagesDispatchScrollEvent: "loadDeferredContentDispatchScrollEvent",
-	loadDeferredImagesBeforeFrames: "loadDeferredContentBeforeFrames",
-	loadDeferredImagesNativeTimeout: "loadDeferredContentNativeTimeout"
+	loadDeferredImagesBeforeFrames: "loadDeferredContentBeforeFrames"
 };
 
 let failed = false;
