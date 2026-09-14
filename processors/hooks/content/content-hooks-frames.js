@@ -123,10 +123,11 @@ function loadDeferredContentStart(options) {
 	if (options.loadDeferredContentDispatchScrollEvent) {
 		document.dispatchEvent(new CustomEvent(DISPATCH_SCROLL_START_EVENT));
 	}
+	const detail = JSON.stringify({ minZoomFactor: options.loadDeferredContentMinZoomFactor });
 	if (options.loadDeferredContentKeepZoomLevel) {
-		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_CONTENT_KEEP_ZOOM_LEVEL_START_EVENT));
+		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_CONTENT_KEEP_ZOOM_LEVEL_START_EVENT, { detail }));
 	} else {
-		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_CONTENT_START_EVENT));
+		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_CONTENT_START_EVENT, { detail }));
 	}
 }
 

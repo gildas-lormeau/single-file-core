@@ -107,12 +107,22 @@
 		document.addEventListener(BOOTSTRAP_EVENT, onBootstrap);
 	}
 
-	function onLoadDeferredContentStart() {
-		loadDeferredContentStart();
+	function onLoadDeferredContentStart(event) {
+		loadDeferredContentStart(false, getMinZoomFactor(event));
 	}
 
-	function onLoadDeferredContentKeepZoomLevelStart() {
-		loadDeferredContentStart(true);
+	function onLoadDeferredContentKeepZoomLevelStart(event) {
+		loadDeferredContentStart(true, getMinZoomFactor(event));
+	}
+
+	function getMinZoomFactor(event) {
+		try {
+			const { minZoomFactor } = JSON.parse(event.detail);
+			return minZoomFactor > 0 && minZoomFactor <= 1 ? minZoomFactor : 0;
+			// eslint-disable-next-line no-unused-vars
+		} catch (error) {
+			return 0;
+		}
 	}
 
 	function onLoadDeferredContentEnd() {
@@ -211,7 +221,7 @@
 		}
 	}
 
-	function loadDeferredContentStart(keepZoomLevel) {
+	function loadDeferredContentStart(keepZoomLevel, minZoomFactor) {
 		const scrollingElement = document.scrollingElement || document.documentElement;
 		const clientHeight = scrollingElement.clientHeight;
 		const clientWidth = scrollingElement.clientWidth;
@@ -285,7 +295,7 @@
 		}
 		const verticalZoomFactor = clientHeight / maxScrollY;
 		const horizontalZoomFactor = clientWidth / maxScrollX;
-		const zoomFactor = Math.min(verticalZoomFactor, horizontalZoomFactor);
+		const zoomFactor = Math.max(Math.min(verticalZoomFactor, horizontalZoomFactor), minZoomFactor || 0);
 		const scrollPosition = { x: globalThis.scrollX, y: globalThis.scrollY };
 		if (zoomFactor < 1) {
 			const transform = document.documentElement.style.getPropertyValue("transform");
