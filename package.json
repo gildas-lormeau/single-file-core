@@ -4,6 +4,13 @@
 	"description": "SingleFile Core",
 	"author": "Gildas Lormeau",
 	"license": "AGPL-3.0-or-later",
+	"files": [
+		"*.js",
+		"core/",
+		"modules/",
+		"processors/",
+		"vendor/"
+	],
 	"scripts": {
 		"test": "deno run --allow-read --allow-run test/run.js",
 		"bump-patch": "npm version patch --no-git-tag-version && npm run bump-commit",
