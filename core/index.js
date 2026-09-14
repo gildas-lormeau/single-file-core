@@ -103,7 +103,7 @@ const FINALIZE_STAGE = 4;
 const STAGES = [{
 	sequential: [
 		{ action: "preProcessPage" },
-		{ option: "loadDeferredImagesKeepZoomLevel", action: "resetZoomLevel" },
+		{ option: "loadDeferredContentKeepZoomLevel", action: "resetZoomLevel" },
 		{ action: "replaceStyleContents" },
 		{ action: "replaceInvalidElements" },
 		{ action: "resetCharsetMeta" },
@@ -641,7 +641,7 @@ class Processor {
 								imgElement.dataset.singleFileOriginURL = imgElement.getAttribute("src");
 								imgElement.setAttribute("src", imageData.currentSrc);
 							}
-							if (this.options.loadDeferredImages) {
+							if (this.options.loadDeferredContent) {
 								if ((!imgElement.getAttribute("src") || imgElement.getAttribute("src") == util.EMPTY_RESOURCE) && imgElement.getAttribute("data-src")) {
 									imageData.src = imgElement.dataset.src;
 									imgElement.setAttribute("src", imgElement.dataset.src);
@@ -652,7 +652,7 @@ class Processor {
 					}
 				}
 			});
-			if (this.options.loadDeferredImages) {
+			if (this.options.loadDeferredContent) {
 				this.doc.querySelectorAll("img[data-srcset]").forEach(imgElement => {
 					if (!imgElement.getAttribute("srcset") && imgElement.getAttribute("data-srcset")) {
 						imgElement.setAttribute("srcset", imgElement.dataset.srcset);

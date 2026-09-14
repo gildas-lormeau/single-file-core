@@ -47,6 +47,7 @@ function init(initOptions) {
 }
 
 async function getPageData(options = {}, initOptions, doc, win) {
+	options = helper.normalizeOptions(options);
 	if (doc === undefined) {
 		doc = globalThis.document;
 	}
@@ -61,30 +62,30 @@ async function getPageData(options = {}, initOptions, doc, win) {
 		const preInitializationPromises = [];
 		if (!options.saveRawPage) {
 			let lazyLoadPromise;
-			if (options.loadDeferredImages) {
+			if (options.loadDeferredContent) {
 				lazyLoadPromise = processors.lazy.process(options);
-				if (options.loadDeferredImagesBeforeFrames) {
+				if (options.loadDeferredContentBeforeFrames) {
 					await lazyLoadPromise;
 				}
 			}
 			if (!options.removeFrames && frames && globalThis.frames) {
 				let frameTreePromise;
-				if (options.loadDeferredImages) {
-					frameTreePromise = new Promise(resolve => globalThis.setTimeout(() => resolve(frames.getAsync(options)), options.loadDeferredImagesBeforeFrames || !options.loadDeferredImages ? 0 : options.loadDeferredImagesMaxIdleTime));
+				if (options.loadDeferredContent) {
+					frameTreePromise = new Promise(resolve => globalThis.setTimeout(() => resolve(frames.getAsync(options)), options.loadDeferredContentBeforeFrames || !options.loadDeferredContent ? 0 : options.loadDeferredContentMaxIdleTime));
 				} else {
 					frameTreePromise = frames.getAsync(options);
 				}
-				if (options.loadDeferredImagesBeforeFrames) {
+				if (options.loadDeferredContentBeforeFrames) {
 					options.frames = await frameTreePromise;
 				} else {
 					preInitializationPromises.push(frameTreePromise);
 				}
 			}
-			if (options.loadDeferredImages && !options.loadDeferredImagesBeforeFrames) {
+			if (options.loadDeferredContent && !options.loadDeferredContentBeforeFrames) {
 				preInitializationPromises.push(lazyLoadPromise);
 			}
 		}
-		if (!options.loadDeferredImagesBeforeFrames) {
+		if (!options.loadDeferredContentBeforeFrames) {
 			[options.frames] = await Promise.all(preInitializationPromises);
 		}
 		framesSessionId = options.frames && options.frames.sessionId;
@@ -95,7 +96,7 @@ async function getPageData(options = {}, initOptions, doc, win) {
 
 	const externalOnProgress = options.onprogress;
 	options.onprogress = async event => {
-		if (event.type === event.RESOURCES_INITIALIZED && doc && win && options.loadDeferredImages) {
+		if (event.type === event.RESOURCES_INITIALIZED && doc && win && options.loadDeferredContent) {
 			processors.lazy.resetZoomLevel(options);
 		}
 

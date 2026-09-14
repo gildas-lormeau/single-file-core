@@ -37,6 +37,7 @@ export {
 	capture,
 	frameData,
 	html,
+	helper,
 	WIN_ID_ATTRIBUTE_NAME
 };
 

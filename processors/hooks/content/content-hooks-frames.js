@@ -21,12 +21,12 @@
  *   Source.
  */
 
-const LOAD_DEFERRED_IMAGES_START_EVENT = "single-file-load-deferred-images-start";
-const LOAD_DEFERRED_IMAGES_END_EVENT = "single-file-load-deferred-images-end";
-const LOAD_DEFERRED_IMAGES_KEEP_ZOOM_LEVEL_START_EVENT = "single-file-load-deferred-images-keep-zoom-level-start";
-const LOAD_DEFERRED_IMAGES_KEEP_ZOOM_LEVEL_END_EVENT = "single-file-load-deferred-images-keep-zoom-level-end";
-const LOAD_DEFERRED_IMAGES_RESET_ZOOM_LEVEL_EVENT = "single-file-load-deferred-images-keep-zoom-level-reset";
-const LOAD_DEFERRED_IMAGES_RESET_EVENT = "single-file-load-deferred-images-reset";
+const LOAD_DEFERRED_CONTENT_START_EVENT = "single-file-load-deferred-content-start";
+const LOAD_DEFERRED_CONTENT_END_EVENT = "single-file-load-deferred-content-end";
+const LOAD_DEFERRED_CONTENT_KEEP_ZOOM_LEVEL_START_EVENT = "single-file-load-deferred-content-keep-zoom-level-start";
+const LOAD_DEFERRED_CONTENT_KEEP_ZOOM_LEVEL_END_EVENT = "single-file-load-deferred-content-keep-zoom-level-end";
+const LOAD_DEFERRED_CONTENT_RESET_ZOOM_LEVEL_EVENT = "single-file-load-deferred-content-keep-zoom-level-reset";
+const LOAD_DEFERRED_CONTENT_RESET_EVENT = "single-file-load-deferred-content-reset";
 const BLOCK_COOKIES_START_EVENT = "single-file-block-cookies-start";
 const BLOCK_COOKIES_END_EVENT = "single-file-block-cookies-end";
 const DISPATCH_SCROLL_START_EVENT = "single-file-dispatch-scroll-event-start";
@@ -98,9 +98,9 @@ function onNewWorklet(event) {
 export {
 	getFontsData,
 	getWorkletsData,
-	loadDeferredImagesStart,
-	loadDeferredImagesEnd,
-	loadDeferredImagesResetZoomLevel,
+	loadDeferredContentStart,
+	loadDeferredContentEnd,
+	loadDeferredContentResetZoomLevel,
 	LOAD_IMAGE_EVENT,
 	IMAGE_LOADED_EVENT
 };
@@ -113,44 +113,44 @@ function getWorkletsData() {
 	return Array.from(worklets.values());
 }
 
-function loadDeferredImagesStart(options) {
-	if (options.loadDeferredImagesBlockCookies) {
+function loadDeferredContentStart(options) {
+	if (options.loadDeferredContentBlockCookies) {
 		document.dispatchEvent(new CustomEvent(BLOCK_COOKIES_START_EVENT));
 	}
-	if (options.loadDeferredImagesBlockStorage) {
+	if (options.loadDeferredContentBlockStorage) {
 		document.dispatchEvent(new CustomEvent(BLOCK_STORAGE_START_EVENT));
 	}
-	if (options.loadDeferredImagesDispatchScrollEvent) {
+	if (options.loadDeferredContentDispatchScrollEvent) {
 		document.dispatchEvent(new CustomEvent(DISPATCH_SCROLL_START_EVENT));
 	}
-	if (options.loadDeferredImagesKeepZoomLevel) {
-		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_IMAGES_KEEP_ZOOM_LEVEL_START_EVENT));
+	if (options.loadDeferredContentKeepZoomLevel) {
+		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_CONTENT_KEEP_ZOOM_LEVEL_START_EVENT));
 	} else {
-		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_IMAGES_START_EVENT));
+		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_CONTENT_START_EVENT));
 	}
 }
 
-function loadDeferredImagesEnd(options) {
-	if (options.loadDeferredImagesBlockCookies) {
+function loadDeferredContentEnd(options) {
+	if (options.loadDeferredContentBlockCookies) {
 		document.dispatchEvent(new CustomEvent(BLOCK_COOKIES_END_EVENT));
 	}
-	if (options.loadDeferredImagesBlockStorage) {
+	if (options.loadDeferredContentBlockStorage) {
 		document.dispatchEvent(new CustomEvent(BLOCK_STORAGE_END_EVENT));
 	}
-	if (options.loadDeferredImagesDispatchScrollEvent) {
+	if (options.loadDeferredContentDispatchScrollEvent) {
 		document.dispatchEvent(new CustomEvent(DISPATCH_SCROLL_END_EVENT));
 	}
-	if (options.loadDeferredImagesKeepZoomLevel) {
-		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_IMAGES_KEEP_ZOOM_LEVEL_END_EVENT));
+	if (options.loadDeferredContentKeepZoomLevel) {
+		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_CONTENT_KEEP_ZOOM_LEVEL_END_EVENT));
 	} else {
-		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_IMAGES_END_EVENT));
+		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_CONTENT_END_EVENT));
 	}
 }
 
-function loadDeferredImagesResetZoomLevel(options) {
-	if (options.loadDeferredImagesKeepZoomLevel) {
-		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_IMAGES_RESET_ZOOM_LEVEL_EVENT));
+function loadDeferredContentResetZoomLevel(options) {
+	if (options.loadDeferredContentKeepZoomLevel) {
+		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_CONTENT_RESET_ZOOM_LEVEL_EVENT));
 	} else {
-		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_IMAGES_RESET_EVENT));
+		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_CONTENT_RESET_EVENT));
 	}
 }

@@ -23,12 +23,12 @@
 
 (() => {
 
-	const LOAD_DEFERRED_IMAGES_START_EVENT = "single-file-load-deferred-images-start";
-	const LOAD_DEFERRED_IMAGES_END_EVENT = "single-file-load-deferred-images-end";
-	const LOAD_DEFERRED_IMAGES_KEEP_ZOOM_LEVEL_START_EVENT = "single-file-load-deferred-images-keep-zoom-level-start";
-	const LOAD_DEFERRED_IMAGES_KEEP_ZOOM_LEVEL_END_EVENT = "single-file-load-deferred-images-keep-zoom-level-end";
-	const LOAD_DEFERRED_IMAGES_RESET_ZOOM_LEVEL_EVENT = "single-file-load-deferred-images-keep-zoom-level-reset";
-	const LOAD_DEFERRED_IMAGES_RESET_EVENT = "single-file-load-deferred-images-reset";
+	const LOAD_DEFERRED_CONTENT_START_EVENT = "single-file-load-deferred-content-start";
+	const LOAD_DEFERRED_CONTENT_END_EVENT = "single-file-load-deferred-content-end";
+	const LOAD_DEFERRED_CONTENT_KEEP_ZOOM_LEVEL_START_EVENT = "single-file-load-deferred-content-keep-zoom-level-start";
+	const LOAD_DEFERRED_CONTENT_KEEP_ZOOM_LEVEL_END_EVENT = "single-file-load-deferred-content-keep-zoom-level-end";
+	const LOAD_DEFERRED_CONTENT_RESET_ZOOM_LEVEL_EVENT = "single-file-load-deferred-content-keep-zoom-level-reset";
+	const LOAD_DEFERRED_CONTENT_RESET_EVENT = "single-file-load-deferred-content-reset";
 	const BLOCK_COOKIES_START_EVENT = "single-file-block-cookies-start";
 	const BLOCK_COOKIES_END_EVENT = "single-file-block-cookies-end";
 	const BLOCK_STORAGE_START_EVENT = "single-file-block-storage-start";
@@ -89,12 +89,12 @@
 	new MutationObserver(init).observe(document, { childList: true });
 
 	function init() {
-		document.addEventListener(LOAD_DEFERRED_IMAGES_START_EVENT, onLoadDeferredImagesStart);
-		document.addEventListener(LOAD_DEFERRED_IMAGES_KEEP_ZOOM_LEVEL_START_EVENT, onLoadDeferredImagesKeepZoomLevelStart);
-		document.addEventListener(LOAD_DEFERRED_IMAGES_END_EVENT, onLoadDeferredImagesEnd);
-		document.addEventListener(LOAD_DEFERRED_IMAGES_KEEP_ZOOM_LEVEL_END_EVENT, onLoadDeferredImagesKeepZoomLevelEnd);
-		document.addEventListener(LOAD_DEFERRED_IMAGES_RESET_EVENT, resetScreenSize);
-		document.addEventListener(LOAD_DEFERRED_IMAGES_RESET_ZOOM_LEVEL_EVENT, onLoadDeferredImagesResetZoomLevel);
+		document.addEventListener(LOAD_DEFERRED_CONTENT_START_EVENT, onLoadDeferredContentStart);
+		document.addEventListener(LOAD_DEFERRED_CONTENT_KEEP_ZOOM_LEVEL_START_EVENT, onLoadDeferredContentKeepZoomLevelStart);
+		document.addEventListener(LOAD_DEFERRED_CONTENT_END_EVENT, onLoadDeferredContentEnd);
+		document.addEventListener(LOAD_DEFERRED_CONTENT_KEEP_ZOOM_LEVEL_END_EVENT, onLoadDeferredContentKeepZoomLevelEnd);
+		document.addEventListener(LOAD_DEFERRED_CONTENT_RESET_EVENT, resetScreenSize);
+		document.addEventListener(LOAD_DEFERRED_CONTENT_RESET_ZOOM_LEVEL_EVENT, onLoadDeferredContentResetZoomLevel);
 		document.addEventListener(DISPATCH_SCROLL_START_EVENT, onDispatchScrollStart);
 		document.addEventListener(DISPATCH_SCROLL_END_EVENT, onDispatchScrollEnd);
 		document.addEventListener(BLOCK_COOKIES_START_EVENT, onBlockCookiesStart);
@@ -107,23 +107,23 @@
 		document.addEventListener(BOOTSTRAP_EVENT, onBootstrap);
 	}
 
-	function onLoadDeferredImagesStart() {
-		loadDeferredImagesStart();
+	function onLoadDeferredContentStart() {
+		loadDeferredContentStart();
 	}
 
-	function onLoadDeferredImagesKeepZoomLevelStart() {
-		loadDeferredImagesStart(true);
+	function onLoadDeferredContentKeepZoomLevelStart() {
+		loadDeferredContentStart(true);
 	}
 
-	function onLoadDeferredImagesEnd() {
-		loadDeferredImagesEnd();
+	function onLoadDeferredContentEnd() {
+		loadDeferredContentEnd();
 	}
 
-	function onLoadDeferredImagesKeepZoomLevelEnd() {
-		loadDeferredImagesEnd(true);
+	function onLoadDeferredContentKeepZoomLevelEnd() {
+		loadDeferredContentEnd(true);
 	}
 
-	function onLoadDeferredImagesResetZoomLevel() {
+	function onLoadDeferredContentResetZoomLevel() {
 		const transform = document.documentElement.style.getPropertyValue("-sf-transform");
 		const transformPriority = document.documentElement.style.getPropertyPriority("-sf-transform");
 		const transformOrigin = document.documentElement.style.getPropertyValue("-sf-transform-origin");
@@ -211,7 +211,7 @@
 		}
 	}
 
-	function loadDeferredImagesStart(keepZoomLevel) {
+	function loadDeferredContentStart(keepZoomLevel) {
 		const scrollingElement = document.scrollingElement || document.documentElement;
 		const clientHeight = scrollingElement.clientHeight;
 		const clientWidth = scrollingElement.clientWidth;
@@ -336,7 +336,7 @@
 		}
 	}
 
-	function loadDeferredImagesEnd(keepZoomLevel) {
+	function loadDeferredContentEnd(keepZoomLevel) {
 		document.querySelectorAll("[" + LAZY_LOAD_ATTRIBUTE + "]").forEach(element => {
 			element.loading = "lazy";
 			element.removeAttribute(LAZY_LOAD_ATTRIBUTE);

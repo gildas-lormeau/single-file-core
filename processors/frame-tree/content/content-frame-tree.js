@@ -114,7 +114,7 @@ async function onMessage(event) {
 			}
 			if (!TOP_WINDOW) {
 				globalThis.stop();
-				if (message.options.loadDeferredImages) {
+				if (message.options.loadDeferredContent) {
 					lazy.process(message.options);
 				}
 				await initRequestAsync(message);

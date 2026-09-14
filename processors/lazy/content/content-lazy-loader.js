@@ -81,7 +81,7 @@ async function process(options) {
 }
 
 function resetZoomLevel(options) {
-	hooksFrames.loadDeferredImagesResetZoomLevel(options);
+	hooksFrames.loadDeferredContentResetZoomLevel(options);
 }
 
 function triggerLazyLoading(options) {
@@ -112,12 +112,12 @@ function triggerLazyLoading(options) {
 				}
 			}
 		});
-		await setIdleTimeout(options.loadDeferredImagesMaxIdleTime * 2);
+		await setIdleTimeout(options.loadDeferredContentMaxIdleTime * 2);
 		await deferForceLazyLoadEnd(observer, options, cleanupAndResolve);
 		observer.observe(document, { subtree: true, childList: true, attributes: true });
 		document.addEventListener(hooksFrames.LOAD_IMAGE_EVENT, onImageLoadEvent);
 		document.addEventListener(hooksFrames.IMAGE_LOADED_EVENT, onImageLoadedEvent);
-		hooksFrames.loadDeferredImagesStart(options);
+		hooksFrames.loadDeferredContentStart(options);
 
 		async function setIdleTimeout(delay) {
 			await setAsyncTimeout("idleTimeout", async () => {
@@ -130,7 +130,7 @@ function triggerLazyLoading(options) {
 					clearAsyncTimeout("idleTimeout");
 					await setIdleTimeout(Math.max(500, delay / 2));
 				}
-			}, delay, options.loadDeferredImagesNativeTimeout);
+			}, delay, options.loadDeferredContentNativeTimeout);
 		}
 
 		function onResourceLoad(event) {
@@ -167,23 +167,23 @@ function triggerLazyLoading(options) {
 }
 
 async function deferLazyLoadEnd(observer, options, resolve) {
-	await setAsyncTimeout("loadTimeout", () => lazyLoadEnd(observer, options, resolve), options.loadDeferredImagesMaxIdleTime, options.loadDeferredImagesNativeTimeout);
+	await setAsyncTimeout("loadTimeout", () => lazyLoadEnd(observer, options, resolve), options.loadDeferredContentMaxIdleTime, options.loadDeferredContentNativeTimeout);
 }
 
 async function deferForceLazyLoadEnd(observer, options, resolve) {
 	await setAsyncTimeout("maxTimeout", async () => {
 		await clearAsyncTimeout("loadTimeout");
 		await lazyLoadEnd(observer, options, resolve);
-	}, options.loadDeferredImagesMaxIdleTime * 10, options.loadDeferredImagesNativeTimeout);
+	}, options.loadDeferredContentMaxIdleTime * 10, options.loadDeferredContentNativeTimeout);
 }
 
 async function lazyLoadEnd(observer, options, resolve) {
 	await clearAsyncTimeout("idleTimeout");
-	hooksFrames.loadDeferredImagesEnd(options);
+	hooksFrames.loadDeferredContentEnd(options);
 	await setAsyncTimeout("endTimeout", async () => {
 		await clearAsyncTimeout("maxTimeout");
 		resolve();
-	}, options.loadDeferredImagesMaxIdleTime / 2, options.loadDeferredImagesNativeTimeout);
+	}, options.loadDeferredContentMaxIdleTime / 2, options.loadDeferredContentNativeTimeout);
 	observer.disconnect();
 }
 

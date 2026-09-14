@@ -82,6 +82,16 @@ const DEFAULT_REPLACEMENT_CHARACTER = "_";
 const DEFAULT_REPLACEMENT_CHARACTERS = ["～", "＋", "？", "％", "＊", "：", "｜", "＂", "＜", "＞", "＼"];
 const CHARACTER_CLASS_SPECIAL_CHARACTERS = ["[", "]", "^", "-", "\\"];
 const NESTING_TRACK_ID_ATTRIBUTE_NAME = "data-sf-nesting-track-id";
+const DEPRECATED_OPTION_NAMES = {
+	loadDeferredImages: "loadDeferredContent",
+	loadDeferredImagesMaxIdleTime: "loadDeferredContentMaxIdleTime",
+	loadDeferredImagesBlockCookies: "loadDeferredContentBlockCookies",
+	loadDeferredImagesBlockStorage: "loadDeferredContentBlockStorage",
+	loadDeferredImagesKeepZoomLevel: "loadDeferredContentKeepZoomLevel",
+	loadDeferredImagesDispatchScrollEvent: "loadDeferredContentDispatchScrollEvent",
+	loadDeferredImagesBeforeFrames: "loadDeferredContentBeforeFrames",
+	loadDeferredImagesNativeTimeout: "loadDeferredContentNativeTimeout"
+};
 const addEventListener = (type, listener, options) => globalThis.addEventListener(type, listener, options);
 const removeEventListener = (type, listener, options) => globalThis.removeEventListener(type, listener, options);
 // eslint-disable-next-line no-unused-vars
@@ -117,6 +127,7 @@ export {
 	parseDocContent,
 	markInvalidNesting,
 	fixInvalidNesting,
+	normalizeOptions,
 	ON_BEFORE_CAPTURE_EVENT_NAME,
 	ON_AFTER_CAPTURE_EVENT_NAME,
 	WIN_ID_ATTRIBUTE_NAME,
@@ -153,6 +164,22 @@ export {
 // lossy format: the same frame costs an order of magnitude less than as a PNG.
 // toDataURL falls back to PNG without reporting it when it does not support the
 // format, so the type it returned is tested instead of assumed
+function normalizeOptions(options) {
+	let normalizedOptions = options;
+	if (options) {
+		Object.keys(DEPRECATED_OPTION_NAMES).forEach(deprecatedName => {
+			const optionName = DEPRECATED_OPTION_NAMES[deprecatedName];
+			if (options[deprecatedName] !== undefined && options[optionName] === undefined) {
+				if (normalizedOptions == options) {
+					normalizedOptions = Object.assign({}, options);
+				}
+				normalizedOptions[optionName] = options[deprecatedName];
+			}
+		});
+	}
+	return normalizedOptions;
+}
+
 function getPosterDataURI(canvasElement) {
 	for (const contentType of POSTER_CONTENT_TYPES) {
 		const dataURI = canvasElement.toDataURL(contentType, POSTER_QUALITY);
@@ -535,7 +562,7 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 		const imageData = {
 			currentSrc: elementHidden ?
 				EMPTY_RESOURCE :
-				(options.loadDeferredImages && element.getAttribute(LAZY_SRC_ATTRIBUTE_NAME)) || element.currentSrc
+				(options.loadDeferredContent && element.getAttribute(LAZY_SRC_ATTRIBUTE_NAME)) || element.currentSrc
 		};
 		data.images.push(imageData);
 		element.setAttribute(IMAGE_ATTRIBUTE_NAME, data.images.length - 1);
