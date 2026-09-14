@@ -50,7 +50,6 @@
 	const CLEAR_FONTS_EVENT = "single-file-clear-fonts";
 	const NEW_WORKLET_EVENT = "single-file-new-worklet";
 	const BOOTSTRAP_EVENT = "single-file-bootstrap";
-	const MAX_DEFERRED_CONTENT_MARGIN = 500;
 	const FONT_STYLE_PROPERTIES = {
 		family: "font-family",
 		ascentOverride: "ascent-override",
@@ -226,7 +225,7 @@
 		const scrollingElement = document.scrollingElement || document.documentElement;
 		const clientHeight = scrollingElement.clientHeight;
 		const clientWidth = scrollingElement.clientWidth;
-		const maxScrollY = Math.max(scrollingElement.scrollHeight - Math.min(clientHeight, MAX_DEFERRED_CONTENT_MARGIN), clientHeight);
+		const maxScrollY = Math.max(scrollingElement.scrollHeight - clientHeight, clientHeight);
 		const maxScrollX = Math.max(scrollingElement.scrollWidth - clientWidth, clientWidth);
 		document.querySelectorAll("[loading=lazy]").forEach(element => {
 			element.loading = "eager";
