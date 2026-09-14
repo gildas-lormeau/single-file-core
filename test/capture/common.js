@@ -1,6 +1,9 @@
 import "./dom.js";
 
-const { init, getPageData, helper } = await import("../../single-file.js");
+// the namespace rather than a destructured SingleFile: single-file.js declares it with `let` and
+// assigns it inside init(), so only the live binding on the namespace is the class
+const singleFile = await import("../../single-file.js");
+const { init, getPageData, helper } = singleFile;
 
 const WIN_ID_ATTRIBUTE_NAME = helper.WIN_ID_ATTRIBUTE_NAME;
 
@@ -35,6 +38,7 @@ init(initOptions);
 
 export {
 	capture,
+	captureArchive,
 	frameData,
 	html,
 	helper,
@@ -45,6 +49,19 @@ async function capture(pageResources, options) {
 	resources = pageResources instanceof Map ? pageResources : new Map(Object.entries(pageResources));
 	const pageData = await getPageData({ ...EMPTY_DOC_DATA, ...options }, initOptions, null, null);
 	return pageData.content;
+}
+
+// The archive side of the helper split. core/processor-helper.js picks the helper from
+// options.compressContent, so anything in core/lib/processor-helper.js is unreachable through
+// capture() above, which always takes the inline one. Driving the class directly also stops one step
+// short of single-file.js, which compresses pageData and then deletes pageData.resources — the very
+// map these tests need to read. Returns the whole pageData: .content is the page, .resources holds
+// the separate files the archive would carry.
+async function captureArchive(pageResources, options) {
+	resources = pageResources instanceof Map ? pageResources : new Map(Object.entries(pageResources));
+	const processor = new singleFile.SingleFile(helper.normalizeOptions({ ...EMPTY_DOC_DATA, ...options, compressContent: true }));
+	await processor.run();
+	return processor.getPageData();
 }
 
 function fetchResource(url) {

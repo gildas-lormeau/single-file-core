@@ -24,3 +24,20 @@ Element.prototype.setAttributeNS = function (namespaceURI, qualifiedName, value)
 Element.prototype.removeAttributeNS = function (namespaceURI, localName) {
 	this.removeAttribute(localName);
 };
+
+// deno-dom exposes content attributes but almost none of the IDL properties that reflect them, so
+// `style.media` and `link.media` read undefined here and a fixture could not carry a media query at
+// all. resolveStylesheetsURLs is the only caller (core/index.js:1284) and media reflects its
+// attribute verbatim, with "" when absent, so this shim is faithful for both elements. `link.rel`
+// and `link.href` are missing the same way and are NOT shimmed: href reflects an ABSOLUTE url in a
+// browser, not the attribute, so a naive getter would make a test pass for the wrong reason.
+// It reflects both ways: replaceStylesheets assigns linkElement.media, which writes the attribute.
+Object.defineProperty(Element.prototype, "media", {
+	configurable: true,
+	get() {
+		return this.getAttribute("media") || "";
+	},
+	set(value) {
+		this.setAttribute("media", value);
+	}
+});
