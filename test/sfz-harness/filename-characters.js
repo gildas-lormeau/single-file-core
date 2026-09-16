@@ -47,6 +47,15 @@ check("a control character run is collapsed, lookalikes next to it are not", get
 check("custom lookalike replaces per character", getValidFilename("a##b", ["#"], "_", ["＃"]), "a＃＃b");
 check("custom class without a lookalike collapses", getValidFilename("a##b", ["#"], "_", []), "a_b");
 
+// the two arrays are positional, and "no lookalike for this one" used to be sayable only by the
+// index not existing, which truncation gives you at the TAIL and nothing gives you in the middle:
+// a hole does not survive JSON, and an explicit null or undefined was stringified into the name
+// ("a#b@c" came out "anullb＠c"). Any falsy entry now means the fallback, wherever it sits.
+check("a null lookalike in the middle takes the fallback", getValidFilename("a#b@c", ["#", "@"], "_", [null, "＠"]), "a_b＠c");
+check("an undefined lookalike in the middle takes the fallback", getValidFilename("a#b@c", ["#", "@"], "_", [undefined, "＠"]), "a_b＠c");
+check("an empty lookalike takes the fallback", getValidFilename("a##b", ["#"], "_", [""]), "a_b");
+check("a lookalike after a fallback entry is not shifted", getValidFilename("a#b@c", ["#", "@"], "_", ["", "＠"]), "a_b＠c");
+
 if (failed) {
 	console.log("FAILED");
 	Deno.exit(1);

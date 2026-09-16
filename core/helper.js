@@ -926,14 +926,14 @@ function getComputedStyle(win, element, pseudoElement) {
 
 function getValidFilename(filename, replacedCharacters = DEFAULT_REPLACED_CHARACTERS, replacementCharacter = DEFAULT_REPLACEMENT_CHARACTER, replacementCharacters = DEFAULT_REPLACEMENT_CHARACTERS) {
 	replacementCharacters.forEach((indexReplacementCharacter, index) => {
-		if (replacedCharacters[index] !== undefined && indexReplacementCharacter != replacedCharacters[index]) {
+		if (indexReplacementCharacter && replacedCharacters[index] !== undefined && indexReplacementCharacter != replacedCharacters[index]) {
 			// no "+" here, unlike the fallback below: a lookalike replaces its character one for
 			// one, so collapsing a run would drop characters the name needs ("C++" -> "C＋")
 			filename = filename.replace(new RegExp("[" + getCharacterClassContent(replacedCharacters[index]) + "]", "g"), indexReplacementCharacter);
 		}
 	});
 	replacedCharacters.forEach((replacedCharacter, index) => {
-		if (replacementCharacters[index] === undefined) {
+		if (!replacementCharacters[index]) {
 			filename = filename.replace(new RegExp("[" + getCharacterClassContent(replacedCharacter) + "]+", "g"), replacementCharacter);
 		}
 	});
