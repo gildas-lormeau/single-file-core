@@ -39,6 +39,9 @@ import {
 import {
 	router
 } from "./compression-router.js";
+import {
+	DEFAULT_MAX_APPENDED_DATA_LENGTH
+} from "./compression-constants.js";
 
 const { Blob, fetch, TextEncoder, DOMParser } = globalThis;
 
@@ -89,7 +92,6 @@ const PNG_SIGNATURE_LENGTH = 8;
 const PNG_IHDR_LENGTH = 25;
 const COMMENT_LENGTH_FIELD_LENGTH = 2;
 const MAX_ZIP_COMMENT_LENGTH = 65535;
-const DEFAULT_MAX_APPENDED_DATA_LENGTH = 16361;
 const PDF_ENTRY_FILENAME = "page.pdf";
 const PRESCAN_WINDOW_LENGTH = 1024;
 const PNG_TEXT_CHUNK_HEADER_LENGTH = 12;
