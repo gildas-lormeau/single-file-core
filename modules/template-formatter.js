@@ -16881,8 +16881,14 @@ async function formatFilename(content, doc, options) {
 		filename = filename.replace(/\//g, filenameReplacementCharacter);
 	}
 	if (!options.keepFilename && ((options.filenameMaxLengthUnit == "bytes" && getContentSize(filename) > options.filenameMaxLength) || filename.length > options.filenameMaxLength)) {
-		const extensionMatch = filename.match(/(\.[^.]{3,4})$/);
-		const extension = extensionMatch && extensionMatch[0] && extensionMatch[0].length > 1 ? extensionMatch[0] : "";
+		const filenameExtension = "." + getFilenameExtension(options);
+		let extension;
+		if (filename.endsWith(filenameExtension)) {
+			extension = filenameExtension;
+		} else {
+			const extensionMatch = filename.match(/(\.[^.]{3,4})$/);
+			extension = extensionMatch && extensionMatch[0] && extensionMatch[0].length > 1 ? extensionMatch[0] : "";
+		}
 		const suffix = "…" + extension;
 		const maxLength = Math.max(options.filenameMaxLength - (options.filenameMaxLengthUnit == "bytes" ? getContentSize(suffix) : suffix.length), 0);
 		filename = options.filenameMaxLengthUnit == "bytes" ? await truncateText(filename, maxLength) : filename.substring(0, maxLength);

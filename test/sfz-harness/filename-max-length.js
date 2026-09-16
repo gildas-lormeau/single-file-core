@@ -28,17 +28,22 @@ function check(label, actual, expected) {
 	failed ||= !ok;
 }
 
-async function getFilename(title, filenameMaxLengthUnit, filenameMaxLength) {
+async function format(filenameTemplate, filenameMaxLengthUnit, filenameMaxLength, formatOptions = {}) {
 	return formatFilename("", null, {
 		url: "https://example.com/page",
-		filenameTemplate: title + ".html",
+		filenameTemplate,
 		filenameReplacementCharacter: "_",
 		filenameReplacedCharacters: [],
 		filenameReplacementCharacters: [],
 		backgroundSave: true,
 		filenameMaxLengthUnit,
-		filenameMaxLength
+		filenameMaxLength,
+		...formatOptions
 	});
+}
+
+async function getFilename(title, filenameMaxLengthUnit, filenameMaxLength) {
+	return format(title + ".html", filenameMaxLengthUnit, filenameMaxLength);
 }
 
 async function getSize(title, unit, maxLength) {
@@ -60,6 +65,27 @@ check("limit shorter than the extension, chars", await getFilename(LONG_TITLE, "
 
 // nothing above the limit is truncated at all, ellipsis included
 check("a filename at the limit is left alone", await getFilename("a".repeat(187), "bytes", 192), "a".repeat(187) + ".html");
+
+// #1995: the extension was re-derived from the truncated name with a regex matching ONE trailing
+// segment of 3 or 4 characters, so ".u.zip.html" was cut down to ".html" and an archive stopped
+// looking like one. The options say which extension was appended, so the whole chain is kept
+const FORMATS = [
+	[".html", {}],
+	[".zip", { compressContent: true }],
+	[".zip.html", { compressContent: true, selfExtractingArchive: true }],
+	[".u.zip.html", { compressContent: true, selfExtractingArchive: true, extractDataFromPage: true }]
+];
+
+for (const [extension, formatOptions] of FORMATS) {
+	for (const unit of ["bytes", "char"]) {
+		const filename = await format(LONG_TITLE + extension, unit, 192, formatOptions);
+		check(`${extension} survives the truncation, ${unit}`, filename.endsWith("…" + extension), true);
+		check(`${extension} stays within the limit, ${unit}`, (unit == "bytes" ? new Blob([filename]).size : filename.length) <= 192, true);
+	}
+}
+
+// a template that does not end with the extension of the chosen format falls back to the regex
+check("a custom extension is kept", (await format(LONG_TITLE + ".htm", "bytes", 192, { compressContent: true })).endsWith("….htm"), true);
 
 if (failed) {
 	console.log("FAILED");
