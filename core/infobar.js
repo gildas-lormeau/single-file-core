@@ -68,26 +68,6 @@ const INFOBAR_STYLES = `
   border-color: #eee;
   border-radius: 16px;
   z-index: 2147483647;
-  animation-name: flash;
-  animation-duration: .5s;
-  animation-timing-function: cubic-bezier(0.39, 0.58, 0.57, 1);
-  animation-delay: 1s;
-  animation-iteration-count: 2;
-}
-
-.infobar:not(:focus-within):not(.infobar-focus)::after {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  border: 2px solid #dd6a00;
-  border-radius: inherit;
-  opacity: 0;
-  pointer-events: none;
-  animation-name: ripple;
-  animation-duration: 3s;
-  animation-timing-function: ease-out;
-  animation-delay: 2s;
-  animation-iteration-count: 3;
 }
 
 .infobar:valid, .infobar:not(:focus-within):not(.infobar-focus) .infobar-content {
@@ -139,33 +119,6 @@ const INFOBAR_STYLES = `
   min-block-size: 24px;
 }
 
-@keyframes flash {
-  0%, 100% {
-    background-color: #737373;
-  }
-  50% {
-    background-color: #dd6a00;
-  }
-}
-
-@keyframes ripple {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  45%, 100% {
-    transform: scale(2);
-    opacity: 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .infobar,
-  .infobar:not(:focus-within):not(.infobar-focus)::after {
-    animation-name: none;
-  }
-}
-
 .infobar:focus-within .infobar-icon, .infobar.infobar-focus .infobar-icon {
   z-index: -1;
   background-image: none;
@@ -195,6 +148,57 @@ const INFOBAR_STYLES = `
   background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAgMAAADXB5lNAAABhmlDQ1BJQ0MgcHJvZmlsZQAAKJF9kj1Iw0AYht+mSkUrDnYQcchQnSyIijqWKhbBQmkrtOpgcukfNGlIUlwcBdeCgz+LVQcXZ10dXAVB8AfEydFJ0UVK/C4ptIjx4LiH9+59+e67A4RGhalm1wSgapaRisfEbG5VDLyiDwEAvZiVmKkn0osZeI6ve/j4ehfhWd7n/hz9St5kgE8kjjLdsIg3iGc2LZ3zPnGIlSSF+Jx43KACiR+5Lrv8xrnosMAzQ0YmNU8cIhaLHSx3MCsZKvE0cVhRNcoXsi4rnLc4q5Uaa9XJbxjMaytprtMcQRxLSCAJETJqKKMCCxFaNVJMpGg/5uEfdvxJcsnkKoORYwFVqJAcP/gb/O6tWZiadJOCMaD7xbY/RoHALtCs2/b3sW03TwD/M3Cltf3VBjD3SXq9rYWPgIFt4OK6rcl7wOUOMPSkS4bkSH6aQqEAvJ/RM+WAwVv6EGtu31r7OH0AMtSr5Rvg4BAYK1L2use9ezr79u+ZVv9+AFlNcp0UUpiqAAAACXBIWXMAAC4jAAAuIwF4pT92AAAAB3RJTUUH5AsHAB8VC4EQ6QAAABl0RVh0Q29tbWVudABDcmVhdGVkIHdpdGggR0lNUFeBDhcAAAAJUExURQAAAICHi4qKioTuJAkAAAABdFJOUwBA5thmAAAAAWJLR0QCZgt8ZAAAAJtJREFUOI3NkrsBgCAMRLFwBPdxBArcfxXFkO8rbKWAAJfHJ9faf9vuYX/749T5NmShm3bEwbe2SxeuM4+2oxDL1cDoKtVUjRy+tH78Cv2CS+wIiQNC1AEhk4AQeUTMWUJMfUJMSEJMSEY8kIx4IONroaYAimNxsXp1PA7PxwfVL8QnowwoVC0lig07wDDVUjAdbAnjwtow/z/bDW7eI4M2KruJAAAAAElFTkSuQmCC);
 }
 `;
+const INFOBAR_ANIMATIONS_STYLES = `
+.infobar {
+  animation-name: flash;
+  animation-duration: .5s;
+  animation-timing-function: cubic-bezier(0.39, 0.58, 0.57, 1);
+  animation-delay: 1s;
+  animation-iteration-count: 2;
+}
+
+.infobar:not(:focus-within):not(.infobar-focus)::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border: 2px solid #dd6a00;
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  animation-name: ripple;
+  animation-duration: 3s;
+  animation-timing-function: ease-out;
+  animation-delay: 2s;
+  animation-iteration-count: 3;
+}
+
+@keyframes flash {
+  0%, 100% {
+    background-color: #737373;
+  }
+  50% {
+    background-color: #dd6a00;
+  }
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  45%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .infobar,
+  .infobar:not(:focus-within):not(.infobar-focus)::after {
+    animation-name: none;
+  }
+}
+`;
 
 export { displayIcon, appendInfobar, refreshInfobarInfo, extractInfobarData, INFOBAR_TAGNAME };
 
@@ -221,6 +225,9 @@ function appendInfobar(doc, options, useShadowRoot) {
 		const shadowRootContent = doc.createElement("div");
 		const styleElement = doc.createElement("style");
 		styleElement.textContent = INFOBAR_STYLES;
+		if (options.animateInfobar) {
+			styleElement.textContent += INFOBAR_ANIMATIONS_STYLES;
+		}
 		if (options.infobarPositionAbsolute) {
 			styleElement.textContent += ".infobar { position: absolute; }";
 			const parentElementStyle = getComputedStyle(parentElement);
@@ -332,6 +339,7 @@ function displayIcon(doc, useShadowRoot, options = {}) {
 	const infoData = extractInfobarData(doc);
 	if (infoData.saveUrl) {
 		infoData.openInfobar = options.openInfobar;
+		infoData.animateInfobar = options.animateInfobar;
 		infoData.infobarPositionAbsolute = options.infobarPositionAbsolute;
 		infoData.infobarPositionTop = options.infobarPositionTop;
 		infoData.infobarPositionRight = options.infobarPositionRight;

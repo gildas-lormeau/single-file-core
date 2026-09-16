@@ -54,7 +54,7 @@ import { appendInfobar, refreshInfobarInfo, extractInfobarData } from "./core/in
 	}
 
 	async function displayIcon() {
-		let options = { displayInfobar: true };
+		let options = { displayInfobar: true, animateInfobar: true };
 		const infoData = extractInfobarData(document);
 		if (infoData && infoData.saveUrl) {
 			if (browser && browser.runtime && browser.runtime.sendMessage) {
@@ -67,6 +67,7 @@ import { appendInfobar, refreshInfobarInfo, extractInfobarData } from "./core/in
 			}
 			if (options.displayInfobar) {
 				infoData.openInfobar = options.openInfobar;
+				infoData.animateInfobar = options.animateInfobar;
 				infoData.infobarPositionAbsolute = options.infobarPositionAbsolute;
 				infoData.infobarPositionTop = options.infobarPositionTop;
 				infoData.infobarPositionRight = options.infobarPositionRight;

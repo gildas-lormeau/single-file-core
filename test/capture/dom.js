@@ -21,6 +21,11 @@ globalThis.Document = window.Document;
 globalThis.Element = window.Element;
 globalThis.window = globalThis;
 
+// core/infobar.js resets the host element by enumerating its computed style, so a capture that
+// includes the infobar throws without this. The element it enumerates belongs to a document parsed
+// by the DOMParser above, not to this window, and happy-dom answers for it all the same.
+globalThis.getComputedStyle = element => window.getComputedStyle(element);
+
 // happy-dom has a real MutationObserver, and that is the reason not to use it: the hook above
 // observes the document and re-runs init() on every mutation a capture makes. It has nothing to do
 // here, and the stub keeps it from being called once per mutation for the length of a capture.
