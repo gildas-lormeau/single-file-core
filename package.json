@@ -9,7 +9,9 @@
 		"core/",
 		"modules/",
 		"processors/",
-		"vendor/"
+		"vendor/",
+		"test/fixtures/*.html",
+		"test/fixtures/README.md"
 	],
 	"scripts": {
 		"test": "deno run --allow-read --allow-run test/run.js",
