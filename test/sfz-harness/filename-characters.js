@@ -12,7 +12,7 @@ globalThis.window = globalThis;
 globalThis.document = {};
 globalThis.Document = class Document { };
 globalThis.MutationObserver = class MutationObserver { observe() { } };
-const { getValidFilename } = await import("./../../core/helper.js");
+const { getValidFilename, DEFAULT_REPLACED_CHARACTERS, DEFAULT_REPLACEMENT_CHARACTER, DEFAULT_REPLACEMENT_CHARACTERS } = await import("./../../core/helper.js");
 
 // [input, expected]
 const CASES = [
@@ -55,6 +55,14 @@ check("a null lookalike in the middle takes the fallback", getValidFilename("a#b
 check("an undefined lookalike in the middle takes the fallback", getValidFilename("a#b@c", ["#", "@"], "_", [undefined, "＠"]), "a_b＠c");
 check("an empty lookalike takes the fallback", getValidFilename("a##b", ["#"], "_", [""]), "a_b");
 check("a lookalike after a fallback entry is not shifted", getValidFilename("a#b@c", ["#", "@"], "_", ["", "＠"]), "a_b＠c");
+
+// the extensions keep their own copies of these tables, so they are exported to be pinned there
+// rather than compared by eye. Exporting the wrong constant would be invisible without this: the
+// three of them together must reproduce what the no-argument call does.
+for (const [input, expected] of CASES) {
+	check("the exported defaults reproduce " + JSON.stringify(input), getValidFilename(input, DEFAULT_REPLACED_CHARACTERS, DEFAULT_REPLACEMENT_CHARACTER, DEFAULT_REPLACEMENT_CHARACTERS), expected);
+}
+check("the exported fallback is the one a missing lookalike takes", getValidFilename("a\x00b"), "a" + DEFAULT_REPLACEMENT_CHARACTER + "b");
 
 if (failed) {
 	console.log("FAILED");
