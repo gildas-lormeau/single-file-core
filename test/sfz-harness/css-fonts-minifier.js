@@ -205,8 +205,9 @@ const STYLE_FACES = `
 	@font-face{font-family:"Upright";font-style:normal;font-weight:400;src:url(u.woff2)}
 	@font-face{font-family:"Ranged";font-style:oblique 0deg 20deg;font-weight:400;src:url(r.woff2)}
 	@font-face{font-family:"Steep";font-style:normal;font-weight:400;src:url(tn.woff2)}
-	@font-face{font-family:"Steep";font-style:oblique;font-weight:400;src:url(to.woff2)}`;
-const STYLE_RULES = "p{font-family:\"Probe\"}q{font-family:\"Slanted\"}s{font-family:\"Upright\"}b{font-family:\"Ranged\"}u{font-family:\"Steep\"}";
+	@font-face{font-family:"Steep";font-style:oblique;font-weight:400;src:url(to.woff2)}
+	@font-face{font-family:"Variable";font-stretch:75% 100%;font-style:oblique 0deg 20deg;font-weight:1 999;src:url(v.woff2)}`;
+const STYLE_RULES = "p{font-family:\"Probe\"}q{font-family:\"Slanted\"}s{font-family:\"Upright\"}b{font-family:\"Ranged\"}u{font-family:\"Steep\"}i{font-family:\"Variable\"}";
 
 function runStyles(usedFonts) {
 	const stylesheet = cssTree.parse(STYLE_FACES + STYLE_RULES);
@@ -262,6 +263,19 @@ check("a 14deg oblique face is dropped when only upright text was drawn",
 check("a 14deg oblique face is kept when italic text was drawn",
 	runStyles([["steep", "400", "italic", "normal"]]),
 	["steep normal", "steep oblique"]);
+
+// the 2022 MDN page, declaration for declaration: ONE variable face carrying the whole site, with a
+// weight RANGE and a style RANGE at once (font-stretch:75% 100%;font-style:oblique 0deg 20deg;
+// font-weight:1 999, read off the November 2023 stylesheet). The weight ladder and the style range
+// both have to admit it, and the page draws upright 400 text only. Dropping it is the 2023
+// regression whole: the document keeps no face at all and renders in a system fallback
+check("a variable face declaring a weight range and a style range is kept for upright text",
+	runStyles([["variable", "400", "normal", "normal"]]),
+	["variable oblique 0deg 20deg"]);
+
+check("the same variable face is kept for the italic its range covers",
+	runStyles([["variable", "400", "italic", "normal"]]),
+	["variable oblique 0deg 20deg"]);
 
 console.log(failures ? `\n${failures} check(s) FAILED` : "\nall checks passed");
 Deno.exit(failures ? 1 : 0);
