@@ -191,6 +191,78 @@ check("a name is ended by a token that is not an identifier",
 	run({ faces: TAIL_FACES, usedFonts: TAIL_USED_FONTS, rules: "p{font-family:Light \"Neue Light\"}" }),
 	["neue light", "light"]);
 
+// font-style used to be compared as an exact string, so a page asking for italic never matched a
+// face declared "oblique" or "oblique 0deg 20deg" — which is how MDN declares Inter and Fira Sans.
+// A fallback rung papered over it by forcing BOTH sides of the comparison to "normal", which kept
+// every slanted face of any family drawn at a compatible weight: apple.com carried 1.13 MB of SF
+// Pro italics for a page holding no italic text at all. CSS Fonts 4 makes italic and oblique
+// interchangeable, so they are matched as one bucket now and the rung is gone.
+const STYLE_FACES = `
+	@font-face{font-family:"Probe";font-style:normal;font-weight:400;src:url(n.woff2)}
+	@font-face{font-family:"Probe";font-style:italic;font-weight:400;src:url(i.woff2)}
+	@font-face{font-family:"Slanted";font-style:normal;font-weight:400;src:url(sn.woff2)}
+	@font-face{font-family:"Slanted";font-style:oblique 0deg 20deg;font-weight:400;src:url(so.woff2)}
+	@font-face{font-family:"Upright";font-style:normal;font-weight:400;src:url(u.woff2)}
+	@font-face{font-family:"Ranged";font-style:oblique 0deg 20deg;font-weight:400;src:url(r.woff2)}
+	@font-face{font-family:"Steep";font-style:normal;font-weight:400;src:url(tn.woff2)}
+	@font-face{font-family:"Steep";font-style:oblique;font-weight:400;src:url(to.woff2)}`;
+const STYLE_RULES = "p{font-family:\"Probe\"}q{font-family:\"Slanted\"}s{font-family:\"Upright\"}b{font-family:\"Ranged\"}u{font-family:\"Steep\"}";
+
+function runStyles(usedFonts) {
+	const stylesheet = cssTree.parse(STYLE_FACES + STYLE_RULES);
+	removeUnusedFonts(createStubDocument(), [{ stylesheet }], [], { usedFonts });
+	const kept = [];
+	stylesheet.children.forEach(ruleData => {
+		if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
+			const value = property => {
+				const declaration = ruleData.block.children.filter(node => node.property == property).tail;
+				return declaration ? cssTree.generate(declaration.data.value).replace(/^"|"$/g, "").toLowerCase() : "normal";
+			};
+			kept.push(`${value("font-family")} ${value("font-style")}`);
+		}
+	});
+	return kept;
+}
+
+check("an italic face is dropped when only upright text was drawn",
+	runStyles([["probe", "400", "normal", "normal"]]),
+	["probe normal"]);
+
+check("an italic face is kept when italic text was drawn",
+	runStyles([["probe", "400", "normal", "normal"], ["probe", "400", "italic", "normal"]]),
+	["probe normal", "probe italic"]);
+
+check("an oblique face matches an italic request",
+	runStyles([["slanted", "400", "italic", "normal"]]),
+	["slanted normal", "slanted oblique 0deg 20deg"]);
+
+// the rung that stays: nothing declares a slanted face, so the browser slants the upright one and
+// reports italic. Dropping it would leave the text with no face at all
+check("an upright face is kept when the italic it was slanted into was drawn",
+	runStyles([["upright", "400", "italic", "normal"]]),
+	["upright normal"]);
+
+// the case the whole thing turns on, and the one that has nothing to do with italic text: an
+// oblique RANGE starting at 0deg draws upright text too, so MDN's single variable Inter face is
+// the only face on the page. Comparing the declaration as a string matches neither "normal" nor
+// "italic", which drops it and leaves the document with no font at all
+check("an oblique range reaching 0deg is kept for upright text",
+	runStyles([["ranged", "400", "normal", "normal"]]),
+	["ranged oblique 0deg 20deg"]);
+
+check("an oblique range reaching 0deg is kept for italic text too",
+	runStyles([["ranged", "400", "italic", "normal"]]),
+	["ranged oblique 0deg 20deg"]);
+
+// a plain "oblique" is 14deg, so it cannot draw upright text and nothing upright should keep it
+check("a 14deg oblique face is dropped when only upright text was drawn",
+	runStyles([["steep", "400", "normal", "normal"]]),
+	["steep normal"]);
+
+check("a 14deg oblique face is kept when italic text was drawn",
+	runStyles([["steep", "400", "italic", "normal"]]),
+	["steep normal", "steep oblique"]);
+
 console.log(failures ? `\n${failures} check(s) FAILED` : "\nall checks passed");
 Deno.exit(failures ? 1 : 0);
 

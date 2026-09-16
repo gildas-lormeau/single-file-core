@@ -38,6 +38,9 @@ const helper = {
 };
 
 const REGEXP_COMMA = /\s*,\s*/;
+const REGEXP_SPACES = /\s+/g;
+const REGEXP_FONT_STYLE_ANGLE = /-?\d*\.?\d+/g;
+const DEFAULT_OBLIQUE_ANGLE = 14;
 const REGEXP_DASH = /-/;
 const REGEXP_QUESTION_MARK = /\?/g;
 const REGEXP_STARTS_U_PLUS = /^U\+/i;
@@ -323,11 +326,11 @@ function testUsedFont(ruleData, familyName, declaredFonts, filteredUsedFonts) {
 	let test;
 	const optionalUsedFonts = filteredUsedFonts && filteredUsedFonts.get(familyName);
 	if (optionalUsedFonts && optionalUsedFonts.length) {
-		let fontStyle = getDeclarationValue(ruleData.block.children, "font-style") || "normal";
+		const fontStyle = getDeclarationValue(ruleData.block.children, "font-style") || "normal";
 		if (VALID_FONT_STYLES.find(rule => fontStyle.trim().match(rule))) {
 			const fontWeight = helper.getFontWeight(getDeclarationValue(ruleData.block.children, "font-weight") || "400");
 			const declaredFontsWeights = declaredFonts
-				.filter(fontInfo => fontInfo.fontFamily == familyName && fontInfo.fontStyle == fontStyle)
+				.filter(fontInfo => fontInfo.fontFamily == familyName && testFontStyle(fontInfo.fontStyle, fontStyle))
 				.map(fontInfo => fontInfo.fontWeight.split(" "))
 				.sort((weight1, weight2) => Number.parseInt(weight1[0], 10) - Number.parseInt(weight2[0], 10));
 			let usedFontWeights = optionalUsedFonts
@@ -343,16 +346,6 @@ function testUsedFont(ruleData, familyName, declaredFonts, filteredUsedFonts) {
 					})
 					.filter(fontWeight => fontWeight);
 				test = testFontweight(fontWeight, usedFontWeights);
-				if (!test) {
-					usedFontWeights = optionalUsedFonts
-						.map(fontInfo => {
-							fontInfo = Array.from(fontInfo);
-							fontInfo[2] = fontStyle = "normal";
-							return getUsedFontWeight(fontInfo, fontStyle, declaredFontsWeights);
-						})
-						.filter(fontWeight => fontWeight);
-					test = testFontweight(fontWeight, usedFontWeights);
-				}
 			}
 		} else {
 			test = true;
@@ -361,6 +354,34 @@ function testUsedFont(ruleData, familyName, declaredFonts, filteredUsedFonts) {
 		test = true;
 	}
 	return test;
+}
+
+function testFontStyle(fontStyle, otherFontStyle) {
+	const angles = getFontStyleAngles(fontStyle);
+	const otherAngles = getFontStyleAngles(otherFontStyle);
+	if (angles && otherAngles) {
+		return angles[0] <= otherAngles[1] && otherAngles[0] <= angles[1];
+	} else {
+		return normalizeFontStyle(fontStyle) == normalizeFontStyle(otherFontStyle);
+	}
+}
+
+function getFontStyleAngles(fontStyle) {
+	fontStyle = normalizeFontStyle(fontStyle);
+	if (fontStyle == "normal") {
+		return [0, 0];
+	} else if (fontStyle == "italic") {
+		return [DEFAULT_OBLIQUE_ANGLE, DEFAULT_OBLIQUE_ANGLE];
+	} else if (fontStyle == "oblique" || fontStyle.startsWith("oblique ")) {
+		const angles = (fontStyle.match(REGEXP_FONT_STYLE_ANGLE) || [])
+			.map(angle => Number.parseFloat(angle))
+			.filter(angle => !Number.isNaN(angle));
+		return angles.length ? [Math.min(...angles), Math.max(...angles)] : [DEFAULT_OBLIQUE_ANGLE, DEFAULT_OBLIQUE_ANGLE];
+	}
+}
+
+function normalizeFontStyle(fontStyle) {
+	return String(fontStyle || "normal").trim().toLowerCase().replace(REGEXP_SPACES, " ");
 }
 
 function testFontweight(fontWeight, usedFontWeights) {
@@ -503,7 +524,7 @@ function parseFamilyNames(fontFamilyNameTokenData, fontFamilyNames) {
 function getUsedFontWeight(fontInfo, fontStyle, fontWeights) {
 	let foundWeight;
 	fontWeights = fontWeights.map(weights => weights.map(value => String(Number.parseInt(value, 10))));
-	if (fontInfo[2] == fontStyle) {
+	if (testFontStyle(fontInfo[2], fontStyle)) {
 		let fontWeight = Number(fontInfo[1]);
 		if (fontWeights.length > 1) {
 			if (fontWeight >= 400 && fontWeight <= 500) {
