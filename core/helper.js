@@ -32,6 +32,12 @@ import {
 	MESSAGE_PREFIX,
 	NO_SCRIPT_PROPERTY_NAME
 } from "./constants.js";
+import {
+	getValidFilename,
+	DEFAULT_REPLACED_CHARACTERS,
+	DEFAULT_REPLACEMENT_CHARACTER,
+	DEFAULT_REPLACEMENT_CHARACTERS
+} from "./filename.js";
 
 const ON_BEFORE_CAPTURE_EVENT_NAME = SINGLE_FILE_PREFIX + "on-before-capture";
 const ON_AFTER_CAPTURE_EVENT_NAME = SINGLE_FILE_PREFIX + "on-after-capture";
@@ -77,10 +83,6 @@ const INFOBAR_TAGNAME = infobar.INFOBAR_TAGNAME;
 const EMPTY_RESOURCE = "data:,";
 const POSTER_CONTENT_TYPES = ["image/webp", "image/jpeg"];
 const POSTER_QUALITY = 0.8;
-const DEFAULT_REPLACED_CHARACTERS = ["~", "+", "?", "%", "*", ":", "|", "\"", "<", ">", "\\\\", "\x00-\x1f", "\x7F"];
-const DEFAULT_REPLACEMENT_CHARACTER = "_";
-const DEFAULT_REPLACEMENT_CHARACTERS = ["～", "＋", "？", "％", "＊", "：", "｜", "＂", "＜", "＞", "＼"];
-const CHARACTER_CLASS_SPECIAL_CHARACTERS = ["[", "]", "^", "-", "\\"];
 const NESTING_TRACK_ID_ATTRIBUTE_NAME = "data-sf-nesting-track-id";
 const DEPRECATED_OPTION_NAMES = {
 	loadDeferredImages: "loadDeferredContent",
@@ -925,34 +927,6 @@ function getComputedStyle(win, element, pseudoElement) {
 	} catch (error) {
 		// ignored
 	}
-}
-
-function getValidFilename(filename, replacedCharacters = DEFAULT_REPLACED_CHARACTERS, replacementCharacter = DEFAULT_REPLACEMENT_CHARACTER, replacementCharacters = DEFAULT_REPLACEMENT_CHARACTERS) {
-	replacementCharacters.forEach((indexReplacementCharacter, index) => {
-		if (indexReplacementCharacter && replacedCharacters[index] !== undefined && indexReplacementCharacter != replacedCharacters[index]) {
-			// no "+" here, unlike the fallback below: a lookalike replaces its character one for
-			// one, so collapsing a run would drop characters the name needs ("C++" -> "C＋")
-			filename = filename.replace(new RegExp("[" + getCharacterClassContent(replacedCharacters[index]) + "]", "g"), indexReplacementCharacter);
-		}
-	});
-	replacedCharacters.forEach((replacedCharacter, index) => {
-		if (!replacementCharacters[index]) {
-			filename = filename.replace(new RegExp("[" + getCharacterClassContent(replacedCharacter) + "]+", "g"), replacementCharacter);
-		}
-	});
-	filename = filename
-		.replace(/\.\.\//g, "")
-		.replace(/^\/+/, "")
-		.replace(/\/+/g, "/")
-		.replace(/\/$/, "")
-		.replace(/\.$/, "")
-		.replace(/\.\//g, "." + replacementCharacter)
-		.replace(/\/\./g, "/" + replacementCharacter);
-	return filename;
-}
-
-function getCharacterClassContent(characters) {
-	return characters.length == 1 && CHARACTER_CLASS_SPECIAL_CHARACTERS.includes(characters) ? "\\" + characters : characters;
 }
 
 function parseDocContent(content, baseURI) {

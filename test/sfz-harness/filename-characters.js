@@ -8,11 +8,10 @@
 // also matches the download retry ladder in the extensions, where the lookalike rung replaces per
 // character (LOOKALIKE_CHARACTERS) and the non-ASCII rung collapses ("[^\x00-\x7F]+").
 
-globalThis.window = globalThis;
-globalThis.document = {};
-globalThis.Document = class Document { };
-globalThis.MutationObserver = class MutationObserver { observe() { } };
-const { getValidFilename, DEFAULT_REPLACED_CHARACTERS, DEFAULT_REPLACEMENT_CHARACTER, DEFAULT_REPLACEMENT_CHARACTERS } = await import("./../../core/helper.js");
+// core/filename.js imports nothing, which is the whole point of it: single-file-cli and the
+// extensions' unit tests read the tables from it without stubbing a DOM first. It is imported here
+// BEFORE the stubs go in, so an import added to it fails this suite instead of a host's startup.
+const { getValidFilename, DEFAULT_REPLACED_CHARACTERS, DEFAULT_REPLACEMENT_CHARACTER, DEFAULT_REPLACEMENT_CHARACTERS } = await import("./../../core/filename.js");
 
 // [input, expected]
 const CASES = [
@@ -63,6 +62,20 @@ for (const [input, expected] of CASES) {
 	check("the exported defaults reproduce " + JSON.stringify(input), getValidFilename(input, DEFAULT_REPLACED_CHARACTERS, DEFAULT_REPLACEMENT_CHARACTER, DEFAULT_REPLACEMENT_CHARACTERS), expected);
 }
 check("the exported fallback is the one a missing lookalike takes", getValidFilename("a\x00b"), "a" + DEFAULT_REPLACEMENT_CHARACTER + "b");
+
+// every consumer reads these from core/helper.js, which re-exports them from the leaf. That module
+// pulls in the frame hooks, and they install themselves against window and document as they are
+// evaluated, so the stubs go in before this import and not before the one above
+globalThis.window = globalThis;
+globalThis.document = {};
+globalThis.Document = class Document { };
+globalThis.MutationObserver = class MutationObserver { observe() { } };
+const helper = await import("./../../core/helper.js");
+check("core/helper.js re-exports the same function", helper.getValidFilename === getValidFilename, true);
+check("core/helper.js re-exports the same tables",
+	helper.DEFAULT_REPLACED_CHARACTERS === DEFAULT_REPLACED_CHARACTERS &&
+	helper.DEFAULT_REPLACEMENT_CHARACTER === DEFAULT_REPLACEMENT_CHARACTER &&
+	helper.DEFAULT_REPLACEMENT_CHARACTERS === DEFAULT_REPLACEMENT_CHARACTERS, true);
 
 if (failed) {
 	console.log("FAILED");
