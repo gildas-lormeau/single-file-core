@@ -194,35 +194,23 @@ function getProcessorHelperClass(utilInstance) {
 							if (supportsNode) {
 								supportsCondition = cssTree.generate(supportsNode);
 							}
-							const existingStylesheet = Array.from(stylesheets).find(([, stylesheetInfo]) => stylesheetInfo.resourceURL == resourceURL);
-							let stylesheet;
-							if (existingStylesheet) {
-								stylesheet = existingStylesheet[1].stylesheet;
-								stylesheets.set({ urlNode }, {
-									url: resourceURL,
-									stylesheet,
-									scoped
-								});
-							} else {
-								const stylesheetInfo = {
-									scoped,
-									mediaText,
-									layerName,
-									supportsCondition
-								};
-								stylesheets.set({ urlNode }, stylesheetInfo);
-								const requestedURL = resourceURL;
-								const content = await this.getStylesheetContent(resourceURL, options);
-								stylesheetInfo.url = resourceURL = content.resourceURL;
-								content.data = getUpdatedResourceContent(resourceURL, options) || content.data;
-								stylesheetInfo.stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
-								stylesheet = stylesheetInfo.stylesheet;
-								const ancestorStyleSheets = new Set(importedStyleSheets);
-								ancestorStyleSheets.add(requestedURL);
-								ancestorStyleSheets.add(resourceURL);
-								await this.resolveImportURLs(stylesheetInfo, resourceURL, options, workStylesheet, resources, stylesheets, ancestorStyleSheets);
-							}
-							urlNode.importedChildren = stylesheet.children;
+							const stylesheetInfo = {
+								scoped,
+								mediaText,
+								layerName,
+								supportsCondition
+							};
+							stylesheets.set({ urlNode }, stylesheetInfo);
+							const requestedURL = resourceURL;
+							const content = await this.getStylesheetContent(resourceURL, options);
+							stylesheetInfo.url = resourceURL = content.resourceURL;
+							content.data = getUpdatedResourceContent(resourceURL, options) || content.data;
+							stylesheetInfo.stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
+							const ancestorStyleSheets = new Set(importedStyleSheets);
+							ancestorStyleSheets.add(requestedURL);
+							ancestorStyleSheets.add(resourceURL);
+							await this.resolveImportURLs(stylesheetInfo, resourceURL, options, workStylesheet, resources, stylesheets, ancestorStyleSheets);
+							urlNode.importedChildren = stylesheetInfo.stylesheet.children;
 							urlNode.importedMediaText = mediaText;
 							urlNode.importedLayerName = layerName;
 							urlNode.importedSupportsCondition = supportsCondition;
@@ -235,36 +223,27 @@ function getProcessorHelperClass(utilInstance) {
 		async resolveLinkStylesheetURLs(stylesheetInfo, element, resourceURL, baseURI, options, workStylesheet, resources, stylesheets) {
 			resourceURL = normalizeURL(resourceURL);
 			if (resourceURL && resourceURL != baseURI && resourceURL != ABOUT_BLANK_URI) {
-				const existingStylesheet = Array.from(stylesheets).find(([, otherStylesheetInfo]) => otherStylesheetInfo.resourceURL == resourceURL);
-				if (existingStylesheet) {
-					stylesheets.set({ element }, {
-						url: resourceURL,
-						stylesheet: existingStylesheet[1].stylesheet,
-						mediaText: stylesheetInfo.mediaText
-					});
+				const content = await util.getContent(resourceURL, {
+					maxResourceSize: options.maxResourceSize,
+					maxResourceSizeEnabled: options.maxResourceSizeEnabled,
+					charset: options.charset,
+					frameId: options.frameId,
+					resourceReferrer: options.resourceReferrer,
+					validateTextContentType: true,
+					baseURI: baseURI,
+					blockMixedContent: options.blockMixedContent,
+					expectedType: "stylesheet",
+					acceptHeaders: options.acceptHeaders,
+					networkTimeout: options.networkTimeout
+				});
+				if (!(matchCharsetEquals(content.data, content.charset) || matchCharsetEquals(content.data, options.charset))) {
+					options = Object.assign({}, options, { charset: getCharset(content.data) });
+					await this.resolveLinkStylesheetURLs(stylesheetInfo, element, resourceURL, baseURI, options, workStylesheet, resources, stylesheets);
 				} else {
-					const content = await util.getContent(resourceURL, {
-						maxResourceSize: options.maxResourceSize,
-						maxResourceSizeEnabled: options.maxResourceSizeEnabled,
-						charset: options.charset,
-						frameId: options.frameId,
-						resourceReferrer: options.resourceReferrer,
-						validateTextContentType: true,
-						baseURI: baseURI,
-						blockMixedContent: options.blockMixedContent,
-						expectedType: "stylesheet",
-						acceptHeaders: options.acceptHeaders,
-						networkTimeout: options.networkTimeout
-					});
-					if (!(matchCharsetEquals(content.data, content.charset) || matchCharsetEquals(content.data, options.charset))) {
-						options = Object.assign({}, options, { charset: getCharset(content.data) });
-						await this.resolveLinkStylesheetURLs(stylesheetInfo, element, resourceURL, baseURI, options, workStylesheet, resources, stylesheets);
-					} else {
-						resourceURL = content.resourceURL;
-						content.data = getUpdatedResourceContent(content.resourceURL, options) || content.data;
-						stylesheetInfo.stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
-						await this.resolveImportURLs(stylesheetInfo, resourceURL, options, workStylesheet, resources, stylesheets);
-					}
+					resourceURL = content.resourceURL;
+					content.data = getUpdatedResourceContent(content.resourceURL, options) || content.data;
+					stylesheetInfo.stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
+					await this.resolveImportURLs(stylesheetInfo, resourceURL, options, workStylesheet, resources, stylesheets);
 				}
 			}
 		}
