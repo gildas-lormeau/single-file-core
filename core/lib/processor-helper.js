@@ -210,6 +210,7 @@ function getProcessorHelperClass(utilInstance) {
 									layerName,
 									supportsCondition
 								};
+								stylesheets.set({ urlNode }, stylesheetInfo);
 								const requestedURL = resourceURL;
 								const content = await this.getStylesheetContent(resourceURL, options);
 								stylesheetInfo.url = resourceURL = content.resourceURL;
@@ -220,7 +221,6 @@ function getProcessorHelperClass(utilInstance) {
 								ancestorStyleSheets.add(requestedURL);
 								ancestorStyleSheets.add(resourceURL);
 								await this.resolveImportURLs(stylesheetInfo, resourceURL, options, workStylesheet, resources, stylesheets, ancestorStyleSheets);
-								stylesheets.set({ urlNode }, stylesheetInfo);
 							}
 							urlNode.importedChildren = stylesheet.children;
 							urlNode.importedMediaText = mediaText;
