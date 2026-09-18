@@ -112,6 +112,37 @@ check("unregistering removes the request listener the hook added with capture",
 check("the unregister listener removes itself once it has fired",
 	repeatRoot.listenerCount(UNREGISTER_EVENT) === 0);
 
+// A sheet the page never passed through replaceSync has to be serialised from cssRules, and that
+// used to happen once per adopting root: instrumenting a reddit capture counted 499 roots asking
+// for 643 adoptions of 42 distinct sheets. The serialisation is memoised into the same map the
+// recorded text lives in, so the walk happens once however many roots adopt the sheet.
+const sharedSheet = new globalThis.CSSStyleSheet();
+sharedSheet.insertRule(".shared { color: olive }");
+const firstHost = new StubElement();
+const firstRoot = firstHost.attachShadow({ mode: "closed" });
+firstRoot.adoptedStyleSheets = [sharedSheet];
+const secondHost = new StubElement();
+const secondRoot = secondHost.attachShadow({ mode: "closed" });
+secondRoot.adoptedStyleSheets = [sharedSheet];
+const readsBeforeSharing = globalThis.CSSStyleSheet.reads;
+const firstAnswer = request(firstHost, firstRoot);
+const secondAnswer = request(secondHost, secondRoot);
+check("a sheet with no recorded text is walked once for two roots",
+	globalThis.CSSStyleSheet.reads - readsBeforeSharing === 1);
+check("and both roots are answered with its rules",
+	sameStrings(firstAnswer, [".shared { color: olive }"]) && sameStrings(secondAnswer, [".shared { color: olive }"]));
+
+// the memo must not outlive the sheet it describes: insertRule and deleteRule already drop the
+// recorded text, and dropping the memo with it is what keeps a mutated sheet from being answered
+// with what it used to say
+sharedSheet.insertRule(".added { color: navy }");
+const readsBeforeMutation = globalThis.CSSStyleSheet.reads;
+const answerAfterMutation = request(firstHost, firstRoot);
+check("mutating the sheet makes the next request walk it again",
+	globalThis.CSSStyleSheet.reads - readsBeforeMutation === 1);
+check("and the answer carries the added rule",
+	sameStrings(answerAfterMutation, [".shared { color: olive }\n.added { color: navy }"]));
+
 console.log(failures ? `\n${failures} check(s) FAILED` : "\nall checks passed");
 Deno.exit(failures ? 1 : 0);
 
@@ -203,15 +234,22 @@ function installStubs() {
 		return shadowRoot;
 	};
 
-	const recordedText = new WeakMap();
+	// cssRules counts its reads, because "serialised once" is a statement about how often the hook
+	// walks it, and insertRule exists so the hook's own invalidation can be exercised
+	const sheetRules = new WeakMap();
 	class StubCSSStyleSheet {
 		replaceSync(text) {
-			recordedText.set(this, text);
+			sheetRules.set(this, [text]);
+		}
+		insertRule(rule) {
+			sheetRules.set(this, (sheetRules.get(this) || []).concat(rule));
 		}
 		get cssRules() {
-			return [{ cssText: recordedText.get(this) }];
+			StubCSSStyleSheet.reads++;
+			return (sheetRules.get(this) || []).map(cssText => ({ cssText }));
 		}
 	}
+	StubCSSStyleSheet.reads = 0;
 
 	globalThis.Element = StubElement;
 	globalThis.CSSStyleSheet = StubCSSStyleSheet;

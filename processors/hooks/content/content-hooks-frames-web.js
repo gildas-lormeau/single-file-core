@@ -586,7 +586,9 @@
 				if (adoptedStylesheetsData.has(stylesheet)) {
 					return adoptedStylesheetsData.get(stylesheet);
 				} else {
-					return Array.from(stylesheet.cssRules).map(cssRule => cssRule.cssText).join("\n");
+					const text = Array.from(stylesheet.cssRules).map(cssRule => cssRule.cssText).join("\n");
+					adoptedStylesheetsData.set(stylesheet, text);
+					return text;
 				}
 			});
 			if (adoptedStyleSheets.length) {
