@@ -700,9 +700,6 @@ function testReachableUnicodeRange(docCharCodes, unicodeRange, laterUnicodeRange
 	if (!laterUnicodeRanges.length) {
 		return true;
 	}
-	if (laterUnicodeRanges.find(laterUnicodeRange => !laterUnicodeRange)) {
-		return false;
-	}
 	const laterRanges = helper.flatten(laterUnicodeRanges.map(laterUnicodeRange => parseUnicodeRanges(laterUnicodeRange)));
 	if (!laterRanges.length) {
 		return true;

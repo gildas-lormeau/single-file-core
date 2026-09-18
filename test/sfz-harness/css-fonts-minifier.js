@@ -299,7 +299,11 @@ check("the ladder keeps only the weight the page draws",
 // CSS resolves a codepoint two faces of one family, weight and style both cover to the LAST of them,
 // so a subset whose every matching character a later subset also carries can never be selected. The
 // three Fira Sans cyrillic subsets on the page this came from were each held open by one character,
-// U+0301, which the later vietnamese subset covers too
+// U+0301, which the later vietnamese subset covers too. Read "cover" as the declared unicode-range
+// here, which is an approximation: what the browser actually selects on is the effective character
+// map, so the subtraction is only sound because a Google Fonts subset carries exactly the glyphs its
+// range names. The comment below the next block is the other half of that, and why an absent range
+// is never read as covering everything
 const COVERED_RANGE_FACES = `
 	@font-face{font-family:"Subset";font-style:normal;font-weight:400;src:url(early.woff2);unicode-range:U+0300-0301}
 	@font-face{font-family:"Subset";font-style:normal;font-weight:400;src:url(late.woff2);unicode-range:U+0300-0400}`;
@@ -326,6 +330,41 @@ check("a later subset of another style does not cover the earlier one",
 	@font-face{font-family:"Subset";font-style:italic;font-weight:400;src:url(late.woff2);unicode-range:U+0300-0400}`, "́",
 	[["subset", "400", "normal", "normal"], ["subset", "400", "italic", "normal"]]),
 	["subset u+0300-0301", "subset u+0300-0400"]);
+
+// The shadowing above subtracts DECLARED ranges, and a declared range is only what the browser loads
+// on. What it draws with is the font's effective character map, so a later face never shadows an
+// earlier one just by covering it on paper. CSS Fonts 4 §5.2: "After downloading, if the effective
+// character map supports the character in question, select that font. When the matched face is a
+// composite face, user agents must use the procedure above on each of the faces in the composite face
+// in reverse order of @font-face rule definition." §4.5.1 adds that a rule with no range "defaults to
+// the entire range". So the last rule is checked first and a character it has no glyph for falls back
+// to the rule before it, and the faces below are one composite face rather than a stack.
+//
+// These two exist because the tempting reading of §4.5.1 is that an absent range "defaults to the
+// entire range", so a later face declaring none shadows every face before it. testReachableUnicodeRange
+// carried a guard saying exactly that for a while, dead, and reviving it deletes the earlier rule:
+// measured on a pair whose later face is icon-only, the three latin glyphs it has no glyph for went
+// from Roboto on the page to Times-Roman in the capture. Real pages carry the shape — the Disqus
+// frames on sandordargo.com declare `icons` twice with two different payloads, and science.org
+// declares icomoon twice, where dropping the earlier rule once rendered a tofu box in place of a
+// close button.
+const COMPOSITE_FACES = `
+	@font-face{font-family:"Subset";font-style:normal;font-weight:400;src:url(early.woff2)}
+	@font-face{font-family:"Subset";font-style:normal;font-weight:400;src:url(late.woff2)}`;
+
+check("every face of a composite face is kept when none declares a range",
+	runSources(COMPOSITE_FACES, "A"),
+	["subset url(early.woff2)", "subset url(late.woff2)"]);
+
+// the same rule from the other side: an unranged face declared last covers everything on paper and
+// still takes nothing away from the ranged face before it
+const UNRANGED_LAST_FACES = `
+	@font-face{font-family:"Subset";font-style:normal;font-weight:400;src:url(early.woff2);unicode-range:U+0041-005A}
+	@font-face{font-family:"Subset";font-style:normal;font-weight:400;src:url(late.woff2)}`;
+
+check("an unranged face declared last does not shadow the ranged face before it",
+	runSources(UNRANGED_LAST_FACES, "A"),
+	["subset url(early.woff2)", "subset url(late.woff2)"]);
 
 // Two tests decided whether a unicode-range subset survived, and neither crossed with the other:
 // docChars is one character set for the WHOLE document, and options.usedFonts is a list of
@@ -420,6 +459,11 @@ function runWeights(usedFonts) {
 
 function runRanges(faces, text, usedFonts = [["subset", "400", "normal", "normal"]]) {
 	return runFaces(faces + RANGE_RULES, text, usedFonts, "unicode-range");
+}
+
+// faces of one composite member are told apart by their source, not by a range they do not declare
+function runSources(faces, text, usedFonts = [["subset", "400", "normal", "normal"]]) {
+	return runFaces(faces + RANGE_RULES, text, usedFonts, "src");
 }
 
 function runFaces(source, text, usedFonts, property, usedFontsCharacters) {
