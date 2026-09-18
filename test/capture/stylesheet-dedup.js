@@ -106,6 +106,32 @@ let failed = false;
 	check("and the external link points at its own file", content.includes("href=\"stylesheet_1.css\""), true);
 }
 
+// The shared file used to be generated the moment the duplicate group was found, which is before the
+// loop over entries gives every imported sheet a name and rewrites the url() pointing at it. A
+// duplicated <style> carrying an @import therefore froze the placeholder resolveImportURLs writes,
+// and the archive kept `@import url(data:,)` with the imported css nowhere in the file. Measured on a
+// local fixture at core 9318eb5: the paragraph rendered 18px tall where the page drew it 43px, while
+// the plain-HTML capture of the same page was correct. The content is now generated with every other
+// stylesheet, after the names exist.
+{
+	const importRule = "@import url(\"" + SHEET_URL + "\");";
+	const page = html("<p>body</p>", style(importRule) + style(importRule));
+	const { content, resources } = await captureArchive({
+		[PAGE_URL]: { body: page },
+		[SHEET_URL]: { body: SHARED, contentType: "text/css" }
+	}, { url: PAGE_URL, content: page });
+	const shared = resources.stylesheets[0] || {};
+	const imported = resources.stylesheets[1] || {};
+	check("a duplicated importing style keeps the sheet it imports", resources.stylesheets.length, 2);
+	check("the shared file imports it by its archived name", shared.content, "@import url(stylesheet_1.css);");
+	check("and that file holds the imported css", imported.content, "p{color:rgb(1,2,3)}");
+	// the page itself never held the placeholder, so this has to look at the files as well or it
+	// passes whatever the archive carries
+	const emitted = [content, ...resources.stylesheets.map(resource => String(resource.content))];
+	check("with no emptied import left anywhere", emitted.some(text => text.includes("data:,")), false);
+	check("while both copies still point at the shared file", countMatches(content, /href="stylesheet_0\.css"/g), 2);
+}
+
 if (failed) {
 	console.log("FAILED");
 	Deno.exit(1);

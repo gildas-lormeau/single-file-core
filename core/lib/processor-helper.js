@@ -114,7 +114,7 @@ function getProcessorHelperClass(utilInstance) {
 				const stylesheet = sharedEntry
 					? sharedEntry[1].stylesheet
 					: cssTree.parse(content, { context: "stylesheet", parseCustomProperty: true });
-				resources.stylesheets.set(resources.stylesheets.size, { name, content: this.generateStylesheetContent(stylesheet, options) });
+				resources.stylesheets.set(resources.stylesheets.size, { name, stylesheet });
 				linkElements.set(stylesheetRefIndex, linkElement);
 				sharedStyleElements.set(styleElement, stylesheetRefIndex);
 			});
