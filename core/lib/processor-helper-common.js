@@ -414,6 +414,7 @@ class ProcessorHelperCommon {
 			sheetIndex++;
 		});
 		processFontDetails(fontsDetails, fonts);
+		this.markRepeatedFontFaceRules(fontsDetails);
 		await Promise.all([...stylesheets].map(async ([, stylesheetInfo], sheetIndex) => {
 			if (stylesheetInfo.stylesheet) {
 				const cssRules = stylesheetInfo.stylesheet.children;
@@ -429,6 +430,21 @@ class ProcessorHelperCommon {
 			}
 		}));
 		return stats;
+	}
+
+	markRepeatedFontFaceRules(fontsDetails) {
+		const lastRules = new Map();
+		fontsDetails.fonts.forEach((fontInfo, ruleData) => {
+			const ruleKey = this.getFontKey(ruleData) + " " + this.getPropertyValue(ruleData, "src");
+			const previousRuleData = lastRules.get(ruleKey);
+			if (previousRuleData) {
+				fontsDetails.repeatedFonts.add(previousRuleData);
+			}
+			lastRules.set(ruleKey, ruleData);
+		});
+		fontsDetails.medias.forEach(mediaFontsDetails => this.markRepeatedFontFaceRules(mediaFontsDetails));
+		fontsDetails.supports.forEach(supportsFontsDetails => this.markRepeatedFontFaceRules(supportsFontsDetails));
+		fontsDetails.layers.forEach(layerFontsDetails => this.markRepeatedFontFaceRules(layerFontsDetails));
 	}
 
 	async processFontFaceRules(cssRules, sheetIndex, fontsDetails, fonts, fontTests, stats) {
@@ -451,11 +467,9 @@ class ProcessorHelperCommon {
 			} else if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
 				const fontInfo = fontsDetails.fonts.get(ruleData);
 				if (fontInfo) {
-					const ruleKey = this.getFontKey(ruleData) + " " + this.getPropertyValue(ruleData, "src");
-					if (fontsDetails.emittedFonts.has(ruleKey)) {
+					if (fontsDetails.repeatedFonts.has(ruleData)) {
 						removedRules.push(cssRule);
 					} else {
-						fontsDetails.emittedFonts.add(ruleKey);
 						const keptRule = await this.processFontFaceRule(ruleData, fontInfo, fonts, fontTests, stats);
 						if (!keptRule) {
 							removedRules.push(cssRule);
@@ -519,7 +533,7 @@ class ProcessorHelperCommon {
 			medias: new Map(),
 			supports: new Map(),
 			layers: new Map(),
-			emittedFonts: new Set()
+			repeatedFonts: new Set()
 		};
 	}
 

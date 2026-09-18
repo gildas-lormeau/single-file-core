@@ -18,8 +18,17 @@
 // kept: one winning source gets written into all of them, so both rules end up naming the same font
 // and the other one is gone just as surely. Each rule keeps its own sources.
 //
-// Rules that are duplicates outright, same key and same src, are still emitted once: they are the
-// same member of the composite declared twice, so dropping one changes nothing.
+// Rules that are duplicates outright, same key and same src, are still emitted once, and the one
+// kept is the LAST. Dropping one of the two does change something, because the survivor's position
+// among the OTHER members of the composite is what a character resolves through. Measured in Chrome
+// on three rules of one family with no unicode-range, the outer two naming local(Arial) and the
+// middle one local("Courier New"): the page draws Arial, keeping only the last still draws Arial,
+// and keeping only the first draws Courier New, 900.2 px against 755.9 px at 100 px.
+//
+// Which one survived used to be decided by whichever stylesheet reached the rule first, since the
+// walk below runs the stylesheets under Promise.all against one shared set, and the real
+// processFontFaceRule awaits a FontFace load. The survivor is now chosen synchronously from the
+// declaration order that getFontsDetails records, so nothing about it depends on who finishes.
 import * as cssTree from "../../vendor/css-tree.js";
 
 // helper.js reaches the frame hooks, which install themselves against window and document as they
@@ -49,17 +58,24 @@ class TestProcessorHelper extends ProcessorHelperCommon {
 	}
 }
 
-async function run(css) {
-	const helper = new TestProcessorHelper();
-	const stylesheets = new Map([[0, { stylesheet: cssTree.parse(css) }]]);
+async function runSheets(sources, helper = new TestProcessorHelper()) {
+	const stylesheets = new Map(sources.map((css, index) => [index, { stylesheet: cssTree.parse(css) }]));
 	await helper.removeAlternativeFonts({}, stylesheets, new Map(), new Map());
-	const remaining = [];
-	stylesheets.get(0).stylesheet.children.forEach(ruleData => {
-		if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
-			remaining.push(helper.getPropertyValue(ruleData, "src"));
-		}
+	const remaining = sources.map((css, index) => {
+		const sheetSources = [];
+		stylesheets.get(index).stylesheet.children.forEach(ruleData => {
+			if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
+				sheetSources.push(helper.getPropertyValue(ruleData, "src"));
+			}
+		});
+		return sheetSources;
 	});
 	return { processed: helper.processedRules, remaining };
+}
+
+async function run(css) {
+	const { processed, remaining } = await runSheets([css]);
+	return { processed, remaining: remaining[0] };
 }
 
 let failures = 0;
@@ -97,6 +113,53 @@ const DUPLICATE = `
 const duplicate = await run(DUPLICATE);
 check("an outright duplicate rule is emitted once", duplicate.processed.length, 1);
 check("the duplicate is removed from the stylesheet", duplicate.remaining.length, 1);
+
+// Which of the two identical rules is kept is invisible above, and decides what renders as soon as
+// another member of the same composite sits between them. Keeping the first leaves that middle rule
+// last, and the last rule is the one checked first, so the capture draws the middle font where the
+// page drew the repeated one.
+const REPEATED_AROUND = `
+	@font-face{font-family:composite;src:url(outer.woff) format("woff");font-weight:400;font-style:normal}
+	@font-face{font-family:composite;src:url(middle.woff) format("woff");font-weight:400;font-style:normal}
+	@font-face{font-family:composite;src:url(outer.woff) format("woff");font-weight:400;font-style:normal}`;
+
+const repeatedAround = await run(REPEATED_AROUND);
+check("a rule repeated around another member is emitted once", repeatedAround.processed.length, 2);
+check("and the copy kept is the last one, so the repeat still wins", repeatedAround.remaining, ["url(middle.woff)format(\"woff\")", "url(outer.woff)format(\"woff\")"]);
+
+// The same pair split across two stylesheets, which is the shape where the survivor used to be
+// decided by a race: removeAlternativeFonts walks the stylesheets under Promise.all, and whichever
+// reached the rule first used to claim it. This stub stalls one sheet before it gets there.
+class StallingProcessorHelper extends TestProcessorHelper {
+	constructor(stalledSource) {
+		super();
+		this.stalledSource = stalledSource;
+	}
+	async processFontFaceRule(ruleData, fontInfo) {
+		if (fontInfo.some(source => source.src.includes(this.stalledSource))) {
+			await new Promise(resolve => setTimeout(resolve, 50));
+		}
+		return super.processFontFaceRule(ruleData, fontInfo);
+	}
+}
+
+const FIRST_SHEET = `
+	@font-face{font-family:pad;src:url(pad-first.woff) format("woff");font-weight:400;font-style:normal}
+	@font-face{font-family:shared;src:url(shared.woff) format("woff");font-weight:400;font-style:normal}`;
+const SECOND_SHEET = `
+	@font-face{font-family:pad;src:url(pad-second.woff) format("woff");font-weight:400;font-style:normal}
+	@font-face{font-family:shared;src:url(shared.woff) format("woff");font-weight:400;font-style:normal}`;
+
+// Both directions are run because each one alone is passed by the losing rule: stalling the first
+// sheet makes the second reach the shared rule first, which is the survivor either way, and only
+// stalling the second sheet tells "the last declaration" apart from "whoever got there first".
+const stalledFirst = await runSheets([FIRST_SHEET, SECOND_SHEET], new StallingProcessorHelper("pad-first"));
+check("a stalled first stylesheet keeps its own rule only", stalledFirst.remaining[0].length, 1);
+check("and the later stylesheet keeps the shared rule", stalledFirst.remaining[1].length, 2);
+
+const stalledSecond = await runSheets([FIRST_SHEET, SECOND_SHEET], new StallingProcessorHelper("pad-second"));
+check("a stalled second stylesheet does not hand the shared rule back", stalledSecond.remaining[0].length, 1);
+check("it is still the later declaration that survives", stalledSecond.remaining[1].length, 2);
 
 // An outright duplicate is one the browser could not tell from the rule it repeats, and the metric
 // overrides are how two rules naming the same font stop being that. They do not split a composite
