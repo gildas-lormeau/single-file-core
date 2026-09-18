@@ -199,6 +199,7 @@ class Runner {
 			this.options.posters = docData.posters;
 			this.options.videos = docData.videos;
 			this.options.usedFonts = docData.usedFonts;
+			this.options.usedFontsCharacters = docData.usedFontsCharacters;
 			this.options.shadowRoots = docData.shadowRoots;
 			this.options.referrer = docData.referrer;
 			this.options.adoptedStyleSheets = docData.adoptedStyleSheets;
@@ -1346,6 +1347,7 @@ class Processor {
 					stylesheets: [],
 					url,
 					usedFonts: [],
+					usedFontsCharacters: [],
 					videos: [],
 					worklets: []
 				};
@@ -1390,6 +1392,7 @@ class Processor {
 			options.posters = frameData.posters;
 			options.videos = frameData.videos;
 			options.usedFonts = frameData.usedFonts;
+		options.usedFontsCharacters = frameData.usedFontsCharacters;
 			options.shadowRoots = frameData.shadowRoots;
 			options.scrollPosition = frameData.scrollPosition;
 			options.scrolling = frameData.scrolling;

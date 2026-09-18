@@ -231,6 +231,7 @@ function initResponse(message) {
 				frameData.posters = messageFrameData.posters;
 				frameData.videos = messageFrameData.videos;
 				frameData.usedFonts = messageFrameData.usedFonts;
+				frameData.usedFontsCharacters = messageFrameData.usedFontsCharacters;
 				frameData.shadowRoots = messageFrameData.shadowRoots;
 				frameData.processed = messageFrameData.processed;
 				frameData.scrollPosition = messageFrameData.scrollPosition;
@@ -453,6 +454,7 @@ function getFrameData(document, win, windowId, options, scrolling) {
 		posters: docData.posters,
 		videos: docData.videos,
 		usedFonts: docData.usedFonts,
+		usedFontsCharacters: docData.usedFontsCharacters,
 		shadowRoots: docData.shadowRoots,
 		scrollPosition: docData.scrollPosition,
 		scrolling,

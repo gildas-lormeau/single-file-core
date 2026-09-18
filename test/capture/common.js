@@ -20,6 +20,7 @@ const EMPTY_DOC_DATA = {
 	shadowRoots: [],
 	stylesheets: [],
 	usedFonts: [],
+	usedFontsCharacters: [],
 	videos: [],
 	worklets: []
 };

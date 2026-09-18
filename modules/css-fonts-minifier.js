@@ -125,11 +125,12 @@ function process(doc, stylesheets, styles, options) {
 		unusedFonts = fontsInfo.declared.filter(fontInfo => !filteredUsedFonts.has(fontInfo.fontFamily));
 	}
 	const docChars = Array.from(new Set(docContent)).map(char => char.charCodeAt(0)).sort((value1, value2) => value1 - value2);
+	const usedFontsCharacters = getUsedFontsCharacters(options);
 	stylesheets.forEach(stylesheetInfo => {
 		if (stylesheetInfo.stylesheet) {
 			const cssRules = stylesheetInfo.stylesheet.children;
 			if (cssRules) {
-				filterUnusedFonts(cssRules, fontsInfo.declared, unusedFonts, filteredUsedFonts, docChars);
+				filterUnusedFonts(cssRules, fontsInfo.declared, unusedFonts, filteredUsedFonts, docChars, usedFontsCharacters);
 				stats.rules.discarded -= cssRules.size;
 			}
 		}
@@ -293,14 +294,14 @@ function splitValues(value) {
 	return values;
 }
 
-function filterUnusedFonts(cssRules, declaredFonts, unusedFonts, filteredUsedFonts, docChars) {
+function filterUnusedFonts(cssRules, declaredFonts, unusedFonts, filteredUsedFonts, docChars, usedFontsCharacters) {
 	const removedRules = [];
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		const ruleData = cssRule.data;
 		if (ruleData.type == "Atrule" && ruleData.name == "import" && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head.data.importedChildren) {
-			filterUnusedFonts(ruleData.prelude.children.head.data.importedChildren, declaredFonts, unusedFonts, filteredUsedFonts, docChars);
+			filterUnusedFonts(ruleData.prelude.children.head.data.importedChildren, declaredFonts, unusedFonts, filteredUsedFonts, docChars, usedFontsCharacters);
 		} else if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports" || ruleData.name == "layer" || ruleData.name == "container") && ruleData.block && ruleData.block.children) {
-			filterUnusedFonts(ruleData.block.children, declaredFonts, unusedFonts, filteredUsedFonts, docChars);
+			filterUnusedFonts(ruleData.block.children, declaredFonts, unusedFonts, filteredUsedFonts, docChars, usedFontsCharacters);
 		} else if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
 			const fontFamily = helper.normalizeFontFamily(getDeclarationValue(ruleData.block.children, "font-family"));
 			if (fontFamily) {
@@ -309,6 +310,7 @@ function filterUnusedFonts(cssRules, declaredFonts, unusedFonts, filteredUsedFon
 				if (unusedFonts.find(fontInfo => fontInfo.fontFamily == fontFamily) ||
 					!testUnicodeRange(docChars, unicodeRange) ||
 					!testReachableUnicodeRange(docChars, unicodeRange, laterUnicodeRanges) ||
+					!testDrawnUnicodeRange(ruleData, fontFamily, unicodeRange, usedFontsCharacters) ||
 					!testUsedFont(ruleData, fontFamily, declaredFonts, filteredUsedFonts)) {
 					removedRules.push(cssRule);
 				}
@@ -325,6 +327,49 @@ function filterUnusedFonts(cssRules, declaredFonts, unusedFonts, filteredUsedFon
 		}
 	}
 	removedRules.forEach(cssRule => cssRules.remove(cssRule));
+}
+
+function getUsedFontsCharacters(options) {
+	const usedFontsCharacters = new Map();
+	if (options.usedFontsCharacters && options.usedFontsCharacters.length) {
+		options.usedFontsCharacters.forEach(([fontFamily, fontStyle, ranges, unknown]) => {
+			let buckets = usedFontsCharacters.get(fontFamily);
+			if (!buckets) {
+				buckets = [];
+				usedFontsCharacters.set(fontFamily, buckets);
+			}
+			buckets.push({ fontStyle, ranges: ranges || [], unknown: Boolean(unknown) });
+		});
+	}
+	return usedFontsCharacters;
+}
+
+function testDrawnUnicodeRange(ruleData, familyName, unicodeRange, usedFontsCharacters) {
+	if (!unicodeRange || !usedFontsCharacters || !usedFontsCharacters.size) {
+		return true;
+	}
+	const buckets = usedFontsCharacters.get(familyName);
+	if (!buckets || !buckets.length) {
+		return true;
+	}
+	const fontStyle = getDeclarationValue(ruleData.block.children, "font-style") || "normal";
+	if (!VALID_FONT_STYLES.find(rule => fontStyle.trim().match(rule))) {
+		return true;
+	}
+	const matchedBuckets = buckets.filter(bucket => testFontStyle(bucket.fontStyle, fontStyle));
+	if (!matchedBuckets.length || matchedBuckets.find(bucket => bucket.unknown)) {
+		return true;
+	}
+	if (!matchedBuckets.find(bucket => bucket.ranges.length)) {
+		return true;
+	}
+	const ranges = parseUnicodeRanges(unicodeRange);
+	if (!ranges.length) {
+		return true;
+	}
+	return Boolean(matchedBuckets.find(bucket =>
+		bucket.ranges.find(drawnRange =>
+			ranges.find(range => drawnRange[0] <= range[1] && range[0] <= drawnRange[1]))));
 }
 
 function testUsedFont(ruleData, familyName, declaredFonts, filteredUsedFonts) {

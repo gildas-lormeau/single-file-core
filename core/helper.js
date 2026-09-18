@@ -78,6 +78,11 @@ const FONT_WEIGHTS = {
 	lighter: "100"
 };
 const COMMENT_HEADER_LEGACY = "Archive processed by SingleFile";
+const ELEMENT_NODE_TYPE = 1;
+const TEXT_NODE_TYPE = 3;
+const REGEXP_QUOTED_STRING = /"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'/g;
+const REGEXP_GENERATED_CONTENT_IMAGE = /(url|image-set|-webkit-image-set|linear-gradient|radial-gradient|conic-gradient)\([^)]*\)/g;
+const REGEXP_BACKSLASH = /\\/;
 const SINGLE_FILE_UI_ELEMENT_CLASS = "single-file-ui-element";
 const INFOBAR_TAGNAME = infobar.INFOBAR_TAGNAME;
 const EMPTY_RESOURCE = "data:,";
@@ -292,6 +297,7 @@ function preProcessDoc(doc, win, options) {
 			posters: [],
 			videos: [],
 			usedFonts: [],
+			usedFontsCharacters: new Map(),
 			shadowRoots: [],
 			markedElements: []
 		};
@@ -314,6 +320,7 @@ function preProcessDoc(doc, win, options) {
 		posters: elementsInfo.posters,
 		videos: elementsInfo.videos,
 		usedFonts: Array.from(elementsInfo.usedFonts.values()),
+		usedFontsCharacters: serializeUsedFontsCharacters(elementsInfo.usedFontsCharacters),
 		shadowRoots: elementsInfo.shadowRoots,
 		referrer,
 		markedElements: elementsInfo.markedElements,
@@ -414,7 +421,7 @@ function fixInvalidNesting(document, NESTING_TRACK_ID_ATTRIBUTE_NAME, preventCle
 	}
 }
 
-function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map(), canvases: [], images: [], posters: [], videos: [], shadowRoots: [], markedElements: [] }, adoptedStyleSheetsCache = new Map(), ascendantHidden) {
+function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map(), usedFontsCharacters: new Map(), canvases: [], images: [], posters: [], videos: [], shadowRoots: [], markedElements: [] }, adoptedStyleSheetsCache = new Map(), ascendantHidden) {
 	if (element.childNodes) {
 		const elements = Array.from(element.childNodes).filter(node => (node instanceof win.HTMLElement) || (node instanceof win.SVGElement) || (node instanceof globalThis.HTMLElement) || (node instanceof globalThis.SVGElement));
 		elements.forEach(element => {
@@ -442,10 +449,13 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 						}
 					}
 					if (options.removeUnusedFonts && doc.defaultView) {
-						getUsedFont(computedStyle, data.usedFonts);
-						getUsedFont(getComputedStyle(win, element, ":first-letter"), data.usedFonts);
-						getUsedFont(getComputedStyle(win, element, ":before"), data.usedFonts);
-						getUsedFont(getComputedStyle(win, element, ":after"), data.usedFonts);
+						const elementCharacters = getElementCharacters(win, element);
+						getUsedFont(computedStyle, data.usedFonts, data.usedFontsCharacters, elementCharacters);
+						getUsedFont(getComputedStyle(win, element, ":first-letter"), data.usedFonts, data.usedFontsCharacters, elementCharacters);
+						const beforeStyle = getComputedStyle(win, element, ":before");
+						getUsedFont(beforeStyle, data.usedFonts, data.usedFontsCharacters, getPseudoElementCharacters(beforeStyle));
+						const afterStyle = getComputedStyle(win, element, ":after");
+						getUsedFont(afterStyle, data.usedFonts, data.usedFontsCharacters, getPseudoElementCharacters(afterStyle));
 					}
 				}
 			}
@@ -660,7 +670,7 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 	}
 }
 
-function getUsedFont(computedStyle, usedFonts) {
+function getUsedFont(computedStyle, usedFonts, usedFontsCharacters, drawnCharacters) {
 	if (computedStyle) {
 		const fontStyle = computedStyle.getPropertyValue("font-style") || "normal";
 		computedStyle.getPropertyValue("font-family").split(",").forEach(fontFamilyName => {
@@ -670,9 +680,81 @@ function getUsedFont(computedStyle, usedFonts) {
 				const fontVariant = computedStyle.getPropertyValue("font-variant") || "normal";
 				const value = [fontFamilyName, fontWeight, fontStyle, fontVariant];
 				usedFonts.set(JSON.stringify(value), [fontFamilyName, fontWeight, fontStyle, fontVariant]);
+				if (usedFontsCharacters && drawnCharacters) {
+					addUsedFontCharacters(usedFontsCharacters, fontFamilyName, fontStyle, drawnCharacters);
+				}
 			}
 		});
 	}
+}
+
+function addUsedFontCharacters(usedFontsCharacters, fontFamilyName, fontStyle, drawnCharacters) {
+	const key = fontFamilyName + "|" + fontStyle;
+	let bucket = usedFontsCharacters.get(key);
+	if (!bucket) {
+		bucket = { fontFamily: fontFamilyName, fontStyle, charCodes: new Set(), unknown: false };
+		usedFontsCharacters.set(key, bucket);
+	}
+	if (drawnCharacters.unknown) {
+		bucket.unknown = true;
+	}
+	for (const character of drawnCharacters.characters) {
+		bucket.charCodes.add(character.codePointAt(0));
+	}
+}
+
+function getElementCharacters(win, element) {
+	let characters = "";
+	const tagName = element.tagName && element.tagName.toUpperCase();
+	if (tagName == "INPUT" || tagName == "TEXTAREA" || tagName == "BUTTON") {
+		characters += (element.value || "") + (element.getAttribute("placeholder") || "");
+	}
+	if (element.childNodes) {
+		Array.from(element.childNodes).forEach(node => {
+			if (node.nodeType == TEXT_NODE_TYPE) {
+				characters += node.data;
+			} else if (node.nodeType == ELEMENT_NODE_TYPE &&
+				!((node instanceof win.HTMLElement) || (node instanceof win.SVGElement) ||
+					(node instanceof globalThis.HTMLElement) || (node instanceof globalThis.SVGElement))) {
+				characters += node.textContent;
+			}
+		});
+	}
+	return { characters };
+}
+
+function getPseudoElementCharacters(computedStyle) {
+	const content = computedStyle && computedStyle.getPropertyValue("content");
+	if (!content || content == "none" || content == "normal") {
+		return { characters: "" };
+	}
+	let characters = "";
+	REGEXP_QUOTED_STRING.lastIndex = 0;
+	let match = REGEXP_QUOTED_STRING.exec(content);
+	while (match) {
+		characters += match[1] === undefined ? match[2] : match[1];
+		match = REGEXP_QUOTED_STRING.exec(content);
+	}
+	const remainder = content
+		.replace(REGEXP_QUOTED_STRING, "")
+		.replace(REGEXP_GENERATED_CONTENT_IMAGE, "")
+		.trim();
+	return { characters, unknown: Boolean(remainder) || REGEXP_BACKSLASH.test(characters) };
+}
+
+function serializeUsedFontsCharacters(usedFontsCharacters) {
+	return Array.from(usedFontsCharacters.values()).map(bucket => {
+		const ranges = [];
+		Array.from(bucket.charCodes).sort((charCode1, charCode2) => charCode1 - charCode2).forEach(charCode => {
+			const lastRange = ranges[ranges.length - 1];
+			if (lastRange && charCode == lastRange[1] + 1) {
+				lastRange[1] = charCode;
+			} else {
+				ranges.push([charCode, charCode]);
+			}
+		});
+		return [bucket.fontFamily, bucket.fontStyle, ranges, bucket.unknown ? 1 : 0];
+	});
 }
 
 function getShadowRoot(element) {

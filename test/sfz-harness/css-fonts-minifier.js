@@ -327,8 +327,92 @@ check("a later subset of another style does not cover the earlier one",
 	[["subset", "400", "normal", "normal"], ["subset", "400", "italic", "normal"]]),
 	["subset u+0300-0301", "subset u+0300-0400"]);
 
+// Two tests decided whether a unicode-range subset survived, and neither crossed with the other:
+// docChars is one character set for the WHOLE document, and options.usedFonts is a list of
+// (family, weight, style) tuples carrying no characters at all. So a face survived when its range
+// held any character on the page AND its family was drawn somewhere, never when the characters in
+// its range were drawn IN THAT FAMILY. On a page about Ancient Greek that keeps seven Fira Sans
+// subsets the browser never requests: the Greek really is on the page, only ever set in Fira Sans
+// normal 400, whose Greek subset is the one face that does load. The vietnamese subsets pass for a
+// reason worth knowing separately, their range holds the combining diacritics U+0300-0329 that any
+// IPA-heavy page is full of.
+//
+// The capture walk already visits every element for usedFonts, so it now also accumulates the
+// characters each element draws, and the minifier keeps a face only when its range meets the
+// characters actually drawn in that family.
+//
+// The bucket is keyed on family and STYLE, never on weight, and this is the trap: a measurement on
+// the page above pruned 12 faces and 697,848 bytes when bucketed by the weight the computed style
+// reports, and THREE of them were faces the browser had really drawn with. A declared
+// "font-weight: normal" is not the string "400" a computed style reports, and more generally the
+// CSS weight-selection algorithm has to run before comparing weights at all — which is what
+// testUsedFont already does. So this gate unions over weights and layers on top of that one rather
+// than replacing it.
+//
+// Every direction of doubt keeps the face: a family with no bucket, a style with no bucket, a
+// bucket holding no characters at all, a range that cannot be parsed, and generated content whose
+// characters cannot be read (counter(), attr(), an escape) all return true, because a character
+// missed here drops a face the page needs.
+//
+// The empty bucket is the one that was found by measuring rather than by reasoning. A family can
+// sit in the computed font-family of elements that draw no text of their own, and reading that as
+// "no character is ever drawn in this family" dropped Inter from a real capture of techcrunch.com,
+// a face the browser had loaded. So an empty bucket is uncertainty, not a negative.
+const DRAWN_FACES = `
+	@font-face{font-family:"Subset";font-style:normal;font-weight:400;src:url(latin.woff2);unicode-range:U+0041-005A}
+	@font-face{font-family:"Subset";font-style:italic;font-weight:400;src:url(greek.woff2);unicode-range:U+0370-03FF}`;
+const DRAWN_USED_FONTS = [["subset", "400", "normal", "normal"], ["subset", "400", "italic", "normal"]];
+const LATIN_RANGE = [[0x41, 0x41]];
+const LATIN_AND_GREEK_RANGES = [[0x41, 0x41], [0x391, 0x391]];
+
+// the Greek IS on the page, so the document-wide test keeps the italic subset; it is only ever
+// drawn upright, and that is what the cross product sees
+check("a subset whose range is never drawn in its own family is dropped",
+	runDrawn(DRAWN_FACES, "AΑ", [["subset", "normal", LATIN_AND_GREEK_RANGES, 0], ["subset", "italic", LATIN_RANGE, 0]]),
+	["subset u+0041-005a"]);
+
+check("a subset whose range is drawn in its own family is kept",
+	runDrawn(DRAWN_FACES, "AΑ", [["subset", "normal", LATIN_RANGE, 0], ["subset", "italic", LATIN_AND_GREEK_RANGES, 0]]),
+	["subset u+0041-005a", "subset u+0370-03ff"]);
+
+// the capture could not read what one element draws, so that family and style answer for nothing
+check("a bucket holding unreadable generated content keeps the face",
+	runDrawn(DRAWN_FACES, "AΑ", [["subset", "normal", LATIN_AND_GREEK_RANGES, 0], ["subset", "italic", LATIN_RANGE, 1]]),
+	["subset u+0041-005a", "subset u+0370-03ff"]);
+
+// a capture that reports no characters at all must leave the old behaviour exactly as it was
+check("no character data keeps every face the other tests keep",
+	runDrawn(DRAWN_FACES, "AΑ", []),
+	["subset u+0041-005a", "subset u+0370-03ff"]);
+
+// the family is in a computed stack, but only on elements that draw no text of their own, so the
+// bucket cannot say the range is unused
+check("a family whose bucket holds no characters keeps its faces",
+	runDrawn(DRAWN_FACES, "AΑ", [["subset", "normal", [], 0], ["subset", "italic", [], 0]]),
+	["subset u+0041-005a", "subset u+0370-03ff"]);
+
+// nothing was drawn italic, so there is no bucket to answer for the italic face and it is left to
+// testUsedFont, which owns that question
+check("a style the page never draws is left to the weight and style test",
+	runDrawn(DRAWN_FACES, "AΑ", [["subset", "normal", LATIN_AND_GREEK_RANGES, 0]]),
+	["subset u+0041-005a", "subset u+0370-03ff"]);
+
+// the pin for the trap above: one bucket answers for every weight of its family and style
+check("a face is not dropped for the weight its characters were drawn at",
+	runDrawn(`
+	@font-face{font-family:"Subset";font-style:normal;font-weight:400;src:url(regular.woff2);unicode-range:U+0041-005A}
+	@font-face{font-family:"Subset";font-style:normal;font-weight:700;src:url(bold.woff2);unicode-range:U+0041-005A}`,
+	"A",
+	[["subset", "normal", LATIN_RANGE, 0]],
+	[["subset", "400", "normal", "normal"], ["subset", "700", "normal", "normal"]]),
+	["subset u+0041-005a", "subset u+0041-005a"]);
+
 console.log(failures ? `\n${failures} check(s) FAILED` : "\nall checks passed");
 Deno.exit(failures ? 1 : 0);
+
+function runDrawn(faces, text, usedFontsCharacters, usedFonts = DRAWN_USED_FONTS) {
+	return runFaces(faces + RANGE_RULES, text, usedFonts, "unicode-range", usedFontsCharacters);
+}
 
 function runWeights(usedFonts) {
 	return runFaces(WEIGHT_FACES + WEIGHT_RULES, "", usedFonts, "font-weight");
@@ -338,9 +422,9 @@ function runRanges(faces, text, usedFonts = [["subset", "400", "normal", "normal
 	return runFaces(faces + RANGE_RULES, text, usedFonts, "unicode-range");
 }
 
-function runFaces(source, text, usedFonts, property) {
+function runFaces(source, text, usedFonts, property, usedFontsCharacters) {
 	const stylesheet = cssTree.parse(source);
-	removeUnusedFonts(createStubDocument(text), [{ stylesheet }], [], { usedFonts });
+	removeUnusedFonts(createStubDocument(text), [{ stylesheet }], [], { usedFonts, usedFontsCharacters });
 	const kept = [];
 	stylesheet.children.forEach(ruleData => {
 		if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
