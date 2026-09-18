@@ -300,6 +300,25 @@ function getProcessorHelperClass(utilInstance) {
 			resources.fonts.set(indexResource, { name, content, extension, contentType, url: resourceURL });
 		}
 
+		groupDuplicateFonts(stylesheets, fonts) {
+			const canonicalNames = new Map();
+			const fontResources = [...fonts].sort(([indexResource], [otherIndexResource]) => indexResource - otherIndexResource);
+			fontResources.forEach(([indexResource, resource], index) => {
+				const original = fontResources.slice(0, index).find(([, previousResource]) => testSameContent(previousResource.content, resource.content));
+				if (original) {
+					canonicalNames.set(resource.name, original[1].name);
+					fonts.delete(indexResource);
+				}
+			});
+			if (canonicalNames.size) {
+				stylesheets.forEach(stylesheetInfo => {
+					if (stylesheetInfo.stylesheet) {
+						getUrlFunctions(stylesheetInfo.stylesheet).forEach(urlNode => replaceFontName(urlNode, canonicalNames));
+					}
+				});
+			}
+		}
+
 		async processStyle(ruleData, options, resources, batchRequest) {
 			const urls = getUrlFunctions(ruleData);
 			await Promise.all(urls.map(async urlNode => {
@@ -588,4 +607,26 @@ function getProcessorHelperClass(utilInstance) {
 			return true;
 		}
 	};
+}
+
+function testSameContent(content, otherContent) {
+	if (content.length != otherContent.length) {
+		return false;
+	}
+	for (let index = 0; index < content.length; index++) {
+		if (content[index] != otherContent[index]) {
+			return false;
+		}
+	}
+	return true;
+}
+
+function replaceFontName(urlNode, canonicalNames) {
+	canonicalNames.forEach((canonicalName, name) => {
+		if (urlNode.value == name) {
+			urlNode.value = canonicalName;
+		} else if (urlNode.value.endsWith(" " + name)) {
+			urlNode.value = urlNode.value.substring(0, urlNode.value.length - name.length) + canonicalName;
+		}
+	});
 }
