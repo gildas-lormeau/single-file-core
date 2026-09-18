@@ -164,8 +164,9 @@ function getFontsInfo(cssRules, fontsInfo, options) {
 					const fontWeight = getDeclarationValue(ruleData.block.children, "font-weight") || "400";
 					const fontStyle = getDeclarationValue(ruleData.block.children, "font-style") || "normal";
 					const fontVariant = getDeclarationValue(ruleData.block.children, "font-variant") || "normal";
+					const unicodeRange = getDeclarationValue(ruleData.block.children, "unicode-range");
 					fontWeight.split(",").forEach(weightValue =>
-						fontsInfo.declared.push({ fontFamily, fontWeight: helper.getFontWeight(helper.removeQuotes(weightValue)), fontStyle, fontVariant }));
+						fontsInfo.declared.push({ fontFamily, fontWeight: helper.getFontWeight(helper.removeQuotes(weightValue)), fontStyle, fontVariant, unicodeRange, ruleData }));
 				}
 			}
 		}
@@ -304,7 +305,11 @@ function filterUnusedFonts(cssRules, declaredFonts, unusedFonts, filteredUsedFon
 			const fontFamily = helper.normalizeFontFamily(getDeclarationValue(ruleData.block.children, "font-family"));
 			if (fontFamily) {
 				const unicodeRange = getDeclarationValue(ruleData.block.children, "unicode-range");
-				if (unusedFonts.find(fontInfo => fontInfo.fontFamily == fontFamily) || !testUnicodeRange(docChars, unicodeRange) || !testUsedFont(ruleData, fontFamily, declaredFonts, filteredUsedFonts)) {
+				const laterUnicodeRanges = getLaterUnicodeRanges(declaredFonts, ruleData);
+				if (unusedFonts.find(fontInfo => fontInfo.fontFamily == fontFamily) ||
+					!testUnicodeRange(docChars, unicodeRange) ||
+					!testReachableUnicodeRange(docChars, unicodeRange, laterUnicodeRanges) ||
+					!testUsedFont(ruleData, fontFamily, declaredFonts, filteredUsedFonts)) {
 					removedRules.push(cssRule);
 				}
 			}
@@ -389,7 +394,7 @@ function testFontweight(fontWeight, usedFontWeights) {
 	for (const fontWeightValue of fontWeight.split(",")) {
 		let { min: fontWeightMin, max: fontWeightMax } = parseFontWeight(fontWeightValue);
 		if (!fontWeightMax) {
-			fontWeightMax = 900;
+			fontWeightMax = fontWeightMin;
 		}
 		test = test || usedFontWeights.find(usedFontWeight => {
 			let { min: usedFontWeightMin, max: usedFontWeightMax } = parseFontWeight(usedFontWeight);
@@ -629,6 +634,67 @@ function testUnicodeRange(docCharCodes, unicodeRange) {
 		return Boolean(!unicodeRanges.length || result.length);
 	}
 	return true;
+}
+
+function getLaterUnicodeRanges(declaredFonts, ruleData) {
+	const index = declaredFonts.findIndex(fontInfo => fontInfo.ruleData == ruleData);
+	if (index == -1) {
+		return [];
+	}
+	const { fontFamily, fontWeight, fontStyle } = declaredFonts[index];
+	return declaredFonts
+		.slice(index + 1)
+		.filter(fontInfo => fontInfo.ruleData != ruleData &&
+			fontInfo.fontFamily == fontFamily &&
+			fontInfo.fontWeight == fontWeight &&
+			fontInfo.fontStyle == fontStyle)
+		.map(fontInfo => fontInfo.unicodeRange);
+}
+
+function testReachableUnicodeRange(docCharCodes, unicodeRange, laterUnicodeRanges) {
+	if (!laterUnicodeRanges.length) {
+		return true;
+	}
+	if (laterUnicodeRanges.find(laterUnicodeRange => !laterUnicodeRange)) {
+		return false;
+	}
+	const laterRanges = helper.flatten(laterUnicodeRanges.map(laterUnicodeRange => parseUnicodeRanges(laterUnicodeRange)));
+	if (!laterRanges.length) {
+		return true;
+	}
+	const ranges = parseUnicodeRanges(unicodeRange);
+	return Boolean(docCharCodes.find(charCode =>
+		(!ranges.length || ranges.find(range => testCharCodeInRange(charCode, range))) &&
+		!laterRanges.find(range => testCharCodeInRange(charCode, range))));
+}
+
+function testCharCodeInRange(charCode, range) {
+	return charCode >= range[0] && charCode <= range[1];
+}
+
+function parseUnicodeRanges(unicodeRange) {
+	const ranges = [];
+	if (unicodeRange) {
+		unicodeRange.split(REGEXP_COMMA).forEach(rangeValue => {
+			const range = rangeValue.split(REGEXP_DASH);
+			let min, max;
+			if (range.length == 2) {
+				min = transformRange(range[0]);
+				max = transformRange(range[1]);
+			} else if (range.length == 1 && range[0]) {
+				if (range[0].includes("?")) {
+					min = transformRange(range[0].replace(REGEXP_QUESTION_MARK, "0"));
+					max = transformRange(range[0].replace(REGEXP_QUESTION_MARK, "F"));
+				} else {
+					min = max = transformRange(range[0]);
+				}
+			}
+			if (Number.isInteger(min) && Number.isInteger(max)) {
+				ranges.push([min, max]);
+			}
+		});
+	}
+	return ranges;
 }
 
 function transformRange(range) {

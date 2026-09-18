@@ -277,8 +277,82 @@ check("the same variable face is kept for the italic its range covers",
 	runStyles([["variable", "400", "italic", "normal"]]),
 	["variable oblique 0deg 20deg"]);
 
+// a single font-weight in @font-face names that exact weight, not "this weight or anything heavier".
+// Reading it as the range w..900 kept a face the browser can never select: the ladder below declares
+// italic at 400, 600 and 700, the page draws italic at 400 and at 700, and the 600 face matched the
+// 700 it had no part in drawing. Measured at 208,896 bytes on one real page, and the failure is
+// silent because the archive renders correctly either way, it is only larger
+const WEIGHT_FACES = `
+	@font-face{font-family:"Ladder";font-style:italic;font-weight:400;src:url(w400.woff2)}
+	@font-face{font-family:"Ladder";font-style:italic;font-weight:600;src:url(w600.woff2)}
+	@font-face{font-family:"Ladder";font-style:italic;font-weight:700;src:url(w700.woff2)}`;
+const WEIGHT_RULES = "p{font-family:\"Ladder\"}";
+
+check("a weight the page never draws is dropped from between two it does",
+	runWeights([["ladder", "400", "italic", "normal"], ["ladder", "700", "italic", "normal"]]),
+	["ladder 400", "ladder 700"]);
+
+check("the ladder keeps only the weight the page draws",
+	runWeights([["ladder", "600", "italic", "normal"]]),
+	["ladder 600"]);
+
+// CSS resolves a codepoint two faces of one family, weight and style both cover to the LAST of them,
+// so a subset whose every matching character a later subset also carries can never be selected. The
+// three Fira Sans cyrillic subsets on the page this came from were each held open by one character,
+// U+0301, which the later vietnamese subset covers too
+const COVERED_RANGE_FACES = `
+	@font-face{font-family:"Subset";font-style:normal;font-weight:400;src:url(early.woff2);unicode-range:U+0300-0301}
+	@font-face{font-family:"Subset";font-style:normal;font-weight:400;src:url(late.woff2);unicode-range:U+0300-0400}`;
+const DISJOINT_RANGE_FACES = `
+	@font-face{font-family:"Subset";font-style:normal;font-weight:400;src:url(early.woff2);unicode-range:U+0300-0301}
+	@font-face{font-family:"Subset";font-style:normal;font-weight:400;src:url(late.woff2);unicode-range:U+0400-0500}`;
+const RANGE_RULES = "p{font-family:\"Subset\"}";
+
+check("a subset a later subset covers entirely is dropped",
+	runRanges(COVERED_RANGE_FACES, "́"),
+	["subset u+0300-0400"]);
+
+// the rung that stays: the later subset does not reach U+0301, so the earlier one is the only face
+// that can draw it and dropping it would leave that character to a fallback
+check("a subset keeping one character of its own is kept",
+	runRanges(DISJOINT_RANGE_FACES, "́ѐ"),
+	["subset u+0300-0301", "subset u+0400-0500"]);
+
+// the same overlap across different styles is not an overlap at all: the later face cannot draw
+// upright text, so it takes nothing away from the earlier one
+check("a later subset of another style does not cover the earlier one",
+	runRanges(`
+	@font-face{font-family:"Subset";font-style:normal;font-weight:400;src:url(early.woff2);unicode-range:U+0300-0301}
+	@font-face{font-family:"Subset";font-style:italic;font-weight:400;src:url(late.woff2);unicode-range:U+0300-0400}`, "́",
+	[["subset", "400", "normal", "normal"], ["subset", "400", "italic", "normal"]]),
+	["subset u+0300-0301", "subset u+0300-0400"]);
+
 console.log(failures ? `\n${failures} check(s) FAILED` : "\nall checks passed");
 Deno.exit(failures ? 1 : 0);
+
+function runWeights(usedFonts) {
+	return runFaces(WEIGHT_FACES + WEIGHT_RULES, "", usedFonts, "font-weight");
+}
+
+function runRanges(faces, text, usedFonts = [["subset", "400", "normal", "normal"]]) {
+	return runFaces(faces + RANGE_RULES, text, usedFonts, "unicode-range");
+}
+
+function runFaces(source, text, usedFonts, property) {
+	const stylesheet = cssTree.parse(source);
+	removeUnusedFonts(createStubDocument(text), [{ stylesheet }], [], { usedFonts });
+	const kept = [];
+	stylesheet.children.forEach(ruleData => {
+		if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
+			const value = name => {
+				const declaration = ruleData.block.children.filter(node => node.property == name).tail;
+				return declaration ? cssTree.generate(declaration.data.value).replace(/^"|"$/g, "").toLowerCase() : "";
+			};
+			kept.push(`${value("font-family")} ${value(property)}`);
+		}
+	});
+	return kept;
+}
 
 function run({ rules, computed, faces = FONT_FACES, usedFonts = USED_FONTS }) {
 	const stylesheet = cssTree.parse(faces + rules);
@@ -313,9 +387,9 @@ function check(label, actual, expected) {
 
 // the module only reaches the document to borrow a <style> element for unescaping content values
 // and to read the body text, so a full DOM is not needed here
-function createStubDocument() {
+function createStubDocument(text = "") {
 	return {
 		createElement: () => ({ textContent: "", remove() { } }),
-		body: { appendChild() { }, innerText: "" }
+		body: { appendChild() { }, innerText: text }
 	};
 }
