@@ -1553,7 +1553,7 @@ class Processor {
 	async processFrames() {
 		if (this.options.frames) {
 			const frameElements = Array.from(this.doc.querySelectorAll("iframe, frame, object[type=\"text/html\"][data]"));
-			await Promise.all(frameElements.map(async frameElement => {
+			const capturedFrames = await Promise.all(frameElements.map(async frameElement => {
 				const frameWindowId = frameElement.getAttribute(util.WIN_ID_ATTRIBUTE_NAME);
 				if (frameWindowId) {
 					const frameData = this.options.frames.find(frame => frame.windowId == frameWindowId);
@@ -1564,8 +1564,7 @@ class Processor {
 							await frameData.runner.run();
 							const pageData = await frameData.runner.getPageData();
 							frameElement.removeAttribute(util.WIN_ID_ATTRIBUTE_NAME);
-							this.processorHelper.processFrame(frameElement, pageData, this.options, this.resources, frameWindowId, frameData);
-							this.stats.addAll(pageData);
+							return { frameElement, pageData, frameWindowId, frameData };
 						} else {
 							frameElement.removeAttribute(util.WIN_ID_ATTRIBUTE_NAME);
 							this.stats.add("discarded", "frames", 1);
@@ -1573,6 +1572,13 @@ class Processor {
 					}
 				}
 			}));
+			capturedFrames.forEach(capturedFrame => {
+				if (capturedFrame) {
+					const { frameElement, pageData, frameWindowId, frameData } = capturedFrame;
+					this.processorHelper.processFrame(frameElement, pageData, this.options, this.resources, frameWindowId, frameData);
+					this.stats.addAll(pageData);
+				}
+			});
 		}
 	}
 

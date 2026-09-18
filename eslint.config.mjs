@@ -64,7 +64,8 @@ export default [
 				Deno: "readonly",
 				Response: "readonly",
 				TextDecoder: "readonly",
-				URL: "readonly"
+				URL: "readonly",
+				setTimeout: "readonly"
 			}
 		},
 		rules: {

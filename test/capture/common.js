@@ -71,10 +71,14 @@ function fetchResource(url) {
 		return Promise.resolve(new Response("", { status: 404 }));
 	}
 	const contentType = resource.contentType || "text/html";
-	return Promise.resolve(new Response(resource.body, {
+	const response = new Response(resource.body, {
 		status: resource.status || 200,
 		headers: { "content-type": contentType }
-	}));
+	});
+	// Every other resource here answers in the same microtask, so a capture driven from this file has
+	// no latency and nothing that races in the field races here. A resource declaring `delay` answers
+	// late instead, which is the only way a suite can decide which of two frames finishes first.
+	return resource.delay ? new Promise(resolve => setTimeout(() => resolve(response), resource.delay)) : Promise.resolve(response);
 }
 
 // A frame whose content was captured by the content script arrives as frame data keyed by the window
