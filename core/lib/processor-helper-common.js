@@ -529,7 +529,11 @@ class ProcessorHelperCommon {
 			getFontStretch(this.getPropertyValue(ruleData, "font-stretch")),
 			this.getPropertyValue(ruleData, "font-variant") || "normal",
 			this.getPropertyValue(ruleData, "font-feature-settings"),
-			this.getPropertyValue(ruleData, "font-variation-settings")
+			this.getPropertyValue(ruleData, "font-variation-settings"),
+			this.getPropertyValue(ruleData, "ascent-override"),
+			this.getPropertyValue(ruleData, "descent-override"),
+			this.getPropertyValue(ruleData, "line-gap-override"),
+			this.getPropertyValue(ruleData, "size-adjust")
 		]);
 	}
 

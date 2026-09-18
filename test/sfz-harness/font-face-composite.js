@@ -98,6 +98,40 @@ const duplicate = await run(DUPLICATE);
 check("an outright duplicate rule is emitted once", duplicate.processed.length, 1);
 check("the duplicate is removed from the stylesheet", duplicate.remaining.length, 1);
 
+// An outright duplicate is one the browser could not tell from the rule it repeats, and the metric
+// overrides are how two rules naming the same font stop being that. They do not split a composite
+// face — two rules differing only in size-adjust still compose per character, each drawing its own
+// glyphs under its own metrics, measured in Chrome — but the later rule is checked first, so when
+// both name the same source the later one draws everything and its size-adjust is the one that
+// shows. Keying only on family, weight, style, range and src collapsed the pair onto the FIRST rule,
+// which is the one the browser never uses: local(Arial) at size-adjust 150% then 80% rendered 15.0 px
+// on the page and 28.0 px in the capture, 150/80 of it.
+const SIZE_ADJUST = `
+	@font-face{font-family:metrics;src:local(Arial);font-weight:400;font-style:normal;size-adjust:150%}
+	@font-face{font-family:metrics;src:local(Arial);font-weight:400;font-style:normal;size-adjust:80%}`;
+
+const sizeAdjust = await run(SIZE_ADJUST);
+check("rules differing only in size-adjust are not duplicates", sizeAdjust.processed.length, 2);
+check("neither size-adjust rule is removed from the stylesheet", sizeAdjust.remaining.length, 2);
+
+// the other three overrides ride on the same key for the same reason, and ascent-override is the one
+// that moves a baseline rather than a size
+const ASCENT_OVERRIDE = `
+	@font-face{font-family:metrics;src:local(Arial);font-weight:400;font-style:normal;ascent-override:90%}
+	@font-face{font-family:metrics;src:local(Arial);font-weight:400;font-style:normal;ascent-override:120%}`;
+
+const ascentOverride = await run(ASCENT_OVERRIDE);
+check("rules differing only in ascent-override are not duplicates", ascentOverride.processed.length, 2);
+
+// and the negative control the pair above needs: adding the descriptors to the key must not stop two
+// rules that really are the same rule twice from collapsing
+const SAME_OVERRIDE = `
+	@font-face{font-family:metrics;src:local(Arial);font-weight:400;font-style:normal;size-adjust:150%}
+	@font-face{font-family:metrics;src:local(Arial);font-weight:400;font-style:normal;size-adjust:150%}`;
+
+const sameOverride = await run(SAME_OVERRIDE);
+check("two rules carrying the same size-adjust are still emitted once", sameOverride.processed.length, 1);
+
 // unicode-range is part of the font key, so the subsetting idiom was never affected by the
 // shadowing bug; it is pinned here because the fix moved what the key is used for
 const RANGES = `
