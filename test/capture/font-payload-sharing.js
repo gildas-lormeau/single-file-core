@@ -21,6 +21,10 @@ const PAGE_URL = "https://example.com/fonts.html";
 const FONT_A_URL = "https://example.com/a.woff2";
 const FONT_B_URL = "https://example.com/b.woff2";
 const FONT_CONTENT_TYPE = "font/woff2";
+// nothing serves these, so the harness answers 404 and the capture ends up with a font resource that
+// has a name and no content
+const MISSING_FONT_URL = "https://example.com/gone.woff2";
+const OTHER_MISSING_FONT_URL = "https://example.com/also-gone.woff2";
 
 // woff2 is a container the capture never parses, so what matters here is only that two payloads are
 // equal or unequal by byte and that both are big enough that sharing one is worth doing
@@ -71,6 +75,18 @@ let failed = false;
 	check("and both rules point at the shared file", countMatches(content, /fonts\/0\.woff2/g), 2);
 	check("with nothing left pointing at the dropped name", content.includes("fonts/1.woff2"), false);
 	check("while each rule keeps its own original url", content.includes(FONT_A_URL) && content.includes(FONT_B_URL), true);
+}
+
+// A font whose fetch fails is still registered as a resource, with no content at all: getFetchResponse
+// returns { resourceURL } and nothing else when there is no data and the capture is not inlining. Two
+// of those are not a duplicate pair, they are two fonts nobody has the bytes of, and reading a length
+// off the second one throws and takes the whole capture down. Found the hard way, on a real page —
+// sandordargo.com has one font request that does not come back, and the first build of this pass died
+// on it with "Cannot read properties of undefined (reading 'length')" after passing every check above.
+{
+	const { resources, content } = await capture(fontFace("Shared", MISSING_FONT_URL) + fontFace("Shared", OTHER_MISSING_FONT_URL), SAME_FONT_BYTES);
+	check("two fonts that never arrived do not crash the capture", resources.fonts.length, 2);
+	check("and neither is treated as a copy of the other", countMatches(content, /@font-face/g), 2);
 }
 
 if (failed) {

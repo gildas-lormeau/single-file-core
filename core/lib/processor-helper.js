@@ -302,7 +302,9 @@ function getProcessorHelperClass(utilInstance) {
 
 		groupDuplicateFonts(stylesheets, fonts) {
 			const canonicalNames = new Map();
-			const fontResources = [...fonts].sort(([indexResource], [otherIndexResource]) => indexResource - otherIndexResource);
+			const fontResources = [...fonts]
+				.filter(([, resource]) => resource.content)
+				.sort(([indexResource], [otherIndexResource]) => indexResource - otherIndexResource);
 			fontResources.forEach(([indexResource, resource], index) => {
 				const original = fontResources.slice(0, index).find(([, previousResource]) => testSameContent(previousResource.content, resource.content));
 				if (original) {
