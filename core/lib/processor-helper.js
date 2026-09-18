@@ -449,7 +449,11 @@ function getProcessorHelperClass(utilInstance) {
 			Object.keys(pageResources).forEach(resourceType => {
 				const unusedResources = Array.from(pageResources[resourceType]).filter(([, value]) => !textContent.includes(value.name));
 				unusedResources.forEach(([indexResource]) => pageResources[resourceType].delete(indexResource));
-				resources[resourceType] = Array.from(pageResources[resourceType].values());
+				const orderedResources = Array.from(pageResources[resourceType]);
+				if (orderedResources.every(([indexResource]) => typeof indexResource == "number")) {
+					orderedResources.sort(([indexResource], [otherIndexResource]) => indexResource - otherIndexResource);
+				}
+				resources[resourceType] = orderedResources.map(([, resource]) => resource);
 			});
 			const viewportElement = doc.head.querySelector("meta[name=viewport]");
 			const viewport = viewportElement ? viewportElement.content : null;
