@@ -169,10 +169,6 @@ export {
 	getPosterDataURI
 };
 
-// a poster is a still of a video the reader cannot play, so it is stored in a
-// lossy format: the same frame costs an order of magnitude less than as a PNG.
-// toDataURL falls back to PNG without reporting it when it does not support the
-// format, so the type it returned is tested instead of assumed
 function normalizeOptions(options) {
 	let normalizedOptions = options;
 	if (options) {
@@ -468,15 +464,15 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 				data.shadowRoots.push(shadowRootInfo);
 				try {
 					if (shadowRoot.adoptedStyleSheets) {
-						
-							const listener = event => shadowRootInfo.adoptedStyleSheets = event.detail.adoptedStyleSheets;
-							shadowRoot.addEventListener(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, listener);
-							shadowRoot.dispatchEvent(new CustomEvent(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, { bubbles: true }));
-							if (!shadowRootInfo.adoptedStyleSheets) {
-								element.dispatchEvent(new CustomEvent(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, { bubbles: true }));
-							}
-							shadowRoot.removeEventListener(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, listener);
-						
+
+						const listener = event => shadowRootInfo.adoptedStyleSheets = event.detail.adoptedStyleSheets;
+						shadowRoot.addEventListener(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, listener);
+						shadowRoot.dispatchEvent(new CustomEvent(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, { bubbles: true }));
+						if (!shadowRootInfo.adoptedStyleSheets) {
+							element.dispatchEvent(new CustomEvent(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, { bubbles: true }));
+						}
+						shadowRoot.removeEventListener(GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT, listener);
+
 					}
 					// eslint-disable-next-line no-unused-vars
 				} catch (error) {
@@ -537,8 +533,6 @@ function getStylesheetsContent(styleSheets, adoptedStyleSheetsCache = new Map())
 	}
 }
 
-// an untouched canvas is fully transparent, so it encodes exactly like a blank one of the same
-// size: comparing the two is cheaper than reading the pixels back and needs no drawing context
 function isBlankCanvas(doc, element, dataURI) {
 	const blankElement = doc.createElement("canvas");
 	blankElement.width = element.width;
@@ -555,9 +549,6 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 		};
 		try {
 			const dataURI = element.toDataURL("image/png");
-			// a canvas in a page SingleFile has already saved is empty, no script ran to draw into
-			// it, and the picture it displays is the background image the previous save left
-			// behind. An empty bitmap must not overwrite it
 			const backgroundImage = canvasComputedStyle ? canvasComputedStyle.getPropertyValue("background-image") : element.style.getPropertyValue("background-image");
 			if (backgroundImage && backgroundImage != "none" && isBlankCanvas(doc, element, dataURI)) {
 				canvasData.blank = true;
@@ -615,8 +606,6 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 			});
 			element.setAttribute(VIDEO_ATTRIBUTE_NAME, data.videos.length - 1);
 		}
-		// the posters are only inserted when the videos are blocked, capturing them
-		// otherwise encodes a frame per video for nothing
 		if (options.blockVideos && !element.getAttribute("poster")) {
 			const canvasElement = doc.createElement("canvas");
 			const context = canvasElement.getContext("2d");
