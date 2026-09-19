@@ -1393,7 +1393,7 @@ class Processor {
 			options.posters = frameData.posters;
 			options.videos = frameData.videos;
 			options.usedFonts = frameData.usedFonts;
-		options.usedFontsCharacters = frameData.usedFontsCharacters;
+			options.usedFontsCharacters = frameData.usedFontsCharacters;
 			options.shadowRoots = frameData.shadowRoots;
 			options.scrollPosition = frameData.scrollPosition;
 			options.scrolling = frameData.scrolling;
