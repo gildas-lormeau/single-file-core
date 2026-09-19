@@ -784,7 +784,8 @@ function testHiddenElement(element, computedStyle) {
 		const display = computedStyle.getPropertyValue("display");
 		const opacity = computedStyle.getPropertyValue("opacity");
 		const visibility = computedStyle.getPropertyValue("visibility");
-		hidden = display == "none";
+		const tagName = element.tagName && element.tagName.toUpperCase();
+		hidden = display == "none" || (visibility == "hidden" && tagName == "IFRAME");
 		if (!hidden && (opacity == "0" || visibility == "hidden") && element.getBoundingClientRect) {
 			const boundingRect = element.getBoundingClientRect();
 			hidden = !boundingRect.width && !boundingRect.height;
