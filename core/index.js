@@ -1547,7 +1547,7 @@ class Processor {
 	}
 
 	groupDuplicateFonts() {
-		this.processorHelper.groupDuplicateFonts(this.stylesheets, this.resources.fonts);
+		this.processorHelper.groupDuplicateFonts(this.stylesheets, this.resources.fonts, this.options);
 	}
 
 	async removeAlternativeFonts() {

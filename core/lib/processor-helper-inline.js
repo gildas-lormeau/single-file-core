@@ -33,6 +33,13 @@ const Image = globalThis.Image;
 
 const ABOUT_BLANK_URI = "about:blank";
 const UTF8_CHARSET = "utf-8";
+const DATA_URI_PREFIX = "data:";
+const DEFAULT_FONT_WEIGHT = 400;
+const FONT_KEY_FAMILY_INDEX = 0;
+const FONT_KEY_WEIGHT_INDEX = 1;
+const FONT_KEY_STYLE_INDEX = 2;
+const FONT_KEY_STRETCH_INDEX = 4;
+const NESTED_AT_RULE_NAMES = ["media", "supports", "layer", "container"];
 const PREFIX_DATA_URI_IMAGE_SVG = "data:image/svg+xml";
 const PREFIXES_FORBIDDEN_DATA_URI = ["data:text/"];
 const SCRIPT_TAG_FOUND = /<script/gi;
@@ -65,6 +72,7 @@ import {
 	resizeImage,
 	toDataURI
 } from "./processor-helper-common.js";
+import { getFontWeight } from "./../helper.js";
 
 export {
 	getProcessorHelperClass,
@@ -569,6 +577,97 @@ function getProcessorHelperClass(utilInstance) {
 			doc.querySelectorAll("link[rel*=stylesheet][rel*=alternate][title]").forEach(element => element.remove());
 		}
 
+		groupDuplicateFonts(stylesheets, fonts, options) {
+			if (options.usedFonts && options.usedFonts.length) {
+				const fontFaces = [];
+				stylesheets.forEach(stylesheetInfo => {
+					if (stylesheetInfo.stylesheet && stylesheetInfo.stylesheet.children) {
+						getFontFaces(stylesheetInfo.stylesheet.children, "", fontFaces);
+					}
+				});
+				const families = new Map();
+				fontFaces.forEach(fontFace => {
+					const fontKey = JSON.parse(this.getFontKey(fontFace.ruleData));
+					const familyKey = fontFace.scope + JSON.stringify([fontKey[FONT_KEY_FAMILY_INDEX],
+						fontKey[FONT_KEY_STYLE_INDEX], fontKey[FONT_KEY_STRETCH_INDEX]]);
+					let family = families.get(familyKey);
+					if (!family) {
+						family = { name: fontKey[FONT_KEY_FAMILY_INDEX], groups: new Map(), mergeable: true };
+						families.set(familyKey, family);
+					}
+					const source = this.getPropertyValue(fontFace.ruleData, "src");
+					const range = this.getFontWeightRange(fontFace.ruleData);
+					if (source && source.includes(DATA_URI_PREFIX) && range) {
+						fontKey[FONT_KEY_WEIGHT_INDEX] = null;
+						const groupKey = JSON.stringify(fontKey) + " " + source;
+						const group = family.groups.get(groupKey);
+						if (group) {
+							group.push({ fontFace, range });
+						} else {
+							family.groups.set(groupKey, [{ fontFace, range }]);
+						}
+					} else {
+						family.mergeable = false;
+					}
+				});
+				families.forEach(family => this.mergeFontFaceWeights(family, options.usedFonts));
+			}
+		}
+
+		// Every group of the family has to be merged or none of it: two groups that differ only in
+		// unicode-range are one composite face, and merging one of them alone would leave a weight
+		// matched by two faces that are no longer a composite, which CSS Fonts 4 §5.2 resolves in a way
+		// that "can differ between multiple user agents". Requiring every group to span the same set of
+		// weights is what keeps the merged faces a composite, and it also blocks the case where some
+		// other face of the family sits inside the interval, since that face is a group of its own.
+		mergeFontFaceWeights(family, usedFonts) {
+			const groups = Array.from(family.groups.values());
+			const weightKey = group => group.map(({ range }) => range.join("-")).sort().join(",");
+			if (family.mergeable && groups.some(group => group.length > 1) &&
+				groups.every(group => weightKey(group) == weightKey(groups[0]))) {
+				const ranges = groups[0].map(({ range }) => range);
+				const minWeight = Math.min(...ranges.map(([min]) => min));
+				const maxWeight = Math.max(...ranges.map(([, max]) => max));
+				const declared = weight => ranges.some(([min, max]) => weight >= min && weight <= max);
+				const usedWeightInRange = usedFonts.some(([usedFamily, usedWeight]) => {
+					const weight = Number(usedWeight);
+					return usedFamily == family.name && weight > minWeight && weight < maxWeight && !declared(weight);
+				});
+				if (!usedWeightInRange) {
+					groups.forEach(group => {
+						const kept = group[group.length - 1];
+						this.setFontWeightRange(kept.fontFace.ruleData, minWeight, maxWeight);
+						group.forEach(({ fontFace }) => {
+							if (fontFace != kept.fontFace) {
+								fontFace.cssRules.remove(fontFace.cssRule);
+							}
+						});
+					});
+				}
+			}
+		}
+
+		getFontWeightRange(ruleData) {
+			const value = this.getPropertyValue(ruleData, "font-weight");
+			if (value === undefined) {
+				return [DEFAULT_FONT_WEIGHT, DEFAULT_FONT_WEIGHT];
+			}
+			const weights = value.trim().split(/\s+/).map(weight => Number(getFontWeight(util.removeQuotes(weight))));
+			if (weights.length <= 2 && weights.every(weight => Number.isFinite(weight))) {
+				return [Math.min(...weights), Math.max(...weights)];
+			}
+		}
+
+		setFontWeightRange(ruleData, minWeight, maxWeight) {
+			const value = cssTree.parse(minWeight == maxWeight ? String(minWeight) : minWeight + " " + maxWeight, { context: "value" });
+			const declaration = ruleData.block.children.filter(node => node.property == "font-weight").tail;
+			if (declaration) {
+				declaration.data.value = value;
+			} else {
+				ruleData.block.children.appendData({ type: "Declaration", property: "font-weight", important: false, value });
+			}
+		}
+
 		async processFontFaceRule(ruleData, fontInfo, fontDeclarations, fontTests, stats) {
 			const removedNodes = [];
 			for (let node = ruleData.block.children.head; node; node = node.next) {
@@ -662,4 +761,20 @@ function getProcessorHelperClass(utilInstance) {
 			return true;
 		}
 	};
+}
+
+function getFontFaces(cssRules, scope, fontFaces) {
+	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
+		const ruleData = cssRule.data;
+		if (ruleData.type == "Atrule" && ruleData.name == "import" && ruleData.prelude && ruleData.prelude.children &&
+			ruleData.prelude.children.head.data.importedChildren) {
+			getFontFaces(ruleData.prelude.children.head.data.importedChildren,
+				scope + "|import " + cssTree.generate(ruleData.prelude), fontFaces);
+		} else if (ruleData.type == "Atrule" && NESTED_AT_RULE_NAMES.includes(ruleData.name) && ruleData.block && ruleData.block.children) {
+			getFontFaces(ruleData.block.children,
+				scope + "|" + ruleData.name + " " + (ruleData.prelude ? cssTree.generate(ruleData.prelude) : ""), fontFaces);
+		} else if (ruleData.type == "Atrule" && ruleData.name == "font-face" && ruleData.block && ruleData.block.children) {
+			fontFaces.push({ ruleData, cssRule, cssRules, scope });
+		}
+	}
 }
