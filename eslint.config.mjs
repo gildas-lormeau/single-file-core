@@ -65,6 +65,7 @@ export default [
 				Response: "readonly",
 				TextDecoder: "readonly",
 				URL: "readonly",
+				btoa: "readonly",
 				setTimeout: "readonly"
 			}
 		},

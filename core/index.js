@@ -284,7 +284,7 @@ class Runner {
 			log("**** STARTED STAGE", step, "****");
 		}
 		const frame = !this.root;
-		await this.onprogress(new ProgressEvent(STAGE_STARTED, { pageURL: this.options.url, step, frame, options: this.options }));
+		const stageStartedPromise = this.onprogress(new ProgressEvent(STAGE_STARTED, { pageURL: this.options.url, step, frame, options: this.options }));
 		for (const task of STAGES[step].sequential) {
 			let startTime;
 			if (DEBUG) {
@@ -316,6 +316,7 @@ class Runner {
 		} else {
 			parallelTasksPromise = Promise.resolve();
 		}
+		await stageStartedPromise;
 		await this.onprogress(new ProgressEvent(STAGE_ENDED, { pageURL: this.options.url, step, frame, options: this.options }));
 		if (DEBUG) {
 			log("**** ENDED   STAGE", step, "****");
