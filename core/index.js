@@ -398,7 +398,6 @@ class BatchRequest {
 					});
 				}
 			} catch (error) {
-				indexResource = indexResource + 1;
 				resourceRequests.forEach(resourceRequest => resourceRequest.reject(error));
 			}
 			this.requests.delete(requestKey);
