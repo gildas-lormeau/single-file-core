@@ -48,6 +48,38 @@ const pages = [
 		(manifest.pages[0].originalUrls || []).join(" "), "https://example.com/docs/");
 }
 
+// the index is what a tool reads WITHOUT extracting the archive, and the moment a page was captured
+// was the one per-page field it did not carry: each page's own manifest.json has it, and the
+// packager already opens every page to copy its entries, so it lifts archiveTime into the page's
+// row in the same pass. The two pages are captured under two clocks so that a row holding the
+// other page's time is told apart from one holding its own.
+{
+	const unfreeze = freezeDate();
+	let frozenPage;
+	try {
+		frozenPage = await makePage(5, { url: "https://example.com/docs/frozen.html", title: "Frozen" });
+	} finally {
+		unfreeze();
+	}
+	const entries = await readArchive(await createPagesArchive([frozenPage, pages[1]], packagerOptions()));
+	const manifest = JSON.parse(await readEntry(entries, "sfz-pages.json"));
+	const firstManifest = JSON.parse(await readEntry(entries, "manifest.json"));
+	const secondManifest = JSON.parse(await readEntry(entries, "pages/2/manifest.json"));
+	check("the index carries the capture time of the first page", manifest.pages[0].archiveTime, firstManifest.archiveTime);
+	check("and of a later page", manifest.pages[1].archiveTime, secondManifest.archiveTime);
+	check("the two pages were captured at different times", manifest.pages[0].archiveTime == manifest.pages[1].archiveTime, false);
+	check("the capture time is the ISO timestamp the page's manifest holds", /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(manifest.pages[0].archiveTime), true);
+}
+
+// a page that carries no manifest.json has no capture time to lift, and the row says nothing
+// rather than carrying an undefined
+{
+	const entries = await readArchive(await createPagesArchive([await makeMetadataPage(), pages[1]], packagerOptions()));
+	const manifest = JSON.parse(await readEntry(entries, "sfz-pages.json"));
+	check("a page without a manifest gets no capture time", "archiveTime" in manifest.pages[0], false);
+	check("while the page beside it still does", typeof manifest.pages[1].archiveTime, "string");
+}
+
 // createRootDirectory gives the first page a folder of its own. Without it the first page is
 // written at the root, mixed in with the archive's own files, which is the reason the router needs
 // a special case at all: belongsToPage() has to read "everything not under pages/ and not named

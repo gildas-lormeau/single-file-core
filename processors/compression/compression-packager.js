@@ -26,6 +26,7 @@
 import {
 	configure,
 	TextReader,
+	TextWriter,
 	Uint8ArrayReader,
 	Uint8ArrayWriter,
 	ZipReader
@@ -40,6 +41,7 @@ const browser = globalThis.browser;
 
 const PAGES_PREFIX = "pages/";
 const PAGES_FILENAME = "sfz-pages.json";
+const MANIFEST_FILENAME = "manifest.json";
 const TOC_FILENAME = "sfz-toc.html";
 const TOC_TITLE = "Table of contents";
 const TOC_STYLE = "body{font-family:system-ui,sans-serif;margin:2em auto;max-width:40em;padding:0 1em;background-color:#fff;color:#000}" +
@@ -102,6 +104,12 @@ async function createPagesArchive(pages, options) {
 			for (const entry of await zipReader.getEntries()) {
 				const filename = pagePath + entry.filename;
 				const rawData = entry.directory ? undefined : await entry.getData(new Uint8ArrayWriter(), { passThrough: true, checkCrc32: false });
+				if (entry.filename == MANIFEST_FILENAME && !entry.encrypted) {
+					const { archiveTime } = JSON.parse(await entry.getData(new TextWriter()));
+					if (archiveTime) {
+						manifest.pages[pageIndex].archiveTime = archiveTime;
+					}
+				}
 				const canonicalFilename = writtenEntries && findDuplicate(writtenEntries, filename, entry, rawData);
 				if (canonicalFilename === undefined) {
 					await zipWriter.add(filename, entry.directory ? null : new Uint8ArrayReader(rawData), {
