@@ -426,12 +426,15 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 	if (element.childNodes) {
 		const elements = Array.from(element.childNodes).filter(node => (node instanceof win.HTMLElement) || (node instanceof win.SVGElement) || (node instanceof globalThis.HTMLElement) || (node instanceof globalThis.SVGElement));
 		elements.forEach(element => {
-			let elementHidden, elementKept, computedStyle;
+			let elementHidden, elementKept, computedStyle, headChild;
 			if (!options.autoSaveExternalSave && (options.removeHiddenElements || options.removeUnusedFonts || options.compressHTML)) {
 				computedStyle = getComputedStyle(win, element);
+				if (options.removeHiddenElements || options.removeUnusedFonts) {
+					headChild = Boolean(element.closest("html > head"));
+				}
 				if ((element instanceof win.HTMLElement) || (element instanceof globalThis.HTMLElement)) {
 					if (options.removeHiddenElements) {
-						elementKept = ((ascendantHidden || element.closest("html > head")) && KEPT_TAG_NAMES.includes(element.tagName.toUpperCase())) || element.closest("details");
+						elementKept = ((ascendantHidden || headChild) && KEPT_TAG_NAMES.includes(element.tagName.toUpperCase())) || element.closest("details");
 						if (!elementKept) {
 							elementHidden = ascendantHidden || testHiddenElement(element, computedStyle);
 							if (elementHidden && !IGNORED_TAG_NAMES.includes(element.tagName.toUpperCase())) {
@@ -449,7 +452,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 							data.markedElements.push(element);
 						}
 					}
-					if (options.removeUnusedFonts && doc.defaultView) {
+					if (options.removeUnusedFonts && doc.defaultView && !headChild) {
 						const elementCharacters = getElementCharacters(win, element);
 						getUsedFont(computedStyle, data.usedFonts, data.usedFontsCharacters, elementCharacters);
 						getUsedFont(getComputedStyle(win, element, ":first-letter"), data.usedFonts, data.usedFontsCharacters, elementCharacters);
