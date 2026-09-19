@@ -1031,18 +1031,20 @@ in its first byte, puts a pattern byte in the most significant position, and the
 smallest byte any pattern contains, `-` at 0x2D, makes that a chunk of 0x2D000000
 bytes, about 755 MB: the writer refuses to build a self-extracting PNG variant whose
 chunk reaches that size. But a three-byte close pattern also fits whole in the low
-three bytes under a zero top byte, at a size an ordinary page reaches: `-->` is
-00 2D 2D 3E, a chunk of exactly 2,960,702 bytes, and the CDATA rung's `]]>` is
-00 5D 5D 3E, 6,118,718 bytes. On that hit the writer pads the appended run by one
-byte, which moves the length off the pattern and cannot loop, 00 2D 2D 3F matching
-nothing; the budget of §5.2 keeps that byte in reserve under the PNG face. No other
-close tag is four bytes or shorter, so those two sizes and the 755 MB ceiling are the
-whole list. Until September 2026 the field was patched untested on the argument that
+three bytes under any top byte below the ceiling, at sizes an ordinary page reaches:
+`-->` is xx 2D 2D 3E, a chunk of exactly 2,960,702 bytes and then every 16 MiB, and
+the CDATA rung's `]]>` is xx 5D 5D 3E, 6,118,718 bytes and every 16 MiB after, 45
+lengths in each family under the ceiling. On that hit the writer pads the appended run
+by one byte, which moves the length off the pattern and cannot loop, xx 2D 2D 3F
+matching nothing; the budget of §5.2 keeps that byte in reserve under the PNG face. No
+other close tag is four bytes or shorter, so those two families and the 755 MB ceiling
+are the whole list. Until September 2026 the field was patched untested on the argument that
 only the top byte could matter. What an untested value closed early was the pixel-data
 wrapper, not the ZIP region's: the chunk type, the keyword and the real close tag then
 parsed as text in the hidden body while the extractor still found its region, so the
-defect broke the rule above rather than a page. Its test steers a build onto the first
-size and checks that the neighbours a byte either side go out unpadded.
+defect broke the rule above rather than a page. Its test steers builds onto the first
+two lengths of one family and the first of the other, and checks that the neighbours a
+byte either side of the first go out unpadded.
 
 ### 5.2 The appended-data budget
 
@@ -1973,7 +1975,7 @@ predicts.
 | August 2026 | Core 1.5.120: the hand-built `page.pdf` records set the language encoding flag, like every entry the ZIP writer produces (§5.8). Its name is ASCII, so no decoded name changes; what changes is that no entry in an archive is read through CP437 any more, closing the path the 1.5.119 defect surfaced on |
 | September 2026 | §5.8 no longer requires bit 11 on every entry, deferring to ZIP's own rule: the flag is set when a name or a comment holds a byte outside printable ASCII, and left clear otherwise, because readers disagree about the flag more than they disagree about ASCII. The reference writer's names are all percent-encoded, so in practice none of them carries it now, and the hand-built `page.pdf` records follow the writer instead of overriding it — reversing the 1.5.120 row below, whose reason was that `page.pdf` would otherwise be the only entry read through the legacy path. It no longer is: every name in the archive takes the same path again, the other one |
 | September 2026 | Core 1.5.126: the appended-data budget becomes the `maxAppendedDataLength` writer option and its default drops from 65535 to 16361 bytes, so the EOCD record stays inside libarchive's scan and `bsdtar` opens archives it used to reject (§5.2, §8.1). The 65535-byte comment ceiling is now a separate limit, stated in §4.2: a budget raised past it produces a run that cannot be declared |
-| September 2026 | The PNG face re-tests the `tEXt "ZIP"` length field with its neighbours once the appended run is sized, and pads the run by one byte when the value would complete a pattern (§5.1, §6.1). The field had been patched untested, on the argument that only its top byte could matter, which missed a three-byte close pattern sitting whole in the low three bytes: `-->` at a chunk of exactly 2,960,702 bytes, `]]>` at 6,118,718. The appended-data budget reserves the byte under the PNG face (§5.2) |
+| September 2026 | The PNG face re-tests the `tEXt "ZIP"` length field with its neighbours once the appended run is sized, and pads the run by one byte when the value would complete a pattern (§5.1, §6.1). The field had been patched untested, on the argument that only its top byte could matter, which missed a three-byte close pattern sitting whole in the low three bytes under any top byte below the ceiling, a family of lengths 16 MiB apart: `-->` first at a chunk of exactly 2,960,702 bytes, `]]>` first at 6,118,718. The appended-data budget reserves the byte under the PNG face (§5.2) |
 | September 2026 | The universal-mode extractor enumerates every `sfz-data` candidate before choosing and refuses two (§4.5, §7.4). It used to take the first element or the first comment, which could never meet §7.4's rule on a second candidate; the non-rung element fallback that §4.5 stated as a SHOULD the reference skipped is now how candidates are filtered |
 | September 2026 | §2.1 gains its second charset criterion, that the label survive HTML's encoding selection, and §8.4 lists 19 qualifying encodings instead of 20: `x-user-defined` is injective, but the HTML standard replaces the label with windows-1252 before decoding a document, so a file declaring it fails recovery on every load |
 | September 2026 | §5.8 states UTF-8 names and comments as this format's own requirement. The rule had been attributed to ZIP, which permits the legacy code page with the flag clear; read with the sentence forbidding the flag on a legacy-encoded name, that left a code page 437 writer no valid choice |
@@ -2026,8 +2028,9 @@ failure path (§4.1).
 
 A review in September 2026, against core 1.6.5, by a reader working from the text
 alone, found seven defects, and the writer shared two of them. The `tEXt "ZIP"` length
-field could spell a three-byte close pattern under a zero top byte, at 2,960,702 bytes
-for `-->`, far below the 755 MB ceiling §5.1 had argued was the first dangerous size;
+field could spell a three-byte close pattern in its low three bytes, at 2,960,702 bytes
+for `-->` and every 16 MiB after, far below the 755 MB ceiling §5.1 had argued was the
+first dangerous size;
 the writer now re-tests the field and pads by a byte (§5.1, §6.1). `x-user-defined`
 was listed as a qualifying charset on injectivity alone, when the HTML standard
 replaces the label before decoding any document; §2.1 gained its second criterion and
