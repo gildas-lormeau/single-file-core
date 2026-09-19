@@ -40,6 +40,7 @@ init(initOptions);
 export {
 	capture,
 	captureArchive,
+	createProcessor,
 	frameData,
 	html,
 	helper,
@@ -63,6 +64,14 @@ async function captureArchive(pageResources, options) {
 	const processor = new singleFile.SingleFile(helper.normalizeOptions({ ...EMPTY_DOC_DATA, ...options, compressContent: true }));
 	await processor.run();
 	return processor.getPageData();
+}
+
+// capture() resolves to the saved page, which is all a suite needs until it wants to act on the
+// capture while it runs. cancel() lives on the SingleFile instance, so a suite testing it drives the
+// class the way captureArchive does and calls run() itself.
+function createProcessor(pageResources, options) {
+	resources = pageResources instanceof Map ? pageResources : new Map(Object.entries(pageResources));
+	return new singleFile.SingleFile(helper.normalizeOptions({ ...EMPTY_DOC_DATA, ...options }));
 }
 
 function fetchResource(url) {

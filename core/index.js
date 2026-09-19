@@ -224,6 +224,7 @@ class Runner {
 		await this.onprogress(new ProgressEvent(RESOURCES_INITIALIZING, { pageURL: this.options.url, options: this.options }));
 		await this.executeStage(RESOLVE_URLS_STAGE);
 		this.pendingPromises = this.executeStage(REPLACE_DATA_STAGE);
+		this.pendingPromises.catch(() => { });
 		if (this.root && this.options.doc) {
 			util.postProcessDoc(this.options.doc, this.markedElements, this.invalidElements);
 		}
