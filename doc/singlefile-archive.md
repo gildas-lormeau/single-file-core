@@ -261,14 +261,20 @@ error message. Nothing requires it, and the MUST is unaffected either way.
 Universal mode works in two parts, and the charset carries the first. The archive
 bytes themselves are recovered *from the parsed page text*: the browser decoded
 them as characters when it parsed the file, and the bootstrap re-encodes those
-characters back into bytes. The requirement this places on the charset is
-**injectivity**: under the encoding's index in the
+characters back into bytes. The requirement this places on the charset is twofold.
+The first part is **injectivity**: under the encoding's index in the
 [WHATWG Encoding Standard](https://encoding.spec.whatwg.org/) — the mapping every
 browser implements — each of the 256 byte values MUST decode to a distinct code
-point, and no byte may decode to U+FFFD. Any encoding with that property carries
-arbitrary bytes through the parse, and 20 of the standard's encodings qualify (§8.4).
-Multi-byte encodings, `utf-8` included, do not: invalid sequences collapse to U+FFFD
-and the bytes cannot be recovered.
+point, and no byte may decode to U+FFFD. Multi-byte encodings, `utf-8` included, fail
+it: invalid sequences collapse to U+FFFD and the bytes cannot be recovered. The second
+part is that the label MUST reach the parser as declared. The HTML standard's encoding
+selection replaces `x-user-defined` with `windows-1252` before it decodes a document —
+its prescan for `<meta charset>` and its change-the-encoding step both do — so a page
+declaring that label is decoded as windows-1252 whatever it says, and an extractor
+re-encoding the text with the x-user-defined table recovers nothing. A decoder called
+directly, `TextDecoder` for one, honors the label, which is why the first test alone
+does not catch this. Any encoding with both properties carries arbitrary bytes through
+the parse, and 19 of the standard's encodings qualify (§8.4).
 
 The reference writer uses `windows-1252`, for reasons beyond injectivity. It is the
 best-supported single-byte encoding there is: the standard resolves the `iso-8859-1`
@@ -609,13 +615,16 @@ always writes as zero (step 2 below, and the row in §7.4).
 It works in three steps:
 
 1. **Locate.** The extractor finds the `<sfz-extra-data>` element for the payload, and
-   the ZIP region's node by its identifier `sfz-data` (§1.3): the element returned by
-   `getElementById`, or, when the wrapper is a comment, the first comment in the
-   document whose data starts with those characters. An element bearing the identifier
-   wins over a comment when both resolve; a reader that finds an id-bearing element
-   which is not one of §5.1's wrapper rungs SHOULD fall back to the comment, since the
-   `id` is then something else in the page; the reference extractor does not, and
-   takes whatever element bears the identifier. The two placements (§3.1) need no
+   the ZIP region's node by its identifier `sfz-data` (§1.3). It enumerates rather than
+   picks: every element whose `id` is the identifier and whose local name is one of
+   §5.1's wrapper rungs (`script`, `style`, `noframes`, `noembed`, `iframe`, `xmp`,
+   `svg`, `plaintext`), and, only when there is none, every comment in the document
+   whose data starts with those characters. An element bearing the identifier that is
+   not a rung is not a candidate, since the `id` is then something else in the page,
+   and the comments are consulted only when no rung element carries it; that is the
+   tie-break §7.4 refers to. Exactly one candidate is the region. More than one is an
+   ambiguity the extractor MUST refuse (§7.4), and the reference extractor fails to
+   the error message on it. The two placements (§3.1) need no
    telling apart, and neither the region's position in the tree nor its depth carries
    meaning — a document that moved the node before extraction resolves the same way,
    which matters because the reference extractor relocates `meta` and `style` elements
@@ -1012,14 +1021,28 @@ Two fields are patched after that test, and each needs one of its own. The EOCD
 comment-length field sits at the end of the ZIP region and is patched under the
 declared form (§6.1, step 11); the writer tests the bytes around it again with the
 final value in place and keeps the raw form when that value would complete a pattern,
-since the raw form is always valid. The `tEXt "ZIP"` length field sits inside the pixel-data wrapper,
-with the fixed `tEXt` type and `ZIP` keyword after it, and is written last (step 12).
-The header is tested with the rest of the payload, the length as zeros, which cannot
-join a pattern; the real length is big-endian, so a pattern byte in it would have to be
-the most significant byte of the chunk's size, and the smallest byte any pattern
-contains, `-` at 0x2D, puts that size at 0x2D000000 bytes, about 755 MB. The writer
-refuses to build a self-extracting PNG variant whose chunk reaches that size rather than
-re-check the field.
+since the raw form is always valid. The `tEXt "ZIP"` length field sits inside the
+pixel-data wrapper, with the fixed `tEXt` type and `ZIP` keyword after it, and is
+written last (step 12). The header is tested with the rest of the payload, the length
+as zeros, which cannot join a pattern, and the real value is tested again with its
+neighbours once the appended run is sized (step 10). Two kinds of value need that
+second test. A pattern that spills into the field from the bytes before it, or begins
+in its first byte, puts a pattern byte in the most significant position, and the
+smallest byte any pattern contains, `-` at 0x2D, makes that a chunk of 0x2D000000
+bytes, about 755 MB: the writer refuses to build a self-extracting PNG variant whose
+chunk reaches that size. But a three-byte close pattern also fits whole in the low
+three bytes under a zero top byte, at a size an ordinary page reaches: `-->` is
+00 2D 2D 3E, a chunk of exactly 2,960,702 bytes, and the CDATA rung's `]]>` is
+00 5D 5D 3E, 6,118,718 bytes. On that hit the writer pads the appended run by one
+byte, which moves the length off the pattern and cannot loop, 00 2D 2D 3F matching
+nothing; the budget of §5.2 keeps that byte in reserve under the PNG face. No other
+close tag is four bytes or shorter, so those two sizes and the 755 MB ceiling are the
+whole list. Until September 2026 the field was patched untested on the argument that
+only the top byte could matter. What an untested value closed early was the pixel-data
+wrapper, not the ZIP region's: the chunk type, the keyword and the real close tag then
+parsed as text in the hidden body while the extractor still found its region, so the
+defect broke the rule above rather than a page. Its test steers a build onto the first
+size and checks that the neighbours a byte either side go out unpadded.
 
 ### 5.2 The appended-data budget
 
@@ -1035,7 +1058,7 @@ writer therefore keeps a *budget*, sized to the readers it means to satisfy rath
 than to the format. The appended run is:
 
 ```
-wrapper close tag + extra-data element + end tags + (PNG face: 4-byte chunk CRC + 12-byte IEND)
+wrapper close tag + extra-data element + end tags + (PNG face: 4-byte chunk CRC + 12-byte IEND + 1 byte reserved, §5.1)
 ```
 
 and the writer compares its total against that budget before committing to it. The
@@ -1117,14 +1140,19 @@ self-consistent:
   compensation — the repair by which a reader recomputes offsets that disagree with
   the file size. A reader of the recovered ZIP region alone does need it (§4.5).
 
-  The alternative, offsets relative to the start of the region, is not a compatibility
-  problem in itself: a reader that compensates arrives at the same entries, and 7-Zip
-  opens such a file when told the type. What absolute offsets buy is the step before
-  that. The file is a valid archive read as it stands, so it survives format
-  auto-detection — 7-Zip reports a base of 0 and a physical size covering the whole
-  file — and the compensation is confined to the one path that cannot avoid it,
-  universal-mode recovery. Nothing in the format depends on the choice; a writer using
-  the other form produces files this document's readers still open.
+  The alternative, offsets relative to the start of the region, is what §4.2 forbids,
+  and not because tolerant readers reject it: a reader that compensates arrives at the
+  same entries, 7-Zip opens such a file when told the type, and the reference writer's
+  own ZIP library repairs the shift and reports it as a warning. What absolute offsets
+  buy is the step before that. The file is a valid archive read as it stands, so it
+  survives format auto-detection — 7-Zip reports a base of 0 and a physical size
+  covering the whole file — and the compensation is confined to the one path that
+  cannot avoid it, universal-mode recovery. A reader built from §7.1 alone does not
+  compensate, since that section tells it it need not, so a file in the other form is
+  one this document's readers are not required to open. And the PDF-with-HTML variants
+  cannot be written in that form at all: `page.pdf`'s local header sits before the ZIP
+  region (§1.3), where a region-relative offset would be negative, which the unsigned
+  field cannot hold.
 - **PDF offsets are header-relative.** The document's own cross-reference offsets are
   interpreted from the `%PDF-` header, so embedding it needs no rewriting; the writer
   only MUST keep the header inside the scan window (§4.3).
@@ -1305,14 +1333,18 @@ captured page. That is a property of this writer, not a guarantee of the format:
 conforming writer may name entries after the resources themselves, and §7.3's rule
 that entry names are untrusted assumes one does.
 
-How a name is encoded is ZIP's own business, not this format's: bit 11 of the general
-purpose bit flag selects UTF-8, and its absence selects the legacy code page. This
-document adds two requirements to that and specifies nothing else about it.
+How a name is encoded is ZIP's own business up to a point: bit 11 of the general
+purpose bit flag selects UTF-8, and its absence selects the legacy code page, IBM code
+page 437, which ZIP still permits — a name holding byte 0x82 with the flag clear is a
+legal `café.txt`. This document adds two requirements to that and specifies nothing
+else about it.
 
-**A writer MUST set bit 11 whenever a name or a comment needs it**, and the rule for
-when it does is ZIP's, not this format's: an encoded name or comment holding a byte
-outside printable ASCII needs it, one holding only printable ASCII does not, since the
-two encodings agree there. Control characters count as needing it, the legacy code page
+**A writer MUST encode names and comments in UTF-8, and MUST set bit 11 on each one
+that needs it**: an encoded name or comment holding a byte outside printable ASCII
+needs it, one holding only printable ASCII does not, since the two encodings agree
+there. The first half is this format's rule, not ZIP's; it is what makes the second
+half decidable from the bytes alone, and it keeps the legacy code page out of new
+archives. Control characters count as needing it, the legacy code page
 mapping them to graphic characters rather than to themselves. Setting it on names that
 do not need it is allowed and used to be required here; it was dropped because readers
 disagree about the flag more than they disagree about ASCII, so the safest name is the
@@ -1490,7 +1522,10 @@ pages can stop at the first row; the files it produces are accepted by every rea
 10. **Appended run.** Unless appended data is prevented or the payload is relocated
     (§5.2), emit the wrapper end tag,
     the extra-data element when it is appended, and `</body></html>` — the end tags
-    are omitted under the PNG face, which must end with `IEND`.
+    are omitted under the PNG face, which must end with `IEND`. Under the PNG face,
+    size the run first: when the `tEXt "ZIP"` chunk length it yields would complete a
+    pattern of the current wrapper in the length field (§5.1), append one byte of
+    padding to the run, whether or not the run is otherwise empty.
 11. **Fill the reservation.** In the relocated placement, write the payload into the
     space reserved in step 4; if it no longer fits, restart (§6.2). Under
     `declareAppendedData` (§4.2), the EOCD's comment-length field is patched here too,
@@ -1542,16 +1577,24 @@ does not count. That is the restart enforcing §5.7's requirement that the injec
 never leave the two disagreeing, and the rebuilt archive simply has no `page.pdf`
 entry.
 
-Given identical inputs, modification date and archive time, the process is
-deterministic: the same page produces the same bytes, retries included. `manifest.json`
-records when the archive was made (§7.1), so two builds of one page at two moments
-differ in that entry and in the entry sizes around it. A writer that retries MUST pin
-the archive time across the passes of one build rather than read the clock again on
-each. The reference writer reads the clock once, inside the callback that emits the
-entries, which runs once per build; every retry reuses the entries that callback
-produced. Two builds of one page still read the clock twice, so its own determinism
-test freezes it. A consumer MUST NOT
-treat the byte identity of two archives of the same page as meaningful.
+Within one build the process is deterministic: given the entries' bytes, the
+modification date and the archive time, every pass produces the same bytes from the
+same inputs, retries included, which is what the termination arguments above rely on.
+Across builds it is not, for two reasons. `manifest.json` records when the archive was
+made (§7.1), so two builds of one page at two moments differ in that entry and in the
+entry sizes around it. And an encrypted archive never repeats: the ZIP writer draws a
+fresh random salt for every AES entry, as the WinZip AES format requires, and a fresh
+random header for every ZipCrypto one, so two builds with a password differ in every
+entry even with the clock frozen. A writer that retries MUST pin the archive time
+across the passes of one build rather than read the clock again on each; reusing the
+entries' bytes across passes, which this section already allows, is what keeps an
+encrypted build's payload stable too, since fresh ciphertext moves the newline bytes
+the payload counts. The reference writer reads the clock once, inside the callback
+that emits the entries, which runs once per build; every retry reuses the entries that
+callback produced. Two builds of one page still read the clock twice, so its own
+determinism test freezes it, and the same test checks that two builds with a password
+differ. A consumer MUST NOT treat the byte identity of two archives of the same page
+as meaningful.
 
 ## 7. Consuming SingleFile archives safely
 
@@ -1599,13 +1642,16 @@ handles every variant of §2 without knowing which one it has.
      the reference layout SHOULD emit the manifest even though a reader MUST NOT
      require it.
   2. Otherwise the `index.html` entry at the smallest directory depth.
-  3. If several `index.html` entries tie at that depth, the archive does not name its
-     page: a reader MUST NOT pick one arbitrarily. Report the ambiguity, or treat the
-     file as a plain ZIP archive.
+  3. If several `manifest.json` entries tie at the smallest depth in step 1, or several
+     `index.html` entries in step 2, the archive does not name its page: a reader MUST
+     NOT pick one arbitrarily. Report the ambiguity, or treat the file as a plain ZIP
+     archive. Two entries with the same name are a tie of the same kind — ZIP does not
+     forbid them, and readers that take the first and readers that take the last both
+     exist — so a reader MUST NOT resolve one by position either.
 
   The reference writer never produces a tie, since it creates at most one root
-  directory and nests every other page under `frames/<n>/`; step 3 exists for archives
-  from other writers.
+  directory, nests every other page under `frames/<n>/` and never writes a name
+  twice; step 3 exists for archives from other writers.
 - **Treat `manifest.json` as informative.** The reference writer records the original
   URL as `originalUrl`, the title as `title`, the save time as `archiveTime` (an ISO
   8601 string), the entry name of the page as `indexFilename` and the resource-to-URL
@@ -1688,7 +1734,7 @@ only if it affects the bytes the page is built from:
 | A `tEXt` chunk CRC does not match, or a chunk holds bytes PNG does not permit (§4.4) | Irrelevant to extraction; a reader of the archive MAY ignore both |
 | `page.pdf` is present but its data does not begin with `%PDF-` | Not an error. The entry is data like any other |
 | `index.html` is present without `manifest.json` | **MUST** still extract (§7.1) |
-| More than one candidate carries the `sfz-data` identifier once §4.5's tie-break has been applied | **MUST NOT** extract either silently. The tie-break comes first and settles the ordinary pairing: an id-bearing element that is one of §5.1's wrapper rungs wins over a comment, and one that is not a rung loses to it, since the `id` is then something else in the page. What this row forbids is what the tie-break does not reach — two elements, or two comments, or an element and a comment that both survive it. A conforming writer emits one candidate (§5.1), so a second is a payload that escaped its wrapper, most often a nested archive written by a writer that emitted a face bare. Both extract cleanly and check out, and the checksums say nothing about which one the file was built around |
+| More than one candidate carries the `sfz-data` identifier once §4.5's tie-break has been applied | **MUST NOT** extract either silently. The tie-break comes first and settles the ordinary pairing: an id-bearing element that is one of §5.1's wrapper rungs is a candidate, a comment is one only when no such element exists, and an id-bearing element that is not a rung is never one, since the `id` is then something else in the page. What this row forbids is what the tie-break does not reach — two rung elements, or two comments. A reader only sees the second candidate by enumerating, which is why the locate step of §4.5 collects every candidate before choosing; the reference extractor fails to its error message on two. A conforming writer emits one candidate (§5.1), so a second is a payload that escaped its wrapper, most often a nested archive written by a writer that emitted a face bare. Both extract cleanly and check out, and the checksums say nothing about which one the file was built around |
 | The recovered region (universal mode) disagrees with the same bytes read directly, in the EOCD's two comment-length bytes only | Expected, not an error. A recovered region always declares a zero-length comment (§4.5), so it differs here from any archive written in the declared form (§4.2). Compare the two only up to those bytes |
 | The recovered region (universal mode) disagrees with the same bytes read directly, anywhere else | The file is not well-formed, whichever side is at fault, and a reader that has both MUST NOT silently merge them or pick per entry. Prefer the direct read — it is the writer's own output, where the recovered region is a reconstruction of it — and surface the disagreement rather than displaying either as intact |
 
@@ -1874,17 +1920,24 @@ the extractor ships against the one the rule of §5.5 produces.
 defined by the WHATWG standard shows 20 that are injective and never produce U+FFFD:
 `windows-1252` (and its `iso-8859-1` labels), `iso-8859-2`, `-4`, `-5`, `-10`, `-13`,
 `-14`, `-15`, `-16`, `koi8-r`, `koi8-u`, `macintosh`, `windows-1250`, `-1251`,
-`-1254`, `-1256`, `-1258`, `x-mac-cyrillic`, `ibm866` and `x-user-defined`. The last of
-those qualifies on the criterion but is a poor choice in practice: it maps 0x80–0xFF
-into the Private Use Area, U+F780–U+F7FF, so the payload's characters have no meaning
-outside this round trip and any tool that touches the text sees private-use code points.
+`-1254`, `-1256`, `-1258`, `x-mac-cyrillic`, `ibm866` and `x-user-defined`. The last
+of those fails the second criterion of §2.1 and is excluded, which leaves 19: the HTML
+standard replaces the `x-user-defined` label with `windows-1252` before decoding a
+document, measured in Chrome as `document.characterSet` reading `windows-1252` for a
+page declaring `<meta charset=x-user-defined>` while a page declaring `koi8-r` reads
+back as declared, so a file built on it fails recovery on every load. Only a decoder
+called directly, `TextDecoder` for one, honors the label — which is why the
+injectivity table alone admitted it, and why `charset-round-trip.js` pins its
+exclusion rather than re-deriving it, Deno having no document parser. It would also
+have been a poor choice: it maps 0x80–0xFF into the Private Use Area, U+F780–U+F7FF,
+so the payload's characters have no meaning outside this round trip.
 The remaining single-byte encodings have undefined positions in their index —
 `iso-8859-3`, `-6`, `-7`, `-8`, `windows-874`, `-1253`, `-1255`, `-1257` — and the
 multi-byte ones (`utf-8`, `utf-16le`, `utf-16be`, `gbk`, `gb18030`, `big5`, `euc-jp`,
 `shift_jis`, `euc-kr`, `iso-2022-jp`) decode a lone byte sequence to U+FFFD or to fewer
 than 256 characters.
 The reverse table each one needs ranges from 8 entries (`iso-8859-15`) to 128
-(`koi8-r`, `koi8-u`, `ibm866` and `x-user-defined`); windows-1252 needs 27.
+(`koi8-r`, `koi8-u` and `ibm866`); windows-1252 needs 27.
 
 **That the round trip is charset-independent.** The mechanism of §5.5 — parse, then
 re-encode with the reverse table, restoring newlines from the 2-bit codes and NUL from
@@ -1920,6 +1973,10 @@ predicts.
 | August 2026 | Core 1.5.120: the hand-built `page.pdf` records set the language encoding flag, like every entry the ZIP writer produces (§5.8). Its name is ASCII, so no decoded name changes; what changes is that no entry in an archive is read through CP437 any more, closing the path the 1.5.119 defect surfaced on |
 | September 2026 | §5.8 no longer requires bit 11 on every entry, deferring to ZIP's own rule: the flag is set when a name or a comment holds a byte outside printable ASCII, and left clear otherwise, because readers disagree about the flag more than they disagree about ASCII. The reference writer's names are all percent-encoded, so in practice none of them carries it now, and the hand-built `page.pdf` records follow the writer instead of overriding it — reversing the 1.5.120 row below, whose reason was that `page.pdf` would otherwise be the only entry read through the legacy path. It no longer is: every name in the archive takes the same path again, the other one |
 | September 2026 | Core 1.5.126: the appended-data budget becomes the `maxAppendedDataLength` writer option and its default drops from 65535 to 16361 bytes, so the EOCD record stays inside libarchive's scan and `bsdtar` opens archives it used to reject (§5.2, §8.1). The 65535-byte comment ceiling is now a separate limit, stated in §4.2: a budget raised past it produces a run that cannot be declared |
+| September 2026 | The PNG face re-tests the `tEXt "ZIP"` length field with its neighbours once the appended run is sized, and pads the run by one byte when the value would complete a pattern (§5.1, §6.1). The field had been patched untested, on the argument that only its top byte could matter, which missed a three-byte close pattern sitting whole in the low three bytes: `-->` at a chunk of exactly 2,960,702 bytes, `]]>` at 6,118,718. The appended-data budget reserves the byte under the PNG face (§5.2) |
+| September 2026 | The universal-mode extractor enumerates every `sfz-data` candidate before choosing and refuses two (§4.5, §7.4). It used to take the first element or the first comment, which could never meet §7.4's rule on a second candidate; the non-rung element fallback that §4.5 stated as a SHOULD the reference skipped is now how candidates are filtered |
+| September 2026 | §2.1 gains its second charset criterion, that the label survive HTML's encoding selection, and §8.4 lists 19 qualifying encodings instead of 20: `x-user-defined` is injective, but the HTML standard replaces the label with windows-1252 before decoding a document, so a file declaring it fails recovery on every load |
+| September 2026 | §5.8 states UTF-8 names and comments as this format's own requirement. The rule had been attributed to ZIP, which permits the legacy code page with the flag clear; read with the sentence forbidding the flag on a legacy-encoded name, that left a code page 437 writer no valid choice |
 
 This document was itself revised in August 2026, against core 1.5.108, after several
 independent reviews. One of them was a reader built from this specification alone, with
@@ -1966,3 +2023,19 @@ fields patched after the wrapper check and the size below which they are harmles
 (§5.1), the chunks the PNG face copies (§3.1), the per-frame manifests and the root
 directory's name (§7.1), the `page.pdf` header fields (§6.1), and the range-reading
 failure path (§4.1).
+
+A review in September 2026, against core 1.6.5, by a reader working from the text
+alone, found seven defects, and the writer shared two of them. The `tEXt "ZIP"` length
+field could spell a three-byte close pattern under a zero top byte, at 2,960,702 bytes
+for `-->`, far below the 755 MB ceiling §5.1 had argued was the first dangerous size;
+the writer now re-tests the field and pads by a byte (§5.1, §6.1). `x-user-defined`
+was listed as a qualifying charset on injectivity alone, when the HTML standard
+replaces the label before decoding any document; §2.1 gained its second criterion and
+§8.4 lists 19 (§2.1, §8.4). The locate step of §4.5 picked the first candidate and so
+could never meet §7.4's rule on a second; it now enumerates, and the reference
+extractor refuses two (§4.5, §7.4). And four places contradicted themselves or the
+standard they cite: §5.3 said nothing depended on absolute offsets while §4.2 required
+them, and the PDF variants cannot be written any other way; §5.8 attributed to ZIP a
+rule that is this format's, ZIP permitting the legacy code page; §6.2 claimed byte
+identity across builds that encryption's fresh salts deny; and §7.1 resolved a manifest
+tie by silence.

@@ -21,6 +21,20 @@ function report(label, ok, detail = "") {
 	}
 }
 
+// §6.2 scopes determinism to one build: across builds an encrypted archive never repeats, the
+// ZIP writer drawing a fresh salt per AES entry and a fresh header per ZipCrypto entry
+{
+	const restoreDate = freezeDate();
+	try {
+		const first = await runProcess(makePageData(SEED, SIZE), makeOptions({ password: "secret" }));
+		const second = await runProcess(makePageData(SEED, SIZE), makeOptions({ password: "secret" }));
+		report("process() NON-deterministic across builds with a password, even with frozen Date (fresh salts)",
+			!sameBytes(first.bytes, second.bytes), `sizes ${first.bytes.length}/${second.bytes.length}`);
+	} finally {
+		restoreDate();
+	}
+}
+
 {
 	const first = await runProcess(makePageData(SEED, SIZE), makeOptions());
 	await new Promise(resolve => setTimeout(resolve, 5));

@@ -95,6 +95,7 @@ const MAX_ZIP_COMMENT_LENGTH = 65535;
 const PDF_ENTRY_FILENAME = "page.pdf";
 const PRESCAN_WINDOW_LENGTH = 1024;
 const PNG_TEXT_CHUNK_HEADER_LENGTH = 12;
+const PNG_LENGTH_PADDING_LENGTH = 1;
 const PNG_ZIP_CHUNK_TYPE_KEYWORD = new Uint8Array([0x74, 0x45, 0x58, 0x74, 0x5a, 0x49, 0x50, 0]);
 const MAX_HIDDEN_PNG_CHUNK_LENGTH = 0x2D000000;
 const WRAPPER_PATTERN_WINDOW_LENGTH = 12;
@@ -277,7 +278,7 @@ async function buildArchive(pageData, options, script, entriesData, zipWriterOpt
 			const payloadView = new DataView(payload.buffer);
 			words.forEach((word, indexWord) => payloadView.setUint32(indexWord * 4, word, true));
 			extraData = "<sfz-extra-data>" + base64Encode(deflateRaw(payload)) + "</sfz-extra-data>";
-			if (options.preventAppendedData || extraData.length > getMaxAppendedDataLength(options) - pageContent.length - endTags.length - (options.embeddedImage ? PNG_IEND_LENGTH + PNG_CHUNK_CRC_LENGTH : 0)) {
+			if (options.preventAppendedData || extraData.length > getMaxAppendedDataLength(options) - pageContent.length - endTags.length - (options.embeddedImage ? PNG_IEND_LENGTH + PNG_CHUNK_CRC_LENGTH + PNG_LENGTH_PADDING_LENGTH : 0)) {
 				if (!options.extraDataSize) {
 					options.preventAppendedData = true;
 					options.extraDataSize = getReservationSize(extraData.length);
@@ -288,7 +289,11 @@ async function buildArchive(pageData, options, script, entriesData, zipWriterOpt
 			}
 		}
 		pageContent += endTags;
-		await writeData(zipDataWriter.writable, (new TextEncoder()).encode(pageContent));
+		let pageContentData = new TextEncoder().encode(pageContent);
+		if (options.embeddedImage && !isChunkLengthHidden(data, embeddedImageDataOffset, zipDataWriter.offset + pageContentData.length - embeddedImageDataOffset - 4, imageChunk.tagIndex)) {
+			pageContentData = concatArrays(pageContentData, new Uint8Array(PNG_LENGTH_PADDING_LENGTH).fill(0x20));
+		}
+		await writeData(zipDataWriter.writable, pageContentData);
 	}
 	await zipDataWriter.writable.close();
 	const pageContent = await zipDataWriter.getData();
@@ -335,6 +340,15 @@ function isDeclaredLengthHidden(pageContent, zipDataEnd, appendedDataLength, opt
 	new DataView(tail.buffer).setUint16(WRAPPER_PATTERN_WINDOW_LENGTH, appendedDataLength, true);
 	const tagIndex = options.extractDataFromPageTags ? getExtraDataTagIndex(options.extractDataFromPageTags) + 1 : 0;
 	return !containsDataPattern(tail, EMBEDDED_DATA_PATTERNS[tagIndex]);
+}
+
+function isChunkLengthHidden(data, embeddedImageDataOffset, chunkLength, tagIndex) {
+	const lengthOffset = embeddedImageDataOffset - 4;
+	const window = concatArrays(
+		data.subarray(Math.max(0, lengthOffset - WRAPPER_PATTERN_WINDOW_LENGTH), lengthOffset),
+		getLength(chunkLength),
+		data.subarray(embeddedImageDataOffset, embeddedImageDataOffset + PNG_ZIP_CHUNK_TYPE_KEYWORD.length));
+	return !containsDataPattern(window, EMBEDDED_DATA_PATTERNS[tagIndex]);
 }
 
 function getCRC32(data, indexData = 0) {
@@ -723,7 +737,7 @@ function getImageHTMLChunk(pageData, options, lastModDate) {
 			findEmbeddedDataTagIndex(wrappedData, tagIndex) != tagIndex) {
 			tagIndex = findEmbeddedDataTagIndex(embeddedImageData, tagIndex + 1);
 		} else {
-			return { endTag, startHTMLData, htmlData, htmlDataCRC };
+			return { tagIndex, endTag, startHTMLData, htmlData, htmlDataCRC };
 		}
 	}
 }
@@ -798,6 +812,7 @@ function isCompressibleContentType(contentType) {
 async function getContent() {
 	const BASE64_TABLE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 	const DATA_IDENTIFIER = "sfz-data";
+	const WRAPPER_TAG_NAMES = ["script", "style", "noframes", "noembed", "iframe", "xmp", "svg", "plaintext"];
 	const { Blob, XMLHttpRequest, NodeFilter, document, zip, location } = globalThis;
 	const characterMap = new Map([
 		[65533, 0], [8364, 128], [8218, 130], [402, 131], [8222, 132], [8230, 133], [8224, 134], [8225, 135], [710, 136], [8240, 137],
@@ -902,15 +917,22 @@ async function getContent() {
 		if (zipDataElement) {
 			const inflatedPayload = zip.inflateRaw(base64Decode(zipDataElement.textContent));
 			const payload = new DataView(inflatedPayload.buffer, inflatedPayload.byteOffset, inflatedPayload.length & -4);
-			const dataElement = document.getElementById(DATA_IDENTIFIER);
-			if (dataElement) {
-				return decodeZipData(dataElement, payload, 0);
-			}
-			const walker = document.createTreeWalker(document, NodeFilter.SHOW_COMMENT);
-			while (walker.nextNode()) {
-				if (walker.currentNode.data.startsWith(DATA_IDENTIFIER)) {
-					return decodeZipData(walker.currentNode, payload, DATA_IDENTIFIER.length);
+			const candidates = Array.from(document.querySelectorAll("[id=" + DATA_IDENTIFIER + "]")).filter(element => WRAPPER_TAG_NAMES.includes(element.localName));
+			let startIndex = 0;
+			if (!candidates.length) {
+				const walker = document.createTreeWalker(document, NodeFilter.SHOW_COMMENT);
+				while (walker.nextNode()) {
+					if (walker.currentNode.data.startsWith(DATA_IDENTIFIER)) {
+						candidates.push(walker.currentNode);
+					}
 				}
+				startIndex = DATA_IDENTIFIER.length;
+			}
+			if (candidates.length > 1) {
+				throw new Error("Multiple zip data candidates found");
+			}
+			if (candidates.length) {
+				return decodeZipData(candidates[0], payload, startIndex);
 			}
 		}
 		throw new Error("Extra zip data not found");

@@ -22,11 +22,16 @@
  */
 
 // Universal mode recovers the ZIP region from the characters the HTML parser produced, so the
-// declared charset has to carry all 256 byte values through a decode injectively (§2.1). Which
-// encodings do is a property of the WHATWG index, not of this repository, and §8.4 prints the
-// answer as a table: 20 qualify, 18 do not, and each qualifying one needs a reverse table of a
-// stated size. Nothing re-derived that table -- it was measured once, by hand, outside the repo,
-// and would go stale silently if an index changed or the prose were edited.
+// declared charset has to carry all 256 byte values through a decode injectively, and its label
+// has to survive HTML's encoding selection, which replaces x-user-defined with windows-1252 before
+// any document is decoded (§2.1). Which encodings do is a property of the WHATWG index and of the
+// HTML standard, not of this repository, and §8.4 prints the answer as a table: 19 qualify, one
+// is injective but never reaches a document, 18 do not, and each qualifying one needs a reverse
+// table of a stated size. Nothing re-derived that table -- it was measured once, by hand, outside
+// the repo, and would go stale silently if an index changed or the prose were edited. The HTML
+// remap cannot be re-derived here, Deno having no document parser; it was measured in Chrome on
+// 2026-09-19 (<meta charset=x-user-defined> gives document.characterSet windows-1252, koi8-r as
+// the control gives KOI8-R), and this file pins which side of the table the label is on.
 //
 // The last check is the one with teeth. §5.5 requires the reverse table to be derived from the
 // WHATWG index and NOT from a platform codec of the same name, because most platform codecs
@@ -36,13 +41,16 @@
 
 const BYTES = new Uint8Array(256).map((_, index) => index);
 
-// the 20 of §8.4, in the order the section lists them
+// the 19 of §8.4, in the order the section lists them
 const QUALIFYING = [
 	"windows-1252", "iso-8859-2", "iso-8859-4", "iso-8859-5", "iso-8859-10", "iso-8859-13",
 	"iso-8859-14", "iso-8859-15", "iso-8859-16", "koi8-r", "koi8-u", "macintosh", "windows-1250",
-	"windows-1251", "windows-1254", "windows-1256", "windows-1258", "x-mac-cyrillic", "ibm866",
-	"x-user-defined"
+	"windows-1251", "windows-1254", "windows-1256", "windows-1258", "x-mac-cyrillic", "ibm866"
 ];
+// injective under the decoder, so it passes the first criterion of §2.1 alone, but the HTML
+// standard's prescan and its "change the encoding" step both replace it with windows-1252, so no
+// document is ever decoded with it and a file declaring it fails recovery on every load
+const REMAPPED_BY_HTML = ["x-user-defined"];
 // the 18 that do not: eight single-byte encodings with undefined positions in their index, then
 // the multi-byte ones, which decode a lone byte sequence to U+FFFD or to fewer than 256 characters
 const DISQUALIFIED = [
@@ -80,14 +88,15 @@ function describe(label) {
 	return { qualifies: true, identity, table, points };
 }
 
-const described = new Map([...QUALIFYING, ...DISQUALIFIED].map(label => [label, describe(label)]));
+const ALL = [...QUALIFYING, ...REMAPPED_BY_HTML, ...DISQUALIFIED];
+const described = new Map(ALL.map(label => [label, describe(label)]));
 
-check("§8.4 covers the whole standard: 20 qualifying + 18 disqualified",
-	QUALIFYING.length + DISQUALIFIED.length == 38 && new Set([...QUALIFYING, ...DISQUALIFIED]).size == 38);
+check("§8.4 covers the whole standard: 19 qualifying + 1 remapped by HTML + 18 disqualified",
+	QUALIFYING.length == 19 && REMAPPED_BY_HTML.length == 1 && DISQUALIFIED.length == 18 && new Set(ALL).size == 38);
 
 const wrongVerdict = [...described].filter(([label, result]) =>
-	result.qualifies != QUALIFYING.includes(label));
-check("every encoding falls on the side of the table §8.4 puts it on", wrongVerdict.length == 0,
+	result.qualifies != (QUALIFYING.includes(label) || REMAPPED_BY_HTML.includes(label)));
+check("every encoding falls on the side of the table §8.4 puts it on, under the decoder", wrongVerdict.length == 0,
 	wrongVerdict.map(([label, result]) => label + " " + (result.reason || "qualifies")).join(", "));
 
 // §8.4 quotes the extremes of the reverse-table sizes; they bound what an implementation has to
@@ -98,9 +107,9 @@ const smallest = Math.min(...sizes.map(([, size]) => size));
 const largest = Math.max(...sizes.map(([, size]) => size));
 check("the smallest reverse table is 8 entries, iso-8859-15", smallest == 8 &&
 	sizes.filter(([, size]) => size == smallest).map(([label]) => label).join() == "iso-8859-15");
-check("the largest is 128, for koi8-r, koi8-u, ibm866 and x-user-defined", largest == 128 &&
+check("the largest is 128, for koi8-r, koi8-u and ibm866", largest == 128 &&
 	sizes.filter(([, size]) => size == largest).map(([label]) => label).sort().join() ==
-	"ibm866,koi8-r,koi8-u,x-user-defined");
+	"ibm866,koi8-r,koi8-u");
 
 const windows1252 = described.get("windows-1252");
 check("windows-1252 decodes 229 of the 256 values to themselves (§5.5 rule 1)",
@@ -119,7 +128,8 @@ check("the WHATWG index assigns 0x81, 0x8D, 0x8F, 0x90 and 0x9D (§5.5)",
 	[0x81, 0x8D, 0x8F, 0x90, 0x9D].every(byte =>
 		windows1252.points[byte].codePointAt(0) == byte && !windows1252.table.has(byte)));
 
-// §8.4's caveat on x-user-defined: it qualifies on the criterion and is still a poor choice
+// §8.4's note on x-user-defined: injective, into the Private Use Area, and excluded for the HTML
+// remap rather than for that. The table it would need is the 128-entry kind
 check("x-user-defined maps 0x80-0xFF into the Private Use Area, U+F780-U+F7FF",
 	[...Array(128).keys()].every(index =>
 		described.get("x-user-defined").points[128 + index].codePointAt(0) == 0xF780 + index));
