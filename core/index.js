@@ -467,7 +467,7 @@ class Processor {
 		}
 		this.maxResources = this.batchRequest.getMaxResources();
 		if (!this.options.removeFrames && this.options.frames) {
-			this.options.frames.forEach(frameData => this.maxResources += frameData.maxResources || 0);
+			this.options.frames.forEach(frameData => this.maxResources += frameData.runner ? frameData.runner.batchRequest.getMaxResources() : 0);
 		}
 		this.stats.set("processed", "resources", this.maxResources);
 	}
@@ -1366,13 +1366,13 @@ class Processor {
 				this.options.frames.push(frameData);
 				frameData.windowId = (this.options.windowId || "0") + "." + this.options.frames.length;
 				frameElement.setAttribute(util.WIN_ID_ATTRIBUTE_NAME, frameData.windowId);
-				await initializeProcessor(frameData, frameElement, null, this.batchRequest, Object.assign({}, this.options));
+				await initializeProcessor(frameData, frameElement, null, Object.assign({}, this.options));
 			} else {
 				const frameWindowId = frameElement.getAttribute(util.WIN_ID_ATTRIBUTE_NAME);
 				if (this.options.frames && frameWindowId) {
 					const frameData = this.options.frames.find(frame => frame.windowId == frameWindowId);
 					if (frameData && frameData.content) {
-						await initializeProcessor(frameData, frameElement, frameWindowId, this.batchRequest, Object.assign({}, this.options));
+						await initializeProcessor(frameData, frameElement, frameWindowId, Object.assign({}, this.options));
 					}
 				}
 			}
@@ -1383,7 +1383,7 @@ class Processor {
 			}
 		});
 
-		async function initializeProcessor(frameData, frameElement, frameWindowId, batchRequest, options) {
+		async function initializeProcessor(frameData, frameElement, frameWindowId, options) {
 			options.insertSingleFileComment = false;
 			options.insertCanonicalLink = false;
 			options.insertMetaNoIndex = false;
@@ -1413,7 +1413,6 @@ class Processor {
 			frameData.frameElement = frameElement;
 			await frameData.runner.loadPage();
 			await frameData.runner.initialize();
-			frameData.maxResources = batchRequest.getMaxResources();
 		}
 	}
 
