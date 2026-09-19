@@ -389,7 +389,6 @@ class BatchRequest {
 					acceptHeaders: options.acceptHeaders,
 					networkTimeout: options.networkTimeout
 				});
-				await onloadListener({ url: resourceURL });
 				if (!this.cancelled) {
 					const extension = util.getContentTypeExtension(content.contentType) || util.getFilenameExtension(resourceURL, options.filenameReplacedCharacters, options.filenameReplacementCharacter, options.filenameReplacementCharacters);
 					resourceRequests.forEach(callbacks => {
@@ -400,10 +399,10 @@ class BatchRequest {
 				}
 			} catch (error) {
 				indexResource = indexResource + 1;
-				await onloadListener({ url: resourceURL });
 				resourceRequests.forEach(resourceRequest => resourceRequest.reject(error));
 			}
 			this.requests.delete(requestKey);
+			await onloadListener({ url: resourceURL });
 		}));
 	}
 
