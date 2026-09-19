@@ -403,6 +403,12 @@ const DRAWN_FACES = `
 const DRAWN_USED_FONTS = [["subset", "400", "normal", "normal"], ["subset", "400", "italic", "normal"]];
 const LATIN_RANGE = [[0x41, 0x41]];
 const LATIN_AND_GREEK_RANGES = [[0x41, 0x41], [0x391, 0x391]];
+const SYMBOL_FACES = `
+	@font-face{font-family:"Subset";font-style:normal;font-weight:400;src:url(latin.woff2);unicode-range:U+0041-005A}
+	@font-face{font-family:"Subset";font-style:normal;font-weight:400;src:url(symbols.woff2);unicode-range:U+0009,U+000A,U+2715-2716}`;
+const SYMBOL_USED_FONTS = [["subset", "400", "normal", "normal"]];
+const TAB_NEWLINE_AND_LATIN_RANGES = [[9, 10], [0x41, 0x42]];
+const TAB_AND_CROSS_RANGES = [[9, 9], [0x41, 0x41], [0x2715, 0x2715]];
 
 // the Greek IS on the page, so the document-wide test keeps the italic subset; it is only ever
 // drawn upright, and that is what the cross product sees
@@ -435,6 +441,26 @@ check("a family whose bucket holds no characters keeps its faces",
 check("a style the page never draws is left to the weight and style test",
 	runDrawn(DRAWN_FACES, "AΑ", [["subset", "normal", LATIN_AND_GREEK_RANGES, 0]]),
 	["subset u+0041-005a", "subset u+0370-03ff"]);
+
+// A tab and a newline are recorded as drawn like any other character, and a Google Fonts symbol
+// subset declares a range that meets an ordinary English page in nothing else. Two such faces, 23,505
+// bytes, survived a capture of techcrunch.com on exactly U+0009 and U+000A. Neither can ever select a
+// glyph, so the face is dead whatever the page does, and the intersection has to be tested for a
+// character that draws rather than for any character at all.
+check("a range meeting the page only in a tab and a newline is dropped",
+	runDrawn(SYMBOL_FACES, "A\tB\n", [["subset", "normal", TAB_NEWLINE_AND_LATIN_RANGES, 0]], SYMBOL_USED_FONTS),
+	["subset u+0041-005a"]);
+
+// the control: the same range, and one character in it that does select a glyph
+check("a range meeting the page in a drawable character is kept",
+	runDrawn(SYMBOL_FACES, "A\t✕", [["subset", "normal", TAB_AND_CROSS_RANGES, 0]], SYMBOL_USED_FONTS),
+	["subset u+0041-005a", "subset u+0009,u+000a,u+2715-2716"]);
+
+// a drawn range that starts on a tab and runs past it holds drawable characters too, so the overlap
+// has to be walked rather than judged by its first code point
+check("a drawn range spanning the tab and real characters keeps the face",
+	runDrawn(SYMBOL_FACES, "A\tB", [["subset", "normal", [[9, 0x2716]], 0]], SYMBOL_USED_FONTS),
+	["subset u+0041-005a", "subset u+0009,u+000a,u+2715-2716"]);
 
 // the pin for the trap above: one bucket answers for every weight of its family and style
 check("a face is not dropped for the weight its characters were drawn at",

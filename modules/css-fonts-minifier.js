@@ -48,6 +48,8 @@ const REGEXP_CUSTOM_PROPERTY = /var\(\s*(--[^\s,)]+)\s*(?:,[^)]*)?\)/g;
 const REGEXP_CUSTOM_PROPERTY_FAMILY = /^var\(\s*(--[^\s,)]+)\s*(?:,(.*))?\)$/;
 const REGEXP_CUSTOM_PROPERTY_NAME = /^--/;
 const VALID_FONT_STYLES = [/^normal$/, /^italic$/, /^oblique$/, /^oblique\s+/];
+const NON_GLYPH_CHAR_CODES = [9, 10, 12, 13];
+const MAX_NON_GLYPH_CHAR_CODE = 13;
 // a family name kept when the "font" shorthand cannot be read: it resolves to nothing, so it
 // survives the substitution below and marks the fonts as undetermined instead of unused
 const UNRESOLVED_CUSTOM_PROPERTY_FAMILY = "var(--)";
@@ -369,7 +371,29 @@ function testDrawnUnicodeRange(ruleData, familyName, unicodeRange, usedFontsChar
 	}
 	return Boolean(matchedBuckets.find(bucket =>
 		bucket.ranges.find(drawnRange =>
-			ranges.find(range => drawnRange[0] <= range[1] && range[0] <= drawnRange[1]))));
+			ranges.find(range => testDrawnGlyph(drawnRange, range)))));
+}
+
+// A tab or a newline is recorded as drawn like any other character, but neither can ever select a
+// glyph, so a face whose unicode-range meets the page in nothing else is dead however the page is
+// laid out. Google Fonts symbol subsets are exactly that shape: measured on a capture of
+// techcrunch.com, two Roboto faces worth 23,505 bytes matched the document in U+0009 and U+000A and
+// nothing more.
+function testDrawnGlyph(drawnRange, range) {
+	const fromCharCode = Math.max(drawnRange[0], range[0]);
+	const toCharCode = Math.min(drawnRange[1], range[1]);
+	if (fromCharCode > toCharCode) {
+		return false;
+	}
+	if (fromCharCode > MAX_NON_GLYPH_CHAR_CODE || toCharCode > MAX_NON_GLYPH_CHAR_CODE) {
+		return true;
+	}
+	for (let charCode = fromCharCode; charCode <= toCharCode; charCode++) {
+		if (!NON_GLYPH_CHAR_CODES.includes(charCode)) {
+			return true;
+		}
+	}
+	return false;
 }
 
 function testUsedFont(ruleData, familyName, declaredFonts, filteredUsedFonts) {
