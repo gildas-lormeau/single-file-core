@@ -345,19 +345,25 @@ class BatchRequest {
 		return new Promise((resolve, reject) => {
 			const requestKey = JSON.stringify([resourceURL, asBinary, expectedType, baseURI, blockMixedContent, contentType]);
 			let resourceRequests = this.requests.get(requestKey);
-			if (!resourceRequests) {
-				resourceRequests = [];
-				this.requests.set(requestKey, resourceRequests);
-			}
-			const callbacks = { resolve, reject };
-			resourceRequests.push(callbacks);
-			if (groupDuplicates) {
-				let duplicateRequests = this.duplicates.get(requestKey);
-				if (!duplicateRequests) {
-					duplicateRequests = [];
-					this.duplicates.set(requestKey, duplicateRequests);
+			if (this.cancelled) {
+				reject();
+			} else if (this.running && !resourceRequests) {
+				reject(new Error("Resource requested after the batch started: " + resourceURL));
+			} else {
+				if (!resourceRequests) {
+					resourceRequests = [];
+					this.requests.set(requestKey, resourceRequests);
 				}
-				duplicateRequests.push(callbacks);
+				const callbacks = { resolve, reject };
+				resourceRequests.push(callbacks);
+				if (groupDuplicates) {
+					let duplicateRequests = this.duplicates.get(requestKey);
+					if (!duplicateRequests) {
+						duplicateRequests = [];
+						this.duplicates.set(requestKey, duplicateRequests);
+					}
+					duplicateRequests.push(callbacks);
+				}
 			}
 		});
 	}
@@ -367,6 +373,7 @@ class BatchRequest {
 	}
 
 	run(onloadListener, options) {
+		this.running = true;
 		const resourceURLs = [...this.requests.keys()];
 		let indexResource = 0;
 		return Promise.all(resourceURLs.map(async requestKey => {
