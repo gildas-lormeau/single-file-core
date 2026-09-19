@@ -72,6 +72,7 @@ const INVOKER_ATTRIBUTE_NAMES = ["popovertarget", "commandfor"];
 const INVOKERS_SELECTOR = INVOKER_ATTRIBUTE_NAMES.map(attributeName => "[" + attributeName + "]").join(",");
 const IGNORED_TAG_NAMES = ["SCRIPT", "NOSCRIPT", "META", "LINK", "TEMPLATE"];
 const ROOT_PSEUDO_ELEMENT_NAMES = [":before", ":after"];
+const BLOCK_CONTAINER_DISPLAY_VALUES = ["block", "flow-root", "list-item", "inline-block", "table-cell", "table-caption"];
 const REGEXP_SIMPLE_QUOTES_STRING = /^'(.*?)'$/;
 const REGEXP_DOUBLE_QUOTES_STRING = /^"(.*?)"$/;
 const FONT_WEIGHTS = {
@@ -467,6 +468,20 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 						getUsedFont(beforeStyle, data.usedFonts, data.usedFontsCharacters, getPseudoElementCharacters(beforeStyle));
 						const afterStyle = getComputedStyle(win, element, ":after");
 						getUsedFont(afterStyle, data.usedFonts, data.usedFontsCharacters, getPseudoElementCharacters(afterStyle));
+						const display = computedStyle ? computedStyle.getPropertyValue("display") : "";
+						const tagName = element.tagName.toUpperCase();
+						if (display == "list-item") {
+							getUsedFont(getComputedStyle(win, element, "::marker"), data.usedFonts);
+						}
+						if (BLOCK_CONTAINER_DISPLAY_VALUES.includes(display)) {
+							getUsedFont(getComputedStyle(win, element, "::first-line"), data.usedFonts, data.usedFontsCharacters, elementCharacters);
+						}
+						if ((tagName == "INPUT" || tagName == "TEXTAREA") && element.getAttribute("placeholder")) {
+							getUsedFont(getComputedStyle(win, element, "::placeholder"), data.usedFonts, data.usedFontsCharacters, { characters: element.getAttribute("placeholder") });
+						}
+						if (tagName == "INPUT" && element.type == "file") {
+							getUsedFont(getComputedStyle(win, element, "::file-selector-button"), data.usedFonts);
+						}
 					}
 				}
 			}
