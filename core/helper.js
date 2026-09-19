@@ -68,6 +68,7 @@ const ASYNC_SCRIPT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "async-script
 const FLOW_ELEMENTS_SELECTOR = "*:not(base):not(link):not(meta):not(noscript):not(script):not(style):not(template):not(title)";
 const KEPT_TAG_NAMES = ["NOSCRIPT", "DISABLED-NOSCRIPT", "META", "LINK", "STYLE", "TITLE", "TEMPLATE", "SOURCE", "OBJECT", "SCRIPT", "HEAD", "BODY"];
 const IGNORED_TAG_NAMES = ["SCRIPT", "NOSCRIPT", "META", "LINK", "TEMPLATE"];
+const ROOT_PSEUDO_ELEMENT_NAMES = [":before", ":after"];
 const REGEXP_SIMPLE_QUOTES_STRING = /^'(.*?)'$/;
 const REGEXP_DOUBLE_QUOTES_STRING = /^"(.*?)"$/;
 const FONT_WEIGHTS = {
@@ -282,6 +283,9 @@ function preProcessDoc(doc, win, options) {
 	if (win && doc.documentElement) {
 		markInvalidNesting(doc);
 		elementsInfo = getElementsInfo(win, doc, doc.documentElement, options);
+		if (options.removeUnusedFonts && doc.defaultView) {
+			getRootElementUsedFonts(win, doc.documentElement, elementsInfo);
+		}
 		if (options.moveStylesInHead) {
 			doc.querySelectorAll("body style, body ~ style").forEach(element => {
 				const computedStyle = getComputedStyle(win, element);
@@ -721,6 +725,22 @@ function getElementCharacters(win, element) {
 		});
 	}
 	return { characters };
+}
+
+// getElementsInfo iterates the children of the element it is given, so the root is never visited.
+// An inherited property costs nothing there, since every descendant carries the root's value, but a
+// pseudo-element on the root has no descendant to speak for it: html::before renders a box with a
+// font of its own and nothing else records it. Only a pseudo that generates content is recorded,
+// because the computed style of a pseudo that draws nothing still reports the inherited family and
+// registering that would mark the whole root font stack as used.
+function getRootElementUsedFonts(win, element, data) {
+	ROOT_PSEUDO_ELEMENT_NAMES.forEach(pseudoElementName => {
+		const computedStyle = getComputedStyle(win, element, pseudoElementName);
+		const drawnCharacters = getPseudoElementCharacters(computedStyle);
+		if (drawnCharacters.characters || drawnCharacters.unknown) {
+			getUsedFont(computedStyle, data.usedFonts, data.usedFontsCharacters, drawnCharacters);
+		}
+	});
 }
 
 function getPseudoElementCharacters(computedStyle) {
