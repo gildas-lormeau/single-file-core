@@ -43,16 +43,20 @@ async function build(seed, targetLength, overrides) {
 	return { appended, relocated, cost: relocated.total - appended.total };
 }
 
-// the element changes length between the two passes once the reservation is large enough to move
-// the central-directory offsets it encodes, and then the reservation comes from the first pass
-// while the element written into it comes from the second. These fixtures stay below that, which
-// is what lets the identity be asserted exactly rather than within a tolerance.
+// the element can change length between the two passes: relocating moves the central-directory
+// offsets it encodes, and a few bytes of deflate output and base64 rounding follow, in either
+// direction. That happens at fixture sizes scattered across the range rather than above a
+// threshold (23 of 58 sampled sizes on one machine, never by more than 8 bytes), and a size that
+// agrees under one platform's zlib disagrees under another's, which is how an exact identity
+// asserted here was green on macOS and red on CI. What keeps the archive valid is that the element
+// written in the second pass fits the reservation computed from the first, whose margin is never
+// below 32 bytes, and that is the property asserted.
 for (const [label, seed, targetLength, closeTagLength] of [
 	["comment rung", 1, 64 * 1024, "-->".length],
 	["comment rung, larger", 2, 147 * 1024, "-->".length]
 ]) {
 	const { appended, relocated, cost } = await build(seed, targetLength, {});
-	check(`${label}: the element keeps its length`, relocated.element, appended.element);
+	check(`${label}: the element fits its reservation`, relocated.element <= reservationSize(appended.element), true);
 	check(`${label}: relocates`, relocated.relocated, true);
 	check(`${label}: cost`, cost,
 		reservationSize(appended.element) - appended.element - closeTagLength - END_TAGS_LENGTH);
