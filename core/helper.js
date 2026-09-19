@@ -186,13 +186,18 @@ function normalizeOptions(options) {
 }
 
 function getPosterDataURI(canvasElement) {
-	for (const contentType of POSTER_CONTENT_TYPES) {
-		const dataURI = canvasElement.toDataURL(contentType, POSTER_QUALITY);
-		if (dataURI.startsWith("data:" + contentType)) {
+	if (canvasElement.width && canvasElement.height) {
+		for (const contentType of POSTER_CONTENT_TYPES) {
+			const dataURI = canvasElement.toDataURL(contentType, POSTER_QUALITY);
+			if (dataURI.startsWith("data:" + contentType)) {
+				return dataURI;
+			}
+		}
+		const dataURI = canvasElement.toDataURL("image/png");
+		if (dataURI != EMPTY_RESOURCE) {
 			return dataURI;
 		}
 	}
-	return canvasElement.toDataURL("image/png");
 }
 
 let userScriptHandlerObserver;
@@ -613,9 +618,12 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 			canvasElement.height = element.videoHeight;
 			try {
 				context.drawImage(element, 0, 0, canvasElement.width, canvasElement.height);
-				data.posters.push(getPosterDataURI(canvasElement));
-				element.setAttribute(POSTER_ATTRIBUTE_NAME, data.posters.length - 1);
-				data.markedElements.push(element);
+				const posterDataURI = getPosterDataURI(canvasElement);
+				if (posterDataURI) {
+					data.posters.push(posterDataURI);
+					element.setAttribute(POSTER_ATTRIBUTE_NAME, data.posters.length - 1);
+					data.markedElements.push(element);
+				}
 				// eslint-disable-next-line no-unused-vars
 			} catch (error) {
 				// ignored

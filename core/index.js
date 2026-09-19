@@ -429,6 +429,7 @@ const DISABLED_SCRIPT_URI = "javascript:void(0)";
 const SCRIPT_URI_ATTRIBUTE_NAMES = ["href", "src", "action", "formaction", "data"];
 const UTF8_CHARSET = "utf-8";
 const TAINTED_CANVAS_WARNING_MESSAGE = "SingleFile: canvas elements tainted by a cross-origin resource, dropped from the page:";
+const EMPTY_RESOURCE = "data:,";
 
 class Processor {
 	constructor(options, processorHelper, batchRequest) {
@@ -787,7 +788,7 @@ class Processor {
 				const attributeValue = element.getAttribute(util.POSTER_ATTRIBUTE_NAME);
 				if (attributeValue) {
 					const posterURL = this.options.posters[Number(attributeValue)];
-					if (!videoElement.getAttribute("poster") && posterURL) {
+					if (!videoElement.getAttribute("poster") && posterURL && posterURL != EMPTY_RESOURCE) {
 						videoElement.setAttribute("poster", posterURL);
 					}
 				}
@@ -1206,12 +1207,15 @@ class Processor {
 			} else {
 				videoElement = element.parentElement;
 			}
-			if (!videoElement.poster) {
+			if (!videoElement.poster || videoElement.poster == EMPTY_RESOURCE) {
 				const attributeValue = videoElement.getAttribute(util.VIDEO_ATTRIBUTE_NAME);
 				if (attributeValue) {
 					const videoData = this.options.videos[Number(attributeValue)];
 					const src = videoData.src || videoElement.src;
 					if (src) {
+						const blankPosterURI = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='" +
+							(videoData.size.videoWidth || videoData.size.pxWidth) + "' height='" +
+							(videoData.size.videoHeight || videoData.size.pxHeight) + "'%3E%3C/svg%3E";
 						const temporaryVideoElement = this.doc.createElement("video");
 						temporaryVideoElement.src = src;
 						temporaryVideoElement.style.setProperty("width", videoData.size.pxWidth + "px", "important");
@@ -1224,21 +1228,21 @@ class Processor {
 						return new Promise(resolve => {
 							temporaryVideoElement.currentTime = videoData.currentTime;
 							temporaryVideoElement.oncanplay = () => {
-								canvasElement.width = videoData.size.videoWidth;
-								canvasElement.height = videoData.size.videoHeight;
+								canvasElement.width = temporaryVideoElement.videoWidth || videoData.size.videoWidth;
+								canvasElement.height = temporaryVideoElement.videoHeight || videoData.size.videoHeight;
 								context.drawImage(temporaryVideoElement, 0, 0, canvasElement.width, canvasElement.height);
 								try {
-									videoElement.poster = util.getPosterDataURI(canvasElement);
+									videoElement.poster = util.getPosterDataURI(canvasElement) || blankPosterURI;
 									// eslint-disable-next-line no-unused-vars
 								} catch (error) {
-									videoElement.poster = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='" + videoData.size.videoWidth + "' height='" + videoData.size.videoHeight + "'%3E%3C/svg%3E";
+									videoElement.poster = blankPosterURI;
 									// ignored
 								}
 								temporaryVideoElement.remove();
 								resolve();
 							};
 							temporaryVideoElement.onerror = () => {
-								videoElement.poster = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='" + videoData.size.videoWidth + "' height='" + videoData.size.videoHeight + "'%3E%3C/svg%3E";
+								videoElement.poster = blankPosterURI;
 								temporaryVideoElement.remove();
 								resolve();
 							};
