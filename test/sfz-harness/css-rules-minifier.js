@@ -141,5 +141,51 @@ check("a tree-structural pseudo-class is queried as written, not stripped",
 	structuralResult.includes(":nth-child(2)"),
 	structuralResult);
 
+// The open attribute is state too: a details toggles it with no script, and a dialog drops it when a
+// form with method=dialog closes it. Matched literally, `details[open]>summary` is gone from a page
+// saved with its details closed, and the summary renders wrong the moment the reader expands it.
+const openResult = run(`
+	.present[open]{color:red}
+	.present[OPEN=""]{color:green}
+	.absent[open]{color:red}
+	.present[hidden]{color:blue}
+	.present:not([open]){outline:1px}
+	.absent:not([open]){outline:2px}
+	.present[open]::after{content:""}
+`, PRESENT);
+check("an open-attribute rule whose subject exists is kept with the attribute",
+	openResult.includes(".present[open]{color:red}"),
+	openResult);
+check("the attribute name is matched case-insensitively and whatever the matcher",
+	openResult.includes(".present[OPEN=\"\"]{color:green}"),
+	openResult);
+check("an open-attribute rule whose subject is absent is removed",
+	!openResult.includes(".absent[open]"),
+	openResult);
+check("control: another attribute is still queried literally and removed when it matches nothing",
+	!openResult.includes("[hidden]"),
+	openResult);
+check("the open attribute inside :not() keeps the rule, the query cannot decide it",
+	openResult.includes(".present:not([open])") && openResult.includes(".absent:not([open])"),
+	openResult);
+check("the open attribute combines with a pseudo-element",
+	openResult.includes(".present[open]::after"),
+	openResult);
+
+const openCascadeResult = run(`
+	.present[open]{color:red}
+	.present{color:blue}
+`, PRESENT);
+check("the declaration of an open-attribute rule survives the cascade against the plain rule",
+	openCascadeResult.includes("color:red") && openCascadeResult.includes("color:blue"),
+	openCascadeResult);
+
+const leadingOpenResult = run(`
+	[open]>.present{color:red}
+`, { "*>.present": ["a"], "*": ["a"] });
+check("a compound made of the open attribute alone is queried as *",
+	leadingOpenResult.includes("[open]>.present"),
+	leadingOpenResult);
+
 console.log(failures ? `\n${failures} check(s) FAILED` : "\nall checks passed");
 Deno.exit(failures ? 1 : 0);

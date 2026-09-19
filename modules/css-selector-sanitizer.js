@@ -47,7 +47,11 @@ const FUNCTIONAL_PSEUDO_CLASSES = [
     "where",
     "has"
 ];
+const STATE_ATTRIBUTE_NAMES = [
+    "open"
+];
 export {
+    matchUnqueryableAttributeSelector,
     matchUnqueryablePseudoClass,
     sanitizeSelector,
 };
@@ -97,6 +101,10 @@ function normalizeSelectorNode(selector, ancestors) {
             if (matchUnqueryablePseudoClass(childNode)) {
                 removeNode(selector.children, current);
             }
+        } else if (childNode.type === "AttributeSelector") {
+            if (matchUnqueryableAttributeSelector(childNode)) {
+                removeNode(selector.children, current);
+            }
         } else if (childNode.type === "Selector") {
             normalizeSelectorNode(childNode, ancestors);
         }
@@ -110,6 +118,10 @@ function removeNode(list, item) {
     } else {
         list.remove(item);
     }
+}
+
+function matchUnqueryableAttributeSelector(attributeSelector) {
+    return Boolean(attributeSelector.name) && STATE_ATTRIBUTE_NAMES.includes(attributeSelector.name.name.toLowerCase());
 }
 
 function matchUnqueryablePseudoClass(pseudoClass) {

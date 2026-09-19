@@ -24,7 +24,7 @@
 import * as cssTree from "./../vendor/css-tree.js";
 import { computeMaxSpecificity } from "./css-specificity.js";
 import { parsePrelude } from "./css-scope-prelude-parser.js";
-import { sanitizeSelector, matchUnqueryablePseudoClass } from "./css-selector-sanitizer.js";
+import { sanitizeSelector, matchUnqueryableAttributeSelector, matchUnqueryablePseudoClass } from "./css-selector-sanitizer.js";
 
 const DEBUG = false;
 
@@ -37,6 +37,7 @@ const RULE_TYPE = "Rule";
 const AT_RULE_TYPE = "Atrule";
 const NESTING_SELECTOR_TYPE = "NestingSelector";
 const PSEUDO_CLASS_SELECTOR_TYPE = "PseudoClassSelector";
+const ATTRIBUTE_SELECTOR_TYPE = "AttributeSelector";
 const DECLARATION_TYPE = "Declaration";
 const RAW_TYPE = "Raw";
 const VALUE_TYPE = "Value";
@@ -433,6 +434,11 @@ function analyzeSelector(selector) {
 				}
 				if (FUNCTIONAL_PSEUDO_CLASS_NAMES.has(node.name.toLowerCase())) {
 					functionalPseudoClassDepth++;
+				}
+			} else if (node.type === ATTRIBUTE_SELECTOR_TYPE && matchUnqueryableAttributeSelector(node)) {
+				hasUnqueryableSelector = true;
+				if (functionalPseudoClassDepth) {
+					hasNestedUnqueryablePseudoClass = true;
 				}
 			}
 		},

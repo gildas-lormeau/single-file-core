@@ -67,6 +67,9 @@ const INVALID_ELEMENT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "invalid-e
 const ASYNC_SCRIPT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "async-script";
 const FLOW_ELEMENTS_SELECTOR = "*:not(base):not(link):not(meta):not(noscript):not(script):not(style):not(template):not(title)";
 const KEPT_TAG_NAMES = ["NOSCRIPT", "DISABLED-NOSCRIPT", "META", "LINK", "STYLE", "TITLE", "TEMPLATE", "SOURCE", "OBJECT", "SCRIPT", "HEAD", "BODY"];
+const INVOKABLE_ELEMENTS_SELECTOR = "[popover][id], dialog[id]";
+const INVOKER_ATTRIBUTE_NAMES = ["popovertarget", "commandfor"];
+const INVOKERS_SELECTOR = INVOKER_ATTRIBUTE_NAMES.map(attributeName => "[" + attributeName + "]").join(",");
 const IGNORED_TAG_NAMES = ["SCRIPT", "NOSCRIPT", "META", "LINK", "TEMPLATE"];
 const ROOT_PSEUDO_ELEMENT_NAMES = [":before", ":after"];
 const REGEXP_SIMPLE_QUOTES_STRING = /^'(.*?)'$/;
@@ -438,7 +441,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 				}
 				if ((element instanceof win.HTMLElement) || (element instanceof globalThis.HTMLElement)) {
 					if (options.removeHiddenElements) {
-						elementKept = ((ascendantHidden || headChild) && KEPT_TAG_NAMES.includes(element.tagName.toUpperCase())) || element.closest("details");
+						elementKept = ((ascendantHidden || headChild) && KEPT_TAG_NAMES.includes(element.tagName.toUpperCase())) || element.closest("details") || testInvokedElement(element, doc, data);
 						if (!elementKept) {
 							elementHidden = ascendantHidden || testHiddenElement(element, computedStyle);
 							if (elementHidden && !IGNORED_TAG_NAMES.includes(element.tagName.toUpperCase())) {
@@ -799,6 +802,22 @@ function appendInfobar(doc, options, useShadowRoot) {
 
 function normalizeFontFamily(fontFamilyName = "") {
 	return removeQuotes(cssUnescape.process(fontFamilyName.trim())).toLowerCase();
+}
+
+function testInvokedElement(element, doc, data) {
+	const invokableElement = element.closest(INVOKABLE_ELEMENTS_SELECTOR);
+	if (invokableElement) {
+		if (!data.invokedIds) {
+			data.invokedIds = new Set();
+			doc.querySelectorAll(INVOKERS_SELECTOR).forEach(invoker => INVOKER_ATTRIBUTE_NAMES.forEach(attributeName => {
+				if (invoker.hasAttribute(attributeName)) {
+					data.invokedIds.add(invoker.getAttribute(attributeName));
+				}
+			}));
+		}
+		return data.invokedIds.has(invokableElement.id);
+	}
+	return false;
 }
 
 function testHiddenElement(element, computedStyle) {
