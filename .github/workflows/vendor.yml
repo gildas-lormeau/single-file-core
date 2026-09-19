@@ -11,7 +11,7 @@ on:
 jobs:
   rebuild:
     name: 'Rebuild vendor/zip'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -25,7 +25,7 @@ jobs:
       - run: git diff --exit-code vendor/zip
   rebuild-css-tree:
     name: 'Rebuild vendor/css-tree.js'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

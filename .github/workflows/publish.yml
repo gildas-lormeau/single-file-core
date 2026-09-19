@@ -15,7 +15,7 @@ jobs:
   # so this waits for its run on that exact commit and refuses to publish unless it succeeded
   check_vendor:
     name: 'Check vendor rebuild'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       actions: read
@@ -75,7 +75,7 @@ jobs:
 
   publish_npm:
     needs: check_vendor
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v5
         with:
