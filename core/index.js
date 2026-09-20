@@ -435,6 +435,7 @@ const SCRIPT_OPTIONS = "data-single-file-options";
 const JAVASCRIPT_URI_PROTOCOL = "javascript:";
 const DISABLED_SCRIPT_URI = "javascript:void(0)";
 const SCRIPT_URI_ATTRIBUTE_NAMES = ["href", "src", "action", "formaction", "data"];
+const SVG_NAMESPACE_URI = "http://www.w3.org/2000/svg";
 const UTF8_CHARSET = "utf-8";
 const TAINTED_CANVAS_WARNING_MESSAGE = "SingleFile: canvas elements tainted by a cross-origin resource, dropped from the page:";
 const EMPTY_RESOURCE = "data:,";
@@ -1762,13 +1763,15 @@ function isScriptURI(value) {
 }
 
 function getOnEventAttributeNames(doc) {
-	const element = doc.body || doc.createElement("div");
+	const elements = [doc.body || doc.createElement("div"), doc.createElementNS(SVG_NAMESPACE_URI, "animate")];
 	const attributeNames = [];
-	for (const propertyName in element) {
-		if (propertyName.startsWith("on")) {
-			attributeNames.push(propertyName);
+	elements.forEach(element => {
+		for (const propertyName in element) {
+			if (propertyName.startsWith("on")) {
+				attributeNames.push(propertyName);
+			}
 		}
-	}
+	});
 	return attributeNames;
 }
 
