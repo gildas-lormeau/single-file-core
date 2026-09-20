@@ -157,7 +157,7 @@ const INFOBAR_ANIMATIONS_STYLES = `
   animation-iteration-count: 2;
 }
 
-.infobar:not(:focus-within):not(.infobar-focus)::after {
+.infobar::after {
   content: "";
   position: absolute;
   inset: -2px;
@@ -170,6 +170,12 @@ const INFOBAR_ANIMATIONS_STYLES = `
   animation-timing-function: ease-out;
   animation-delay: 2s;
   animation-iteration-count: 3;
+  transition: visibility 0s 999999s;
+}
+
+.infobar:focus-within::after, .infobar.infobar-focus::after {
+  visibility: hidden;
+  transition-delay: 0s;
 }
 
 @keyframes flash {
@@ -194,7 +200,7 @@ const INFOBAR_ANIMATIONS_STYLES = `
 
 @media (prefers-reduced-motion: reduce) {
   .infobar,
-  .infobar:not(:focus-within):not(.infobar-focus)::after {
+  .infobar::after {
     animation-name: none;
   }
 }
