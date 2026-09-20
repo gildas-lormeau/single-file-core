@@ -6,16 +6,18 @@
 //
 // The path only exists on the archive side of the helper split, so every check here goes through
 // captureArchive(). resolveStylesheetsURLs in core/index.js groups <style> elements by exact
-// textContent: the first of a repeated content is the master and every later one is a ref, and only
-// contents that have at least one ref become a shared file.
+// textContent: the last of a repeated content is the master (the first when the block declares a
+// layer or an import, see the layer case below), every other copy is a ref, and only contents that
+// have at least one ref become a shared file.
 
-import { captureArchive, html } from "./common.js";
+import { capture, captureArchive, html } from "./common.js";
 
 const PAGE_URL = "https://example.com/dedup.html";
 const SHEET_URL = "https://example.com/external.css";
 const SHARED = "p { color: rgb(1, 2, 3) }";
 const UNIQUE = "h1 { color: rgb(9, 9, 9) }";
 const OTHER = "em { color: rgb(4, 5, 6) }";
+const OTHER_P = "p { color: rgb(9, 9, 9) }";
 
 let failed = false;
 
@@ -130,6 +132,50 @@ let failed = false;
 	const emitted = [content, ...resources.stylesheets.map(resource => String(resource.content))];
 	check("with no emptied import left anywhere", emitted.some(text => text.includes("data:,")), false);
 	check("while both copies still point at the shared file", countMatches(content, /href="stylesheet_0\.css"/g), 2);
+}
+
+// The master of a repeated block used to be its first occurrence, and every later copy is a ref the
+// minifier never parses, so the cascade was computed with the block at its first position only. A
+// rule of the same specificity between two copies then beat the master, removeLosingDeclarations
+// stripped the declaration, and every copy received that stripped text while the browser draws the
+// LAST copy over the rule between. Measured on the capture harness at core 77f8ad9 with the three
+// sheets below: the shared file came out empty and the page kept rgb(9,9,9). Identical copies are
+// decided by the last one, so that is the master now, and the earlier refs receive the same text.
+{
+	const page = html("<p>body</p>", style(SHARED) + style(OTHER_P) + style(SHARED));
+	const { content, resources } = await captureArchive(serve(page), { url: PAGE_URL, content: page, removeUnusedStyles: true });
+	const shared = resources.stylesheets[0] || {};
+	check("the last copy decides, so the shared file keeps the rule", shared.content, "p{color:rgb(1,2,3)}");
+	check("and the rule between the copies is the one that loses", content.includes("rgb(9,9,9)"), false);
+	check("while both copies still point at the shared file", countMatches(content, /href="stylesheet_0\.css"/g), 2);
+}
+
+// The self-contained page takes the same path through the inline helper: the refs copy the master's
+// minified text, so they have to be filled after it is generated, whichever of the two comes first in
+// the document. Both grouping modes are run because they fill a ref differently.
+{
+	const page = html("<p>body</p>", style(SHARED) + style(OTHER_P) + style(SHARED));
+	const grouped = await capture(serve(page), { url: PAGE_URL, content: page, removeUnusedStyles: true, groupDuplicateStylesheets: true });
+	check("a grouped self-contained page keeps the rule in its hidden copy", countMatches(grouped, /rgb\(1,2,3\)/g) >= 1, true);
+	check("and drops the rule between the copies", grouped.includes("rgb(9,9,9)"), false);
+	const plain = await capture(serve(page), { url: PAGE_URL, content: page, removeUnusedStyles: true, groupDuplicateStylesheets: false });
+	check("an ungrouped page holds the rule in both copies", countMatches(plain, /<style>p\{color:rgb\(1,2,3\)\}<\/style>/g), 2);
+	check("and drops the rule between them too", plain.includes("rgb(9,9,9)"), false);
+}
+
+// The exception: the layer order is set by the FIRST occurrence of each layer name, so a repeated
+// block that declares layers keeps its first copy as master, or the minifier would order the layers
+// from the last copy. Here the block puts b before a and the sheet between the copies writes into a,
+// which is later, so the browser draws rgb(9,9,9). With the last copy as master the minifier would
+// see a first, rank b later and keep the wrong rule.
+{
+	const layered = "@layer b, a; @layer b { p { color: rgb(1, 2, 3) } }";
+	const between = "@layer a { p { color: rgb(9, 9, 9) } }";
+	const page = html("<p>body</p>", style(layered) + style(between) + style(layered));
+	const { content, resources } = await captureArchive(serve(page), { url: PAGE_URL, content: page, removeUnusedStyles: true });
+	const shared = resources.stylesheets[0] || {};
+	check("a block declaring layers keeps the page's layer order", content.includes("rgb(9,9,9)"), true);
+	check("so the layer the block writes into still loses", String(shared.content).includes("rgb(1,2,3)"), false);
 }
 
 if (failed) {

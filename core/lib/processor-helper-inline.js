@@ -127,33 +127,40 @@ function getProcessorHelperClass(utilInstance) {
 		}
 
 		replaceStylesheets(doc, stylesheets, options) {
-			doc.querySelectorAll("style").forEach(element => {
+			const styleElements = Array.from(doc.querySelectorAll("style"));
+			styleElements.forEach(element => {
+				const stylesheetInfo = stylesheets.get(element);
+				if (stylesheetInfo && !options.inlineStylesheetsRefs.has(element)) {
+					element.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
+					options.inlineStylesheets.forEach(({ styleElement }, index) => {
+						if (styleElement === element) {
+							options.inlineStylesheets.set(index, {
+								styleElement,
+								content: element.textContent
+							});
+						}
+					});
+				}
+			});
+			styleElements.forEach(element => {
 				const stylesheetInfo = stylesheets.get(element);
 				if (stylesheetInfo) {
 					stylesheets.delete(element);
 					const stylesheetRefIndex = options.inlineStylesheetsRefs.get(element);
-					if (stylesheetRefIndex === undefined) {
-						element.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
-						options.inlineStylesheets.forEach(({ styleElement }, index) => {
-							if (styleElement === element) {
-								options.inlineStylesheets.set(index, {
-									styleElement,
-									content: element.textContent
-								});
+					if (stylesheetRefIndex !== undefined) {
+						if (options.groupDuplicateStylesheets) {
+							if (!doc.querySelector("style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + stylesheetRefIndex + "\"]")) {
+								const styleElement = doc.createElement("style");
+								styleElement.textContent = options.inlineStylesheets.get(stylesheetRefIndex).content;
+								styleElement.setAttribute("media", "not all");
+								styleElement.setAttribute(DUPLICATE_STYLESHEET_ATTRIBUTE_NAME, stylesheetRefIndex);
+								doc.head.appendChild(styleElement);
 							}
-						});
-					} else if (options.groupDuplicateStylesheets) {
-						if (!doc.querySelector("style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + stylesheetRefIndex + "\"]")) {
-							const styleElement = doc.createElement("style");
-							styleElement.textContent = options.inlineStylesheets.get(stylesheetRefIndex).content;
-							styleElement.setAttribute("media", "not all");
-							styleElement.setAttribute(DUPLICATE_STYLESHEET_ATTRIBUTE_NAME, stylesheetRefIndex);
-							doc.head.appendChild(styleElement);
+							element.textContent = "/* */";
+							element.setAttribute("onload", "this.textContent=document.querySelector('style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + stylesheetRefIndex + "\"]')?.textContent;this.removeAttribute('onload')");
+						} else {
+							element.textContent = options.inlineStylesheets.get(stylesheetRefIndex).content;
 						}
-						element.textContent = "/* */";
-						element.setAttribute("onload", "this.textContent=document.querySelector('style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + stylesheetRefIndex + "\"]')?.textContent;this.removeAttribute('onload')");
-					} else {
-						element.textContent = options.inlineStylesheets.get(stylesheetRefIndex).content;
 					}
 					if (stylesheetInfo.mediaText) {
 						element.media = stylesheetInfo.mediaText;

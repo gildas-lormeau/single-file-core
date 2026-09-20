@@ -437,6 +437,7 @@ const SCRIPT_URI_ATTRIBUTE_NAMES = ["href", "src", "action", "formaction", "data
 const UTF8_CHARSET = "utf-8";
 const TAINTED_CANVAS_WARNING_MESSAGE = "SingleFile: canvas elements tainted by a cross-origin resource, dropped from the page:";
 const EMPTY_RESOURCE = "data:,";
+const ORDER_DEPENDENT_RULE = /@(layer|import)\b/i;
 
 class Processor {
 	constructor(options, processorHelper, batchRequest) {
@@ -1274,22 +1275,31 @@ class Processor {
 	}
 
 	async resolveStylesheetsURLs() {
-		const stylesContents = [];
+		const styleElementGroups = new Map();
 		this.options.inlineStylesheets = new Map();
 		this.options.inlineStylesheetsRefs = new Map();
 		this.doc.querySelectorAll("style").forEach(styleElement => {
-			if (styleElement.textContent) {
-				const indexContent = stylesContents.indexOf(styleElement.textContent);
-				if (indexContent == -1) {
-					this.options.inlineStylesheets.set(stylesContents.length, {
-						styleElement,
-						content: styleElement.textContent
-					});
-					stylesContents.push(styleElement.textContent);
-				} else {
+			const content = styleElement.textContent;
+			if (content) {
+				if (!styleElementGroups.has(content)) {
+					styleElementGroups.set(content, []);
+				}
+				styleElementGroups.get(content).push(styleElement);
+			}
+		});
+		let indexContent = 0;
+		styleElementGroups.forEach((styleElements, content) => {
+			const masterIndex = ORDER_DEPENDENT_RULE.test(content) ? 0 : styleElements.length - 1;
+			this.options.inlineStylesheets.set(indexContent, {
+				styleElement: styleElements[masterIndex],
+				content
+			});
+			styleElements.forEach((styleElement, index) => {
+				if (index != masterIndex) {
 					this.options.inlineStylesheetsRefs.set(styleElement, indexContent);
 				}
-			}
+			});
+			indexContent++;
 		});
 		await Promise.all(Array.from(this.doc.querySelectorAll("style, link[rel*=stylesheet]:not([disabled])")).map(async element => {
 			const options = Object.assign({}, this.options, { charset: this.charset });
