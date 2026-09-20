@@ -24,6 +24,7 @@ const FAST_IMAGE_URL = "https://example.com/fast.png";
 
 const FIRST_MARKER = "FIRST FRAME MARKER";
 const SECOND_MARKER = "SECOND FRAME MARKER";
+const FIRST_TITLE = "First frame";
 const IMAGE = new Uint8Array(64).fill(0x21);
 const DELAY = 300;
 
@@ -53,12 +54,23 @@ let failed = false;
 	check("with the page unchanged", frameReferences(content), ["frames/0/index.html", "frames/1/index.html"]);
 }
 
+// The frame resource is what compression.js packages as the frame's page data, so its manifest.json
+// records whatever fields the resource carries. The title was not one of them: processFrame stored
+// name, content, resources and url, and the frame's manifest came out without a title while the
+// frame's page data had one. A frame with no <title> gets the same fallback as a page, the last path
+// segment of its URL.
+{
+	const { resources } = await capture(FAST_IMAGE_URL, FAST_IMAGE_URL);
+	check("a frame resource carries the frame's title", titleHolding(resources, FIRST_MARKER), FIRST_TITLE);
+	check("and a frame without a <title> gets the page fallback", titleHolding(resources, SECOND_MARKER), "second");
+}
+
 if (failed) {
 	Deno.exit(1);
 }
 
 function capture(firstImageURL, secondImageURL) {
-	const firstPage = html("<h1>" + FIRST_MARKER + "</h1><img src=\"" + firstImageURL + "\">");
+	const firstPage = html("<h1>" + FIRST_MARKER + "</h1><img src=\"" + firstImageURL + "\">", "<title>" + FIRST_TITLE + "</title>");
 	const secondPage = html("<h1>" + SECOND_MARKER + "</h1><img src=\"" + secondImageURL + "\">");
 	const resources = {
 		[HOST_URL]: { body: HOST_PAGE },
@@ -74,6 +86,11 @@ function capture(firstImageURL, secondImageURL) {
 function nameHolding(resources, marker) {
 	const frame = resources.frames.find(resource => resource.content.includes(marker));
 	return frame ? frame.name : null;
+}
+
+function titleHolding(resources, marker) {
+	const frame = resources.frames.find(resource => resource.content.includes(marker));
+	return frame ? frame.title : null;
 }
 
 function frameReferences(content) {

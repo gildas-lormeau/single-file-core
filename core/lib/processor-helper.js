@@ -260,7 +260,7 @@ function getProcessorHelperClass(utilInstance) {
 			} else {
 				frameElement.setAttribute("src", name + "index.html");
 			}
-			resources.frames.set(frameWindowId, { name, content: pageData.content, resources: pageData.resources, url: frameData.url });
+			resources.frames.set(frameWindowId, { name, content: pageData.content, resources: pageData.resources, url: frameData.url, title: pageData.title });
 		}
 
 		async processFont(resourceURL, urlNode, originalResourceURL, baseURI, options, resources, batchRequest) {
