@@ -103,36 +103,49 @@ function getProcessorHelperClass(utilInstance) {
 			const entries = Array.from(stylesheets).reverse();
 			const linkElements = new Map();
 			const sharedStyleElements = new Map();
+			const emptyStylesheetRefIndexes = new Set();
 			Array.from(new Set(options.inlineStylesheetsRefs.values())).forEach(stylesheetRefIndex => {
-				const linkElement = doc.createElement("link");
-				linkElement.setAttribute("rel", "stylesheet");
-				linkElement.setAttribute("type", "text/css");
-				const name = "stylesheet_" + resources.stylesheets.size + ".css";
-				linkElement.setAttribute("href", name);
 				const { styleElement, content } = options.inlineStylesheets.get(stylesheetRefIndex);
 				const sharedEntry = entries.find(([key]) => key.element == styleElement);
 				const stylesheet = sharedEntry
 					? sharedEntry[1].stylesheet
 					: cssTree.parse(content, { context: "stylesheet", parseCustomProperty: true });
-				resources.stylesheets.set(resources.stylesheets.size, { name, stylesheet });
-				linkElements.set(stylesheetRefIndex, linkElement);
+				if (isEmptyStylesheet(stylesheet)) {
+					emptyStylesheetRefIndexes.add(stylesheetRefIndex);
+				} else {
+					const linkElement = doc.createElement("link");
+					linkElement.setAttribute("rel", "stylesheet");
+					linkElement.setAttribute("type", "text/css");
+					const name = "stylesheet_" + resources.stylesheets.size + ".css";
+					linkElement.setAttribute("href", name);
+					resources.stylesheets.set(resources.stylesheets.size, { name, stylesheet });
+					linkElements.set(stylesheetRefIndex, linkElement);
+				}
 				sharedStyleElements.set(styleElement, stylesheetRefIndex);
 			});
 			for (const [key, stylesheetInfo] of entries) {
 				if (key.urlNode) {
-					const name = "stylesheet_" + resources.stylesheets.size + ".css";
-					if (!isDataURL(stylesheetInfo.url) && options.saveOriginalURLs) {
-						key.urlNode.type = "Url";
-						key.urlNode.value = "-sf-url-original(" + JSON.stringify(stylesheetInfo.url) + ") " + name;
+					if (isEmptyStylesheet(stylesheetInfo.stylesheet) && !key.importDeclaresLayer) {
+						removeImportRule(key.importParent, key.importNode);
 					} else {
-						key.urlNode.value = name;
+						const name = "stylesheet_" + resources.stylesheets.size + ".css";
+						if (!isDataURL(stylesheetInfo.url) && options.saveOriginalURLs) {
+							key.urlNode.type = "Url";
+							key.urlNode.value = "-sf-url-original(" + JSON.stringify(stylesheetInfo.url) + ") " + name;
+						} else {
+							key.urlNode.value = name;
+						}
+						resources.stylesheets.set(resources.stylesheets.size, { name, stylesheet: stylesheetInfo.stylesheet, url: stylesheetInfo.url });
 					}
-					resources.stylesheets.set(resources.stylesheets.size, { name, stylesheet: stylesheetInfo.stylesheet, url: stylesheetInfo.url });
 				} else if (key.element.tagName.toUpperCase() == "LINK") {
 					const linkElement = key.element;
-					const name = "stylesheet_" + resources.stylesheets.size + ".css";
-					linkElement.setAttribute("href", name);
-					resources.stylesheets.set(resources.stylesheets.size, { name, stylesheet: stylesheetInfo.stylesheet, url: stylesheetInfo.url });
+					if (isEmptyStylesheet(stylesheetInfo.stylesheet)) {
+						linkElement.remove();
+					} else {
+						const name = "stylesheet_" + resources.stylesheets.size + ".css";
+						linkElement.setAttribute("href", name);
+						resources.stylesheets.set(resources.stylesheets.size, { name, stylesheet: stylesheetInfo.stylesheet, url: stylesheetInfo.url });
+					}
 				} else {
 					const styleElement = key.element;
 					const stylesheetRefIndex = options.inlineStylesheetsRefs.has(styleElement)
@@ -140,6 +153,8 @@ function getProcessorHelperClass(utilInstance) {
 						: sharedStyleElements.get(styleElement);
 					if (stylesheetRefIndex === undefined) {
 						styleElement.textContent = this.generateStylesheetContent(stylesheetInfo.stylesheet, options);
+					} else if (emptyStylesheetRefIndexes.has(stylesheetRefIndex)) {
+						styleElement.remove();
 					} else {
 						const linkElement = linkElements.get(stylesheetRefIndex).cloneNode(true);
 						Array.from(styleElement.attributes).forEach(({ name, value }) => {
@@ -200,7 +215,8 @@ function getProcessorHelperClass(utilInstance) {
 								layerName,
 								supportsCondition
 							};
-							stylesheets.set({ urlNode }, stylesheetInfo);
+							const importDeclaresLayer = Boolean(cssTree.find(node, node => node.type == "Layer" || ((node.type == "Identifier" || node.type == "Function") && node.name.toLowerCase() == "layer")));
+							stylesheets.set({ urlNode, importNode: node, importParent: stylesheet, importDeclaresLayer }, stylesheetInfo);
 							const requestedURL = resourceURL;
 							const content = await this.getStylesheetContent(resourceURL, options);
 							stylesheetInfo.url = resourceURL = content.resourceURL;
@@ -592,6 +608,26 @@ function getProcessorHelperClass(utilInstance) {
 			return true;
 		}
 	};
+}
+
+function isEmptyStylesheet(stylesheet) {
+	return !stylesheet || !stylesheet.children || !stylesheet.children.size;
+}
+
+function removeImportRule(parentStylesheet, importNode) {
+	let importItem, importList;
+	cssTree.walk(parentStylesheet, {
+		visit: "Atrule",
+		enter(node, item, list) {
+			if (node === importNode) {
+				importItem = item;
+				importList = list;
+			}
+		}
+	});
+	if (importItem) {
+		importList.remove(importItem);
+	}
 }
 
 function testSameContent(content, otherContent) {

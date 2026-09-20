@@ -14,6 +14,7 @@ import { capture, captureArchive, html } from "./common.js";
 
 const PAGE_URL = "https://example.com/dedup.html";
 const SHEET_URL = "https://example.com/external.css";
+const UNUSED_SHEET_URL = "https://example.com/unused.css";
 const SHARED = "p { color: rgb(1, 2, 3) }";
 const UNIQUE = "h1 { color: rgb(9, 9, 9) }";
 const OTHER = "em { color: rgb(4, 5, 6) }";
@@ -178,6 +179,56 @@ let failed = false;
 	check("so the layer the block writes into still loses", String(shared.content).includes("rgb(1,2,3)"), false);
 }
 
+// A stylesheet whose every rule the minifier removed was still written as a 0-byte stylesheet_N.css
+// plus the <link> pointing at it: replaceStylesheets registered the resource before its content was
+// generated and nothing looked at emptiness, while the inline helper drops the same sheet through
+// the html minifier. Measured on 30 saves of the Hacker News front page at CLI 2.15.1: 53 empty
+// stylesheet entries in 16 archives, 12 of the 17 links on one Mastodon page. The sheet is now
+// dropped with its link, its @import, or the whole duplicate group, and takes no name, so the sheet
+// still in use is numbered without a gap.
+{
+	const page = html("<p>body</p>", link(UNUSED_SHEET_URL) + link(SHEET_URL));
+	const { content, resources } = await captureArchive({
+		[PAGE_URL]: { body: page },
+		[UNUSED_SHEET_URL]: { body: OTHER, contentType: "text/css" },
+		[SHEET_URL]: { body: SHARED, contentType: "text/css" }
+	}, { url: PAGE_URL, content: page, removeUnusedStyles: true });
+	check("a linked sheet emptied by the minifier is not stored", resources.stylesheets.length, 1);
+	check("and its link is gone", countMatches(content, /rel="stylesheet"/g), 1);
+	check("while the sheet still in use takes the first name", (resources.stylesheets[0] || {}).name, "stylesheet_0.css");
+	check("and its link points at it", content.includes("href=\"stylesheet_0.css\""), true);
+}
+{
+	const page = html("<p>body</p>", style(OTHER) + style(OTHER));
+	const { content, resources } = await captureArchive(serve(page), { url: PAGE_URL, content: page, removeUnusedStyles: true });
+	check("a duplicate group emptied by the minifier makes no shared file", resources.stylesheets.length, 0);
+	check("and leaves neither a link nor a style behind", countMatches(content, /rel="stylesheet"|<style/g), 0);
+}
+{
+	const importing = "@import url(\"" + UNUSED_SHEET_URL + "\"); p { color: rgb(1, 2, 3) }";
+	const page = html("<p>body</p>", style(importing));
+	const { content, resources } = await captureArchive({
+		[PAGE_URL]: { body: page },
+		[UNUSED_SHEET_URL]: { body: OTHER, contentType: "text/css" }
+	}, { url: PAGE_URL, content: page, removeUnusedStyles: true });
+	check("an imported sheet emptied by the minifier is not stored", resources.stylesheets.length, 0);
+	check("and its @import is removed from the importing sheet", content.includes("@import"), false);
+	check("which keeps its own rules", content.includes("p{color:rgb(1,2,3)}"), true);
+}
+
+// An import that declares a layer is kept even when the sheet is empty: the declaration is what
+// gives the layer its place in the order, and dropping it would move every later rule of that layer.
+{
+	const importing = "@import url(\"" + UNUSED_SHEET_URL + "\") layer(theme); p { color: rgb(1, 2, 3) }";
+	const page = html("<p>body</p>", style(importing));
+	const { content, resources } = await captureArchive({
+		[PAGE_URL]: { body: page },
+		[UNUSED_SHEET_URL]: { body: OTHER, contentType: "text/css" }
+	}, { url: PAGE_URL, content: page, removeUnusedStyles: true });
+	check("an empty sheet imported into a layer is still stored", resources.stylesheets.length, 1);
+	check("and its @import stays, layer included", /@import url\(stylesheet_0\.css\)\s?layer\(theme\);/.test(content), true);
+}
+
 if (failed) {
 	console.log("FAILED");
 	Deno.exit(1);
@@ -186,6 +237,10 @@ console.log("OK");
 
 function style(content, attributes) {
 	return "<style" + (attributes ? " " + attributes : "") + ">" + content + "</style>";
+}
+
+function link(url) {
+	return "<link rel=\"stylesheet\" href=\"" + url + "\">";
 }
 
 function serve(page) {
