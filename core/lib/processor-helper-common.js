@@ -486,6 +486,9 @@ class ProcessorHelperCommon {
 	groupDuplicateFonts() {
 	}
 
+	groupDuplicateImages() {
+	}
+
 	getFontsDetails(doc, cssRules, sheetIndex, mediaFontsDetails) {
 		let mediaIndex = 0, supportsIndex = 0, layerIndex = 0;
 		cssRules.forEach(ruleData => {

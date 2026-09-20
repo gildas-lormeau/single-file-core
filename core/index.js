@@ -146,7 +146,8 @@ const STAGES = [{
 }, {
 	sequential: [
 		{ option: "removeAlternativeImages", action: "removeAlternativeImages" },
-		{ action: "groupDuplicateFonts" }
+		{ action: "groupDuplicateFonts" },
+		{ action: "groupDuplicateImages" }
 	],
 	parallel: [
 		{ option: "removeAlternativeFonts", action: "removeAlternativeFonts" },
@@ -1564,6 +1565,10 @@ class Processor {
 
 	groupDuplicateFonts() {
 		this.processorHelper.groupDuplicateFonts(this.stylesheets, this.resources.fonts, this.options);
+	}
+
+	groupDuplicateImages() {
+		this.processorHelper.groupDuplicateImages(this.doc, this.stylesheets, this.styles, this.resources.images);
 	}
 
 	async removeAlternativeFonts() {

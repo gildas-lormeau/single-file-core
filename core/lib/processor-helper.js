@@ -38,6 +38,9 @@ const LOCAL_SOURCE = "local(";
 const FONT_MAX_LOAD_DELAY = 5000;
 const SCRIPT_EXTENSION = ".js";
 const LINK_OWN_ATTRIBUTE_NAMES = ["rel", "type", "href", "media"];
+const SRCSET_ATTRIBUTE_NAME = "srcset";
+const IMAGE_ATTRIBUTE_NAMES = ["src", "href", "data", "poster", "background", "xlink:href", SRCSET_ATTRIBUTE_NAME];
+const IMAGE_ATTRIBUTE_SELECTOR = "[src], [href], [data], [poster], [background], [srcset], image, feImage";
 
 let util;
 
@@ -310,8 +313,50 @@ function getProcessorHelperClass(utilInstance) {
 			if (canonicalNames.size) {
 				stylesheets.forEach(stylesheetInfo => {
 					if (stylesheetInfo.stylesheet) {
-						getUrlFunctions(stylesheetInfo.stylesheet).forEach(urlNode => replaceFontName(urlNode, canonicalNames));
+						getUrlFunctions(stylesheetInfo.stylesheet).forEach(urlNode => replaceResourceName(urlNode, canonicalNames));
 					}
+				});
+			}
+		}
+
+		groupDuplicateImages(doc, stylesheets, styles, images) {
+			const canonicalNames = new Map();
+			const resourcesBySize = new Map();
+			[...images]
+				.filter(([, resource]) => resource.content && resource.content.length)
+				.sort(([indexResource], [otherIndexResource]) => indexResource - otherIndexResource)
+				.forEach(([indexResource, resource]) => {
+					const sameSizeResources = resourcesBySize.get(resource.content.length) || [];
+					const original = sameSizeResources.find(previousResource => testSameContent(previousResource.content, resource.content));
+					if (original) {
+						canonicalNames.set(resource.name, original.name);
+						images.delete(indexResource);
+					} else {
+						sameSizeResources.push(resource);
+						resourcesBySize.set(resource.content.length, sameSizeResources);
+					}
+				});
+			if (canonicalNames.size) {
+				stylesheets.forEach(stylesheetInfo => {
+					if (stylesheetInfo.stylesheet) {
+						getUrlFunctions(stylesheetInfo.stylesheet).forEach(urlNode => replaceResourceName(urlNode, canonicalNames));
+					}
+				});
+				styles.forEach(declarationList => getUrlFunctions(declarationList).forEach(urlNode => replaceResourceName(urlNode, canonicalNames)));
+				doc.querySelectorAll(IMAGE_ATTRIBUTE_SELECTOR).forEach(element => {
+					IMAGE_ATTRIBUTE_NAMES.forEach(attributeName => {
+						const value = element.getAttribute(attributeName);
+						if (value !== null) {
+							if (canonicalNames.has(value)) {
+								element.setAttribute(attributeName, canonicalNames.get(value));
+							} else if (attributeName == SRCSET_ATTRIBUTE_NAME) {
+								const srcset = util.parseSrcset(value);
+								if (srcset.some(srcsetValue => canonicalNames.has(srcsetValue.url))) {
+									element.setAttribute(attributeName, serializeSrcset(srcset.map(srcsetValue => Object.assign({}, srcsetValue, { url: canonicalNames.get(srcsetValue.url) || srcsetValue.url }))));
+								}
+							}
+						}
+					});
 				});
 			}
 		}
@@ -642,7 +687,7 @@ function testSameContent(content, otherContent) {
 	return true;
 }
 
-function replaceFontName(urlNode, canonicalNames) {
+function replaceResourceName(urlNode, canonicalNames) {
 	canonicalNames.forEach((canonicalName, name) => {
 		if (urlNode.value == name) {
 			urlNode.value = canonicalName;
