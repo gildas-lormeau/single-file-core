@@ -48,6 +48,7 @@ const IMPORT_NAME = "import";
 const FONT_FACE_NAME = "font-face";
 const KEYFRAMES_NAME = "keyframes";
 const COMBINATOR_NAME = "Combinator";
+const TYPE_SELECTOR_TYPE = "TypeSelector";
 const STYLE_ATTRIBUTE_NAME = "style";
 const SELECTOR_LIST_CONTEXT = "selectorList";
 const STYLESHEET_CONTEXT = "stylesheet";
@@ -59,6 +60,9 @@ const QSA_ERROR_MESSAGE = "Failed to match selector";
 const PRELUDE_SEPARATOR = ",";
 const NESTING_SELECTOR = "&";
 const SCOPE_PSEUDO_CLASS = ":scope";
+const NAMESPACE_SEPARATOR = "|";
+const SELECTOR_SUPPORTS_PREFIX = "selector(";
+const SELECTOR_SUPPORTS_SUFFIX = ")";
 const VENDOR_PREFIX = "-";
 const CUSTOM_PROPERTY_PREFIX = "--";
 const LAYER_NAME_SEPARATOR = ".";
@@ -119,6 +123,7 @@ function process(doc, stylesheets) {
 		layerOrder: new Map(),
 		selectorData: new Map(),
 		selectorTexts: new Map(),
+		supportedSelectors: new Map(),
 		preludeTexts: new Map(),
 		rulesCounter: 0,
 		scopeIdCounter: 0
@@ -380,6 +385,9 @@ function minifyAtRule(ruleData, cssRule, stylesheets, processingContext, removed
 
 function minifyStylesheetRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext) {
 	ruleData.order = docContext.rulesCounter++;
+	if (!isPreludeSupported(ruleData.prelude, docContext)) {
+		return;
+	}
 	const removedSelectors = processSelectors(ruleData, processingContext, docContext);
 	const wasDiscarded = removeUnmatchedSelectors(ruleData, removedSelectors, removedRules, cssRule, docContext);
 	if (!wasDiscarded && hasChildNodes(ruleData.block)) {
@@ -453,6 +461,45 @@ function analyzeSelector(selector) {
 	const firstChild = selector.children.head.data;
 	startsWithCombinator = firstChild && firstChild.type === COMBINATOR_NAME;
 	return { hasUnqueryableSelector, hasNestedUnqueryablePseudoClass, startsWithCombinator };
+}
+
+function isPreludeSupported(prelude, docContext) {
+	if (!globalThis.CSS || !globalThis.CSS.supports) {
+		return true;
+	}
+	for (let selector = prelude.children.head; selector; selector = selector.next) {
+		if (!isSelectorSupported(selector.data, docContext)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+function isSelectorSupported(selector, docContext) {
+	const selectorNode = cssTree.clone(selector);
+	cssTree.walk(selectorNode, {
+		visit: TYPE_SELECTOR_TYPE,
+		enter(node) {
+			if (typeof node.name === "string" && node.name.includes(NAMESPACE_SEPARATOR)) {
+				node.name = node.name.substring(node.name.lastIndexOf(NAMESPACE_SEPARATOR) + 1);
+			}
+		}
+	});
+	let selectorText = cssTree.generate(selectorNode);
+	const firstChild = selectorNode.children && selectorNode.children.head && selectorNode.children.head.data;
+	if (firstChild && firstChild.type === COMBINATOR_NAME) {
+		selectorText = SCOPE_PSEUDO_CLASS + selectorText;
+	}
+	if (!docContext.supportedSelectors.has(selectorText)) {
+		let supported;
+		try {
+			supported = globalThis.CSS.supports(SELECTOR_SUPPORTS_PREFIX + selectorText + SELECTOR_SUPPORTS_SUFFIX);
+		} catch {
+			supported = true;
+		}
+		docContext.supportedSelectors.set(selectorText, supported);
+	}
+	return docContext.supportedSelectors.get(selectorText);
 }
 
 function updateMatchingSelectors(matchedElements, selector, docContext) {
