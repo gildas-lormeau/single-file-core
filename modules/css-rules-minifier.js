@@ -58,6 +58,7 @@ const PARSE_CSS_ERROR_MESSAGE = "Failed to parse CSS";
 const QSA_ERROR_MESSAGE = "Failed to match selector";
 const PRELUDE_SEPARATOR = ",";
 const NESTING_SELECTOR = "&";
+const SCOPE_PSEUDO_CLASS = ":scope";
 const VENDOR_PREFIX = "-";
 const CUSTOM_PROPERTY_PREFIX = "--";
 const LAYER_NAME_SEPARATOR = ".";
@@ -388,7 +389,7 @@ function minifyStylesheetRule(ruleData, cssRule, stylesheets, processingContext,
 
 function processSelectors(ruleData, processingContext, docContext) {
 	const removedSelectors = [];
-	const { ancestorsSelectors } = processingContext;
+	const { ancestorsSelectors, scopeStack } = processingContext;
 	for (let selector = ruleData.prelude.children.head, selectorIndex = 0; selector; selector = selector.next, selectorIndex++) {
 		const {
 			startsWithCombinator,
@@ -400,7 +401,8 @@ function processSelectors(ruleData, processingContext, docContext) {
 		}
 		registerSelector(selector, ruleData, processingContext, docContext);
 		if (!startsWithCombinator || !ancestorsSelectors || !ancestorsSelectors.length) {
-			const matchedElements = matchElements(selector, ancestorsSelectors, processingContext.scopeStack, docContext);
+			const relativeToScope = startsWithCombinator && Boolean(scopeStack && scopeStack.length);
+			const matchedElements = matchElements(selector, ancestorsSelectors, scopeStack, docContext, relativeToScope);
 			if (matchedElements.length) {
 				if (!hasUnqueryableSelector) {
 					updateMatchingSelectors(matchedElements, selector, docContext);
@@ -580,8 +582,11 @@ function getConditionalStackForSelector(selector, docContext) {
 	return conditionalStack;
 }
 
-function matchElements(selector, ancestorsSelectors, scopeStack, docContext) {
-	const selectorText = createSelectorText(selector, ancestorsSelectors, docContext);
+function matchElements(selector, ancestorsSelectors, scopeStack, docContext, relativeToScope) {
+	let selectorText = createSelectorText(selector, ancestorsSelectors, docContext);
+	if (relativeToScope) {
+		selectorText = SCOPE_PSEUDO_CLASS + selectorText;
+	}
 	const cacheKey = createScopeCacheKey(selectorText, scopeStack);
 	const cachedNodes = docContext.matchedSelectors.get(cacheKey);
 	if (cachedNodes) {
