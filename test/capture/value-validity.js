@@ -1,6 +1,14 @@
 import { capture, html } from "./common.js";
+import * as cssTree from "../../vendor/css-tree.js";
 
 const PAGE_URL = "https://example.com/page.html";
+
+// every css-tree update learns properties (3.2.1 learned text-box-trim, which this suite used), so
+// the "unknown property" case takes the first of these the vendored dictionary still has no entry for
+const UNKNOWN_PROPERTY = ["view-transition-group", "row-rule", "scroll-start", "item-flow", "masonry"].find(property => {
+	const match = cssTree.lexer.matchProperty(property, cssTree.parse("none", { context: "value" }));
+	return match.error && match.error.name === "SyntaxReferenceError";
+});
 
 // A declaration's value now gets one of three verdicts before it enters the cascade. Valid: the
 // browser accepts it, it competes and prunes. Invalid: dropped outright. Unknown: the browser
@@ -36,10 +44,10 @@ const cases = [
 		removed: ["future-color"]
 	},
 	{
-		label: "lexer: a property the lexer does not know keeps both declarations",
-		css: "p { text-box-trim: trim-both; text-box-trim: none }",
+		label: "lexer: a property the lexer does not know (" + UNKNOWN_PROPERTY + ") keeps both declarations",
+		css: "p { " + UNKNOWN_PROPERTY + ": none; " + UNKNOWN_PROPERTY + ": normal }",
 		body: "<p>t</p>",
-		kept: ["text-box-trim:trim-both;text-box-trim:none"],
+		kept: [UNKNOWN_PROPERTY + ":none;" + UNKNOWN_PROPERTY + ":normal"],
 		removed: []
 	},
 	{

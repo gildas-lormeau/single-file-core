@@ -12,10 +12,18 @@
 import * as cssTree from "../../vendor/css-tree.js";
 import { isUnsupportedPropertyValue, getValueValidity, VALIDITY_VALID, VALIDITY_UNKNOWN, VALIDITY_INVALID } from "../../modules/css-rules-minifier.js";
 
-// valid declarations whose property the vendored css-tree does not know. Every one of these was
-// deleted before the fix. The SVG paint-server and filter properties are the ones that matter in
-// practice; the last two are here as the moving target — any property newer than the vendored
-// dictionary lands in this bucket, and the list will keep growing
+// the moving target: every css-tree update learns properties (3.2.1 learned stop-opacity,
+// text-box-trim and corner-shape, which earlier versions of this file relied on), so the checks
+// about a property the dictionary does not know take the first of these it still has no entry for
+const UNKNOWN_PROPERTY = ["view-transition-group", "row-rule", "scroll-start", "item-flow", "masonry"].find(property => {
+	const match = cssTree.lexer.matchProperty(property, cssTree.parse("none", { context: "value" }));
+	return match.error && match.error.name === "SyntaxReferenceError";
+});
+
+// valid declarations whose property the vendored css-tree did not know when the fix was written.
+// Every one of these was deleted before the fix. The SVG paint-server and filter properties are the
+// ones that mattered in practice; css-tree has since learned them, and they stay here because a
+// valid value of a known property must be kept as well
 const MUST_KEEP = [
 	["stop-color", "#2a78d6"],
 	["stop-opacity", ".20"],
@@ -24,7 +32,8 @@ const MUST_KEEP = [
 	["flood-opacity", "0.5"],
 	["lighting-color", "white"],
 	["text-box-trim", "trim-both"],
-	["corner-shape", "squircle"]
+	["corner-shape", "squircle"],
+	[UNKNOWN_PROPERTY, "none"]
 ];
 
 // declarations css-tree knows and correctly rejects. These keep the filter honest: the fix must not
@@ -72,9 +81,10 @@ for (const [property, declaration] of KNOWN_GOOD) {
 // the distinction the fix rests on. If a css-tree upgrade ever collapses these two error types into
 // one, the predicate above cannot tell "unknown" from "wrong" any more and needs rewriting rather
 // than adjusting
-const unknownProperty = cssTree.lexer.matchProperty("stop-opacity", cssTree.parse("0", { context: "value" }));
+check("a property the dictionary does not know is left to test with", UNKNOWN_PROPERTY !== undefined, true);
+const unknownProperty = cssTree.lexer.matchProperty(UNKNOWN_PROPERTY, cssTree.parse("none", { context: "value" }));
 const wrongValue = cssTree.lexer.matchProperty("margin-trim", cssTree.parse("block", { context: "value" }));
-check("unknown property reports SyntaxReferenceError", unknownProperty.error && unknownProperty.error.name, "SyntaxReferenceError");
+check("unknown property (" + UNKNOWN_PROPERTY + ") reports SyntaxReferenceError", unknownProperty.error && unknownProperty.error.name, "SyntaxReferenceError");
 check("wrong value reports SyntaxMatchError", wrongValue.error && wrongValue.error.name, "SyntaxMatchError");
 
 // The same failure as above, one step earlier and on VALUES rather than properties. Before the fix
@@ -115,7 +125,7 @@ try {
 // with no browser to ask, the lexer decides and a vendor value it does not know stays open
 check("no browser to ask keeps the vendor value", validity("display", "-ms-flexbox"), VALIDITY_UNKNOWN);
 check("no browser to ask still drops a value the lexer rejects", validity("color", "nonsense"), VALIDITY_INVALID);
-check("no browser to ask keeps an unknown property", validity("text-box-trim", "trim-both"), VALIDITY_UNKNOWN);
+check("no browser to ask keeps an unknown property (" + UNKNOWN_PROPERTY + ")", validity(UNKNOWN_PROPERTY, "none"), VALIDITY_UNKNOWN);
 check("no browser to ask keeps a var() value as valid", validity("color", "var(--x, red)"), VALIDITY_VALID);
 check("a broken escape is invalid everywhere", validity("color", "re\\d"), VALIDITY_INVALID);
 
