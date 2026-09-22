@@ -12,6 +12,7 @@ const PAGE_URL = "https://example.com/page.html";
 // And at document level `:scope` means `:root`, but the pass ran a document `:scope` selector from
 // body as well as from the root, so `:scope > p` matched body's children.
 const TWO_ROOTS = "<div class=\"box\"><div class=\"mid\"><div class=\"box\"><div class=\"stop\"><p>t</p></div></div></div></div>";
+const TWO_BOXES = "<div class=\"box outer\"><div class=\"mid\"><div class=\"box\"><p>t</p></div></div></div>";
 const cases = [
 	{
 		label: "an ancestor outside the scoping root does not match",
@@ -189,6 +190,26 @@ const cases = [
 		label: "control: proximity still counts the nearest unblocked root",
 		css: "@scope (.box) { p { color: red } } @scope (.mid) { p { color: blue } }",
 		body: TWO_ROOTS,
+		kept: ["color:red"],
+		removed: ["color:blue"]
+	},
+	// §3.5.4 defines proximity as the hop count to "the scoping root", singular: the one the rule
+	// matched through. Both boxes below are roots of the same scope, and `:where(:scope.outer) p`
+	// reaches the paragraph only through the outer one, three hops away, so `.mid` at two hops wins.
+	// The pass counted hops to the nearest root that merely admits the element, which is the inner
+	// box at one hop, and pruned the rule the browser applies. Measured in Chromium 151, Firefox 153
+	// and WebKit 26.5: blue.
+	{
+		label: "scope proximity counts hops to the root the selector matched through",
+		css: "@scope (.box) { :where(:scope.outer) p { color: red } } @scope (.mid) { p { color: blue } }",
+		body: TWO_BOXES,
+		kept: ["color:blue"],
+		removed: ["color:red"]
+	},
+	{
+		label: "control: the nearer root still wins when the selector matched through it",
+		css: "@scope (.box) { p { color: red } } @scope (.mid) { p { color: blue } }",
+		body: TWO_BOXES,
 		kept: ["color:red"],
 		removed: ["color:blue"]
 	}

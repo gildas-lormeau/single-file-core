@@ -165,6 +165,8 @@ function process(doc, stylesheets) {
 		hasIndeterminateRevertLayer: false,
 		matchedSelectors: new Map(),
 		matchingSelectors: new Map(),
+		scopeProximities: new Map(),
+		scopeProximityKeys: new Map(),
 		layerDeclarationCounter: 0,
 		anonymousLayerCounter: 0,
 		layerOrder: new Map(),
@@ -908,7 +910,7 @@ function collectDeclarationItemsForElement(element, docContext) {
 		const selectorData = docContext.selectorData.get(selector);
 		const cssRule = selectorData.rule;
 		if (hasChildNodes(cssRule.block)) {
-			const proximity = getScopeProximity(element, selectorData.scopeStack);
+			const proximity = getScopeProximity(element, selector, docContext);
 			const declarations = cssRule.block.children;
 			for (let declaration = declarations.head; declaration; declaration = declaration.next) {
 				const { type, value, order } = declaration.data;
@@ -953,19 +955,10 @@ function getCachedValueValidity(property, value, docContext) {
 	return docContext.valueValidities.get(value);
 }
 
-function getScopeProximity(element, scopeStack) {
-	if (!scopeStack || !scopeStack.length) {
-		return UNSCOPED_PROXIMITY;
-	}
-	const { rootElements, stopElements } = scopeStack[scopeStack.length - 1];
-	let hops = 0;
-	for (let current = element; current; current = current.parentElement) {
-		if (rootElements.has(current) && isElementWithinRoot(element, current, stopElements && stopElements.get(current))) {
-			return hops;
-		}
-		hops++;
-	}
-	return UNSCOPED_PROXIMITY;
+function getScopeProximity(element, selector, docContext) {
+	const proximities = docContext.scopeProximities.get(docContext.scopeProximityKeys.get(selector));
+	const proximity = proximities && proximities.get(element);
+	return proximity === undefined ? UNSCOPED_PROXIMITY : proximity;
 }
 
 function getConditionalStackForSelector(selector, docContext) {
@@ -987,14 +980,19 @@ function matchElements(selector, ancestorsSelectors, scopeStack, docContext, rel
 		selectorText = getScopedSelectorText(selectorText, docContext);
 	}
 	const cacheKey = createScopeCacheKey(selectorText, scopeStack);
+	if (scopeStack && scopeStack.length) {
+		docContext.scopeProximityKeys.set(selector, cacheKey);
+	}
 	const cachedNodes = docContext.matchedSelectors.get(cacheKey);
 	if (cachedNodes) {
 		return cachedNodes;
 	}
 	let nodes;
 	if (scopeStack && scopeStack.length) {
-		nodes = matchElementsInScope(selectorText, scopeStack);
+		const proximities = new Map();
+		nodes = matchElementsInScope(selectorText, scopeStack, proximities);
 		nodes = filterElementsByScopes(nodes, scopeStack);
+		docContext.scopeProximities.set(cacheKey, proximities);
 	} else {
 		nodes = querySelectorAll(docContext.doc, selectorText);
 	}
@@ -1030,7 +1028,7 @@ function createScopeCacheKey(selectorText, scopeStack) {
 	return `${selectorText}${CONTEXT_KEY_SEPARATOR}${signature}`;
 }
 
-function matchElementsInScope(selectorText, scopeStack) {
+function matchElementsInScope(selectorText, scopeStack, proximities) {
 	const currentScope = scopeStack[scopeStack.length - 1];
 	const roots = Array.from(currentScope.rootElements);
 	if (!roots.length) {
@@ -1040,8 +1038,15 @@ function matchElementsInScope(selectorText, scopeStack) {
 	roots.forEach(root => {
 		const stopElements = currentScope.stopElements && currentScope.stopElements.get(root);
 		matchSelectorWithinRoot(root, selectorText).forEach(node => {
-			if (!stopElements || isElementWithinRoot(node, root, stopElements)) {
+			const proximity = getRootProximity(node, root, stopElements);
+			if (proximity !== UNSCOPED_PROXIMITY) {
 				matchedNodes.add(node);
+				if (proximities) {
+					const knownProximity = proximities.get(node);
+					if (knownProximity === undefined || proximity < knownProximity) {
+						proximities.set(node, proximity);
+					}
+				}
 			}
 		});
 	});
@@ -1143,22 +1148,22 @@ function isElementWithinScopes(element, scopeStack) {
 function isElementWithinScope(element, scopeContext) {
 	const { rootElements, stopElements } = scopeContext;
 	for (let current = element; current && current.nodeType === 1; current = current.parentElement) {
-		if (rootElements.has(current) && isElementWithinRoot(element, current, stopElements && stopElements.get(current))) {
+		if (rootElements.has(current) && getRootProximity(element, current, stopElements && stopElements.get(current)) !== UNSCOPED_PROXIMITY) {
 			return true;
 		}
 	}
 	return false;
 }
 
-function isElementWithinRoot(element, root, stopElements) {
+function getRootProximity(element, root, stopElements) {
 	const ancestors = [];
 	for (let current = element; current && current.nodeType === 1; current = current.parentElement) {
 		ancestors.push(current);
 		if (current === root) {
-			return !isPathBlocked(ancestors, stopElements);
+			return isPathBlocked(ancestors, stopElements) ? UNSCOPED_PROXIMITY : ancestors.length - 1;
 		}
 	}
-	return false;
+	return UNSCOPED_PROXIMITY;
 }
 
 function isPathBlocked(ancestors, stopElements) {
