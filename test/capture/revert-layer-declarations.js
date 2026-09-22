@@ -89,6 +89,17 @@ const INDETERMINATE_PAGE = html(INDETERMINATE_MARKUP, "<style>" + INDETERMINATE_
 const NEGATED_CSS = INDETERMINATE_CSS.replace("body:has(.has:hover) .has", ".has:not(:not(:hover))");
 const NEGATED_PAGE = html(INDETERMINATE_MARKUP, "<style>" + NEGATED_CSS + "</style>");
 
+// An indeterminate match set is not always an empty one, which is what the flag first keyed on. Here
+// `.active` matches with the state off and `.has` matches only under the mouse, so the pass found
+// elements, protected the ones it found, and pruned the rolled-back declaration of every other. The
+// flag now fires on the selector rather than on the size of its match set, so a rule the sanitizer
+// cannot widen stops the pruning whether or not something matches today. Reproduced in Chromium 151,
+// Firefox 153 and WebKit 26.5 with `:nth-child(n of .active, :hover)` and with the doubled `:not()`
+// below: red live on hover, black saved.
+const PARTIAL_CSS = INDETERMINATE_CSS.replace("body:has(.has:hover) .has", ".has:not(:not(.active, :hover))");
+const PARTIAL_MARKUP = "<p class=\"has active\">active</p><p class=\"has\">has</p><p class=\"other\">other</p>";
+const PARTIAL_PAGE = html(PARTIAL_MARKUP, "<style>" + PARTIAL_CSS + "</style>");
+
 const resources = {
 	[PAGE_URL]: { body: PAGE }
 };
@@ -128,6 +139,13 @@ let failed = false;
 	const content = await capture({ [PAGE_URL]: { body: NEGATED_PAGE } }, { url: PAGE_URL, content: NEGATED_PAGE, removeUnusedStyles: true });
 	check("a revert-layer behind a doubled :not() keeps what it rolls back to", content.includes(".has{color:red}"), true);
 	check("it keeps every loser on that page too", content.includes(".other{color:red}"), true);
+}
+
+{
+	const content = await capture({ [PAGE_URL]: { body: PARTIAL_PAGE } }, { url: PAGE_URL, content: PARTIAL_PAGE, removeUnusedStyles: true });
+	check("a partly matching state selector keeps what its revert-layer rolls back to", content.includes(".has{color:red}"), true);
+	check("and it keeps every loser on the page, not only on what it matched", content.includes(".other{color:red}"), true);
+	check("control: the partly matching rule itself is kept", content.includes("color:revert-layer"), true);
 }
 
 if (failed) {

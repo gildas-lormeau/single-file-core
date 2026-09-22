@@ -626,15 +626,16 @@ function processSelectors(ruleData, processingContext, docContext) {
 		registerSelector(selector, ruleData, processingContext, docContext);
 		const relativeToScope = startsWithCombinator && !(ancestorsSelectors && ancestorsSelectors.length) && Boolean(scopeStack && scopeStack.length);
 		const matchedElements = matchElements(selector, ancestorsSelectors, scopeStack, docContext, relativeToScope);
+		if (hasNestedUnqueryablePseudoClass) {
+			registerIndeterminateRevertLayer(ruleData, docContext);
+		}
 		if (matchedElements.length) {
 			if (hasUnqueryableSelector) {
 				registerRevertLayerElements(ruleData, matchedElements, docContext);
 			} else {
 				updateMatchingSelectors(matchedElements, selector, docContext);
 			}
-		} else if (hasNestedUnqueryablePseudoClass) {
-			registerIndeterminateRevertLayer(ruleData, docContext);
-		} else {
+		} else if (!hasNestedUnqueryablePseudoClass) {
 			removedSelectors.push(selector);
 		}
 	}
