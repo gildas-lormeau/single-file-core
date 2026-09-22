@@ -38,6 +38,9 @@ const LOCAL_SOURCE = "local(";
 const FONT_MAX_LOAD_DELAY = 5000;
 const SCRIPT_EXTENSION = ".js";
 const LINK_OWN_ATTRIBUTE_NAMES = ["rel", "type", "href", "media"];
+const CROSS_ORIGIN_ATTRIBUTE_NAME = "crossorigin";
+const SOURCE_TAG_NAME = "SOURCE";
+const MEDIA_TAG_NAMES = ["VIDEO", "AUDIO"];
 const SRCSET_ATTRIBUTE_NAME = "srcset";
 const IMAGE_ATTRIBUTE_NAMES = ["src", "href", "data", "poster", "background", "xlink:href", SRCSET_ATTRIBUTE_NAME];
 const IMAGE_ATTRIBUTE_SELECTOR = "[src], [href], [data], [poster], [background], [srcset], image, feImage";
@@ -74,6 +77,7 @@ function getProcessorHelperClass(utilInstance) {
 		async resolveStylesheets(element, stylesheetInfo, stylesheets, baseURI, options, workStyleElement, resources) {
 			if (element.tagName.toUpperCase() == "LINK") {
 				element.removeAttribute("integrity");
+				element.removeAttribute(CROSS_ORIGIN_ATTRIBUTE_NAME);
 				if (element.charset) {
 					options.charset = element.charset;
 				}
@@ -444,6 +448,7 @@ function getProcessorHelperClass(utilInstance) {
 									} else if (!this.testEmptyResource(content)) {
 										const name = "images/" + indexResource + extension;
 										resourceElement.setAttribute(attributeName, name);
+										removeCrossOriginAttribute(resourceElement);
 										resources.images.set(indexResource, { name, content, extension, contentType, url: resourceURL });
 									}
 								}
@@ -456,10 +461,11 @@ function getProcessorHelperClass(utilInstance) {
 			}));
 		}
 
-		async processImageSrcset(resourceURL, srcsetValue, resources, batchRequest) {
+		async processImageSrcset(resourceURL, srcsetValue, resources, batchRequest, resourceElement) {
 			const { content, indexResource, extension, contentType } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "image" });
 			const name = "images/" + indexResource + extension;
 			resources.images.set(indexResource, { name, content, extension, contentType, url: resourceURL });
+			resourceElement.removeAttribute(CROSS_ORIGIN_ATTRIBUTE_NAME);
 			return serializeSrcset([Object.assign({}, srcsetValue, { url: name })]);
 		}
 
@@ -526,6 +532,7 @@ function getProcessorHelperClass(utilInstance) {
 			// the browser refuses to execute. Stylesheets have always been named this way
 			const name = "scripts/" + indexResource + SCRIPT_EXTENSION;
 			element.setAttribute("src", name);
+			element.removeAttribute(CROSS_ORIGIN_ATTRIBUTE_NAME);
 			resources.scripts.set(indexResource, { name, content, extension, contentType, url: resourceURL });
 		}
 
@@ -657,6 +664,14 @@ function getProcessorHelperClass(utilInstance) {
 
 function isEmptyStylesheet(stylesheet) {
 	return !stylesheet || !stylesheet.children || !stylesheet.children.size;
+}
+
+function removeCrossOriginAttribute(element) {
+	element.removeAttribute(CROSS_ORIGIN_ATTRIBUTE_NAME);
+	const parentElement = element.parentElement;
+	if (element.tagName.toUpperCase() == SOURCE_TAG_NAME && parentElement && MEDIA_TAG_NAMES.includes(parentElement.tagName.toUpperCase())) {
+		parentElement.removeAttribute(CROSS_ORIGIN_ATTRIBUTE_NAME);
+	}
 }
 
 function removeImportRule(parentStylesheet, importNode) {
