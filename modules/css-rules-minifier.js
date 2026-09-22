@@ -29,7 +29,7 @@ import { sanitizeSelector, matchUnqueryableAttributeSelector, matchUnqueryablePs
 const DEBUG = false;
 
 const PSEUDO_ELEMENT_SYNONYMS = new Set(["after", "before", "first-letter", "first-line"]);
-const FUNCTIONAL_PSEUDO_CLASS_NAMES = new Set(["not", "is", "where", "has"]);
+const FUNCTIONAL_PSEUDO_CLASS_NAMES = new Set(["not", "is", "where", "has", "nth-child", "nth-last-child"]);
 const MEDIA_AT_RULE_NAME = "media";
 const SUPPORTS_AT_RULE_NAME = "supports";
 const STARTING_STYLE_AT_RULE_NAME = "starting-style";
@@ -161,6 +161,7 @@ function process(doc, stylesheets) {
 		doc,
 		stats: { processed: 0, discarded: 0 },
 		matchedElements: new Set(),
+		revertLayerElements: new Set(),
 		matchedSelectors: new Map(),
 		matchingSelectors: new Map(),
 		layerDeclarationCounter: 0,
@@ -623,7 +624,9 @@ function processSelectors(ruleData, processingContext, docContext) {
 		const relativeToScope = startsWithCombinator && !(ancestorsSelectors && ancestorsSelectors.length) && Boolean(scopeStack && scopeStack.length);
 		const matchedElements = matchElements(selector, ancestorsSelectors, scopeStack, docContext, relativeToScope);
 		if (matchedElements.length) {
-			if (!hasUnqueryableSelector) {
+			if (hasUnqueryableSelector) {
+				registerRevertLayerElements(ruleData, matchedElements, docContext);
+			} else {
 				updateMatchingSelectors(matchedElements, selector, docContext);
 			}
 		} else if (!hasNestedUnqueryablePseudoClass) {
@@ -827,7 +830,7 @@ function computeCascadedStylesForElement(element, winningDeclarations, docContex
 			}
 		});
 	});
-	if (hasWinningRevertLayer) {
+	if (hasWinningRevertLayer || docContext.revertLayerElements.has(element)) {
 		allDeclarations.forEach(({ declaration }) => winningDeclarations.add(declaration));
 	}
 }
@@ -851,6 +854,24 @@ function hasUncertainLayerOrder(candidates, docContext) {
 		}
 		return false;
 	});
+}
+
+function registerRevertLayerElements(ruleData, matchedElements, docContext) {
+	if (hasRevertLayerDeclaration(ruleData)) {
+		matchedElements.forEach(element => docContext.revertLayerElements.add(element));
+	}
+}
+
+function hasRevertLayerDeclaration(ruleData) {
+	if (!hasChildNodes(ruleData.block)) {
+		return false;
+	}
+	for (let child = ruleData.block.children.head; child; child = child.next) {
+		if (child.data.type === DECLARATION_TYPE && hasRevertLayerKeyword(child)) {
+			return true;
+		}
+	}
+	return false;
 }
 
 function hasRevertLayerKeyword(declaration) {

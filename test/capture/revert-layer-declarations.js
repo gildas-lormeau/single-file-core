@@ -19,6 +19,16 @@ const PAGE_URL = "https://example.com/page.html";
 // Plain `revert` discards the author origin entirely, so pruning what it beats stays correct; a
 // `revert-layer` that loses the important-inverted layer order is pruned like any other loser and
 // protects nothing.
+//
+// A rule whose selector carries a state never becomes a cascade candidate at all, so the element
+// protection above could not see a `revert-layer` written on one: `.state:hover { color:
+// revert-layer }` left `.state { color: red }` in the layer below to be pruned as a loser, and the
+// saved page went black on hover where the live page goes red. The match set of such a rule is
+// already computed, from the selector with its state stripped, and it is a superset of what the
+// rule really matches; every element in it now carries the protection. The same path covers a
+// state in an `@scope` prelude, whose inner rules inherit the unqueryable flag.
+// The limit worth knowing: this needs a match set, so a state rule whose stripped selector matches
+// nothing, `p:nth-child(1 of :hover) { color: revert-layer }` among them, protects nothing.
 const CSS = [
 	"@layer base, over;",
 	"@layer base { .x { color: red; padding: 0 } }",
@@ -35,12 +45,19 @@ const CSS = [
 	"@layer over { .fallback { color: blue; color: var(--nope, revert-layer) } }",
 	"@layer base { .conditional { color: red } }",
 	"@layer over { .conditional { color: blue } }",
-	"@media screen { @layer over { .conditional { color: revert-layer } } }"
+	"@media screen { @layer over { .conditional { color: revert-layer } } }",
+	"@layer base { .state { color: red } }",
+	"@layer over { .state { color: blue } .state:hover { color: revert-layer } }",
+	"@layer base { .scoped { color: red } }",
+	"@layer over { .scoped { color: blue } @scope (.scoped:hover) { :scope { color: revert-layer } } }",
+	"@layer base { .plain { color: red } }",
+	"@layer over { .plain { color: blue } .plain:hover { color: green } }"
 ].join("\n");
 const MARKUP = [
 	"<p class=\"x\">x</p><p class=\"y\">y</p><p class=\"z\">z</p>",
 	"<p class=\"shorthand\">shorthand</p><p class=\"all\">all</p>",
-	"<p class=\"fallback\">fallback</p><p class=\"conditional\">conditional</p>"
+	"<p class=\"fallback\">fallback</p><p class=\"conditional\">conditional</p>",
+	"<p class=\"state\">state</p><p class=\"scoped\">scoped</p><p class=\"plain\">plain</p>"
 ].join("");
 const PAGE = html(MARKUP, "<style>" + CSS + "</style>");
 
@@ -66,6 +83,10 @@ let failed = false;
 	check("a revert-layer reached through a var() fallback keeps it too", content.includes(".fallback{color:red}"), true);
 	check("a revert-layer under @media keeps the unconditional declaration below it", content.includes(".conditional{color:red}"), true);
 	check("control: an element with no revert-layer still loses its losers", content.includes(".y{color:red}"), false);
+	check("a revert-layer on a state-dependent rule keeps what it rolls back to", content.includes(".state{color:red}"), true);
+	check("a revert-layer under a state-dependent scope keeps it too", content.includes(".scoped{color:red}"), true);
+	check("control: a state-dependent rule without revert-layer protects nothing", content.includes(".plain{color:red}"), false);
+	check("control: the state-dependent rules themselves are kept", content.includes(".plain:hover{color:green}"), true);
 }
 
 if (failed) {
