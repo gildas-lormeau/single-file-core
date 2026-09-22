@@ -18,6 +18,13 @@ const PATCHES = [
 		]
 	},
 	{
+		name: "balance buffer cleared beyond the source",
+		file: /[/\\]css-tree[/\\].*[/\\]tokenizer[/\\]TokenStream\.js$/,
+		replacements: [
+			["balance.fill(0);", "balance.fill(0, 0, sourceLength + 1);", 1]
+		]
+	},
+	{
 		name: "escaped trailing whitespace in url()",
 		file: /[/\\]css-tree[/\\].*[/\\]utils[/\\]url\.js$/,
 		replacements: [
@@ -46,10 +53,18 @@ const patchPlugin = {
 	name: "patch-css-tree",
 	setup(build) {
 		const applied = new Set();
+		const patchesByFile = new Map();
 		for (const patch of PATCHES) {
-			build.onLoad({ filter: patch.file }, args => {
-				applied.add(patch);
-				return { contents: applyPatch(patch, readFileSync(args.path, "utf8")), loader: "js" };
+			patchesByFile.set(patch.file.source, (patchesByFile.get(patch.file.source) || []).concat(patch));
+		}
+		for (const [source, patches] of patchesByFile) {
+			build.onLoad({ filter: new RegExp(source) }, args => {
+				let contents = readFileSync(args.path, "utf8");
+				for (const patch of patches) {
+					applied.add(patch);
+					contents = applyPatch(patch, contents);
+				}
+				return { contents, loader: "js" };
 			});
 		}
 		build.onEnd(() => {
@@ -66,6 +81,8 @@ const banner = [
 	`// css-tree ${version} (https://github.com/csstree/csstree), bundled by css-tree-build/build.js`,
 	"// with the token offset field widened from 24 to 27 bits so stylesheets larger",
 	"// than 16MB do not corrupt the token stream (parsing never terminated on them),",
+	"// with the tokenizer clearing only the part of its balance buffer it uses (the",
+	"// buffer never shrinks, so every later parse was paying for the largest source),",
 	"// and with url() decoding keeping an escaped whitespace at the end of the value",
 	"// (the decoder trimmed it and lost everything before the escape)",
 	"",
