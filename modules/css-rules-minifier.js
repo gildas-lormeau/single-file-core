@@ -170,7 +170,6 @@ function process(doc, stylesheets) {
 		layerComparisons: new Map(),
 		selectorData: new Map(),
 		selectorTexts: new Map(),
-		nestedSelectorTexts: new Map(),
 		nestingParentTexts: new Map(),
 		nestingParentNodes: new Map(),
 		scopedSelectorTexts: new Map(),
@@ -616,9 +615,10 @@ function processSelectors(ruleData, processingContext, docContext) {
 		if (hasNestedUnqueryablePseudoClass) {
 			ruleData.hasNestedUnqueryablePseudoClass = true;
 		}
-		registerSelector(selector, ruleData, processingContext, docContext);
+		const nestedSelector = getNestedSelector(selector, ancestorsSelectors, docContext);
+		registerSelector(selector, nestedSelector, ruleData, processingContext, docContext);
 		const relativeToScope = startsWithCombinator && !(ancestorsSelectors && ancestorsSelectors.length) && Boolean(scopeStack && scopeStack.length);
-		const matchedElements = matchElements(selector, ancestorsSelectors, scopeStack, docContext, relativeToScope);
+		const matchedElements = matchElements(selector, nestedSelector, scopeStack, docContext, relativeToScope);
 		if (hasNestedUnqueryablePseudoClass) {
 			registerIndeterminateRevertLayer(ruleData, docContext);
 		}
@@ -774,16 +774,14 @@ function processNestedRules(ruleData, stylesheets, processingContext, docContext
 	minifyStylesheetRules(ruleData.block.children, stylesheets, newProcessingContext, docContext);
 }
 
-function registerSelector(selector, ruleData, processingContext, docContext) {
+function registerSelector(selector, nestedSelector, ruleData, processingContext, docContext) {
 	const {
-		ancestorsSelectors,
 		layerStack,
 		scopeStack,
 		conditionalStack
 	} = processingContext;
-	const nestedSelectorText = getNestedSelectorText(selector, ancestorsSelectors, docContext);
 	docContext.selectorData.set(selector, {
-		specificity: computeMaxSpecificity(nestedSelectorText === null ? selector.data : parseCss(nestedSelectorText, SELECTOR_LIST_CONTEXT)),
+		specificity: computeMaxSpecificity(nestedSelector === null ? selector.data : nestedSelector.data),
 		rule: ruleData,
 		layerStack,
 		scopeStack,
@@ -981,8 +979,8 @@ function getConditionalStackForSelector(selector, docContext) {
 	return conditionalStack;
 }
 
-function matchElements(selector, ancestorsSelectors, scopeStack, docContext, relativeToScope) {
-	let selectorText = createSelectorText(selector, ancestorsSelectors, docContext);
+function matchElements(selector, nestedSelector, scopeStack, docContext, relativeToScope) {
+	let selectorText = sanitizeSelector(nestedSelector === null ? selector : nestedSelector, docContext);
 	if (relativeToScope) {
 		selectorText = SCOPE_PSEUDO_CLASS + selectorText;
 	} else if (scopeStack && scopeStack.length) {
@@ -1179,22 +1177,12 @@ function isPathBlocked(ancestors, stopElements) {
 	return Boolean(stopElements) && ancestors.some(ancestor => stopElements.has(ancestor));
 }
 
-function createSelectorText(selector, ancestorsSelectors, docContext) {
-	const nestedSelectorText = getNestedSelectorText(selector, ancestorsSelectors, docContext);
-	if (nestedSelectorText === null) {
-		return sanitizeSelector(selector, docContext);
-	}
-	return sanitizeSelector({ data: parseCss(nestedSelectorText, SELECTOR_LIST_CONTEXT) }, docContext);
-}
-
-function getNestedSelectorText(selector, ancestorsSelectors, docContext) {
+function getNestedSelector(selector, ancestorsSelectors, docContext) {
 	if (!ancestorsSelectors || !ancestorsSelectors.length) {
 		return null;
 	}
-	if (!docContext.nestedSelectorTexts.has(selector.data)) {
-		docContext.nestedSelectorTexts.set(selector.data, nestSelectorText(getSelectorText(selector.data, docContext), getNestingParentText(ancestorsSelectors, docContext), docContext));
-	}
-	return docContext.nestedSelectorTexts.get(selector.data);
+	const nestedSelectorText = nestSelectorText(getSelectorText(selector.data, docContext), getNestingParentText(ancestorsSelectors, docContext), docContext);
+	return { data: parseCss(nestedSelectorText, SELECTOR_LIST_CONTEXT) };
 }
 
 function getNestingParentText(ancestorsSelectors, docContext) {
