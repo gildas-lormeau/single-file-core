@@ -1056,7 +1056,7 @@ function matchElementsInScope(selectorText, scopeStack, proximities) {
 function matchSelectorWithinRoot(root, selectorText) {
 	const matchedNodes = new Set();
 	if (!root || root.nodeType !== 1) {
-		return matchedNodes;
+		return [];
 	}
 	if (matches(root, selectorText)) {
 		matchedNodes.add(root);
