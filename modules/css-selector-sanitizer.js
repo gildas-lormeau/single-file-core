@@ -69,7 +69,7 @@ function sanitizeSelector(selector, docContext) {
     if (docContext.normalizedSelectorText.has(selector)) {
         return docContext.normalizedSelectorText.get(selector);
     }
-    const ast = cssTree.parse(cssTree.generate(selector.data), { context: "selectorList" });
+    const ast = copySelectorNode(selector.data);
     normalizeSelectorNode(ast);
     let normalized = cssTree.generate(ast);
     if (!normalized || !normalized.trim()) {
@@ -77,6 +77,12 @@ function sanitizeSelector(selector, docContext) {
     }
     docContext.normalizedSelectorText.set(selector, normalized);
     return normalized;
+}
+
+function copySelectorNode(node) {
+    // A node with no children is a Raw one, which clone would hand back raw where the round-trip
+    // parses it into the selector list the rest of this module walks.
+    return node.children ? cssTree.clone(node) : cssTree.parse(cssTree.generate(node), { context: "selectorList" });
 }
 
 function normalizeSelectorNode(selector) {
