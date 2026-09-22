@@ -220,13 +220,13 @@ function getProcessorHelperClass(utilInstance) {
 							if (content.data && content.data.match(/^<!doctype /i)) {
 								content.data = "";
 							}
-							const mediaQueryListNode = cssTree.find(node, node => node.type == "MediaQueryList");
-							if (mediaQueryListNode) {
-								content.data = this.wrapMediaQuery(content.data, cssTree.generate(mediaQueryListNode));
-							}
 							const importedLayerName = getImportedLayerName(node);
 							if (importedLayerName !== null) {
 								content.data = this.wrapLayer(content.data, importedLayerName);
+							}
+							const mediaQueryListNode = cssTree.find(node, node => node.type == "MediaQueryList");
+							if (mediaQueryListNode) {
+								content.data = this.wrapMediaQuery(content.data, cssTree.generate(mediaQueryListNode));
 							}
 							const supportsNode = cssTree.find(node, node => node.type == "Supports");
 							if (supportsNode) {

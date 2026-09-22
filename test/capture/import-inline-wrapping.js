@@ -37,9 +37,15 @@ check("the keyword is matched whatever its case", await inline(" LAYER"), "@laye
 // The branch that already worked, pinned so a change to the layer code cannot take it out.
 check("a media query still wraps the sheet", await inline(" screen"), "@media screen{" + INLINED + "}");
 
-// Both at once: the layer is the outer wrapper, since a conditional group rule inside a layer keeps
-// its rules in that layer, while a layer rule inside a failing media query would never declare it.
-check("a layer and a media query nest layer first", await inline(" layer(a) screen"), "@layer a{@media screen{" + INLINED + "}}");
+// Both at once, and the order matters. css-cascade-5 on the import's layer: "The layer is added to
+// the layer order even if the import fails to load the stylesheet, but is subject to any import
+// conditions (just as if declared by an @layer rule wrapped in the appropriate conditional group
+// rules)" — so the condition is the outer wrapper and the layer the inner one. The two shapes differ
+// only when the condition does not match, which is exactly when the layer must NOT take its place in
+// the order. Measured with `@import url(x) layer(a) print` read on a screen, against a page that
+// declares layer b and then layer a: Chromium 151, Firefox 153 and WebKit 26.5 all render the live
+// page green, the layer-outside shape blue and the layer-inside shape green.
+check("a media query wraps the layer, not the other way round", await inline(" layer(a) screen"), "@media screen{@layer a{" + INLINED + "}}");
 
 if (failed) {
 	console.log("FAILED");
