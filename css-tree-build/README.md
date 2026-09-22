@@ -24,7 +24,8 @@ slower, and the unused-styles pass parses one selector at a time — 163,881 of
 them on that page. The used range is `[0, sourceLength]`, since there is at
 most one token per character and `sourceLength` is the initial balance
 sentinel, so the bounded fill covers exactly what the tokenizer reads. The
-pass went from 180s to 12s on that page with byte-identical output.
+pass went from 180s to 12s on that page with byte-identical output. Reported upstream as
+https://github.com/csstree/csstree/issues/379.
 
 `lib/utils/url.js`: `decode()` trims the whitespace at the end of an unquoted
 `url()` before decoding the escapes, so a value ending in an escaped space,
@@ -35,7 +36,7 @@ such a value (`--brand-Prose-unorderedList-imageUrl`, an SVG bullet), which
 SingleFile then fetched as a relative URL and replaced with an empty
 resource. The patch stops the trim at an escaped whitespace, an odd number
 of backslashes before it, and appends in the special case instead of
-replacing.
+replacing. Reported upstream as https://github.com/csstree/csstree/issues/380.
 
 This directory rebuilds the file deterministically. All dependencies are
 pinned to exact versions by `package.json` and `package-lock.json`:
