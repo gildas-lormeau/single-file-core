@@ -56,11 +56,19 @@ const STYLESHEET_CONTEXT = "stylesheet";
 const SELECTOR_CONTEXT = "selector";
 const DECLARATION_LIST_CONTEXT = "declarationList";
 const UNKNOWN_PROPERTY_ERROR_NAME = "SyntaxReferenceError";
+const VALUE_MISMATCH_ERROR_NAME = "SyntaxMatchError";
+const VAR_FUNCTION_NAME = "var";
+const FUNCTION_TYPE = "Function";
+const VALIDITY_VALID = "valid";
+const VALIDITY_UNKNOWN = "unknown";
+const VALIDITY_INVALID = "invalid";
 const PARSE_CSS_ERROR_MESSAGE = "Failed to parse CSS";
 const QSA_ERROR_MESSAGE = "Failed to match selector";
 const PRELUDE_SEPARATOR = ",";
 const NESTING_SELECTOR = "&";
 const SCOPE_PSEUDO_CLASS = ":scope";
+const SCOPE_PSEUDO_CLASS_NAME = "scope";
+const DESCENDANT_COMBINATOR = " ";
 const NAMESPACE_SEPARATOR = "|";
 const SELECTOR_SUPPORTS_PREFIX = "selector(";
 const SELECTOR_SUPPORTS_SUFFIX = ")";
@@ -81,7 +89,10 @@ const ANONYMOUS_LAYER_PLACEHOLDER = "\u0000";
 export {
 	process,
 	isUnsupportedPropertyValue,
-	isUnsupportedVendorValue
+	getValueValidity,
+	VALIDITY_VALID,
+	VALIDITY_UNKNOWN,
+	VALIDITY_INVALID
 };
 
 function isUnsupportedPropertyValue(property, value) {
@@ -89,28 +100,41 @@ function isUnsupportedPropertyValue(property, value) {
 	return Boolean(!match.matched && match.error && match.error.name !== UNKNOWN_PROPERTY_ERROR_NAME);
 }
 
-// A vendor-prefixed VALUE is dropped only when this browser cannot actually use it. Dropping every
-// one of them was the overreach: `display:-ms-flexbox` is genuinely dead here and worth removing,
-// but `display:-webkit-box` is alive and load-bearing — `-webkit-line-clamp` does nothing without
-// it, so a page keeps its clamp rules and silently stops clamping. On anandabazar.com that expanded
-// 80 clamped headlines by a line each and moved the page 150px, with nothing wrong-looking left in
-// the saved CSS. Four of the five sites in a fifteen-site sweep that use line-clamp were affected.
-function isUnsupportedVendorValue(property, name) {
-	if (!name.startsWith(VENDOR_PREFIX)) {
-		return false;
+function getValueValidity(property, value) {
+	const singleNode = value.children.size === 1 ? value.children.head.data : null;
+	const name = singleNode && typeof singleNode.name === "string" ? singleNode.name : null;
+	if (name && INVALID_CSS_ESCAPE_TEST.test(name)) {
+		return VALIDITY_INVALID;
 	}
-	// unknown fails open, the same rule the unknown-property branch follows: a dropped valid
-	// declaration breaks rendering, a kept invalid one is ignored. With no browser to ask, keep.
-	if (!globalThis.CSS || !globalThis.CSS.supports) {
-		return false;
+	const isVendorValue = Boolean(name && name.startsWith(VENDOR_PREFIX));
+	if (globalThis.CSS && globalThis.CSS.supports) {
+		let supported;
+		try {
+			supported = globalThis.CSS.supports(property, cssTree.generate(value));
+		} catch {
+			return VALIDITY_UNKNOWN;
+		}
+		if (supported) {
+			return VALIDITY_VALID;
+		}
+		return isVendorValue ? VALIDITY_INVALID : VALIDITY_UNKNOWN;
 	}
+	if (cssTree.find(value, node => node.type === FUNCTION_TYPE && node.name.toLowerCase() === VAR_FUNCTION_NAME)) {
+		return VALIDITY_VALID;
+	}
+	let match;
 	try {
-		return !globalThis.CSS.supports(property, name);
-	// eslint-disable-next-line no-unused-vars
-	} catch (error) {
-		// a value CSS.supports will not even take as an argument tells us nothing either way
-		return false;
+		match = cssTree.lexer.matchProperty(property, value);
+	} catch {
+		return VALIDITY_UNKNOWN;
 	}
+	if (match.matched) {
+		return VALIDITY_VALID;
+	}
+	if (match.error && match.error.name === VALUE_MISMATCH_ERROR_NAME && !isVendorValue && !property.startsWith(VENDOR_PREFIX)) {
+		return VALIDITY_INVALID;
+	}
+	return VALIDITY_UNKNOWN;
 }
 
 function process(doc, stylesheets) {
@@ -125,7 +149,9 @@ function process(doc, stylesheets) {
 		layerOrder: new Map(),
 		selectorData: new Map(),
 		selectorTexts: new Map(),
+		scopedSelectorTexts: new Map(),
 		supportedSelectors: new Map(),
+		valueValidities: new Map(),
 		preludeTexts: new Map(),
 		rulesCounter: 0,
 		scopeIdCounter: 0
@@ -200,6 +226,8 @@ function collectStylesheetLayerOrder(cssRules, layerContext, docContext) {
 		const ruleData = cssRule.data;
 		if (ruleData.type === AT_RULE_TYPE && ruleData.name === LAYER_NAME) {
 			collectStylesheetLayerRule(ruleData, layerStack, conditionalStack, docContext);
+		} else if (isImportRule(ruleData)) {
+			collectImportLayerOrder(ruleData, layerContext, docContext);
 		} else if (ruleData.type === AT_RULE_TYPE && hasChildNodes(ruleData.block)) {
 			const newConditionalStack = buildConditionalStack(conditionalStack, ruleData, docContext);
 			collectStylesheetLayerOrder(ruleData.block.children, { layerStack, conditionalStack: newConditionalStack }, docContext);
@@ -220,11 +248,46 @@ function collectStylesheetLayerRule(ruleData, layerStack, conditionalStack, docC
 	}
 }
 
+function collectImportLayerOrder(ruleData, layerContext, docContext) {
+	const urlNode = ruleData.prelude.children.head.data;
+	const conditionalStack = buildImportConditionalStack(layerContext.conditionalStack, urlNode);
+	const layerName = getImportLayerName(ruleData, urlNode);
+	let { layerStack } = layerContext;
+	if (layerName !== undefined) {
+		registerLayerDeclaration(layerStack, layerName, conditionalStack, docContext);
+		layerStack = [...layerStack, layerName];
+	}
+	collectStylesheetLayerOrder(urlNode.importedChildren, { layerStack, conditionalStack }, docContext);
+}
+
 function buildConditionalStack(conditionalStack, ruleData, docContext) {
 	const isConditional = CONDITIONAL_AT_RULE_NAMES.has(ruleData.name);
 	return isConditional
 		? [...conditionalStack, { name: ruleData.name, prelude: getPreludeText(ruleData.prelude, docContext) }]
 		: conditionalStack;
+}
+
+function buildImportConditionalStack(conditionalStack, urlNode) {
+	const importConditionalStack = [...conditionalStack];
+	if (urlNode.importedMediaText) {
+		importConditionalStack.push({ name: MEDIA_AT_RULE_NAME, prelude: urlNode.importedMediaText });
+	}
+	if (urlNode.importedSupportsCondition !== undefined) {
+		importConditionalStack.push({ name: SUPPORTS_AT_RULE_NAME, prelude: urlNode.importedSupportsCondition });
+	}
+	return importConditionalStack;
+}
+
+function getImportLayerName(ruleData, urlNode) {
+	if (urlNode.importedLayerName !== undefined) {
+		return urlNode.importedLayerName;
+	}
+	const layerKeyword = cssTree.find(ruleData.prelude, node => node.type === IDENTIFIER_TYPE && node.name.toLowerCase() === LAYER_NAME);
+	return layerKeyword ? EMPTY_STRING : undefined;
+}
+
+function isImportRule(ruleData) {
+	return ruleData.type === AT_RULE_TYPE && ruleData.name === IMPORT_NAME && hasChildNodes(ruleData.prelude) && Boolean(ruleData.prelude.children.head.data.importedChildren);
 }
 
 function registerLayerDeclaration(layerStack, layerName, conditionalStack, docContext) {
@@ -259,7 +322,7 @@ function minifyStylesheetRules(cssRules, stylesheets, processingContext, docCont
 }
 
 function minifyRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext) {
-	if (ruleData.type === AT_RULE_TYPE && ruleData.name === IMPORT_NAME && hasChildNodes(ruleData.prelude) && ruleData.prelude.children.head.data.importedChildren) {
+	if (isImportRule(ruleData)) {
 		minifyImportRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext);
 	} else if (ruleData.type === AT_RULE_TYPE && ruleData.name === LAYER_NAME && hasChildNodes(ruleData.block)) {
 		minifyLayerRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext);
@@ -274,16 +337,13 @@ function minifyRule(ruleData, cssRule, stylesheets, processingContext, removedRu
 
 function minifyImportRule(ruleData, _cssRule, stylesheets, processingContext, _removedRules, docContext) {
 	const urlNode = ruleData.prelude.children.head.data;
-	const topConditionalStack = urlNode.importedMediaText ? [{ name: MEDIA_AT_RULE_NAME, prelude: urlNode.importedMediaText }] : [];
-	if (urlNode.importedLayerName !== undefined) {
-		topConditionalStack.push({ name: LAYER_NAME, prelude: urlNode.importedLayerName });
-	}
-	if (urlNode.importedSupportsCondition !== undefined) {
-		topConditionalStack.push({ name: SUPPORTS_AT_RULE_NAME, prelude: urlNode.importedSupportsCondition });
-	}
+	const conditionalStack = buildImportConditionalStack(processingContext.conditionalStack, urlNode);
+	const layerName = getImportLayerName(ruleData, urlNode);
+	const layerStack = layerName === undefined ? processingContext.layerStack : [...processingContext.layerStack, layerName];
 	minifyStylesheetRules(urlNode.importedChildren, stylesheets, {
 		...processingContext,
-		conditionalStack: topConditionalStack
+		layerStack,
+		conditionalStack
 	}, docContext);
 }
 
@@ -293,6 +353,14 @@ function minifyLayerRule(ruleData, cssRule, stylesheets, processingContext, remo
 	expandRawCssRules(ruleData);
 	minifyStylesheetRules(ruleData.block.children, stylesheets, newProcessingContext, docContext);
 	if (!hasChildNodes(ruleData.block)) {
+		removeEmptyLayerRule(ruleData, cssRule, removedRules, docContext);
+	}
+}
+
+function removeEmptyLayerRule(ruleData, cssRule, removedRules, docContext) {
+	if (hasChildNodes(ruleData.prelude)) {
+		ruleData.block = null;
+	} else {
 		docContext.stats.discarded++;
 		removedRules.add(cssRule);
 	}
@@ -316,7 +384,9 @@ function minifyScopeRule(ruleData, cssRule, stylesheets, processingContext, remo
 	}
 	const newProcessingContext = {
 		...processingContext,
-		scopeStack: [...(processingContext.scopeStack || []), scopeContext]
+		scopeStack: [...(processingContext.scopeStack || []), scopeContext],
+		hasUnqueryableSelector: processingContext.hasUnqueryableSelector || scopeContext.hasUnqueryableSelector,
+		hasNestedUnqueryablePseudoClass: processingContext.hasNestedUnqueryablePseudoClass || scopeContext.hasNestedUnqueryablePseudoClass
 	};
 	expandRawCssRules(ruleData);
 	minifyStylesheetRules(ruleData.block.children, stylesheets, newProcessingContext, docContext);
@@ -329,9 +399,15 @@ function minifyScopeRule(ruleData, cssRule, stylesheets, processingContext, remo
 function buildScopeContext(parsedPrelude, processingContext, docContext) {
 	const scopeStack = processingContext.scopeStack || [];
 	const includeSelectors = parsedPrelude && parsedPrelude.include ? parsedPrelude.include : [];
+	const excludeSelectors = parsedPrelude && parsedPrelude.exclude ? parsedPrelude.exclude : [];
+	const includeAnalysis = analyzeScopeSelectors(includeSelectors);
+	const excludeAnalysis = analyzeScopeSelectors(excludeSelectors);
 	let rootElements = [];
 	if (includeSelectors.length) {
 		rootElements = collectScopeRootElements(includeSelectors, scopeStack, docContext);
+		if (!rootElements.length && includeAnalysis.hasNestedUnqueryablePseudoClass) {
+			rootElements = scopeStack.length ? Array.from(scopeStack[scopeStack.length - 1].rootElements) : getDefaultScopeRoots(docContext);
+		}
 	} else if (scopeStack.length) {
 		rootElements = Array.from(scopeStack[scopeStack.length - 1].rootElements);
 	} else {
@@ -341,12 +417,24 @@ function buildScopeContext(parsedPrelude, processingContext, docContext) {
 	if (!uniqueRoots.length) {
 		return null;
 	}
-	const boundaryElements = collectScopeBoundaryElements(parsedPrelude.exclude || [], uniqueRoots, docContext);
+	const boundaryElements = collectScopeBoundaryElements(excludeSelectors, uniqueRoots, docContext);
 	return {
 		id: docContext.scopeIdCounter++,
 		rootElements: new Set(uniqueRoots),
 		stopElements: boundaryElements,
+		hasUnqueryableSelector: includeAnalysis.hasUnqueryableSelector || excludeAnalysis.hasUnqueryableSelector,
+		hasNestedUnqueryablePseudoClass: includeAnalysis.hasNestedUnqueryablePseudoClass
 	};
+}
+
+function analyzeScopeSelectors(selectors) {
+	const analysis = { hasUnqueryableSelector: false, hasNestedUnqueryablePseudoClass: false };
+	selectors.forEach(selectorInfo => {
+		const { hasUnqueryableSelector, hasNestedUnqueryablePseudoClass } = analyzeSelector(selectorInfo.data);
+		analysis.hasUnqueryableSelector ||= hasUnqueryableSelector;
+		analysis.hasNestedUnqueryablePseudoClass ||= hasNestedUnqueryablePseudoClass;
+	});
+	return analysis;
 }
 
 function collectScopeRootElements(includeSelectors, scopeStack, docContext) {
@@ -365,10 +453,13 @@ function collectScopeBoundaryElements(excludeSelectors, rootElements, docContext
 		return boundaries;
 	}
 	excludeSelectors.forEach(selectorInfo => {
-		const selectorText = sanitizeSelector(selectorInfo, null, docContext);
-		rootElements.forEach(root => {
-			matchSelectorWithinRoot(root, selectorText).forEach(node => boundaries.add(node));
-		});
+		const { hasUnqueryableSelector, hasNestedUnqueryablePseudoClass } = analyzeSelector(selectorInfo.data);
+		if (!hasUnqueryableSelector && !hasNestedUnqueryablePseudoClass) {
+			const selectorText = getScopedSelectorText(sanitizeSelector(selectorInfo, null, docContext), docContext);
+			rootElements.forEach(root => {
+				matchSelectorWithinRoot(root, selectorText).forEach(node => boundaries.add(node));
+			});
+		}
 	});
 	return boundaries;
 }
@@ -414,13 +505,15 @@ function processSelectors(ruleData, processingContext, docContext) {
 	const removedSelectors = [];
 	const { ancestorsSelectors, scopeStack } = processingContext;
 	for (let selector = ruleData.prelude.children.head, selectorIndex = 0; selector; selector = selector.next, selectorIndex++) {
-		const {
-			startsWithCombinator,
-			hasUnqueryableSelector,
-			hasNestedUnqueryablePseudoClass
-		} = analyzeSelector(selector.data);
+		const analysis = analyzeSelector(selector.data);
+		const { startsWithCombinator } = analysis;
+		const hasUnqueryableSelector = analysis.hasUnqueryableSelector || Boolean(processingContext.hasUnqueryableSelector);
+		const hasNestedUnqueryablePseudoClass = analysis.hasNestedUnqueryablePseudoClass || Boolean(processingContext.hasNestedUnqueryablePseudoClass);
 		if (hasUnqueryableSelector) {
 			ruleData.hasUnqueryableSelector = true;
+		}
+		if (hasNestedUnqueryablePseudoClass) {
+			ruleData.hasNestedUnqueryablePseudoClass = true;
 		}
 		registerSelector(selector, ruleData, processingContext, docContext);
 		if (!startsWithCombinator || !ancestorsSelectors || !ancestorsSelectors.length) {
@@ -461,6 +554,11 @@ function analyzeSelector(selector) {
 					functionalPseudoClassDepth++;
 				}
 			} else if (node.type === ATTRIBUTE_SELECTOR_TYPE && matchUnqueryableAttributeSelector(node)) {
+				hasUnqueryableSelector = true;
+				if (functionalPseudoClassDepth) {
+					hasNestedUnqueryablePseudoClass = true;
+				}
+			} else if (node.type === TYPE_SELECTOR_TYPE && typeof node.name === "string" && node.name.includes(NAMESPACE_SEPARATOR)) {
 				hasUnqueryableSelector = true;
 				if (functionalPseudoClassDepth) {
 					hasNestedUnqueryablePseudoClass = true;
@@ -532,7 +630,12 @@ function updateMatchingSelectors(matchedElements, selector, docContext) {
 
 function processNestedRules(ruleData, stylesheets, processingContext, docContext) {
 	expandRawCssRules(ruleData);
-	const newProcessingContext = { ...processingContext, ancestorsSelectors: [...processingContext.ancestorsSelectors, ruleData.prelude] };
+	const newProcessingContext = {
+		...processingContext,
+		ancestorsSelectors: [...processingContext.ancestorsSelectors, ruleData.prelude],
+		hasUnqueryableSelector: Boolean(ruleData.hasUnqueryableSelector),
+		hasNestedUnqueryablePseudoClass: Boolean(ruleData.hasNestedUnqueryablePseudoClass)
+	};
 	minifyStylesheetRules(ruleData.block.children, stylesheets, newProcessingContext, docContext);
 }
 
@@ -567,19 +670,23 @@ function computeCascadedStylesForElement(element, winningDeclarations, docContex
 	contextGroups.forEach(declarations => {
 		declarations.sort((declarationA, declarationB) => compareDeclarations(declarationA, declarationB, docContext));
 		const propertyDeclarations = new Map();
-		declarations.forEach(({ declaration }) => {
-			const { property } = declaration.data;
+		declarations.forEach(declarationData => {
+			const { property } = declarationData.declaration.data;
 			if (!propertyDeclarations.has(property)) {
 				propertyDeclarations.set(property, []);
 			}
-			propertyDeclarations.get(property).push(declaration);
+			propertyDeclarations.get(property).push(declarationData);
 		});
 		propertyDeclarations.forEach(candidates => {
-			const winner = candidates[candidates.length - 1];
-			if (isRevertLayerValue(winner)) {
-				candidates.forEach(declaration => winningDeclarations.add(declaration));
-			} else {
-				winningDeclarations.add(winner);
+			for (let indexCandidate = candidates.length - 1; indexCandidate >= 0; indexCandidate--) {
+				const { declaration, validity } = candidates[indexCandidate];
+				winningDeclarations.add(declaration);
+				if (validity === VALIDITY_VALID) {
+					if (isRevertLayerValue(declaration)) {
+						candidates.forEach(candidate => winningDeclarations.add(candidate.declaration));
+					}
+					break;
+				}
 			}
 		});
 	});
@@ -624,34 +731,31 @@ function collectDeclarationItemsForElement(element, docContext) {
 
 	function addDeclaration(declaration, specificity, isInline, selector, order, proximity) {
 		const { property, value } = declaration.data;
-		const isRawValue = value.type === RAW_TYPE;
-		const hasValueChildNodes = hasChildNodes(value) || value.type === RAW_TYPE;
-		let isInvalidValue;
-		if (value.type === VALUE_TYPE &&
-			hasValueChildNodes &&
-			value.children.size == 1) {
-			if (value.children.head.data.name) {
-				const name = value.children.head.data.name;
-				isInvalidValue = isUnsupportedVendorValue(property, name) || INVALID_CSS_ESCAPE_TEST.test(name);
-			} if (!property.startsWith(VENDOR_PREFIX) && value.children.head.data.value) {
-				try {
-					isInvalidValue = isUnsupportedPropertyValue(property, value);
-				} catch {
-					// ignored
-				}
+		if (value.type === VALUE_TYPE && hasChildNodes(value)) {
+			const validity = getCachedValueValidity(property, value, docContext);
+			if (validity !== VALIDITY_INVALID) {
+				allDeclarations.push({
+					declaration,
+					selector,
+					specificity,
+					isInline,
+					order,
+					proximity,
+					validity
+				});
 			}
 		}
-		if (hasValueChildNodes && !isRawValue && !isInvalidValue) {
-			allDeclarations.push({
-				declaration,
-				selector,
-				specificity,
-				isInline,
-				order,
-				proximity
-			});
-		}
 	}
+}
+
+function getCachedValueValidity(property, value, docContext) {
+	if (property.startsWith(CUSTOM_PROPERTY_PREFIX)) {
+		return VALIDITY_VALID;
+	}
+	if (!docContext.valueValidities.has(value)) {
+		docContext.valueValidities.set(value, getValueValidity(property, value));
+	}
+	return docContext.valueValidities.get(value);
 }
 
 function getScopeProximity(element, scopeStack) {
@@ -684,6 +788,8 @@ function matchElements(selector, ancestorsSelectors, scopeStack, docContext, rel
 	let selectorText = createSelectorText(selector, ancestorsSelectors, docContext);
 	if (relativeToScope) {
 		selectorText = SCOPE_PSEUDO_CLASS + selectorText;
+	} else if (scopeStack && scopeStack.length) {
+		selectorText = getScopedSelectorText(selectorText, docContext);
 	}
 	const cacheKey = createScopeCacheKey(selectorText, scopeStack);
 	const cachedNodes = docContext.matchedSelectors.get(cacheKey);
@@ -699,6 +805,26 @@ function matchElements(selector, ancestorsSelectors, scopeStack, docContext, rel
 	}
 	docContext.matchedSelectors.set(cacheKey, nodes);
 	return nodes;
+}
+
+function getScopedSelectorText(selectorText, docContext) {
+	if (!docContext.scopedSelectorTexts.has(selectorText)) {
+		let scopedSelectorText = selectorText;
+		try {
+			const selectorList = parseCss(selectorText, SELECTOR_LIST_CONTEXT);
+			scopedSelectorText = selectorList.children.toArray().map(selector => {
+				const hasScopePseudoClass = cssTree.find(selector, node => node.type === PSEUDO_CLASS_SELECTOR_TYPE && node.name.toLowerCase() === SCOPE_PSEUDO_CLASS_NAME);
+				return hasScopePseudoClass ? cssTree.generate(selector) : SCOPE_PSEUDO_CLASS + DESCENDANT_COMBINATOR + cssTree.generate(selector);
+			}).join(PRELUDE_SEPARATOR);
+		} catch {
+			if (DEBUG) {
+				// eslint-disable-next-line no-console
+				console.warn(PARSE_CSS_ERROR_MESSAGE, selectorText);
+			}
+		}
+		docContext.scopedSelectorTexts.set(selectorText, scopedSelectorText);
+	}
+	return docContext.scopedSelectorTexts.get(selectorText);
 }
 
 function createScopeCacheKey(selectorText, scopeStack) {
@@ -787,17 +913,10 @@ function getTraversalRoots(root) {
 		return [];
 	}
 	if (root.nodeType === 9 || root.nodeType === 11) {
-		const roots = [];
 		if (root.documentElement) {
-			roots.push(root.documentElement);
+			return [root.documentElement];
 		}
-		if (root.body && (!roots.length || root.body !== roots[0])) {
-			roots.push(root.body);
-		}
-		if (!roots.length && root.children) {
-			roots.push(...Array.from(root.children).filter(node => node.nodeType === 1));
-		}
-		return roots;
+		return root.children ? Array.from(root.children).filter(node => node.nodeType === 1) : [];
 	}
 	return [root];
 }
@@ -948,11 +1067,17 @@ function removeStylesheetEmptyRules(cssRules, docContext) {
 				docContext.stats.discarded++;
 				removedRules.add(cssRule);
 			}
+		} else if (isImportRule(ruleData)) {
+			removeStylesheetEmptyRules(ruleData.prelude.children.head.data.importedChildren, docContext);
 		} else if (ruleData.type === AT_RULE_TYPE && ruleData.block && ruleData.name !== FONT_FACE_NAME && ruleData.name !== KEYFRAMES_NAME) {
 			removeStylesheetEmptyRules(ruleData.block.children, docContext);
 			if (!hasChildNodes(ruleData.block)) {
-				docContext.stats.discarded++;
-				removedRules.add(cssRule);
+				if (ruleData.name === LAYER_NAME) {
+					removeEmptyLayerRule(ruleData, cssRule, removedRules, docContext);
+				} else {
+					docContext.stats.discarded++;
+					removedRules.add(cssRule);
+				}
 			}
 		}
 	}

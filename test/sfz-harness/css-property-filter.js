@@ -10,7 +10,7 @@
 // The rule this pins: unknown must fail open. A dropped valid declaration breaks rendering; a kept
 // invalid one is ignored by the browser.
 import * as cssTree from "../../vendor/css-tree.js";
-import { isUnsupportedPropertyValue, isUnsupportedVendorValue } from "../../modules/css-rules-minifier.js";
+import { isUnsupportedPropertyValue, getValueValidity, VALIDITY_VALID, VALIDITY_UNKNOWN, VALIDITY_INVALID } from "../../modules/css-rules-minifier.js";
 
 // valid declarations whose property the vendored css-tree does not know. Every one of these was
 // deleted before the fix. The SVG paint-server and filter properties are the ones that matter in
@@ -87,23 +87,41 @@ check("wrong value reports SyntaxMatchError", wrongValue.error && wrongValue.err
 //
 // CSS.supports is the authority and Deno has none, so it is stubbed here. That is also the point of
 // the last group: with no browser to ask, this must KEEP, which is the same fail-open rule as above.
-const CHROME_SUPPORTS = new Set(["display:-webkit-box", "display:-webkit-inline-box", "-webkit-box-orient:vertical"]);
+//
+// The verdict has three values. A value the browser accepts is valid and takes part in the cascade.
+// A vendor-prefixed value it rejects is invalid and dropped. Any other value it rejects is unknown:
+// it may be a typo or syntax newer than this browser, and telling the two apart is impossible, so
+// it is kept but never allowed to prune the declaration it would beat, which is how
+// `color: red; color: future-color(1)` stops losing its fallback. The browser is asked with the
+// whole value, since a function name alone, `-webkit-linear-gradient`, is rejected by every browser.
+const CHROME_SUPPORTS = new Set(["display:-webkit-box", "display:-webkit-inline-box", "-webkit-box-orient:vertical", "background-image:-webkit-linear-gradient(red,blue)"]);
 const originalCSS = globalThis.CSS;
 globalThis.CSS = { supports: (property, value) => CHROME_SUPPORTS.has(property + ":" + value) };
 try {
 	// alive in this browser, and load-bearing
-	check("vendor value kept: display: -webkit-box", isUnsupportedVendorValue("display", "-webkit-box"), false);
-	check("vendor value kept: display: -webkit-inline-box", isUnsupportedVendorValue("display", "-webkit-inline-box"), false);
+	check("vendor value kept: display: -webkit-box", validity("display", "-webkit-box"), VALIDITY_VALID);
+	check("vendor value kept: display: -webkit-inline-box", validity("display", "-webkit-inline-box"), VALIDITY_VALID);
+	check("vendor function kept with its arguments: -webkit-linear-gradient(red,blue)", validity("background-image", "-webkit-linear-gradient(red,blue)"), VALIDITY_VALID);
 	// dead in this browser, and the reason the check exists at all — the fix must not disable it
-	check("vendor value dropped: display: -ms-flexbox", isUnsupportedVendorValue("display", "-ms-flexbox"), true);
-	check("vendor value dropped: display: -moz-box", isUnsupportedVendorValue("display", "-moz-box"), true);
-	// not vendor-prefixed, so this predicate must not have an opinion either way
-	check("non-vendor value untouched: display: flex", isUnsupportedVendorValue("display", "flex"), false);
-	check("non-vendor value untouched: color: nonsense", isUnsupportedVendorValue("color", "nonsense"), false);
+	check("vendor value dropped: display: -ms-flexbox", validity("display", "-ms-flexbox"), VALIDITY_INVALID);
+	check("vendor value dropped: display: -moz-box", validity("display", "-moz-box"), VALIDITY_INVALID);
+	// not vendor-prefixed and rejected, so the verdict must stay open
+	check("non-vendor value unknown: display: flex", validity("display", "flex"), VALIDITY_UNKNOWN);
+	check("non-vendor value unknown: color: nonsense", validity("color", "nonsense"), VALIDITY_UNKNOWN);
+	check("non-vendor function unknown: color: future-color(1)", validity("color", "future-color(1)"), VALIDITY_UNKNOWN);
 } finally {
 	globalThis.CSS = originalCSS;
 }
-check("no browser to ask keeps the value", isUnsupportedVendorValue("display", "-ms-flexbox"), false);
+// with no browser to ask, the lexer decides and a vendor value it does not know stays open
+check("no browser to ask keeps the vendor value", validity("display", "-ms-flexbox"), VALIDITY_UNKNOWN);
+check("no browser to ask still drops a value the lexer rejects", validity("color", "nonsense"), VALIDITY_INVALID);
+check("no browser to ask keeps an unknown property", validity("text-box-trim", "trim-both"), VALIDITY_UNKNOWN);
+check("no browser to ask keeps a var() value as valid", validity("color", "var(--x, red)"), VALIDITY_VALID);
+check("a broken escape is invalid everywhere", validity("color", "re\\d"), VALIDITY_INVALID);
+
+function validity(property, declaration) {
+	return getValueValidity(property, cssTree.parse(declaration, { context: "value" }));
+}
 
 if (failed) {
 	console.log("FAILED");
