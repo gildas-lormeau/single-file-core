@@ -492,6 +492,8 @@ class Processor {
 			pageContent = content.data || "";
 		}
 		this.doc = util.parseDocContent(pageContent, this.baseURI);
+		removeInsertedParagraphs(this.doc);
+		this.nestingPositions = getNestingPositions(this.doc);
 		util.fixInvalidNesting(this.doc);
 		if (this.options.saveRawPage) {
 			let charset;
@@ -600,6 +602,7 @@ class Processor {
 		if (this.options.displayStats) {
 			size = util.getContentSize(this.doc.documentElement.outerHTML);
 		}
+		restoreNestingPositions(this.nestingPositions);
 		if (this.doc.querySelector(`[${util.NESTING_TRACK_ID_ATTRIBUTE_NAME}]`)) {
 			const scriptElement = this.doc.createElement("script");
 			scriptElement.textContent = `(${util.getFixInvalidNestingSource()})(document, "${util.NESTING_TRACK_ID_ATTRIBUTE_NAME}");`;
@@ -1747,6 +1750,7 @@ const FILE_URI_PREFIX = /^file:\/\//;
 const EMPTY_URL = /^https?:\/\/+\s*$/;
 const NOT_EMPTY_URL = /^(https?:\/\/|file:\/\/|blob:).+/;
 const SINGLE_FILE_VARIABLE_NAME_PREFIX = "--sf-img-";
+const PARAGRAPH_TAG_NAME = "P";
 
 function normalizeURL(url) {
 	if (!url || url.startsWith(DATA_URI_PREFIX)) {
@@ -1783,6 +1787,70 @@ function isDataURL(url) {
 
 function testIgnoredPath(resourceURL) {
 	return resourceURL && (resourceURL.startsWith(DATA_URI_PREFIX) || resourceURL == ABOUT_BLANK_URI);
+}
+
+function getNestingPositions(doc) {
+	return Array.from(doc.querySelectorAll(`[${util.NESTING_TRACK_ID_ATTRIBUTE_NAME}]`)).map(element => ({
+		element,
+		parentNode: element.parentNode,
+		nextSibling: element.nextSibling
+	}));
+}
+
+function restoreNestingPositions(positions) {
+	if (positions) {
+		positions.slice().reverse().forEach(({ element, parentNode, nextSibling }) => {
+			if (element.isConnected && parentNode && parentNode.isConnected) {
+				if (nextSibling && nextSibling.parentNode == parentNode) {
+					parentNode.insertBefore(element, nextSibling);
+				} else {
+					parentNode.appendChild(element);
+				}
+			}
+		});
+	}
+}
+
+function removeInsertedParagraphs(doc) {
+	const trackedElements = new Map();
+	doc.querySelectorAll(`[${util.NESTING_TRACK_ID_ATTRIBUTE_NAME}]`).forEach(element =>
+		trackedElements.set(element.getAttribute(util.NESTING_TRACK_ID_ATTRIBUTE_NAME), element));
+	const displacedElements = new Set();
+	trackedElements.forEach((element, trackId) => {
+		const parentTrackId = getParentTrackId(trackId);
+		const expectedParent = trackedElements.get(parentTrackId);
+		if (expectedParent && element.parentElement != expectedParent && !element.contains(expectedParent) &&
+			testParagraphExpectedAncestor(trackedElements, parentTrackId)) {
+			displacedElements.add(element);
+		}
+	});
+	const insertedParagraphs = new Set();
+	displacedElements.forEach(element => {
+		let sibling = element.nextSibling;
+		while (sibling && (sibling.nodeType != 1 || displacedElements.has(sibling))) {
+			sibling = sibling.nextSibling;
+		}
+		if (sibling && sibling.tagName == PARAGRAPH_TAG_NAME && !sibling.attributes.length && !sibling.childNodes.length) {
+			insertedParagraphs.add(sibling);
+		}
+	});
+	insertedParagraphs.forEach(paragraph => paragraph.remove());
+}
+
+function testParagraphExpectedAncestor(trackedElements, trackId) {
+	let element = trackedElements.get(trackId);
+	while (element) {
+		if (element.tagName == PARAGRAPH_TAG_NAME) {
+			return true;
+		}
+		trackId = getParentTrackId(trackId);
+		element = trackId ? trackedElements.get(trackId) : null;
+	}
+	return false;
+}
+
+function getParentTrackId(trackId) {
+	return trackId.split(".").slice(0, -1).join(".");
 }
 
 function testValidPath(resourceURL) {
