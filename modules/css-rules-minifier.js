@@ -25,6 +25,7 @@ import * as cssTree from "./../vendor/css-tree.js";
 import { computeMaxSpecificity } from "./css-specificity.js";
 import { parsePrelude } from "./css-scope-prelude-parser.js";
 import { sanitizeSelector, matchUnqueryableAttributeSelector, matchUnqueryablePseudoClass } from "./css-selector-sanitizer.js";
+import { ESCAPE_CHARACTER, decodeIdentifier, decodeName } from "./css-identifier.js";
 
 const DEBUG = false;
 
@@ -54,6 +55,7 @@ const COMBINATOR_NAME = "Combinator";
 const TYPE_SELECTOR_TYPE = "TypeSelector";
 const STYLE_ATTRIBUTE_NAME = "style";
 const SELECTOR_LIST_CONTEXT = "selectorList";
+const SCOPE_PRELUDE_OPTIONS = { context: "atrulePrelude", atrule: SCOPE_NAME };
 const STYLESHEET_CONTEXT = "stylesheet";
 const SELECTOR_CONTEXT = "selector";
 const DECLARATION_LIST_CONTEXT = "declarationList";
@@ -87,13 +89,6 @@ const REVERT_LAYER_TEST = /(^|[^-\w])revert-layer([^-\w]|$)/i;
 const NAMESPACE_AT_RULE_NAME = "namespace";
 const URL_TYPE = "Url";
 const STRING_TYPE = "String";
-const ESCAPE_CHARACTER = "\\";
-const CSS_ESCAPE_TEST = /\\(?:([0-9a-fA-F]{1,6})(?:\r\n|[ \n\r\t\f])?|([^\n\r\f]))/g;
-const REPLACEMENT_CHARACTER = "\uFFFD";
-const MAX_CODE_POINT = 0x10ffff;
-const SURROGATE_FIRST_CODE_POINT = 0xd800;
-const SURROGATE_LAST_CODE_POINT = 0xdfff;
-const HEXADECIMAL_RADIX = 16;
 const UNSCOPED_PROXIMITY = Infinity;
 const BLOCK_OPEN = "{";
 const BLOCK_CLOSE = "}";
@@ -138,7 +133,7 @@ function getValueValidity(property, value) {
 		}
 		return isVendorValue ? VALIDITY_INVALID : VALIDITY_UNKNOWN;
 	}
-	if (cssTree.find(value, node => node.type === FUNCTION_TYPE && node.name.toLowerCase() === VAR_FUNCTION_NAME)) {
+	if (cssTree.find(value, node => node.type === FUNCTION_TYPE && decodeName(node.name) === VAR_FUNCTION_NAME)) {
 		return VALIDITY_VALID;
 	}
 	let match;
@@ -243,7 +238,7 @@ function collectStylesheetLayerOrder(cssRules, layerContext, docContext) {
 	const { layerStack, conditionalStack } = layerContext;
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		const ruleData = cssRule.data;
-		if (ruleData.type === AT_RULE_TYPE && ruleData.name === LAYER_NAME) {
+		if (ruleData.type === AT_RULE_TYPE && decodeName(ruleData.name) === LAYER_NAME) {
 			collectStylesheetLayerRule(ruleData, layerStack, conditionalStack, docContext);
 		} else if (isImportRule(ruleData)) {
 			collectImportLayerOrder(ruleData, layerContext, docContext);
@@ -305,27 +300,12 @@ function splitLayerName(layerName) {
 	return segments;
 }
 
-function decodeIdentifier(identifier) {
-	if (identifier.indexOf(ESCAPE_CHARACTER) === -1) {
-		return identifier;
-	}
-	return identifier.replace(CSS_ESCAPE_TEST, (match, hexadecimalDigits, character) => {
-		if (hexadecimalDigits === undefined) {
-			return character;
-		}
-		const codePoint = parseInt(hexadecimalDigits, HEXADECIMAL_RADIX);
-		return codePoint === 0 || codePoint > MAX_CODE_POINT || (codePoint >= SURROGATE_FIRST_CODE_POINT && codePoint <= SURROGATE_LAST_CODE_POINT)
-			? REPLACEMENT_CHARACTER
-			: String.fromCodePoint(codePoint);
-	});
-}
-
 function createAnonymousLayerSegment(docContext) {
 	return ANONYMOUS_LAYER_PREFIX + docContext.anonymousLayerCounter++;
 }
 
 function buildConditionalStack(conditionalStack, ruleData, docContext) {
-	const isConditional = CONDITIONAL_AT_RULE_NAMES.has(ruleData.name);
+	const isConditional = CONDITIONAL_AT_RULE_NAMES.has(decodeName(ruleData.name));
 	return isConditional
 		? [...conditionalStack, { name: ruleData.name, prelude: getPreludeText(ruleData.prelude, docContext) }]
 		: conditionalStack;
@@ -347,19 +327,19 @@ function getImportLayerSegments(ruleData, urlNode, docContext) {
 		return splitLayerName(urlNode.importedLayerName);
 	}
 	if (!urlNode.anonymousLayerSegments) {
-		const layerKeyword = cssTree.find(ruleData.prelude, node => node.type === IDENTIFIER_TYPE && node.name.toLowerCase() === LAYER_NAME);
+		const layerKeyword = cssTree.find(ruleData.prelude, node => node.type === IDENTIFIER_TYPE && decodeName(node.name) === LAYER_NAME);
 		urlNode.anonymousLayerSegments = layerKeyword ? [createAnonymousLayerSegment(docContext)] : null;
 	}
 	return urlNode.anonymousLayerSegments;
 }
 
 function isImportRule(ruleData) {
-	return ruleData.type === AT_RULE_TYPE && ruleData.name === IMPORT_NAME && hasChildNodes(ruleData.prelude) && Boolean(ruleData.prelude.children.head.data.importedChildren);
+	return ruleData.type === AT_RULE_TYPE && decodeName(ruleData.name) === IMPORT_NAME && hasChildNodes(ruleData.prelude) && Boolean(ruleData.prelude.children.head.data.importedChildren);
 }
 
 function registerLayerDeclaration(layerStack, layerSegments, conditionalStack, docContext) {
 	const position = docContext.layerDeclarationCounter++;
-	const certain = !conditionalStack.some(context => UNCERTAIN_CONDITIONAL_AT_RULE_NAMES.has(context.name));
+	const certain = !conditionalStack.some(context => UNCERTAIN_CONDITIONAL_AT_RULE_NAMES.has(decodeName(context.name)));
 	const segments = [...layerStack, ...layerSegments];
 	for (let length = layerStack.length + 1; length <= segments.length; length++) {
 		const fullLayerName = getFullLayerName(segments.slice(0, length));
@@ -395,13 +375,14 @@ function minifyStylesheetRules(cssRules, stylesheets, processingContext, docCont
 }
 
 function minifyRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext) {
+	const atRuleName = decodeName(ruleData.name);
 	if (isImportRule(ruleData)) {
 		minifyImportRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext);
-	} else if (ruleData.type === AT_RULE_TYPE && ruleData.name === LAYER_NAME && hasChildNodes(ruleData.block)) {
+	} else if (ruleData.type === AT_RULE_TYPE && atRuleName === LAYER_NAME && hasChildNodes(ruleData.block)) {
 		minifyLayerRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext);
-	} else if (ruleData.type === AT_RULE_TYPE && ruleData.name === SCOPE_NAME && hasChildNodes(ruleData.block)) {
+	} else if (ruleData.type === AT_RULE_TYPE && atRuleName === SCOPE_NAME && hasChildNodes(ruleData.block)) {
 		minifyScopeRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext);
-	} else if (ruleData.type === AT_RULE_TYPE && ruleData.name !== FONT_FACE_NAME && ruleData.name !== KEYFRAMES_NAME && !ruleData.name.startsWith(VENDOR_PREFIX) && hasChildNodes(ruleData.block)) {
+	} else if (ruleData.type === AT_RULE_TYPE && atRuleName !== FONT_FACE_NAME && atRuleName !== KEYFRAMES_NAME && !atRuleName.startsWith(VENDOR_PREFIX) && hasChildNodes(ruleData.block)) {
 		minifyAtRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext);
 	} else if (ruleData.type === RULE_TYPE && hasChildNodes(ruleData.prelude)) {
 		minifyStylesheetRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext);
@@ -444,10 +425,18 @@ function removeEmptyLayerRule(ruleData, cssRule, removedRules, docContext) {
 	}
 }
 
+function getScopePrelude(ruleData) {
+	const { prelude } = ruleData;
+	if (prelude && prelude.type === RAW_TYPE) {
+		return cssTree.parse(cssTree.generate(prelude), SCOPE_PRELUDE_OPTIONS);
+	}
+	return prelude;
+}
+
 function minifyScopeRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext) {
 	let scopeContext;
 	try {
-		const parsedPrelude = parsePrelude(ruleData.prelude);
+		const parsedPrelude = parsePrelude(getScopePrelude(ruleData));
 		scopeContext = buildScopeContext(parsedPrelude, processingContext, docContext);
 	} catch (error) {
 		if (DEBUG) {
@@ -549,7 +538,7 @@ function collectScopeBoundaryElements(excludeSelectors, rootElements, docContext
 function hasDefaultNamespace(cssRules) {
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		const ruleData = cssRule.data;
-		if (ruleData.type === AT_RULE_TYPE && ruleData.name && ruleData.name.toLowerCase() === NAMESPACE_AT_RULE_NAME) {
+		if (ruleData.type === AT_RULE_TYPE && ruleData.name && decodeName(ruleData.name) === NAMESPACE_AT_RULE_NAME) {
 			const prelude = ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head;
 			if (prelude && (prelude.data.type === URL_TYPE || prelude.data.type === STRING_TYPE)) {
 				return true;
@@ -689,7 +678,7 @@ function analyzeSelector(selector, defaultNamespace) {
 					hasNestedUnqueryablePseudoClass = true;
 				}
 			} else if (node.type === PSEUDO_CLASS_SELECTOR_TYPE) {
-				if (PSEUDO_ELEMENT_SYNONYMS.has(node.name) || matchUnqueryablePseudoClass(node)) {
+				if (PSEUDO_ELEMENT_SYNONYMS.has(decodeName(node.name)) || matchUnqueryablePseudoClass(node)) {
 					hasUnqueryableSelector = true;
 					if (functionalPseudoClassDepth) {
 						hasNestedUnqueryablePseudoClass = true;
@@ -1006,7 +995,7 @@ function getScopedSelectorText(selectorText, docContext) {
 		try {
 			const selectorList = parseCss(selectorText, SELECTOR_LIST_CONTEXT);
 			scopedSelectorText = selectorList.children.toArray().map(selector => {
-				const hasScopePseudoClass = cssTree.find(selector, node => node.type === PSEUDO_CLASS_SELECTOR_TYPE && node.name.toLowerCase() === SCOPE_PSEUDO_CLASS_NAME);
+				const hasScopePseudoClass = cssTree.find(selector, node => node.type === PSEUDO_CLASS_SELECTOR_TYPE && decodeName(node.name) === SCOPE_PSEUDO_CLASS_NAME);
 				return hasScopePseudoClass ? cssTree.generate(selector) : SCOPE_PSEUDO_CLASS + DESCENDANT_COMBINATOR + cssTree.generate(selector);
 			}).join(PRELUDE_SEPARATOR);
 		} catch {
@@ -1205,7 +1194,7 @@ function getNestingParentText(ancestorsSelectors, docContext) {
 }
 
 function hasPseudoElement(selector) {
-	return Boolean(cssTree.find(selector, node => node.type === PSEUDO_ELEMENT_SELECTOR_TYPE || (node.type === PSEUDO_CLASS_SELECTOR_TYPE && PSEUDO_ELEMENT_SYNONYMS.has(node.name.toLowerCase()))));
+	return Boolean(cssTree.find(selector, node => node.type === PSEUDO_ELEMENT_SELECTOR_TYPE || (node.type === PSEUDO_CLASS_SELECTOR_TYPE && PSEUDO_ELEMENT_SYNONYMS.has(decodeName(node.name)))));
 }
 
 function nestSelectorText(selectorText, parentText, docContext) {
@@ -1341,10 +1330,10 @@ function removeStylesheetEmptyRules(cssRules, docContext) {
 			}
 		} else if (isImportRule(ruleData)) {
 			removeStylesheetEmptyRules(ruleData.prelude.children.head.data.importedChildren, docContext);
-		} else if (ruleData.type === AT_RULE_TYPE && ruleData.block && ruleData.name !== FONT_FACE_NAME && ruleData.name !== KEYFRAMES_NAME) {
+		} else if (ruleData.type === AT_RULE_TYPE && ruleData.block && decodeName(ruleData.name) !== FONT_FACE_NAME && decodeName(ruleData.name) !== KEYFRAMES_NAME) {
 			removeStylesheetEmptyRules(ruleData.block.children, docContext);
 			if (!hasChildNodes(ruleData.block)) {
-				if (ruleData.name === LAYER_NAME) {
+				if (decodeName(ruleData.name) === LAYER_NAME) {
 					removeEmptyLayerRule(ruleData, cssRule, removedRules, docContext);
 				} else {
 					docContext.stats.discarded++;

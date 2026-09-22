@@ -23,6 +23,7 @@
  */
 
 import * as cssTree from "./../vendor/css-tree.js";
+import { decodeName } from "./css-identifier.js";
 
 const TREE_STRUCTURAL_PSEUDO_CLASSES = [
     "root",
@@ -115,13 +116,16 @@ function removeNode(list, item) {
 }
 
 function matchUnqueryableAttributeSelector(attributeSelector) {
-    return Boolean(attributeSelector.name) && STATE_ATTRIBUTE_NAMES.includes(attributeSelector.name.name.toLowerCase());
+    return Boolean(attributeSelector.name) && STATE_ATTRIBUTE_NAMES.includes(decodeName(attributeSelector.name.name));
 }
 
 function matchUnqueryablePseudoClass(pseudoClass) {
-    const name = pseudoClass.name.toLowerCase();
+    // A functional pseudo-class is compared by spelling on purpose: css-tree recognises the known
+    // names by spelling too, so it parses the argument of an escaped one as Raw rather than as a
+    // selector list, and reading `:i\73 (…)` as `:is(…)` would hand the rest of the pass an argument
+    // it cannot walk. Leaving it unrecognised keeps it unqueryable, which is the safe answer.
     return pseudoClass.children ? (
-        !TREE_STRUCTURAL_FUNCTIONAL_PSEUDO_CLASSES.includes(name) &&
-        !FUNCTIONAL_PSEUDO_CLASSES.includes(name)
-    ) : !TREE_STRUCTURAL_PSEUDO_CLASSES.includes(name);
+        !TREE_STRUCTURAL_FUNCTIONAL_PSEUDO_CLASSES.includes(pseudoClass.name.toLowerCase()) &&
+        !FUNCTIONAL_PSEUDO_CLASSES.includes(pseudoClass.name.toLowerCase())
+    ) : !TREE_STRUCTURAL_PSEUDO_CLASSES.includes(decodeName(pseudoClass.name));
 }

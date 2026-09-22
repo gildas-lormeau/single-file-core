@@ -92,6 +92,104 @@ const cases = [
 		body: "<div class=\"box\"><p id=\"t\">t</p></div>",
 		kept: ["color:red"],
 		removed: ["color:blue"]
+	},
+	// The same rule applies to the name of an at-rule, which was compared raw, without even lowering
+	// its case. Every protection the pass keys on that name was lost: the layer order, the
+	// conditional context a rule sits in, the exemption that keeps `@keyframes` out of selector
+	// pruning, and the scoping root. Each shape below was reproduced in Chromium 151, Firefox 153 and
+	// WebKit 26.5 on c51d9b2, in both the escaped and the upper-case spelling.
+	// css-tree recognises its own at-rule names by spelling too, so an ESCAPED one is parsed with a
+	// Raw prelude instead of a structured one. That costs nothing where the pass only reads the
+	// prelude back as text, which is the layer and conditional cases, but `@scope` needs the parsed
+	// form, so the pass re-parses a Raw prelude before reading it.
+	{
+		label: "an escaped @layer keeps the order its statement declares",
+		css: "@l\\61 yer b, a; @l\\61 yer a { p { color: red } } @l\\61 yer b { p { color: blue } }",
+		body: "<p>t</p>",
+		kept: ["color:red"],
+		removed: ["color:blue"]
+	},
+	{
+		label: "an upper-case @LAYER keeps it too",
+		css: "@LAYER b, a; @LAYER a { p { color: red } } @LAYER b { p { color: blue } }",
+		body: "<p>t</p>",
+		kept: ["color:red"],
+		removed: ["color:blue"]
+	},
+	{
+		label: "control: the same layers with the plain spelling",
+		css: "@layer b, a; @layer a { p { color: red } } @layer b { p { color: blue } }",
+		body: "<p>t</p>",
+		kept: ["color:red"],
+		removed: ["color:blue"]
+	},
+	{
+		label: "an escaped @media still separates the conditional context",
+		css: "p { color: blue } @m\\65 dia print { p { color: red } }",
+		body: "<p>t</p>",
+		kept: ["color:blue", "color:red"],
+		removed: []
+	},
+	{
+		label: "an upper-case @MEDIA separates it too",
+		css: "p { color: blue } @MEDIA print { p { color: red } }",
+		body: "<p>t</p>",
+		kept: ["color:blue", "color:red"],
+		removed: []
+	},
+	{
+		label: "control: a plain @media separates it",
+		css: "p { color: blue } @media print { p { color: red } }",
+		body: "<p>t</p>",
+		kept: ["color:blue", "color:red"],
+		removed: []
+	},
+	{
+		label: "an escaped @keyframes is still exempt from selector pruning",
+		css: "p { animation: c 1s } @k\\65 yframes c { from { color: red } to { color: blue } }",
+		body: "<p>t</p>",
+		kept: ["color:red", "color:blue"],
+		removed: []
+	},
+	{
+		label: "an upper-case @KEYFRAMES is exempt too",
+		css: "p { animation: c 1s } @KEYFRAMES c { from { color: red } to { color: blue } }",
+		body: "<p>t</p>",
+		kept: ["color:red", "color:blue"],
+		removed: []
+	},
+	{
+		label: "an escaped @scope still scopes its rules",
+		css: "@sc\\6f pe (.box) { p { color: red } } p { color: blue }",
+		body: "<div class=\"box\"><p>in</p></div><p>out</p>",
+		kept: ["color:red"],
+		removed: []
+	},
+	// The escaped `:\73 cope` twin of the case below is absent on purpose and lives in the browser
+	// lane instead. happy-dom 20.14.5 does not decode an escape anywhere in a selector: it throws
+	// `not a valid selector` on `:\73 cope` and on `details[o\70 en] p`, and answers false for
+	// `.b\6f x`, where all three browsers answer as if the escape were spelled out. Any case that
+	// needs the DOM to match an escaped selector is therefore undecidable here.
+	{
+		label: "control: a plain :scope names the scoping root",
+		css: "@scope (.box) { :scope { color: red } }",
+		body: "<div class=\"box\">t</div>",
+		kept: ["color:red"],
+		removed: []
+	},
+	{
+		label: "an escaped state attribute is still read as a state",
+		css: "p { color: blue } details[o\\70 en] p { color: red }",
+		body: "<details><summary>s</summary><p>t</p></details>",
+		kept: ["color:red"],
+		removed: []
+	},
+	{
+		label: "control: the same state attribute with the plain spelling",
+		css: "p { color: blue } details[open] p { color: red }",
+		body: "<details><summary>s</summary><p>t</p></details>",
+		kept: ["color:red"],
+		removed: []
 	}
 ];
 
