@@ -1342,7 +1342,9 @@ class Processor {
 			if (frameElement.tagName.toUpperCase() == "OBJECT") {
 				frameElement.setAttribute("data", "data:text/html,");
 			} else {
-				frameElement.removeAttribute("src");
+				if (frameElement.hasAttribute("src")) {
+					frameElement.setAttribute("src", "");
+				}
 				frameElement.removeAttribute("srcdoc");
 			}
 			Array.from(frameElement.childNodes).forEach(node => node.remove());

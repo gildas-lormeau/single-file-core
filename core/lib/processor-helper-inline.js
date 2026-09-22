@@ -296,7 +296,6 @@ function getProcessorHelperClass(utilInstance) {
 					frameElement.setAttribute("src", "data:text/html," + pageData.content.replace(/%/g, "%25").replace(/#/g, "%23"));
 				} else {
 					frameElement.setAttribute("srcdoc", pageData.content);
-					frameElement.removeAttribute("src");
 				}
 			}
 		}
