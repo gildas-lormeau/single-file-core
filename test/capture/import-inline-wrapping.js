@@ -47,6 +47,22 @@ check("a media query still wraps the sheet", await inline(" screen"), "@media sc
 // page green, the layer-outside shape blue and the layer-inside shape green.
 check("a media query wraps the layer, not the other way round", await inline(" layer(a) screen"), "@media screen{@layer a{" + INLINED + "}}");
 
+// The same defect one line below the layer one, and found by writing this suite: the supports
+// condition was read with `find(node.type == "Supports")`, another node type css-tree does not
+// produce here, so an import guarded by a feature query was pasted in unconditionally and applied in
+// every browser that opened the page. `@import` writes `supports(display:grid)` where `@supports`
+// needs `(display:grid)`, so a bare declaration is parenthesized and anything else — a condition
+// with operators, a negation, a `selector()` — is already a condition and is passed through.
+check("a supports() declaration is parenthesized", await inline(" supports(display:grid)"), "@supports (display:grid){" + INLINED + "}");
+check("a supports() condition is passed through", await inline(" supports((display:grid) or (display:flex))"), "@supports (display:grid) or (display:flex){" + INLINED + "}");
+check("a negated condition too", await inline(" supports(not (display:grid))"), "@supports not (display:grid){" + INLINED + "}");
+check("and a selector() condition", await inline(" supports(selector(a:hover))"), "@supports selector(a:hover){" + INLINED + "}");
+
+// All three conditions at once, in the order the import declares them: supports outside media,
+// media outside the layer.
+check("supports, media and layer nest outside in", await inline(" layer(a) supports(display:grid) screen"),
+	"@supports (display:grid){@media screen{@layer a{" + INLINED + "}}}");
+
 if (failed) {
 	console.log("FAILED");
 	Deno.exit(1);

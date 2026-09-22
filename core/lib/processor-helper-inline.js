@@ -52,6 +52,7 @@ const LOCAL_SOURCE = "local(";
 const FONT_MAX_LOAD_DELAY = 5000;
 const DUPLICATE_STYLESHEET_ATTRIBUTE_NAME = "data-sf-duplicate-stylesheet-ref";
 const LAYER_KEYWORD = "layer";
+const SUPPORTS_KEYWORD = "supports";
 const LINK_FETCH_ATTRIBUTE_NAMES = ["rel", "href", "type", "media", "as", "crossorigin", "integrity",
 	"referrerpolicy", "hreflang", "sizes", "imagesrcset", "imagesizes", "fetchpriority"];
 
@@ -228,9 +229,9 @@ function getProcessorHelperClass(utilInstance) {
 							if (mediaQueryListNode) {
 								content.data = this.wrapMediaQuery(content.data, cssTree.generate(mediaQueryListNode));
 							}
-							const supportsNode = cssTree.find(node, node => node.type == "Supports");
-							if (supportsNode) {
-								content.data = "@supports " + cssTree.generate(supportsNode) + " { " + content.data + " }";
+							const importedSupportsCondition = getImportedSupportsCondition(node);
+							if (importedSupportsCondition) {
+								content.data = "@supports " + importedSupportsCondition + " { " + content.data + " }";
 							}
 							const importedStylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
 							const ancestorStyleSheets = new Set(importedStyleSheets);
@@ -771,6 +772,16 @@ function getImportedLayerName(importNode) {
 				return "";
 			}
 		}
+	}
+	return null;
+}
+
+function getImportedSupportsCondition(importNode) {
+	const supportsNode = cssTree.find(importNode, node => node.type == "Function" && node.name.toLowerCase() == SUPPORTS_KEYWORD);
+	if (supportsNode && supportsNode.children && supportsNode.children.head) {
+		const conditionNode = supportsNode.children.head.data;
+		const condition = cssTree.generate(conditionNode);
+		return conditionNode.type == "Declaration" ? "(" + condition + ")" : condition;
 	}
 	return null;
 }
