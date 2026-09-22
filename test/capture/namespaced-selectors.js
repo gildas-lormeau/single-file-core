@@ -38,11 +38,20 @@ const cases = [
 		kept: ["a{color:red}"],
 		removed: ["blue"]
 	},
-	// A prefix-less @namespace declares the default namespace, which css-namespaces-3 §3 applies to
-	// every type selector of that sheet, so an unprefixed `a` there matches SVG links only. The pass
-	// saw no prefix, queried it as an HTML `a` and took the match as definite, pruning what it beat.
-	// selectors-4 §3.5 and §3.6: the default namespace reaches a compound only when the compound
-	// carries an explicit type or universal selector, so a class selector is untouched.
+	// A prefix-less @namespace declares the default namespace, and selectors-4 §5.3 is explicit that
+	// it reaches every compound, not only the ones carrying a type selector: "If a default namespace
+	// is declared, compound selectors without type selectors in them still only match elements in
+	// that default namespace". The §3.5 and §3.6 wording about an explicit universal or type selector
+	// is the subject-compound exception inside :is() and :not(), and reading it as the general rule
+	// is what left the first version of this fix limited to type selectors.
+	// Measured 2026-09-22 in Chromium 151, Firefox 153 and WebKit 26.5, all three agreeing: a class
+	// selector under an SVG default namespace does NOT match an HTML element, the same class under an
+	// XHTML default namespace DOES, that XHTML-defaulted class does NOT match an inline <svg><text>,
+	// and an SVG-defaulted one DOES. querySelectorAll has no namespace notion and the document can
+	// hold foreign elements, so no per-selector test can tell those apart: a sheet declaring any
+	// default namespace has every selector of it treated as unqueryable. That still removes a rule
+	// whose stripped form matches nothing, because dropping the namespace constraint only widens the
+	// match set, and it never lets such a rule prune what it appears to beat.
 	{
 		label: "a foreign default namespace leaves the plain rule its type selector would beat alone",
 		css: "@namespace url(http://www.w3.org/2000/svg); .link { color: blue } a { color: red }",
@@ -51,18 +60,25 @@ const cases = [
 		removed: []
 	},
 	{
-		label: "control: the xhtml default namespace is not foreign, its type selectors still prune",
-		css: "@namespace url(http://www.w3.org/1999/xhtml); a { color: blue } a { color: red }",
-		body: "<a>x</a>",
-		kept: ["a{color:red}"],
-		removed: ["blue"]
-	},
-	{
-		label: "control: a class selector under a foreign default namespace still prunes",
+		label: "a foreign default namespace reaches a class selector too",
 		css: "@namespace url(http://www.w3.org/2000/svg); .link { color: blue } .link { color: red }",
 		body: "<a class=\"link\">x</a>",
-		kept: [".link{color:red}"],
-		removed: ["blue"]
+		kept: [".link{color:blue}", ".link{color:red}"],
+		removed: []
+	},
+	{
+		label: "the xhtml default namespace is not inert either",
+		css: "@namespace url(http://www.w3.org/1999/xhtml); a { color: blue } a { color: red }",
+		body: "<a>x</a>",
+		kept: ["a{color:blue}", "a{color:red}"],
+		removed: []
+	},
+	{
+		label: "a default namespace does not keep a rule matching no element of that name",
+		css: "@namespace url(http://www.w3.org/2000/svg); circle { fill: red }",
+		body: "<a>x</a>",
+		kept: [],
+		removed: ["circle"]
 	},
 	{
 		label: "control: a prefixed namespace declaration leaves the default alone",

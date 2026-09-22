@@ -141,7 +141,7 @@ function computeMaxSpecificity(selector) {
         enter(node) {
             stack.push(node);
             if (node.type === "Selector") {
-                const insideWhere = stack.some(n => n.type === "PseudoClassSelector" && n.name === "where");
+                const insideWhere = stack.some(n => n.type === "PseudoClassSelector" && n.name.toLowerCase() === "where");
                 if (insideWhere) return;
                 const specificity = computeSpecificity(node);
                 if (specificity.a > maxSpecificity.a ||

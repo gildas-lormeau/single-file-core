@@ -80,13 +80,20 @@ const SELECTOR_SUPPORTS_SUFFIX = ")";
 const VENDOR_PREFIX = "-";
 const CUSTOM_PROPERTY_PREFIX = "--";
 const LAYER_NAME_SEPARATOR = ".";
+const LAYER_NAME_KEY_SEPARATOR = "\u0000";
 const CONTEXT_KEY_SEPARATOR = "|";
 const REVERT_LAYER_KEYWORD = "revert-layer";
 const REVERT_LAYER_TEST = /(^|[^-\w])revert-layer([^-\w]|$)/i;
 const NAMESPACE_AT_RULE_NAME = "namespace";
-const XHTML_NAMESPACE_URI = "http://www.w3.org/1999/xhtml";
 const URL_TYPE = "Url";
 const STRING_TYPE = "String";
+const ESCAPE_CHARACTER = "\\";
+const CSS_ESCAPE_TEST = /\\(?:([0-9a-fA-F]{1,6})(?:\r\n|[ \n\r\t\f])?|([^\n\r\f]))/g;
+const REPLACEMENT_CHARACTER = "\uFFFD";
+const MAX_CODE_POINT = 0x10ffff;
+const SURROGATE_FIRST_CODE_POINT = 0xd800;
+const SURROGATE_LAST_CODE_POINT = 0xdfff;
+const HEXADECIMAL_RADIX = 16;
 const UNSCOPED_PROXIMITY = Infinity;
 const BLOCK_OPEN = "{";
 const BLOCK_CLOSE = "}";
@@ -203,7 +210,7 @@ function minifyRules(stylesheets, docContext) {
 					scopeStack: [],
 					conditionalStack: getTopConditionalStack(stylesheetInfo),
 					ownerElement: getStylesheetOwnerElement(key),
-					hasForeignDefaultNamespace: hasForeignDefaultNamespace(stylesheetInfo.stylesheet.children)
+					hasDefaultNamespace: hasDefaultNamespace(stylesheetInfo.stylesheet.children)
 				}, docContext);
 			}
 		}
@@ -273,7 +280,38 @@ function getLayerSegments(ruleData, docContext) {
 }
 
 function splitLayerName(layerName) {
-	return layerName.trim().split(LAYER_NAME_SEPARATOR);
+	const name = layerName.trim();
+	const segments = [];
+	let segment = EMPTY_STRING;
+	for (let index = 0; index < name.length; index++) {
+		const character = name.charAt(index);
+		if (character === ESCAPE_CHARACTER && index + 1 < name.length) {
+			segment += character + name.charAt(index + 1);
+			index++;
+		} else if (character === LAYER_NAME_SEPARATOR) {
+			segments.push(decodeIdentifier(segment));
+			segment = EMPTY_STRING;
+		} else {
+			segment += character;
+		}
+	}
+	segments.push(decodeIdentifier(segment));
+	return segments;
+}
+
+function decodeIdentifier(identifier) {
+	if (identifier.indexOf(ESCAPE_CHARACTER) === -1) {
+		return identifier;
+	}
+	return identifier.replace(CSS_ESCAPE_TEST, (match, hexadecimalDigits, character) => {
+		if (hexadecimalDigits === undefined) {
+			return character;
+		}
+		const codePoint = parseInt(hexadecimalDigits, HEXADECIMAL_RADIX);
+		return codePoint === 0 || codePoint > MAX_CODE_POINT || (codePoint >= SURROGATE_FIRST_CODE_POINT && codePoint <= SURROGATE_LAST_CODE_POINT)
+			? REPLACEMENT_CHARACTER
+			: String.fromCodePoint(codePoint);
+	});
 }
 
 function createAnonymousLayerSegment(docContext) {
@@ -373,7 +411,7 @@ function minifyImportRule(ruleData, _cssRule, stylesheets, processingContext, _r
 		...processingContext,
 		layerStack,
 		conditionalStack,
-		hasForeignDefaultNamespace: processingContext.hasForeignDefaultNamespace || hasForeignDefaultNamespace(urlNode.importedChildren)
+		hasDefaultNamespace: processingContext.hasDefaultNamespace || hasDefaultNamespace(urlNode.importedChildren)
 	}, docContext);
 }
 
@@ -434,8 +472,8 @@ function buildScopeContext(parsedPrelude, processingContext, docContext) {
 	const scopeStack = processingContext.scopeStack || [];
 	const includeSelectors = parsedPrelude && parsedPrelude.include ? parsedPrelude.include : [];
 	const excludeSelectors = parsedPrelude && parsedPrelude.exclude ? parsedPrelude.exclude : [];
-	const includeAnalysis = analyzeScopeSelectors(includeSelectors, processingContext.hasForeignDefaultNamespace);
-	const excludeAnalysis = analyzeScopeSelectors(excludeSelectors, processingContext.hasForeignDefaultNamespace);
+	const includeAnalysis = analyzeScopeSelectors(includeSelectors, processingContext.hasDefaultNamespace);
+	const excludeAnalysis = analyzeScopeSelectors(excludeSelectors, processingContext.hasDefaultNamespace);
 	let rootElements = [];
 	if (includeSelectors.length) {
 		rootElements = collectScopeRootElements(includeSelectors, scopeStack, docContext);
@@ -451,7 +489,7 @@ function buildScopeContext(parsedPrelude, processingContext, docContext) {
 	if (!uniqueRoots.length) {
 		return null;
 	}
-	const boundaryElements = collectScopeBoundaryElements(excludeSelectors, uniqueRoots, docContext, processingContext.hasForeignDefaultNamespace);
+	const boundaryElements = collectScopeBoundaryElements(excludeSelectors, uniqueRoots, docContext, processingContext.hasDefaultNamespace);
 	return {
 		id: docContext.scopeIdCounter++,
 		rootElements: new Set(uniqueRoots),
@@ -461,10 +499,10 @@ function buildScopeContext(parsedPrelude, processingContext, docContext) {
 	};
 }
 
-function analyzeScopeSelectors(selectors, foreignDefaultNamespace) {
+function analyzeScopeSelectors(selectors, defaultNamespace) {
 	const analysis = { hasUnqueryableSelector: false, hasNestedUnqueryablePseudoClass: false };
 	selectors.forEach(selectorInfo => {
-		const { hasUnqueryableSelector, hasNestedUnqueryablePseudoClass } = analyzeSelector(selectorInfo.data, foreignDefaultNamespace);
+		const { hasUnqueryableSelector, hasNestedUnqueryablePseudoClass } = analyzeSelector(selectorInfo.data, defaultNamespace);
 		analysis.hasUnqueryableSelector ||= hasUnqueryableSelector;
 		analysis.hasNestedUnqueryablePseudoClass ||= hasNestedUnqueryablePseudoClass;
 	});
@@ -483,13 +521,13 @@ function collectScopeRootElements(includeSelectors, scopeStack, docContext) {
 	return Array.from(roots);
 }
 
-function collectScopeBoundaryElements(excludeSelectors, rootElements, docContext, foreignDefaultNamespace) {
+function collectScopeBoundaryElements(excludeSelectors, rootElements, docContext, defaultNamespace) {
 	const boundaries = new Set();
 	if (!excludeSelectors.length || !rootElements.length) {
 		return boundaries;
 	}
 	excludeSelectors.forEach(selectorInfo => {
-		const { hasUnqueryableSelector, hasNestedUnqueryablePseudoClass } = analyzeSelector(selectorInfo.data, foreignDefaultNamespace);
+		const { hasUnqueryableSelector, hasNestedUnqueryablePseudoClass } = analyzeSelector(selectorInfo.data, defaultNamespace);
 		if (!hasUnqueryableSelector && !hasNestedUnqueryablePseudoClass) {
 			const selectorText = getScopedSelectorText(sanitizeSelector(selectorInfo, docContext), docContext);
 			rootElements.forEach(root => {
@@ -500,19 +538,17 @@ function collectScopeBoundaryElements(excludeSelectors, rootElements, docContext
 	return boundaries;
 }
 
-function hasForeignDefaultNamespace(cssRules) {
-	let foreign = false;
+function hasDefaultNamespace(cssRules) {
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		const ruleData = cssRule.data;
 		if (ruleData.type === AT_RULE_TYPE && ruleData.name && ruleData.name.toLowerCase() === NAMESPACE_AT_RULE_NAME) {
 			const prelude = ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head;
-			if (prelude && prelude.data.type !== IDENTIFIER_TYPE) {
-				const namespaceURI = prelude.data.type === URL_TYPE || prelude.data.type === STRING_TYPE ? prelude.data.value : null;
-				foreign = namespaceURI !== null && namespaceURI !== XHTML_NAMESPACE_URI;
+			if (prelude && (prelude.data.type === URL_TYPE || prelude.data.type === STRING_TYPE)) {
+				return true;
 			}
 		}
 	}
-	return foreign;
+	return false;
 }
 
 function getStylesheetOwnerElement(key) {
@@ -571,7 +607,7 @@ function processSelectors(ruleData, processingContext, docContext) {
 	const removedSelectors = [];
 	const { ancestorsSelectors, scopeStack } = processingContext;
 	for (let selector = ruleData.prelude.children.head, selectorIndex = 0; selector; selector = selector.next, selectorIndex++) {
-		const analysis = analyzeSelector(selector.data, processingContext.hasForeignDefaultNamespace);
+		const analysis = analyzeSelector(selector.data, processingContext.hasDefaultNamespace);
 		const { startsWithCombinator } = analysis;
 		const hasUnqueryableSelector = analysis.hasUnqueryableSelector || Boolean(processingContext.hasUnqueryableSelector);
 		const hasNestedUnqueryablePseudoClass = analysis.hasNestedUnqueryablePseudoClass || Boolean(processingContext.hasNestedUnqueryablePseudoClass);
@@ -627,8 +663,8 @@ function compareSpecificities(specificityA, specificityB) {
 	return (specificityA.a - specificityB.a) || (specificityA.b - specificityB.b) || (specificityA.c - specificityB.c);
 }
 
-function analyzeSelector(selector, foreignDefaultNamespace) {
-	let hasUnqueryableSelector = false;
+function analyzeSelector(selector, defaultNamespace) {
+	let hasUnqueryableSelector = Boolean(defaultNamespace);
 	let hasNestedUnqueryablePseudoClass = false;
 	let startsWithCombinator = false;
 	let functionalPseudoClassDepth = 0;
@@ -654,7 +690,7 @@ function analyzeSelector(selector, foreignDefaultNamespace) {
 				if (functionalPseudoClassDepth) {
 					hasNestedUnqueryablePseudoClass = true;
 				}
-			} else if (node.type === TYPE_SELECTOR_TYPE && typeof node.name === "string" && (node.name.includes(NAMESPACE_SEPARATOR) || foreignDefaultNamespace)) {
+			} else if (node.type === TYPE_SELECTOR_TYPE && typeof node.name === "string" && node.name.includes(NAMESPACE_SEPARATOR)) {
 				hasUnqueryableSelector = true;
 				if (functionalPseudoClassDepth) {
 					hasNestedUnqueryablePseudoClass = true;
@@ -821,9 +857,9 @@ function hasRevertLayerKeyword(declaration) {
 		return false;
 	}
 	if (value.type === RAW_TYPE) {
-		return REVERT_LAYER_TEST.test(value.value);
+		return REVERT_LAYER_TEST.test(decodeIdentifier(value.value));
 	}
-	return Boolean(cssTree.find(value, node => node.type === IDENTIFIER_TYPE && node.name.toLowerCase() === REVERT_LAYER_KEYWORD));
+	return Boolean(cssTree.find(value, node => node.type === IDENTIFIER_TYPE && decodeIdentifier(node.name).toLowerCase() === REVERT_LAYER_KEYWORD));
 }
 
 function createContextKey(conditionalStack) {
@@ -1370,7 +1406,7 @@ function getPreludeText(prelude, docContext) {
 }
 
 function getFullLayerName(layers) {
-	return layers.join(LAYER_NAME_SEPARATOR);
+	return layers.join(LAYER_NAME_KEY_SEPARATOR);
 }
 
 function parseCss(text, context = SELECTOR_CONTEXT) {
