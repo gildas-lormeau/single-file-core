@@ -15,6 +15,9 @@ import { capture, captureArchive, html } from "./common.js";
 const PAGE_URL = "https://example.com/dedup.html";
 const SHEET_URL = "https://example.com/external.css";
 const UNUSED_SHEET_URL = "https://example.com/unused.css";
+const OTHER_SHEET_URL = "https://example.com/other-external.css";
+const IMPORTED_URL = "https://example.com/imported.css";
+const OTHER_IMPORTED_URL = "https://example.com/other-imported.css";
 const SHARED = "p { color: rgb(1, 2, 3) }";
 const UNIQUE = "h1 { color: rgb(9, 9, 9) }";
 const OTHER = "em { color: rgb(4, 5, 6) }";
@@ -229,6 +232,134 @@ let failed = false;
 	check("and its @import stays, layer included", /@import url\(stylesheet_0\.css\)\s?layer\(theme\);/.test(content), true);
 }
 
+// Everything above is the <style> path, which resolveStylesheetsURLs groups by textContent before
+// the capture starts. A <link> took none of that: replaceStylesheets minted a fresh stylesheet_<n>
+// per element with no content comparison, so N links to one URL became N identical files. Measured
+// over the 24 css-corpus archives: 39.7% of all stored CSS was byte-identical duplicates, 73.9% on
+// nytimes (91 files, 941811 of 1273769 bytes) and 14.5% on github. Stylesheets were the only family
+// without this, because every other one resolves through batchRequest.addURL, whose key is the URL,
+// and images and fonts get groupDuplicateImages/groupDuplicateFonts on top.
+{
+	const page = html("<p>body</p>", link(SHEET_URL) + link(SHEET_URL));
+	const { content, resources } = await captureArchive({
+		[PAGE_URL]: { body: page },
+		[SHEET_URL]: { body: SHARED, contentType: "text/css" }
+	}, { url: PAGE_URL, content: page });
+	check("two links to one URL store one file", resources.stylesheets.length, 1);
+	check("holding the css once", (resources.stylesheets[0] || {}).content, "p{color:rgb(1,2,3)}");
+	check("and both links point at it", countMatches(content, /href="stylesheet_0\.css"/g), 2);
+}
+
+// Keyed on CONTENT, not on the URL, so two different URLs serving the same bytes also share. This is
+// the half a URL-keyed dedup would miss, and it is what groupDuplicateImages already does for images.
+{
+	const page = html("<p>body</p>", link(SHEET_URL) + link(OTHER_SHEET_URL));
+	const { content, resources } = await captureArchive({
+		[PAGE_URL]: { body: page },
+		[SHEET_URL]: { body: SHARED, contentType: "text/css" },
+		[OTHER_SHEET_URL]: { body: SHARED, contentType: "text/css" }
+	}, { url: PAGE_URL, content: page });
+	check("two URLs serving one css store one file", resources.stylesheets.length, 1);
+	check("and both links point at it", countMatches(content, /href="stylesheet_0\.css"/g), 2);
+}
+
+// The control. Without it a change that merged every linked sheet would pass the two above and still
+// be wrong: two links with different css must stay two files, each pointing at its own.
+{
+	const page = html("<p>body</p><em>em</em>", link(SHEET_URL) + link(OTHER_SHEET_URL));
+	const { content, resources } = await captureArchive({
+		[PAGE_URL]: { body: page },
+		[SHEET_URL]: { body: SHARED, contentType: "text/css" },
+		[OTHER_SHEET_URL]: { body: OTHER, contentType: "text/css" }
+	}, { url: PAGE_URL, content: page });
+	const contents = resources.stylesheets.map(stylesheet => stylesheet.content).sort();
+	check("two links with different css stay two files", resources.stylesheets.length, 2);
+	check("each holding its own css", contents.join("|"), "em{color:rgb(4,5,6)}|p{color:rgb(1,2,3)}");
+	check("and the links point at different files", new Set(content.match(/href="stylesheet_\d\.css"/g)).size, 2);
+}
+
+// Why the key has to be the content and not the URL, measured rather than argued. With the pass on,
+// the copies of one URL do NOT come out equal: the last copy wins the cascade and keeps its rules,
+// while an earlier one is stripped down to what the minifier cannot evaluate, here the :hover rule
+// that hasUnqueryableSelector protects. On github that is five copies of primer-react-css coming out
+// as one 34008-byte sheet and four byte-identical 19535-byte ones. A URL-keyed dedup merges all five
+// and changes what the page renders; a content-keyed one merges exactly the four.
+{
+	const sheet = "p { color: rgb(1, 2, 3) } p:hover { color: rgb(7, 7, 7) }";
+	const page = html("<p>body</p>", link(SHEET_URL) + link(SHEET_URL));
+	const { resources } = await captureArchive({
+		[PAGE_URL]: { body: page },
+		[SHEET_URL]: { body: sheet, contentType: "text/css" }
+	}, { url: PAGE_URL, content: page, removeUnusedStyles: true });
+	const contents = resources.stylesheets.map(stylesheet => stylesheet.content).sort();
+	check("copies the cascade made different are NOT merged", resources.stylesheets.length, 2);
+	check("the winner keeps its rules and the loser its residue", contents.join("|"), "p:hover{color:rgb(7,7,7)}|p{color:rgb(1,2,3)}p:hover{color:rgb(7,7,7)}");
+	// and the residues of three copies are equal to each other, so they merge and the winner does not
+	const threePage = html("<p>body</p>", link(SHEET_URL) + link(SHEET_URL) + link(SHEET_URL));
+	const three = await captureArchive({
+		[PAGE_URL]: { body: threePage },
+		[SHEET_URL]: { body: sheet, contentType: "text/css" }
+	}, { url: PAGE_URL, content: threePage, removeUnusedStyles: true });
+	check("three copies keep the winner and share one residue", three.resources.stylesheets.length, 2);
+	check("with the two losing links on the residue", countMatches(three.content, /href="stylesheet_1\.css"/g), 2);
+	check("and the winning one on its own file", countMatches(three.content, /href="stylesheet_0\.css"/g), 1);
+}
+
+// A stored stylesheet can reference another stored stylesheet through @import, which no other
+// resource family does, so merging has to run bottom-up or the parents are generated before their
+// children have their final names. Here two parents differ ONLY in the URL they import and their
+// children are identical: the children merge first, which makes the parents equal, and they merge in
+// the same pass. That is the shape that holds most of nytimes, where stylesheet_15/20/73.css are
+// 7324, 7324 and 7325 bytes differing only in the import target above 14 identical 37.4K children.
+{
+	const page = html("<p>body</p><em>em</em>", link(SHEET_URL) + link(OTHER_SHEET_URL));
+	const { content, resources } = await captureArchive({
+		[PAGE_URL]: { body: page },
+		[SHEET_URL]: { body: "@import url(\"" + IMPORTED_URL + "\"); " + SHARED, contentType: "text/css" },
+		[OTHER_SHEET_URL]: { body: "@import url(\"" + OTHER_IMPORTED_URL + "\"); " + SHARED, contentType: "text/css" },
+		[IMPORTED_URL]: { body: OTHER, contentType: "text/css" },
+		[OTHER_IMPORTED_URL]: { body: OTHER, contentType: "text/css" }
+	}, { url: PAGE_URL, content: page });
+	const child = resources.stylesheets.find(stylesheet => stylesheet.content == "em{color:rgb(4,5,6)}") || {};
+	const parent = resources.stylesheets.find(stylesheet => String(stylesheet.content).startsWith("@import")) || {};
+	check("four sheets collapse to two", resources.stylesheets.length, 2);
+	check("the parent imports the one surviving child", parent.content, "@import url(" + child.name + ");p{color:rgb(1,2,3)}");
+	check("and both links point at the one surviving parent", countMatches(content, new RegExp("href=\"" + parent.name + "\"", "g")), 2);
+}
+
+// media lives on the element, not in the file, so two links to one URL that differ only by media
+// still share the file and each keeps its own. Losing this applies a print-only sheet on screen.
+{
+	const page = html("<p>body</p>", link(SHEET_URL) + link(SHEET_URL, "media=\"print\""));
+	const { content, resources } = await captureArchive({
+		[PAGE_URL]: { body: page },
+		[SHEET_URL]: { body: SHARED, contentType: "text/css" }
+	}, { url: PAGE_URL, content: page });
+	check("links differing only by media share one file", resources.stylesheets.length, 1);
+	check("both pointing at it", countMatches(content, /href="stylesheet_0\.css"/g), 2);
+	check("and the print one keeps its media", countMatches(content, /media="print"/g), 1);
+}
+
+// saveOriginalURLs writes the source URL into the @import itself, so the rename has to keep it: the
+// two children here merge, and each parent still records the URL it originally imported, which also
+// keeps the parents apart. replaceResourceName already handled that form for images and fonts.
+{
+	const page = html("<p>body</p>", link(SHEET_URL) + link(OTHER_SHEET_URL));
+	const { resources } = await captureArchive({
+		[PAGE_URL]: { body: page },
+		[SHEET_URL]: { body: "@import url(\"" + IMPORTED_URL + "\");", contentType: "text/css" },
+		[OTHER_SHEET_URL]: { body: "@import url(\"" + OTHER_IMPORTED_URL + "\");", contentType: "text/css" },
+		[IMPORTED_URL]: { body: SHARED, contentType: "text/css" },
+		[OTHER_IMPORTED_URL]: { body: SHARED, contentType: "text/css" }
+	}, { url: PAGE_URL, content: page, saveOriginalURLs: true });
+	const child = resources.stylesheets.find(stylesheet => stylesheet.content == "p{color:rgb(1,2,3)}") || {};
+	const parents = resources.stylesheets.filter(stylesheet => String(stylesheet.content).startsWith("@import"));
+	check("the shared child is stored once", resources.stylesheets.filter(stylesheet => stylesheet.content == "p{color:rgb(1,2,3)}").length, 1);
+	check("both parents survive, each with its own original URL", parents.length, 2);
+	check("and both imports point at the merged child", parents.every(parent => String(parent.content).includes("url(" + child.name + ")")), true);
+	check("with the original URLs kept", parents.map(parent => /original URL: (\S+) /.exec(String(parent.content))[1]).sort().join(), IMPORTED_URL + "," + OTHER_IMPORTED_URL);
+}
+
 if (failed) {
 	console.log("FAILED");
 	Deno.exit(1);
@@ -239,8 +370,8 @@ function style(content, attributes) {
 	return "<style" + (attributes ? " " + attributes : "") + ">" + content + "</style>";
 }
 
-function link(url) {
-	return "<link rel=\"stylesheet\" href=\"" + url + "\">";
+function link(url, attributes) {
+	return "<link rel=\"stylesheet\" href=\"" + url + "\"" + (attributes ? " " + attributes : "") + ">";
 }
 
 function serve(page) {

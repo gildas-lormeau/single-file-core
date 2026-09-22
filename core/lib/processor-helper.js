@@ -111,6 +111,7 @@ function getProcessorHelperClass(utilInstance) {
 			const linkElements = new Map();
 			const sharedStyleElements = new Map();
 			const emptyStylesheetRefIndexes = new Set();
+			const sharedStylesheetIndexes = new Set();
 			Array.from(new Set(options.inlineStylesheetsRefs.values())).forEach(stylesheetRefIndex => {
 				const { styleElement, content } = options.inlineStylesheets.get(stylesheetRefIndex);
 				const sharedEntry = entries.find(([key]) => key.element == styleElement);
@@ -125,6 +126,7 @@ function getProcessorHelperClass(utilInstance) {
 					linkElement.setAttribute("type", "text/css");
 					const name = "stylesheet_" + resources.stylesheets.size + ".css";
 					linkElement.setAttribute("href", name);
+					sharedStylesheetIndexes.add(resources.stylesheets.size);
 					resources.stylesheets.set(resources.stylesheets.size, { name, stylesheet });
 					linkElements.set(stylesheetRefIndex, linkElement);
 				}
@@ -142,7 +144,7 @@ function getProcessorHelperClass(utilInstance) {
 						} else {
 							key.urlNode.value = name;
 						}
-						resources.stylesheets.set(resources.stylesheets.size, { name, stylesheet: stylesheetInfo.stylesheet, url: stylesheetInfo.url });
+						resources.stylesheets.set(resources.stylesheets.size, { name, stylesheet: stylesheetInfo.stylesheet, url: stylesheetInfo.url, urlNode: key.urlNode });
 					}
 				} else if (key.element.tagName.toUpperCase() == "LINK") {
 					const linkElement = key.element;
@@ -177,11 +179,36 @@ function getProcessorHelperClass(utilInstance) {
 					}
 				}
 			}
-			for (const [, stylesheetResource] of resources.stylesheets) {
-				if (stylesheetResource.stylesheet) {
-					stylesheetResource.content = this.generateStylesheetContent(stylesheetResource.stylesheet, options);
-					stylesheetResource.stylesheet = null;
-				}
+			const stylesheetResources = Array.from(resources.stylesheets);
+			const canonicalNames = new Map();
+			const canonicalStylesheets = new Map();
+			stylesheetResources
+				.filter(([indexResource]) => !sharedStylesheetIndexes.has(indexResource))
+				.concat(stylesheetResources.filter(([indexResource]) => sharedStylesheetIndexes.has(indexResource)))
+				.forEach(([indexResource, stylesheetResource]) => {
+					if (stylesheetResource.stylesheet) {
+						const content = this.generateStylesheetContent(stylesheetResource.stylesheet, options);
+						stylesheetResource.stylesheet = null;
+						const canonicalName = canonicalStylesheets.get(content);
+						if (canonicalName === undefined) {
+							canonicalStylesheets.set(content, stylesheetResource.name);
+							stylesheetResource.content = content;
+						} else {
+							canonicalNames.set(stylesheetResource.name, canonicalName);
+							if (stylesheetResource.urlNode) {
+								replaceResourceName(stylesheetResource.urlNode, canonicalNames);
+							}
+							resources.stylesheets.delete(indexResource);
+						}
+					}
+				});
+			if (canonicalNames.size) {
+				doc.querySelectorAll("link[href]").forEach(linkElement => {
+					const href = linkElement.getAttribute("href");
+					if (canonicalNames.has(href)) {
+						linkElement.setAttribute("href", canonicalNames.get(href));
+					}
+				});
 			}
 		}
 
