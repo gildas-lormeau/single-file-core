@@ -51,6 +51,7 @@ const EMPTY_URL_SOURCE = /^url\(["']?data:[^,]*,?["']?\)/;
 const LOCAL_SOURCE = "local(";
 const FONT_MAX_LOAD_DELAY = 5000;
 const DUPLICATE_STYLESHEET_ATTRIBUTE_NAME = "data-sf-duplicate-stylesheet-ref";
+const LAYER_KEYWORD = "layer";
 const LINK_FETCH_ATTRIBUTE_NAMES = ["rel", "href", "type", "media", "as", "crossorigin", "integrity",
 	"referrerpolicy", "hreflang", "sizes", "imagesrcset", "imagesizes", "fetchpriority"];
 
@@ -223,17 +224,9 @@ function getProcessorHelperClass(utilInstance) {
 							if (mediaQueryListNode) {
 								content.data = this.wrapMediaQuery(content.data, cssTree.generate(mediaQueryListNode));
 							}
-							const layerListNode = cssTree.find(node, node => node.type == "LayerList");
-							if (layerListNode) {
-								const layerNames = [];
-								layerListNode.children.forEach(child => {
-									if (child.type == "Identifier") {
-										layerNames.push(child.name);
-									}
-								});
-								if (layerNames.length == 1) {
-									content.data = this.wrapLayer(content.data, layerNames[0]);
-								}
+							const importedLayerName = getImportedLayerName(node);
+							if (importedLayerName !== null) {
+								content.data = this.wrapLayer(content.data, importedLayerName);
 							}
 							const supportsNode = cssTree.find(node, node => node.type == "Supports");
 							if (supportsNode) {
@@ -520,11 +513,7 @@ function getProcessorHelperClass(utilInstance) {
 		}
 
 		wrapLayer(stylesheetContent, layerName) {
-			if (layerName) {
-				return "@layer " + layerName + " { " + stylesheetContent + " }";
-			} else {
-				return stylesheetContent;
-			}
+			return "@layer " + (layerName ? layerName + " " : "") + "{ " + stylesheetContent + " }";
 		}
 
 		getAdditionalPageData() {
@@ -768,6 +757,22 @@ function getProcessorHelperClass(utilInstance) {
 			return true;
 		}
 	};
+}
+
+function getImportedLayerName(importNode) {
+	const layerNode = cssTree.find(importNode, node => node.type == "Layer");
+	if (layerNode) {
+		return layerNode.name;
+	}
+	const prelude = importNode.prelude;
+	if (prelude && prelude.children) {
+		for (let child = prelude.children.head; child; child = child.next) {
+			if (child.data.type == "Identifier" && child.data.name.toLowerCase() == LAYER_KEYWORD) {
+				return "";
+			}
+		}
+	}
+	return null;
 }
 
 function getFontFaces(cssRules, scope, fontFaces) {
