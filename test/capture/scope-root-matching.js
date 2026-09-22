@@ -67,13 +67,68 @@ const cases = [
 		body: "<div class=\"box\"><p>t</p></div>",
 		kept: ["@scope (.box){p{color:red}}"],
 		removed: [".absent"]
+	},
+	// css-cascade-6 §3.5.5: the <scope-start> of a nested @scope is relative to the nesting
+	// context, so its :scope is the enclosing root, not the document. The pass resolved it against
+	// the document, found nothing, and removed the whole inner scope.
+	{
+		label: "a nested prelude resolves its :scope against the enclosing root",
+		css: "p { color: blue } @scope (.parent) { @scope (:scope > .child) { p { color: red } } }",
+		body: "<div class=\"parent\"><div class=\"child\"><p>t</p></div></div>",
+		kept: ["color:red"],
+		removed: ["p{color:blue}"]
+	},
+	{
+		label: "a nested prelude without :scope stays inside the enclosing root",
+		css: "p { color: blue } @scope (.box) { @scope (.inner) { p { color: red } } }",
+		body: "<div class=\"box\"><div class=\"inner\"><p>t</p></div></div>",
+		kept: ["color:red"],
+		removed: ["p{color:blue}"]
+	},
+	{
+		label: "control: a nested prelude matching only outside the enclosing root matches nothing",
+		css: "p { color: blue } @scope (.box) { @scope (.inner) { p { color: red } } }",
+		body: "<div class=\"inner\"><p>t</p></div><div class=\"box\"></div>",
+		kept: ["p{color:blue}"],
+		removed: ["color:red"]
+	},
+	// §3.5.4: with no <scope-start> the scoping root is the parent element of the stylesheet's
+	// owner node. The pass took the document element, so the scope reached the whole page.
+	// Measured 2026-09-22 in Chromium 151, Firefox 153 and WebKit 26.5: a prelude-less @scope in a
+	// head style leaves a body paragraph unstyled, and one in a div style reaches that div's own
+	// paragraphs, so the head case below matches nothing and the rule goes.
+	{
+		label: "a prelude-less scope in a head style is rooted at head, not the document",
+		css: "@scope { p { color: red } } p { color: blue }",
+		body: "<p>t</p>",
+		kept: ["p{color:blue}"],
+		removed: ["color:red"]
+	},
+	{
+		label: "a prelude-less scope is rooted at the style element's parent",
+		css: "@scope { p { color: red } } p { color: blue }",
+		body: "<div class=\"host\">STYLE</div><p class=\"outside\">t</p>",
+		inBody: true,
+		kept: ["p{color:blue}"],
+		removed: ["color:red"]
+	},
+	{
+		label: "control: a prelude-less scope still reaches inside that parent",
+		css: "@scope { p { color: red } } p { color: blue }",
+		body: "<div class=\"host\">STYLE<p>t</p></div>",
+		inBody: true,
+		kept: ["color:red"],
+		removed: ["p{color:blue}"]
 	}
 ];
 
 let failed = false;
 
 for (const testCase of cases) {
-	const page = html(testCase.body, "<style>" + testCase.css + "</style>");
+	const styleElement = "<style>" + testCase.css + "</style>";
+	const page = testCase.inBody
+		? html(testCase.body.replace("STYLE", styleElement))
+		: html(testCase.body, styleElement);
 	const content = await capture({ [PAGE_URL]: { body: page } }, { url: PAGE_URL, content: page, removeUnusedStyles: true });
 	const styleText = content.substring(content.indexOf("<style>"), content.indexOf("</style>"));
 	testCase.kept.forEach(fragment => check(testCase.label + ", kept " + fragment, styleText.includes(fragment), true));

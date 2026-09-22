@@ -82,6 +82,11 @@ const CUSTOM_PROPERTY_PREFIX = "--";
 const LAYER_NAME_SEPARATOR = ".";
 const CONTEXT_KEY_SEPARATOR = "|";
 const REVERT_LAYER_KEYWORD = "revert-layer";
+const REVERT_LAYER_TEST = /(^|[^-\w])revert-layer([^-\w]|$)/i;
+const NAMESPACE_AT_RULE_NAME = "namespace";
+const XHTML_NAMESPACE_URI = "http://www.w3.org/1999/xhtml";
+const URL_TYPE = "Url";
+const STRING_TYPE = "String";
 const UNSCOPED_PROXIMITY = Infinity;
 const BLOCK_OPEN = "{";
 const BLOCK_CLOSE = "}";
@@ -196,7 +201,9 @@ function minifyRules(stylesheets, docContext) {
 					ancestorsSelectors: [],
 					layerStack: [],
 					scopeStack: [],
-					conditionalStack: getTopConditionalStack(stylesheetInfo)
+					conditionalStack: getTopConditionalStack(stylesheetInfo),
+					ownerElement: getStylesheetOwnerElement(key),
+					hasForeignDefaultNamespace: hasForeignDefaultNamespace(stylesheetInfo.stylesheet.children)
 				}, docContext);
 			}
 		}
@@ -365,7 +372,8 @@ function minifyImportRule(ruleData, _cssRule, stylesheets, processingContext, _r
 	minifyStylesheetRules(urlNode.importedChildren, stylesheets, {
 		...processingContext,
 		layerStack,
-		conditionalStack
+		conditionalStack,
+		hasForeignDefaultNamespace: processingContext.hasForeignDefaultNamespace || hasForeignDefaultNamespace(urlNode.importedChildren)
 	}, docContext);
 }
 
@@ -426,8 +434,8 @@ function buildScopeContext(parsedPrelude, processingContext, docContext) {
 	const scopeStack = processingContext.scopeStack || [];
 	const includeSelectors = parsedPrelude && parsedPrelude.include ? parsedPrelude.include : [];
 	const excludeSelectors = parsedPrelude && parsedPrelude.exclude ? parsedPrelude.exclude : [];
-	const includeAnalysis = analyzeScopeSelectors(includeSelectors);
-	const excludeAnalysis = analyzeScopeSelectors(excludeSelectors);
+	const includeAnalysis = analyzeScopeSelectors(includeSelectors, processingContext.hasForeignDefaultNamespace);
+	const excludeAnalysis = analyzeScopeSelectors(excludeSelectors, processingContext.hasForeignDefaultNamespace);
 	let rootElements = [];
 	if (includeSelectors.length) {
 		rootElements = collectScopeRootElements(includeSelectors, scopeStack, docContext);
@@ -437,13 +445,13 @@ function buildScopeContext(parsedPrelude, processingContext, docContext) {
 	} else if (scopeStack.length) {
 		rootElements = Array.from(scopeStack[scopeStack.length - 1].rootElements);
 	} else {
-		rootElements = getDefaultScopeRoots(docContext);
+		rootElements = getImplicitScopeRoots(processingContext.ownerElement, docContext);
 	}
 	const uniqueRoots = Array.from(new Set(rootElements.filter(Boolean)));
 	if (!uniqueRoots.length) {
 		return null;
 	}
-	const boundaryElements = collectScopeBoundaryElements(excludeSelectors, uniqueRoots, docContext);
+	const boundaryElements = collectScopeBoundaryElements(excludeSelectors, uniqueRoots, docContext, processingContext.hasForeignDefaultNamespace);
 	return {
 		id: docContext.scopeIdCounter++,
 		rootElements: new Set(uniqueRoots),
@@ -453,10 +461,10 @@ function buildScopeContext(parsedPrelude, processingContext, docContext) {
 	};
 }
 
-function analyzeScopeSelectors(selectors) {
+function analyzeScopeSelectors(selectors, foreignDefaultNamespace) {
 	const analysis = { hasUnqueryableSelector: false, hasNestedUnqueryablePseudoClass: false };
 	selectors.forEach(selectorInfo => {
-		const { hasUnqueryableSelector, hasNestedUnqueryablePseudoClass } = analyzeSelector(selectorInfo.data);
+		const { hasUnqueryableSelector, hasNestedUnqueryablePseudoClass } = analyzeSelector(selectorInfo.data, foreignDefaultNamespace);
 		analysis.hasUnqueryableSelector ||= hasUnqueryableSelector;
 		analysis.hasNestedUnqueryablePseudoClass ||= hasNestedUnqueryablePseudoClass;
 	});
@@ -467,19 +475,21 @@ function collectScopeRootElements(includeSelectors, scopeStack, docContext) {
 	const roots = new Set();
 	includeSelectors.forEach(selectorInfo => {
 		const selectorText = sanitizeSelector(selectorInfo, docContext);
-		const matchedNodes = querySelectorAll(docContext.doc, selectorText);
+		const matchedNodes = scopeStack.length
+			? matchElementsInScope(getScopedSelectorText(selectorText, docContext), scopeStack)
+			: querySelectorAll(docContext.doc, selectorText);
 		filterElementsByScopes(matchedNodes, scopeStack).forEach(match => roots.add(match));
 	});
 	return Array.from(roots);
 }
 
-function collectScopeBoundaryElements(excludeSelectors, rootElements, docContext) {
+function collectScopeBoundaryElements(excludeSelectors, rootElements, docContext, foreignDefaultNamespace) {
 	const boundaries = new Set();
 	if (!excludeSelectors.length || !rootElements.length) {
 		return boundaries;
 	}
 	excludeSelectors.forEach(selectorInfo => {
-		const { hasUnqueryableSelector, hasNestedUnqueryablePseudoClass } = analyzeSelector(selectorInfo.data);
+		const { hasUnqueryableSelector, hasNestedUnqueryablePseudoClass } = analyzeSelector(selectorInfo.data, foreignDefaultNamespace);
 		if (!hasUnqueryableSelector && !hasNestedUnqueryablePseudoClass) {
 			const selectorText = getScopedSelectorText(sanitizeSelector(selectorInfo, docContext), docContext);
 			rootElements.forEach(root => {
@@ -488,6 +498,35 @@ function collectScopeBoundaryElements(excludeSelectors, rootElements, docContext
 		}
 	});
 	return boundaries;
+}
+
+function hasForeignDefaultNamespace(cssRules) {
+	let foreign = false;
+	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
+		const ruleData = cssRule.data;
+		if (ruleData.type === AT_RULE_TYPE && ruleData.name && ruleData.name.toLowerCase() === NAMESPACE_AT_RULE_NAME) {
+			const prelude = ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head;
+			if (prelude && prelude.data.type !== IDENTIFIER_TYPE) {
+				const namespaceURI = prelude.data.type === URL_TYPE || prelude.data.type === STRING_TYPE ? prelude.data.value : null;
+				foreign = namespaceURI !== null && namespaceURI !== XHTML_NAMESPACE_URI;
+			}
+		}
+	}
+	return foreign;
+}
+
+function getStylesheetOwnerElement(key) {
+	if (key && key.element) {
+		return key.element;
+	}
+	return key && key.nodeType === 1 ? key : null;
+}
+
+function getImplicitScopeRoots(ownerElement, docContext) {
+	if (ownerElement && ownerElement.parentElement) {
+		return [ownerElement.parentElement];
+	}
+	return getDefaultScopeRoots(docContext);
 }
 
 function getDefaultScopeRoots(docContext) {
@@ -532,7 +571,7 @@ function processSelectors(ruleData, processingContext, docContext) {
 	const removedSelectors = [];
 	const { ancestorsSelectors, scopeStack } = processingContext;
 	for (let selector = ruleData.prelude.children.head, selectorIndex = 0; selector; selector = selector.next, selectorIndex++) {
-		const analysis = analyzeSelector(selector.data);
+		const analysis = analyzeSelector(selector.data, processingContext.hasForeignDefaultNamespace);
 		const { startsWithCombinator } = analysis;
 		const hasUnqueryableSelector = analysis.hasUnqueryableSelector || Boolean(processingContext.hasUnqueryableSelector);
 		const hasNestedUnqueryablePseudoClass = analysis.hasNestedUnqueryablePseudoClass || Boolean(processingContext.hasNestedUnqueryablePseudoClass);
@@ -588,7 +627,7 @@ function compareSpecificities(specificityA, specificityB) {
 	return (specificityA.a - specificityB.a) || (specificityA.b - specificityB.b) || (specificityA.c - specificityB.c);
 }
 
-function analyzeSelector(selector) {
+function analyzeSelector(selector, foreignDefaultNamespace) {
 	let hasUnqueryableSelector = false;
 	let hasNestedUnqueryablePseudoClass = false;
 	let startsWithCombinator = false;
@@ -615,7 +654,7 @@ function analyzeSelector(selector) {
 				if (functionalPseudoClassDepth) {
 					hasNestedUnqueryablePseudoClass = true;
 				}
-			} else if (node.type === TYPE_SELECTOR_TYPE && typeof node.name === "string" && node.name.includes(NAMESPACE_SEPARATOR)) {
+			} else if (node.type === TYPE_SELECTOR_TYPE && typeof node.name === "string" && (node.name.includes(NAMESPACE_SEPARATOR) || foreignDefaultNamespace)) {
 				hasUnqueryableSelector = true;
 				if (functionalPseudoClassDepth) {
 					hasNestedUnqueryablePseudoClass = true;
@@ -724,6 +763,7 @@ function computeCascadedStylesForElement(element, winningDeclarations, docContex
 		}
 		contextGroups.get(contextKey).push(declarationData);
 	});
+	let hasWinningRevertLayer = false;
 	contextGroups.forEach(declarations => {
 		declarations.sort((declarationA, declarationB) => compareDeclarations(declarationA, declarationB, docContext));
 		const propertyDeclarations = new Map();
@@ -743,14 +783,15 @@ function computeCascadedStylesForElement(element, winningDeclarations, docContex
 				const { declaration, validity } = candidates[indexCandidate];
 				winningDeclarations.add(declaration);
 				if (validity === VALIDITY_VALID) {
-					if (isRevertLayerValue(declaration)) {
-						candidates.forEach(candidate => winningDeclarations.add(candidate.declaration));
-					}
+					hasWinningRevertLayer ||= hasRevertLayerKeyword(declaration);
 					break;
 				}
 			}
 		});
 	});
+	if (hasWinningRevertLayer) {
+		allDeclarations.forEach(({ declaration }) => winningDeclarations.add(declaration));
+	}
 }
 
 function hasUncertainLayerOrder(candidates, docContext) {
@@ -774,14 +815,15 @@ function hasUncertainLayerOrder(candidates, docContext) {
 	});
 }
 
-function isRevertLayerValue(declaration) {
+function hasRevertLayerKeyword(declaration) {
 	const { value } = declaration.data;
-	return Boolean(value &&
-		value.type === VALUE_TYPE &&
-		value.children &&
-		value.children.size === 1 &&
-		value.children.head.data.type === IDENTIFIER_TYPE &&
-		value.children.head.data.name.toLowerCase() === REVERT_LAYER_KEYWORD);
+	if (!value) {
+		return false;
+	}
+	if (value.type === RAW_TYPE) {
+		return REVERT_LAYER_TEST.test(value.value);
+	}
+	return Boolean(cssTree.find(value, node => node.type === IDENTIFIER_TYPE && node.name.toLowerCase() === REVERT_LAYER_KEYWORD));
 }
 
 function createContextKey(conditionalStack) {

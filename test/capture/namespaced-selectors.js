@@ -37,6 +37,39 @@ const cases = [
 		body: "<a>x</a>",
 		kept: ["a{color:red}"],
 		removed: ["blue"]
+	},
+	// A prefix-less @namespace declares the default namespace, which css-namespaces-3 §3 applies to
+	// every type selector of that sheet, so an unprefixed `a` there matches SVG links only. The pass
+	// saw no prefix, queried it as an HTML `a` and took the match as definite, pruning what it beat.
+	// selectors-4 §3.5 and §3.6: the default namespace reaches a compound only when the compound
+	// carries an explicit type or universal selector, so a class selector is untouched.
+	{
+		label: "a foreign default namespace leaves the plain rule its type selector would beat alone",
+		css: "@namespace url(http://www.w3.org/2000/svg); .link { color: blue } a { color: red }",
+		body: "<a class=\"link\">x</a>",
+		kept: [".link{color:blue}", "a{color:red}"],
+		removed: []
+	},
+	{
+		label: "control: the xhtml default namespace is not foreign, its type selectors still prune",
+		css: "@namespace url(http://www.w3.org/1999/xhtml); a { color: blue } a { color: red }",
+		body: "<a>x</a>",
+		kept: ["a{color:red}"],
+		removed: ["blue"]
+	},
+	{
+		label: "control: a class selector under a foreign default namespace still prunes",
+		css: "@namespace url(http://www.w3.org/2000/svg); .link { color: blue } .link { color: red }",
+		body: "<a class=\"link\">x</a>",
+		kept: [".link{color:red}"],
+		removed: ["blue"]
+	},
+	{
+		label: "control: a prefixed namespace declaration leaves the default alone",
+		css: NAMESPACE + " a { color: blue } a { color: red }",
+		body: "<a>x</a>",
+		kept: ["a{color:red}"],
+		removed: ["blue"]
 	}
 ];
 
