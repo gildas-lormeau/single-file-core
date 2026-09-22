@@ -162,6 +162,7 @@ function process(doc, stylesheets) {
 		stats: { processed: 0, discarded: 0 },
 		matchedElements: new Set(),
 		revertLayerElements: new Set(),
+		hasIndeterminateRevertLayer: false,
 		matchedSelectors: new Map(),
 		matchingSelectors: new Map(),
 		layerDeclarationCounter: 0,
@@ -221,7 +222,9 @@ function minifyRules(stylesheets, docContext) {
 function computeCascade(docContext) {
 	const winningDeclarations = new Set();
 	docContext.matchedElements.forEach(element => computeCascadedStylesForElement(element, winningDeclarations, docContext));
-	removeLosingDeclarations(winningDeclarations, docContext);
+	if (!docContext.hasIndeterminateRevertLayer) {
+		removeLosingDeclarations(winningDeclarations, docContext);
+	}
 }
 
 function removeEmptyRules(stylesheets, docContext) {
@@ -629,7 +632,9 @@ function processSelectors(ruleData, processingContext, docContext) {
 			} else {
 				updateMatchingSelectors(matchedElements, selector, docContext);
 			}
-		} else if (!hasNestedUnqueryablePseudoClass) {
+		} else if (hasNestedUnqueryablePseudoClass) {
+			registerIndeterminateRevertLayer(ruleData, docContext);
+		} else {
 			removedSelectors.push(selector);
 		}
 	}
@@ -859,6 +864,12 @@ function hasUncertainLayerOrder(candidates, docContext) {
 function registerRevertLayerElements(ruleData, matchedElements, docContext) {
 	if (hasRevertLayerDeclaration(ruleData)) {
 		matchedElements.forEach(element => docContext.revertLayerElements.add(element));
+	}
+}
+
+function registerIndeterminateRevertLayer(ruleData, docContext) {
+	if (hasRevertLayerDeclaration(ruleData)) {
+		docContext.hasIndeterminateRevertLayer = true;
 	}
 }
 

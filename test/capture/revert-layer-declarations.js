@@ -27,8 +27,17 @@ const PAGE_URL = "https://example.com/page.html";
 // already computed, from the selector with its state stripped, and it is a superset of what the
 // rule really matches; every element in it now carries the protection. The same path covers a
 // state in an `@scope` prelude, whose inner rules inherit the unqueryable flag.
-// The limit worth knowing: this needs a match set, so a state rule whose stripped selector matches
-// nothing, `p:nth-child(1 of :hover) { color: revert-layer }` among them, protects nothing.
+//
+// That match set is only a superset where the sanitizer widens the state away, which it does at the
+// top level and inside `:is()` and `:where()`. It does not reach inside `:not()`, `:has()` or the
+// `of` argument of `:nth-child()`, so `body:has(p:hover) p`, `p:not(:not(:hover))` and
+// `p:nth-child(1 of :hover)` match nothing while the state is off and everything they really match
+// is missed. Reproduced in Chromium 151, Firefox 153 and WebKit 26.5: red live, black saved. A rule
+// like that declaring `revert-layer` has no determinable match set, so there is no element to
+// protect, and the document-wide flag below keeps every losing declaration instead. It is blunt on
+// purpose: the precise alternative is to widen those positions in the sanitizer, which changes the
+// match set of rules that have nothing to do with `revert-layer`, and the flag costs nothing on a
+// page without one, which is all 23 pages of the CSS corpus.
 const CSS = [
 	"@layer base, over;",
 	"@layer base { .x { color: red; padding: 0 } }",
@@ -61,6 +70,25 @@ const MARKUP = [
 ].join("");
 const PAGE = html(MARKUP, "<style>" + CSS + "</style>");
 
+// The flag is document-wide, so the indeterminate rules need a page of their own: on the page above
+// nothing may switch pruning off, and `.other` here proves the flag is what kept the rolled-back
+// declaration, since only a document-wide stop keeps a loser on an element the state rule never
+// names. The `of` spelling is absent on purpose: css-tree generates it without the space after
+// `of`, and happy-dom then drops the clause and matches the first child, so this suite would pass
+// it whatever the pass did (finding f0688). It is covered in the browser lane instead.
+const INDETERMINATE_CSS = [
+	"@layer base, over;",
+	"@layer base { .has { color: red } }",
+	"@layer over { .has { color: blue } body:has(.has:hover) .has { color: revert-layer } }",
+	"@layer base { .other { color: red } }",
+	"@layer over { .other { color: blue } }"
+].join("\n");
+const INDETERMINATE_MARKUP = "<p class=\"has\">has</p><p class=\"other\">other</p>";
+const INDETERMINATE_PAGE = html(INDETERMINATE_MARKUP, "<style>" + INDETERMINATE_CSS + "</style>");
+
+const NEGATED_CSS = INDETERMINATE_CSS.replace("body:has(.has:hover) .has", ".has:not(:not(:hover))");
+const NEGATED_PAGE = html(INDETERMINATE_MARKUP, "<style>" + NEGATED_CSS + "</style>");
+
 const resources = {
 	[PAGE_URL]: { body: PAGE }
 };
@@ -87,6 +115,19 @@ let failed = false;
 	check("a revert-layer under a state-dependent scope keeps it too", content.includes(".scoped{color:red}"), true);
 	check("control: a state-dependent rule without revert-layer protects nothing", content.includes(".plain{color:red}"), false);
 	check("control: the state-dependent rules themselves are kept", content.includes(".plain:hover{color:green}"), true);
+}
+
+{
+	const content = await capture({ [PAGE_URL]: { body: INDETERMINATE_PAGE } }, { url: PAGE_URL, content: INDETERMINATE_PAGE, removeUnusedStyles: true });
+	check("a revert-layer behind :has() keeps what it rolls back to", content.includes(".has{color:red}"), true);
+	check("and the rule itself is kept", content.includes("color:revert-layer"), true);
+	check("an indeterminate revert-layer keeps every loser on the page", content.includes(".other{color:red}"), true);
+}
+
+{
+	const content = await capture({ [PAGE_URL]: { body: NEGATED_PAGE } }, { url: PAGE_URL, content: NEGATED_PAGE, removeUnusedStyles: true });
+	check("a revert-layer behind a doubled :not() keeps what it rolls back to", content.includes(".has{color:red}"), true);
+	check("it keeps every loser on that page too", content.includes(".other{color:red}"), true);
 }
 
 if (failed) {
