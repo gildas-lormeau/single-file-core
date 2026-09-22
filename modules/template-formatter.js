@@ -17336,6 +17336,7 @@ function getFilteredOptions(options) {
 	delete filteredOptions.stylesheets;
 	delete filteredOptions.images;
 	delete filteredOptions.posters;
+	delete filteredOptions.generatedDataURIs;
 	delete filteredOptions.videos;
 	delete filteredOptions.shadowRoots;
 	delete filteredOptions.referrer;

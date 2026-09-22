@@ -74,7 +74,13 @@ function createProcessor(pageResources, options) {
 	return new singleFile.SingleFile(helper.normalizeOptions({ ...EMPTY_DOC_DATA, ...options }));
 }
 
+// A data: URL carries its own bytes, and the fetch core is given in the field — the page's in the
+// extension, the browser's in the CLI — resolves one without asking the network. The map here holds
+// the pages and their files, never a data: URL, so those go to the real fetch rather than to a 404.
 function fetchResource(url) {
+	if (url.startsWith("data:")) {
+		return globalThis.fetch(url);
+	}
 	const resource = resources.get(url);
 	if (!resource) {
 		return Promise.resolve(new Response("", { status: 404 }));

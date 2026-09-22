@@ -460,6 +460,12 @@ class Processor {
 			frames: new Map()
 		};
 		this.fontTests = options.fontTests;
+		options.generatedDataURIs = new Set();
+	}
+
+	registerGeneratedDataURI(dataURI) {
+		this.options.generatedDataURIs.add(dataURI);
+		return dataURI;
 	}
 
 	initialize() {
@@ -802,7 +808,7 @@ class Processor {
 				if (attributeValue) {
 					const posterURL = this.options.posters[Number(attributeValue)];
 					if (!videoElement.getAttribute("poster") && posterURL && posterURL != EMPTY_RESOURCE) {
-						videoElement.setAttribute("poster", posterURL);
+						videoElement.setAttribute("poster", this.registerGeneratedDataURI(posterURL));
 					}
 				}
 			});
@@ -832,7 +838,7 @@ class Processor {
 					linkElement.style.setProperty("min-height", ICON_SIZE, "important");
 					linkElement.style.setProperty("max-width", ICON_SIZE, "important");
 					linkElement.style.setProperty("max-height", ICON_SIZE, "important");
-					imgElement.src = LINK_ICON;
+					imgElement.src = this.registerGeneratedDataURI(LINK_ICON);
 					imgElement.style.setProperty("width", ICON_SIZE, "important");
 					imgElement.style.setProperty("height", ICON_SIZE, "important");
 					imgElement.style.setProperty("min-width", ICON_SIZE, "important");
@@ -1084,7 +1090,7 @@ class Processor {
 							if (canvasData.backgroundColor) {
 								backgroundStyle["background-color"] = canvasData.backgroundColor;
 							}
-							this.processorHelper.setBackgroundImage(canvasElement, "url(" + canvasData.dataURI + ")", backgroundStyle);
+							this.processorHelper.setBackgroundImage(canvasElement, "url(" + this.registerGeneratedDataURI(canvasData.dataURI) + ")", backgroundStyle);
 							this.stats.add("processed", "canvas", 1);
 						} else if (!canvasData.blank) {
 							discardedCount++;
@@ -1245,17 +1251,17 @@ class Processor {
 								canvasElement.height = temporaryVideoElement.videoHeight || videoData.size.videoHeight;
 								context.drawImage(temporaryVideoElement, 0, 0, canvasElement.width, canvasElement.height);
 								try {
-									videoElement.poster = util.getPosterDataURI(canvasElement) || blankPosterURI;
+									videoElement.poster = this.registerGeneratedDataURI(util.getPosterDataURI(canvasElement) || blankPosterURI);
 									// eslint-disable-next-line no-unused-vars
 								} catch (error) {
-									videoElement.poster = blankPosterURI;
+									videoElement.poster = this.registerGeneratedDataURI(blankPosterURI);
 									// ignored
 								}
 								temporaryVideoElement.remove();
 								resolve();
 							};
 							temporaryVideoElement.onerror = () => {
-								videoElement.poster = blankPosterURI;
+								videoElement.poster = this.registerGeneratedDataURI(blankPosterURI);
 								temporaryVideoElement.remove();
 								resolve();
 							};

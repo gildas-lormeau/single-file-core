@@ -371,7 +371,7 @@ function getProcessorHelperClass(utilInstance) {
 				const originalResourceURL = urlNode.value;
 				if (!options.blockImages) {
 					const resourceURL = normalizeURL(originalResourceURL);
-					if (!testIgnoredPath(resourceURL) && testValidURL(resourceURL)) {
+					if ((!testIgnoredPath(resourceURL) && testValidURL(resourceURL)) || testGeneratedDataURI(resourceURL, options)) {
 						let { content, indexResource, contentType, extension } = await batchRequest.addURL(resourceURL,
 							{ asBinary: true, expectedType: "image" });
 						const name = "images/" + indexResource + extension;
@@ -398,17 +398,20 @@ function getProcessorHelperClass(utilInstance) {
 						resourceElement.setAttribute("data-sf-original-" + attributeName, resourceURL);
 					}
 					delete resourceElement.dataset.singleFileOriginURL;
+					const generatedDataURI = testGeneratedDataURI(resourceURL, options);
 					if (!expectedType || !options["block" + expectedType.charAt(0).toUpperCase() + expectedType.substring(1) + "s"]) {
-						if (!testIgnoredPath(resourceURL)) {
+						if (!testIgnoredPath(resourceURL) || generatedDataURI) {
 							this.setAttributeEmpty(resourceElement, attributeName, expectedType);
 							if (testValidPath(resourceURL)) {
-								try {
-									resourceURL = util.resolveURL(resourceURL, baseURI);
-									// eslint-disable-next-line no-unused-vars
-								} catch (error) {
-									// ignored
+								if (!generatedDataURI) {
+									try {
+										resourceURL = util.resolveURL(resourceURL, baseURI);
+										// eslint-disable-next-line no-unused-vars
+									} catch (error) {
+										// ignored
+									}
 								}
-								if (testValidURL(resourceURL)) {
+								if (testValidURL(resourceURL) || generatedDataURI) {
 									const declaredContentType = ["OBJECT", "EMBED"].includes(resourceElement.tagName.toUpperCase()) ? resourceElement.getAttribute("type") : "";
 									let { content, indexResource, extension, contentType, charset } = await batchRequest.addURL(resourceURL,
 										{ asBinary: true, expectedType, contentType: declaredContentType });
@@ -688,6 +691,10 @@ function removeImportRule(parentStylesheet, importNode) {
 	if (importItem) {
 		importList.remove(importItem);
 	}
+}
+
+function testGeneratedDataURI(resourceURL, options) {
+	return Boolean(options.generatedDataURIs && options.generatedDataURIs.has(resourceURL));
 }
 
 function testSameContent(content, otherContent) {
