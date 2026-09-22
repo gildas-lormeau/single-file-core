@@ -157,6 +157,8 @@ function process(doc, stylesheets) {
 		stats: { processed: 0, discarded: 0 },
 		matchedElements: new Set(),
 		revertLayerElements: new Set(),
+		revertLayerRules: new WeakMap(),
+		revertLayerDeclarations: new WeakMap(),
 		hasIndeterminateRevertLayer: false,
 		matchedSelectors: new Map(),
 		matchingSelectors: new Map(),
@@ -821,7 +823,7 @@ function computeCascadedStylesForElement(element, winningDeclarations, docContex
 				const { declaration, validity } = candidates[indexCandidate];
 				winningDeclarations.add(declaration);
 				if (validity === VALIDITY_VALID) {
-					hasWinningRevertLayer ||= hasRevertLayerKeyword(declaration);
+					hasWinningRevertLayer ||= hasRevertLayerKeyword(declaration, docContext);
 					break;
 				}
 			}
@@ -854,30 +856,48 @@ function hasUncertainLayerOrder(candidates, docContext) {
 }
 
 function registerRevertLayerElements(ruleData, matchedElements, docContext) {
-	if (hasRevertLayerDeclaration(ruleData)) {
+	if (hasRevertLayerDeclaration(ruleData, docContext)) {
 		matchedElements.forEach(element => docContext.revertLayerElements.add(element));
 	}
 }
 
 function registerIndeterminateRevertLayer(ruleData, docContext) {
-	if (hasRevertLayerDeclaration(ruleData)) {
+	if (hasRevertLayerDeclaration(ruleData, docContext)) {
 		docContext.hasIndeterminateRevertLayer = true;
 	}
 }
 
-function hasRevertLayerDeclaration(ruleData) {
+function hasRevertLayerDeclaration(ruleData, docContext) {
+	let found = docContext.revertLayerRules.get(ruleData);
+	if (found === undefined) {
+		found = findRevertLayerDeclaration(ruleData, docContext);
+		docContext.revertLayerRules.set(ruleData, found);
+	}
+	return found;
+}
+
+function findRevertLayerDeclaration(ruleData, docContext) {
 	if (!hasChildNodes(ruleData.block)) {
 		return false;
 	}
 	for (let child = ruleData.block.children.head; child; child = child.next) {
-		if (child.data.type === DECLARATION_TYPE && hasRevertLayerKeyword(child)) {
+		if (child.data.type === DECLARATION_TYPE && hasRevertLayerKeyword(child, docContext)) {
 			return true;
 		}
 	}
 	return false;
 }
 
-function hasRevertLayerKeyword(declaration) {
+function hasRevertLayerKeyword(declaration, docContext) {
+	let found = docContext.revertLayerDeclarations.get(declaration);
+	if (found === undefined) {
+		found = findRevertLayerKeyword(declaration);
+		docContext.revertLayerDeclarations.set(declaration, found);
+	}
+	return found;
+}
+
+function findRevertLayerKeyword(declaration) {
 	const { value } = declaration.data;
 	if (!value) {
 		return false;
