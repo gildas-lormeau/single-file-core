@@ -119,6 +119,44 @@ const cases = [
 		inBody: true,
 		kept: ["color:red"],
 		removed: ["p{color:blue}"]
+	},
+	// §3.5.4 states the implicit root without a nesting exception, so a prelude-less @scope inside
+	// another is rooted at the style element's parent exactly as it is at top level, not at the
+	// enclosing scope's roots. The branch testing the enclosing scope came first, so the inner scope
+	// inherited `.box` and the rule was treated as applying. Measured in all three engines: blue.
+	{
+		label: "a nested prelude-less scope is rooted at the style element's parent",
+		css: "p { color: blue } @scope (.box) { @scope { p { color: red } } }",
+		body: "<div class=\"box\"><p>t</p></div>",
+		kept: ["p{color:blue}"],
+		removed: ["color:red"]
+	},
+	{
+		label: "control: a nested prelude-less scope reaches inside that parent",
+		css: "p { color: blue } @scope (.box) { @scope { p { color: red } } }",
+		body: "<div class=\"box\">STYLE<p>t</p></div>",
+		inBody: true,
+		kept: ["color:red"],
+		removed: ["p{color:blue}"]
+	},
+	// §3.5.4 again, on the limits: "For each scope created by a scoping root, its scoping limits are
+	// set to all elements that are descendants of the scoping root and that match <scope-end>". They
+	// were collected into one set shared by every root, so a limit computed for the outer root cut
+	// the inner root's own scope, where the inner root has no limit at all. Measured in all three
+	// engines: red.
+	{
+		label: "a limit only cuts the root it was computed for",
+		css: "p { color: blue } @scope (.box) to (:scope > .box) { p { color: red } }",
+		body: "<div class=\"box\"><div class=\"box\"><p>t</p></div></div>",
+		kept: ["color:red"],
+		removed: ["p{color:blue}"]
+	},
+	{
+		label: "control: a limit still cuts its own root",
+		css: "p { color: blue } @scope (.box) to (.stop) { p { color: red } }",
+		body: "<div class=\"box\"><div class=\"stop\"><p>t</p></div></div>",
+		kept: ["p{color:blue}"],
+		removed: ["color:red"]
 	}
 ];
 

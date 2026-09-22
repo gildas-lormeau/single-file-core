@@ -480,8 +480,6 @@ function buildScopeContext(parsedPrelude, processingContext, docContext) {
 		if (!rootElements.length && includeAnalysis.hasNestedUnqueryablePseudoClass) {
 			rootElements = scopeStack.length ? Array.from(scopeStack[scopeStack.length - 1].rootElements) : getDefaultScopeRoots(docContext);
 		}
-	} else if (scopeStack.length) {
-		rootElements = Array.from(scopeStack[scopeStack.length - 1].rootElements);
 	} else {
 		rootElements = getImplicitScopeRoots(processingContext.ownerElement, docContext);
 	}
@@ -522,7 +520,7 @@ function collectScopeRootElements(includeSelectors, scopeStack, docContext) {
 }
 
 function collectScopeBoundaryElements(excludeSelectors, rootElements, docContext, defaultNamespace) {
-	const boundaries = new Set();
+	const boundaries = new Map();
 	if (!excludeSelectors.length || !rootElements.length) {
 		return boundaries;
 	}
@@ -531,7 +529,11 @@ function collectScopeBoundaryElements(excludeSelectors, rootElements, docContext
 		if (!hasUnqueryableSelector && !hasNestedUnqueryablePseudoClass) {
 			const selectorText = getScopedSelectorText(sanitizeSelector(selectorInfo, docContext), docContext);
 			rootElements.forEach(root => {
-				matchSelectorWithinRoot(root, selectorText).forEach(node => boundaries.add(node));
+				const rootBoundaries = boundaries.get(root) || new Set();
+				matchSelectorWithinRoot(root, selectorText).forEach(node => rootBoundaries.add(node));
+				if (rootBoundaries.size) {
+					boundaries.set(root, rootBoundaries);
+				}
 			});
 		}
 	});
@@ -1101,17 +1103,21 @@ function isElementWithinScopes(element, scopeStack) {
 }
 
 function isElementWithinScope(element, scopeContext) {
+	const { rootElements, stopElements } = scopeContext;
+	const ancestors = [];
 	let current = element;
 	while (current && current.nodeType === 1) {
-		if (scopeContext.stopElements && scopeContext.stopElements.has(current)) {
-			return false;
-		}
-		if (scopeContext.rootElements.has(current)) {
+		ancestors.push(current);
+		if (rootElements.has(current) && !isPathBlocked(ancestors, stopElements && stopElements.get(current))) {
 			return true;
 		}
 		current = current.parentElement;
 	}
 	return false;
+}
+
+function isPathBlocked(ancestors, stopElements) {
+	return Boolean(stopElements) && ancestors.some(ancestor => stopElements.has(ancestor));
 }
 
 function createSelectorText(selector, ancestorsSelectors, docContext) {
