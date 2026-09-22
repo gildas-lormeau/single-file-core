@@ -48,6 +48,10 @@ const FUNCTIONAL_PSEUDO_CLASSES = [
     "where",
     "has"
 ];
+const MATCHING_FUNCTIONAL_PSEUDO_CLASSES = [
+    "is",
+    "where"
+];
 const STATE_ATTRIBUTE_NAMES = [
     "open"
 ];
@@ -57,7 +61,7 @@ export {
     sanitizeSelector,
 };
 
-function sanitizeSelector(selector, ancestors, docContext) {
+function sanitizeSelector(selector, docContext) {
     if (!docContext.normalizedSelectorText) {
         docContext.normalizedSelectorText = new WeakMap();
     }
@@ -65,7 +69,7 @@ function sanitizeSelector(selector, ancestors, docContext) {
         return docContext.normalizedSelectorText.get(selector);
     }
     const ast = cssTree.parse(cssTree.generate(selector.data), { context: "selectorList" });
-    normalizeSelectorNode(ast, ancestors);
+    normalizeSelectorNode(ast);
     let normalized = cssTree.generate(ast);
     if (!normalized || !normalized.trim()) {
         normalized = "*";
@@ -74,28 +78,13 @@ function sanitizeSelector(selector, ancestors, docContext) {
     return normalized;
 }
 
-function normalizeSelectorNode(selector, ancestors) {
+function normalizeSelectorNode(selector) {
     let current = selector.children.head;
     while (current) {
         const next = current.next;
         const childNode = current.data;
         if (childNode.type === "NestingSelector") {
-            if (ancestors && ancestors.length) {
-                const lastAncestor = ancestors[ancestors.length - 1];
-                let ancestorAst = lastAncestor && lastAncestor.data ? lastAncestor.data : lastAncestor;
-                if (ancestorAst && ancestorAst.type === "SelectorList" && ancestorAst.children && ancestorAst.children.tail) {
-                    ancestorAst = ancestorAst.children.tail.data;
-                }
-                if (ancestorAst && ancestorAst.children) {
-                    for (let a = ancestorAst.children.head; a; a = a.next) {
-                        const cloned = cssTree.clone(a.data);
-                        selector.children.insertData(cloned, current);
-                    }
-                    selector.children.remove(current);
-                }
-            } else {
-                selector.children.replace(current, cssTree.parse(":scope", { context: "selector" }).children.head);
-            }
+            selector.children.replace(current, cssTree.parse(":scope", { context: "selector" }).children.head);
         } else if (childNode.type === "TypeSelector" && typeof childNode.name === "string" && childNode.name.includes("|")) {
             childNode.name = childNode.name.substring(childNode.name.lastIndexOf("|") + 1);
         } else if (childNode.type === "PseudoElementSelector") {
@@ -103,13 +92,15 @@ function normalizeSelectorNode(selector, ancestors) {
         } else if (childNode.type === "PseudoClassSelector") {
             if (matchUnqueryablePseudoClass(childNode)) {
                 removeNode(selector.children, current);
+            } else if (childNode.children && MATCHING_FUNCTIONAL_PSEUDO_CLASSES.includes(childNode.name.toLowerCase())) {
+                normalizeSelectorNode(childNode.children.head.data);
             }
         } else if (childNode.type === "AttributeSelector") {
             if (matchUnqueryableAttributeSelector(childNode)) {
                 removeNode(selector.children, current);
             }
         } else if (childNode.type === "Selector") {
-            normalizeSelectorNode(childNode, ancestors);
+            normalizeSelectorNode(childNode);
         }
         current = next;
     }

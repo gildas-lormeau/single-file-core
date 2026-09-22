@@ -67,7 +67,10 @@ const VALIDITY_INVALID = "invalid";
 const PARSE_CSS_ERROR_MESSAGE = "Failed to parse CSS";
 const QSA_ERROR_MESSAGE = "Failed to match selector";
 const PRELUDE_SEPARATOR = ",";
-const NESTING_SELECTOR = "&";
+const DECLARATION_SEPARATOR = ":";
+const IS_PSEUDO_CLASS_PREFIX = ":is(";
+const IS_PSEUDO_CLASS_SUFFIX = ")";
+const NO_ELEMENT_SELECTOR = ":not(*)";
 const SCOPE_PSEUDO_CLASS = ":scope";
 const SCOPE_PSEUDO_CLASS_NAME = "scope";
 const DESCENDANT_COMBINATOR = " ";
@@ -154,6 +157,9 @@ function process(doc, stylesheets) {
 		layerComparisons: new Map(),
 		selectorData: new Map(),
 		selectorTexts: new Map(),
+		nestedSelectorTexts: new Map(),
+		nestingParentTexts: new Map(),
+		nestingParentNodes: new Map(),
 		scopedSelectorTexts: new Map(),
 		supportedSelectors: new Map(),
 		valueValidities: new Map(),
@@ -460,7 +466,7 @@ function analyzeScopeSelectors(selectors) {
 function collectScopeRootElements(includeSelectors, scopeStack, docContext) {
 	const roots = new Set();
 	includeSelectors.forEach(selectorInfo => {
-		const selectorText = sanitizeSelector(selectorInfo, null, docContext);
+		const selectorText = sanitizeSelector(selectorInfo, docContext);
 		const matchedNodes = querySelectorAll(docContext.doc, selectorText);
 		filterElementsByScopes(matchedNodes, scopeStack).forEach(match => roots.add(match));
 	});
@@ -475,7 +481,7 @@ function collectScopeBoundaryElements(excludeSelectors, rootElements, docContext
 	excludeSelectors.forEach(selectorInfo => {
 		const { hasUnqueryableSelector, hasNestedUnqueryablePseudoClass } = analyzeSelector(selectorInfo.data);
 		if (!hasUnqueryableSelector && !hasNestedUnqueryablePseudoClass) {
-			const selectorText = getScopedSelectorText(sanitizeSelector(selectorInfo, null, docContext), docContext);
+			const selectorText = getScopedSelectorText(sanitizeSelector(selectorInfo, docContext), docContext);
 			rootElements.forEach(root => {
 				matchSelectorWithinRoot(root, selectorText).forEach(node => boundaries.add(node));
 			});
@@ -514,7 +520,8 @@ function minifyStylesheetRule(ruleData, cssRule, stylesheets, processingContext,
 	if (!isPreludeSupported(ruleData.prelude, docContext)) {
 		return;
 	}
-	const removedSelectors = processSelectors(ruleData, processingContext, docContext);
+	expandRawCssRules(ruleData);
+	const removedSelectors = getRemovableSelectors(ruleData, processSelectors(ruleData, processingContext, docContext), docContext);
 	const wasDiscarded = removeUnmatchedSelectors(ruleData, removedSelectors, removedRules, cssRule, docContext);
 	if (!wasDiscarded && hasChildNodes(ruleData.block)) {
 		processNestedRules(ruleData, stylesheets, processingContext, docContext);
@@ -536,19 +543,49 @@ function processSelectors(ruleData, processingContext, docContext) {
 			ruleData.hasNestedUnqueryablePseudoClass = true;
 		}
 		registerSelector(selector, ruleData, processingContext, docContext);
-		if (!startsWithCombinator || !ancestorsSelectors || !ancestorsSelectors.length) {
-			const relativeToScope = startsWithCombinator && Boolean(scopeStack && scopeStack.length);
-			const matchedElements = matchElements(selector, ancestorsSelectors, scopeStack, docContext, relativeToScope);
-			if (matchedElements.length) {
-				if (!hasUnqueryableSelector) {
-					updateMatchingSelectors(matchedElements, selector, docContext);
-				}
-			} else if (!hasNestedUnqueryablePseudoClass) {
-				removedSelectors.push(selector);
+		const relativeToScope = startsWithCombinator && !(ancestorsSelectors && ancestorsSelectors.length) && Boolean(scopeStack && scopeStack.length);
+		const matchedElements = matchElements(selector, ancestorsSelectors, scopeStack, docContext, relativeToScope);
+		if (matchedElements.length) {
+			if (!hasUnqueryableSelector) {
+				updateMatchingSelectors(matchedElements, selector, docContext);
 			}
+		} else if (!hasNestedUnqueryablePseudoClass) {
+			removedSelectors.push(selector);
 		}
 	}
 	return removedSelectors;
+}
+
+function getRemovableSelectors(ruleData, removedSelectors, docContext) {
+	if (!removedSelectors.length || removedSelectors.length === ruleData.prelude.children.size || !hasNestedRules(ruleData)) {
+		return removedSelectors;
+	}
+	const removedSet = new Set(removedSelectors);
+	let keptSpecificity = { a: 0, b: 0, c: 0 };
+	for (let selector = ruleData.prelude.children.head; selector; selector = selector.next) {
+		if (!removedSet.has(selector)) {
+			const { specificity } = docContext.selectorData.get(selector);
+			if (compareSpecificities(specificity, keptSpecificity) > 0) {
+				keptSpecificity = specificity;
+			}
+		}
+	}
+	return removedSelectors.filter(selector => compareSpecificities(docContext.selectorData.get(selector).specificity, keptSpecificity) <= 0);
+}
+
+function hasNestedRules(ruleData) {
+	if (hasChildNodes(ruleData.block)) {
+		for (let child = ruleData.block.children.head; child; child = child.next) {
+			if (child.data.type !== DECLARATION_TYPE) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+function compareSpecificities(specificityA, specificityB) {
+	return (specificityA.a - specificityB.a) || (specificityA.b - specificityB.b) || (specificityA.c - specificityB.c);
 }
 
 function analyzeSelector(selector) {
@@ -649,7 +686,6 @@ function updateMatchingSelectors(matchedElements, selector, docContext) {
 }
 
 function processNestedRules(ruleData, stylesheets, processingContext, docContext) {
-	expandRawCssRules(ruleData);
 	const newProcessingContext = {
 		...processingContext,
 		ancestorsSelectors: [...processingContext.ancestorsSelectors, ruleData.prelude],
@@ -666,8 +702,9 @@ function registerSelector(selector, ruleData, processingContext, docContext) {
 		scopeStack,
 		conditionalStack
 	} = processingContext;
+	const nestedSelectorText = getNestedSelectorText(selector, ancestorsSelectors, docContext);
 	docContext.selectorData.set(selector, {
-		specificity: computeMaxSpecificity(selector.data, ancestorsSelectors),
+		specificity: computeMaxSpecificity(nestedSelectorText === null ? selector.data : parseCss(nestedSelectorText, SELECTOR_LIST_CONTEXT)),
 		rule: ruleData,
 		layerStack,
 		scopeStack,
@@ -1000,16 +1037,66 @@ function isElementWithinScope(element, scopeContext) {
 }
 
 function createSelectorText(selector, ancestorsSelectors, docContext) {
-	let selectorText;
-	if (ancestorsSelectors && ancestorsSelectors.length) {
-		selectorText = combineSelectorWithAncestors(selector.data, ancestorsSelectors, docContext);
-		const combinedAst = parseCss(selectorText, SELECTOR_LIST_CONTEXT);
-		selectorText = sanitizeSelector({ data: combinedAst }, ancestorsSelectors, docContext);
+	const nestedSelectorText = getNestedSelectorText(selector, ancestorsSelectors, docContext);
+	if (nestedSelectorText === null) {
+		return sanitizeSelector(selector, docContext);
 	}
-	if (!selectorText) {
-		selectorText = sanitizeSelector(selector, ancestorsSelectors, docContext);
+	return sanitizeSelector({ data: parseCss(nestedSelectorText, SELECTOR_LIST_CONTEXT) }, docContext);
+}
+
+function getNestedSelectorText(selector, ancestorsSelectors, docContext) {
+	if (!ancestorsSelectors || !ancestorsSelectors.length) {
+		return null;
 	}
-	return selectorText;
+	if (!docContext.nestedSelectorTexts.has(selector.data)) {
+		docContext.nestedSelectorTexts.set(selector.data, nestSelectorText(getSelectorText(selector.data, docContext), getNestingParentText(ancestorsSelectors, docContext), docContext));
+	}
+	return docContext.nestedSelectorTexts.get(selector.data);
+}
+
+function getNestingParentText(ancestorsSelectors, docContext) {
+	const prelude = ancestorsSelectors[ancestorsSelectors.length - 1];
+	if (!docContext.nestingParentTexts.has(prelude)) {
+		const grandParentText = ancestorsSelectors.length > 1 ? getNestingParentText(ancestorsSelectors.slice(0, -1), docContext) : null;
+		const selectorTexts = [];
+		for (let parentSelector = prelude.children.head; parentSelector; parentSelector = parentSelector.next) {
+			if (!hasPseudoElement(parentSelector.data)) {
+				const parentText = getSelectorText(parentSelector.data, docContext);
+				selectorTexts.push(grandParentText === null ? parentText : nestSelectorText(parentText, grandParentText, docContext));
+			}
+		}
+		docContext.nestingParentTexts.set(prelude, selectorTexts.length ? IS_PSEUDO_CLASS_PREFIX + selectorTexts.join(PRELUDE_SEPARATOR) + IS_PSEUDO_CLASS_SUFFIX : NO_ELEMENT_SELECTOR);
+	}
+	return docContext.nestingParentTexts.get(prelude);
+}
+
+function hasPseudoElement(selector) {
+	return Boolean(cssTree.find(selector, node => node.type === PSEUDO_ELEMENT_SELECTOR_TYPE || (node.type === PSEUDO_CLASS_SELECTOR_TYPE && PSEUDO_ELEMENT_SYNONYMS.has(node.name.toLowerCase()))));
+}
+
+function nestSelectorText(selectorText, parentText, docContext) {
+	const selector = parseCss(selectorText);
+	let hasNestingSelector = false;
+	cssTree.walk(selector, {
+		visit: NESTING_SELECTOR_TYPE,
+		enter(_node, item, list) {
+			hasNestingSelector = true;
+			list.insertData(getNestingParentNode(parentText, docContext), item);
+			list.remove(item);
+		}
+	});
+	if (hasNestingSelector) {
+		return cssTree.generate(selector);
+	}
+	const startsWithCombinator = selector.children.head.data.type === COMBINATOR_NAME;
+	return parentText + (startsWithCombinator ? EMPTY_STRING : DESCENDANT_COMBINATOR) + selectorText;
+}
+
+function getNestingParentNode(parentText, docContext) {
+	if (!docContext.nestingParentNodes.has(parentText)) {
+		docContext.nestingParentNodes.set(parentText, parseCss(parentText).children.head.data);
+	}
+	return cssTree.clone(docContext.nestingParentNodes.get(parentText));
 }
 
 function compareDeclarations(declarationA, declarationB, docContext) {
@@ -1113,7 +1200,8 @@ function removeStylesheetEmptyRules(cssRules, docContext) {
 		if (ruleData.type === RULE_TYPE) {
 			if (hasChildNodes(ruleData.block)) {
 				removeStylesheetEmptyRules(ruleData.block.children, docContext);
-			} else {
+			}
+			if (!hasChildNodes(ruleData.block)) {
 				docContext.stats.discarded++;
 				removedRules.add(cssRule);
 			}
@@ -1180,22 +1268,18 @@ function expandRawCssRules(ruleData) {
 	const ruleChildren = [];
 	if (hasChildNodes(ruleData.block)) {
 		for (let cssRuleNode = ruleData.block.children.head; cssRuleNode; cssRuleNode = cssRuleNode.next) {
-			if (cssRuleNode.data.type === RAW_TYPE) {
-				if (cssRuleNode.data.value.indexOf(BLOCK_OPEN) !== -1 &&
-					cssRuleNode.data.value.indexOf(BLOCK_OPEN) < cssRuleNode.data.value.indexOf(BLOCK_CLOSE)) {
-					try {
-						const stylesheet = parseCss(cssRuleNode.data.value, STYLESHEET_CONTEXT);
-						for (let stylesheetChild = stylesheet.children.head; stylesheetChild; stylesheetChild = stylesheetChild.next) {
-							ruleChildren.push(stylesheetChild);
-						}
-					} catch (error) {
-						if (DEBUG) {
-							// eslint-disable-next-line no-console
-							console.warn(PARSE_CSS_ERROR_MESSAGE, cssRuleNode.data.value, error);
-						}
+			const rawRuleText = getRawRuleText(cssRuleNode.data);
+			if (rawRuleText !== null) {
+				try {
+					const stylesheet = parseCss(rawRuleText, STYLESHEET_CONTEXT);
+					for (let stylesheetChild = stylesheet.children.head; stylesheetChild; stylesheetChild = stylesheetChild.next) {
+						ruleChildren.push(stylesheetChild);
 					}
-				} else {
-					ruleChildren.push(cssRuleNode);
+				} catch (error) {
+					if (DEBUG) {
+						// eslint-disable-next-line no-console
+						console.warn(PARSE_CSS_ERROR_MESSAGE, rawRuleText, error);
+					}
 				}
 			} else {
 				ruleChildren.push(cssRuleNode);
@@ -1206,62 +1290,19 @@ function expandRawCssRules(ruleData) {
 	ruleChildren.forEach(ruleChild => ruleData.block.children.appendData(ruleChild.data));
 }
 
-function combineSelectorWithAncestors(selector, ancestorsSelectors, docContext) {
-	const selectorText = getSelectorText(selector, docContext);
-	if (!ancestorsSelectors || !ancestorsSelectors.length) {
-		return selectorText;
-	} else {
-		let contexts = [EMPTY_STRING];
-		ancestorsSelectors.forEach(selectorList => {
-			if (hasChildNodes(selectorList)) {
-				const parentSelectors = selectorList.children.toArray();
-				const nextContexts = [];
-				contexts.forEach(context => parentSelectors.forEach(parentSelector => {
-					const parentText = getSelectorText(parentSelector, docContext);
-					const combined = context ? combineSelectors(context, parentText) : parentText;
-					if (!nextContexts.includes(combined)) {
-						nextContexts.push(combined);
-					}
-				}));
-				if (nextContexts.length) {
-					contexts = nextContexts;
-				}
-			}
-		});
-		const expandedSelectors = new Set();
-		contexts.forEach(context => {
-			const result = context ? combineSelectors(context, selectorText) : selectorText;
-			expandedSelectors.add(result);
-		});
-		return Array.from(expandedSelectors).join(PRELUDE_SEPARATOR);
+function getRawRuleText(node) {
+	if (node.type === RAW_TYPE && holdsBlock(node.value)) {
+		return node.value;
 	}
+	if (node.type === DECLARATION_TYPE && !node.property.startsWith(CUSTOM_PROPERTY_PREFIX) && node.value.type === RAW_TYPE && holdsBlock(node.value.value) && node.value.value.trimStart().indexOf(BLOCK_OPEN) > 0) {
+		return node.property + DECLARATION_SEPARATOR + node.value.value;
+	}
+	return null;
 }
 
-function combineSelectors(parentSelectorText, childSelectorText) {
-	const childSelector = parseCss(childSelectorText || NESTING_SELECTOR);
-	const parentSelector = parentSelectorText ? parseCss(parentSelectorText) : null;
-	let hasNesting = false;
-	cssTree.walk(childSelector, {
-		visit: NESTING_SELECTOR_TYPE,
-		enter(_node, item, list) {
-			hasNesting = true;
-			if (!parentSelector) {
-				list.remove(item);
-				return;
-			}
-			const nodes = parentSelector.children.toArray().map(parent => cssTree.clone(parent));
-			nodes.forEach(node => list.insertData(node, item));
-			list.remove(item);
-		}
-	});
-	if (hasNesting) {
-		return cssTree.generate(childSelector);
-	}
-	if (!parentSelector) {
-		return cssTree.generate(childSelector);
-	}
-	const combinedSelector = parseCss(`${parentSelectorText} ${childSelectorText}`);
-	return cssTree.generate(combinedSelector);
+function holdsBlock(text) {
+	const blockOpenIndex = text.indexOf(BLOCK_OPEN);
+	return blockOpenIndex !== -1 && blockOpenIndex < text.indexOf(BLOCK_CLOSE);
 }
 
 function hasChildNodes(node) {
