@@ -11,6 +11,7 @@ const PAGE_URL = "https://example.com/page.html";
 // `.outer p` matched a paragraph the browser leaves alone, each pruning the rule the browser applies.
 // And at document level `:scope` means `:root`, but the pass ran a document `:scope` selector from
 // body as well as from the root, so `:scope > p` matched body's children.
+const TWO_ROOTS = "<div class=\"box\"><div class=\"mid\"><div class=\"box\"><div class=\"stop\"><p>t</p></div></div></div></div>";
 const cases = [
 	{
 		label: "an ancestor outside the scoping root does not match",
@@ -157,6 +158,39 @@ const cases = [
 		body: "<div class=\"box\"><div class=\"stop\"><p>t</p></div></div>",
 		kept: ["p{color:blue}"],
 		removed: ["color:red"]
+	},
+	// Keying the limits by root left the two sites below reading the roots as one undifferentiated
+	// set, and both are decided on the same DOM: the paragraph is blocked from the inner .box by
+	// that root's own limit, and admitted by the outer .box, which has no limit of its own. A
+	// selector matched inside the inner root is therefore not applied, and the blocked inner root is
+	// not the proximity winner. Measured in Chromium 151, Firefox 153 and WebKit 26.5: blue in both.
+	{
+		label: "a scoped match and the scope that admits it come from the same root",
+		css: "p { color: blue } @scope (.box) to (:scope > .stop) { :scope > .stop > p { color: red } }",
+		body: TWO_ROOTS,
+		kept: ["p{color:blue}"],
+		removed: ["color:red"]
+	},
+	{
+		label: "control: a match from the root that admits the element still applies",
+		css: "p { color: blue } @scope (.box) to (:scope > .stop) { :scope > .mid p { color: red } }",
+		body: TWO_ROOTS,
+		kept: ["color:red"],
+		removed: ["p{color:blue}"]
+	},
+	{
+		label: "scope proximity skips a root whose limit blocks the element",
+		css: "@scope (.box) to (:scope > .stop) { p { color: red } } @scope (.mid) { p { color: blue } }",
+		body: TWO_ROOTS,
+		kept: ["color:blue"],
+		removed: ["color:red"]
+	},
+	{
+		label: "control: proximity still counts the nearest unblocked root",
+		css: "@scope (.box) { p { color: red } } @scope (.mid) { p { color: blue } }",
+		body: TWO_ROOTS,
+		kept: ["color:red"],
+		removed: ["color:blue"]
 	}
 ];
 

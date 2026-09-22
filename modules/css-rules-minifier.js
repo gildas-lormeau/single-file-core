@@ -945,10 +945,10 @@ function getScopeProximity(element, scopeStack) {
 	if (!scopeStack || !scopeStack.length) {
 		return UNSCOPED_PROXIMITY;
 	}
-	const { rootElements } = scopeStack[scopeStack.length - 1];
+	const { rootElements, stopElements } = scopeStack[scopeStack.length - 1];
 	let hops = 0;
 	for (let current = element; current; current = current.parentElement) {
-		if (rootElements.has(current)) {
+		if (rootElements.has(current) && isElementWithinRoot(element, current, stopElements && stopElements.get(current))) {
 			return hops;
 		}
 		hops++;
@@ -1026,7 +1026,12 @@ function matchElementsInScope(selectorText, scopeStack) {
 	}
 	const matchedNodes = new Set();
 	roots.forEach(root => {
-		matchSelectorWithinRoot(root, selectorText).forEach(node => matchedNodes.add(node));
+		const stopElements = currentScope.stopElements && currentScope.stopElements.get(root);
+		matchSelectorWithinRoot(root, selectorText).forEach(node => {
+			if (!stopElements || isElementWithinRoot(node, root, stopElements)) {
+				matchedNodes.add(node);
+			}
+		});
 	});
 	return Array.from(matchedNodes);
 }
@@ -1125,14 +1130,21 @@ function isElementWithinScopes(element, scopeStack) {
 
 function isElementWithinScope(element, scopeContext) {
 	const { rootElements, stopElements } = scopeContext;
-	const ancestors = [];
-	let current = element;
-	while (current && current.nodeType === 1) {
-		ancestors.push(current);
-		if (rootElements.has(current) && !isPathBlocked(ancestors, stopElements && stopElements.get(current))) {
+	for (let current = element; current && current.nodeType === 1; current = current.parentElement) {
+		if (rootElements.has(current) && isElementWithinRoot(element, current, stopElements && stopElements.get(current))) {
 			return true;
 		}
-		current = current.parentElement;
+	}
+	return false;
+}
+
+function isElementWithinRoot(element, root, stopElements) {
+	const ancestors = [];
+	for (let current = element; current && current.nodeType === 1; current = current.parentElement) {
+		ancestors.push(current);
+		if (current === root) {
+			return !isPathBlocked(ancestors, stopElements);
+		}
 	}
 	return false;
 }
