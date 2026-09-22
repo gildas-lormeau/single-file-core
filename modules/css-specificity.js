@@ -91,12 +91,7 @@ function computeSpecificity(selector, specificity = { a: 0, b: 0, c: 0 }) {
             }
 
             // Regular pseudo-classes contribute to 'b'
-            // Exception: :scope is treated as a type selector (contributes to 'c')
-            if (pseudoName === "scope") {
-                specificity.c++;
-            } else {
-                specificity.b++;
-            }
+            specificity.b++;
             break;
         }
 
@@ -139,7 +134,7 @@ function getMaxSpecificityFromList(selectorList) {
     return maxSpec;
 }
 
-function computeMaxSpecificity(selector, ancestorsSelectors, scopeStack) {
+function computeMaxSpecificity(selector, ancestorsSelectors) {
     // If no ancestors provided, keep existing behavior
     if (!ancestorsSelectors || !ancestorsSelectors.length) {
         let maxSpecificity = { a: 0, b: 0, c: 0 };
@@ -162,9 +157,6 @@ function computeMaxSpecificity(selector, ancestorsSelectors, scopeStack) {
                 stack.pop();
             }
         });
-        if (scopeStack && scopeStack.length) {
-            maxSpecificity.b++;
-        }
         return maxSpecificity;
     }
 

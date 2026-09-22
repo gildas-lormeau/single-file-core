@@ -32,7 +32,7 @@ const PSEUDO_ELEMENT_SYNONYMS = new Set(["after", "before", "first-letter", "fir
 const FUNCTIONAL_PSEUDO_CLASS_NAMES = new Set(["not", "is", "where", "has"]);
 const MEDIA_AT_RULE_NAME = "media";
 const SUPPORTS_AT_RULE_NAME = "supports";
-const CONDITIONAL_AT_RULE_NAMES = new Set([MEDIA_AT_RULE_NAME, SUPPORTS_AT_RULE_NAME, "container"]);
+const CONDITIONAL_AT_RULE_NAMES = new Set([MEDIA_AT_RULE_NAME, SUPPORTS_AT_RULE_NAME, "container", "starting-style"]);
 const RULE_TYPE = "Rule";
 const AT_RULE_TYPE = "Atrule";
 const NESTING_SELECTOR_TYPE = "NestingSelector";
@@ -41,6 +41,7 @@ const ATTRIBUTE_SELECTOR_TYPE = "AttributeSelector";
 const DECLARATION_TYPE = "Declaration";
 const RAW_TYPE = "Raw";
 const VALUE_TYPE = "Value";
+const IDENTIFIER_TYPE = "Identifier";
 const PSEUDO_ELEMENT_SELECTOR_TYPE = "PseudoElementSelector";
 const LAYER_NAME = "layer";
 const SCOPE_NAME = "scope";
@@ -66,8 +67,9 @@ const SELECTOR_SUPPORTS_SUFFIX = ")";
 const VENDOR_PREFIX = "-";
 const CUSTOM_PROPERTY_PREFIX = "--";
 const LAYER_NAME_SEPARATOR = ".";
-const DECLARATION_KEY_SEPARATOR = ":";
 const CONTEXT_KEY_SEPARATOR = "|";
+const REVERT_LAYER_KEYWORD = "revert-layer";
+const UNSCOPED_PROXIMITY = Infinity;
 const BLOCK_OPEN = "{";
 const BLOCK_CLOSE = "}";
 const EMPTY_STRING = "";
@@ -236,9 +238,22 @@ function registerLayerDeclaration(layerStack, layerName, conditionalStack, docCo
 
 function minifyStylesheetRules(cssRules, stylesheets, processingContext, docContext) {
 	const removedRules = new Set();
+	let nestedRuleSeen = false;
+	let declarationsOrder;
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		docContext.stats.processed++;
-		minifyRule(cssRule.data, cssRule, stylesheets, processingContext, removedRules, docContext);
+		if (cssRule.data.type === DECLARATION_TYPE) {
+			if (nestedRuleSeen) {
+				if (declarationsOrder === undefined) {
+					declarationsOrder = docContext.rulesCounter++;
+				}
+				cssRule.data.order = declarationsOrder;
+			}
+		} else {
+			minifyRule(cssRule.data, cssRule, stylesheets, processingContext, removedRules, docContext);
+			nestedRuleSeen = true;
+			declarationsOrder = undefined;
+		}
 	}
 	removedRules.forEach(cssRule => cssRules.remove(cssRule));
 }
@@ -529,15 +544,15 @@ function registerSelector(selector, ruleData, processingContext, docContext) {
 		conditionalStack
 	} = processingContext;
 	docContext.selectorData.set(selector, {
-		specificity: computeMaxSpecificity(selector.data, ancestorsSelectors, scopeStack),
+		specificity: computeMaxSpecificity(selector.data, ancestorsSelectors),
 		rule: ruleData,
 		layerStack,
+		scopeStack,
 		conditionalStack
 	});
 }
 
 function computeCascadedStylesForElement(element, winningDeclarations, docContext) {
-	const cascadedStyles = new Map();
 	const allDeclarations = collectDeclarationItemsForElement(element, docContext);
 	const contextGroups = new Map();
 	allDeclarations.forEach(declarationData => {
@@ -551,16 +566,33 @@ function computeCascadedStylesForElement(element, winningDeclarations, docContex
 	});
 	contextGroups.forEach(declarations => {
 		declarations.sort((declarationA, declarationB) => compareDeclarations(declarationA, declarationB, docContext));
-		declarations.forEach(declarationData => {
-			const { selector, declaration } = declarationData;
-			const conditionalStack = getConditionalStackForSelector(selector, docContext);
-			cascadedStyles.set(declaration.data.property + DECLARATION_KEY_SEPARATOR + createContextKey(conditionalStack), {
-				selector,
-				declaration
-			});
+		const propertyDeclarations = new Map();
+		declarations.forEach(({ declaration }) => {
+			const { property } = declaration.data;
+			if (!propertyDeclarations.has(property)) {
+				propertyDeclarations.set(property, []);
+			}
+			propertyDeclarations.get(property).push(declaration);
+		});
+		propertyDeclarations.forEach(candidates => {
+			const winner = candidates[candidates.length - 1];
+			if (isRevertLayerValue(winner)) {
+				candidates.forEach(declaration => winningDeclarations.add(declaration));
+			} else {
+				winningDeclarations.add(winner);
+			}
 		});
 	});
-	cascadedStyles.forEach(({ declaration }) => winningDeclarations.add(declaration));
+}
+
+function isRevertLayerValue(declaration) {
+	const { value } = declaration.data;
+	return Boolean(value &&
+		value.type === VALUE_TYPE &&
+		value.children &&
+		value.children.size === 1 &&
+		value.children.head.data.type === IDENTIFIER_TYPE &&
+		value.children.head.data.name.toLowerCase() === REVERT_LAYER_KEYWORD);
 }
 
 function createContextKey(conditionalStack) {
@@ -571,13 +603,15 @@ function collectDeclarationItemsForElement(element, docContext) {
 	const matchingSelectors = docContext.matchingSelectors.get(element);
 	const allDeclarations = [];
 	matchingSelectors.forEach(selector => {
-		const cssRule = docContext.selectorData.get(selector).rule;
+		const selectorData = docContext.selectorData.get(selector);
+		const cssRule = selectorData.rule;
 		if (hasChildNodes(cssRule.block)) {
+			const proximity = getScopeProximity(element, selectorData.scopeStack);
 			const declarations = cssRule.block.children;
 			for (let declaration = declarations.head; declaration; declaration = declaration.next) {
-				const { type, value } = declaration.data;
+				const { type, value, order } = declaration.data;
 				if (type === DECLARATION_TYPE && value) {
-					addDeclaration(declaration, docContext.selectorData.get(selector).specificity, false, selector);
+					addDeclaration(declaration, selectorData.specificity, false, selector, order === undefined ? cssRule.order : order, proximity);
 				}
 			}
 		}
@@ -588,7 +622,7 @@ function collectDeclarationItemsForElement(element, docContext) {
 	}
 	return allDeclarations;
 
-	function addDeclaration(declaration, specificity, isInline, selector) {
+	function addDeclaration(declaration, specificity, isInline, selector, order, proximity) {
 		const { property, value } = declaration.data;
 		const isRawValue = value.type === RAW_TYPE;
 		const hasValueChildNodes = hasChildNodes(value) || value.type === RAW_TYPE;
@@ -612,10 +646,27 @@ function collectDeclarationItemsForElement(element, docContext) {
 				declaration,
 				selector,
 				specificity,
-				isInline
+				isInline,
+				order,
+				proximity
 			});
 		}
 	}
+}
+
+function getScopeProximity(element, scopeStack) {
+	if (!scopeStack || !scopeStack.length) {
+		return UNSCOPED_PROXIMITY;
+	}
+	const { rootElements } = scopeStack[scopeStack.length - 1];
+	let hops = 0;
+	for (let current = element; current; current = current.parentElement) {
+		if (rootElements.has(current)) {
+			return hops;
+		}
+		hops++;
+	}
+	return UNSCOPED_PROXIMITY;
 }
 
 function getConditionalStackForSelector(selector, docContext) {
@@ -823,8 +874,11 @@ function compareDeclarations(declarationA, declarationB, docContext) {
 		if (specificityA.c !== specificityB.c) {
 			return specificityA.c - specificityB.c;
 		}
-		if (selectorDataA.rule.order !== selectorDataB.rule.order) {
-			return selectorDataA.rule.order - selectorDataB.rule.order;
+		if (declarationA.proximity !== declarationB.proximity) {
+			return declarationB.proximity - declarationA.proximity;
+		}
+		if (declarationA.order !== declarationB.order) {
+			return declarationA.order - declarationB.order;
 		}
 		return 0;
 	} else {

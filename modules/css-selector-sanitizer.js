@@ -26,6 +26,7 @@ import * as cssTree from "./../vendor/css-tree.js";
 
 const TREE_STRUCTURAL_PSEUDO_CLASSES = [
     "root",
+    "scope",
     "empty",
     "first-child",
     "last-child",
@@ -92,6 +93,8 @@ function normalizeSelectorNode(selector, ancestors) {
                     }
                     selector.children.remove(current);
                 }
+            } else {
+                selector.children.replace(current, cssTree.parse(":scope", { context: "selector" }).children.head);
             }
         } else if (childNode.type === "TypeSelector" && typeof childNode.name === "string" && childNode.name.includes("|")) {
             childNode.name = childNode.name.substring(childNode.name.lastIndexOf("|") + 1);
