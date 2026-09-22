@@ -32,7 +32,9 @@ const PSEUDO_ELEMENT_SYNONYMS = new Set(["after", "before", "first-letter", "fir
 const FUNCTIONAL_PSEUDO_CLASS_NAMES = new Set(["not", "is", "where", "has"]);
 const MEDIA_AT_RULE_NAME = "media";
 const SUPPORTS_AT_RULE_NAME = "supports";
-const CONDITIONAL_AT_RULE_NAMES = new Set([MEDIA_AT_RULE_NAME, SUPPORTS_AT_RULE_NAME, "container", "starting-style"]);
+const STARTING_STYLE_AT_RULE_NAME = "starting-style";
+const CONDITIONAL_AT_RULE_NAMES = new Set([MEDIA_AT_RULE_NAME, SUPPORTS_AT_RULE_NAME, "container", STARTING_STYLE_AT_RULE_NAME]);
+const UNCERTAIN_CONDITIONAL_AT_RULE_NAMES = new Set([MEDIA_AT_RULE_NAME, SUPPORTS_AT_RULE_NAME, STARTING_STYLE_AT_RULE_NAME]);
 const RULE_TYPE = "Rule";
 const AT_RULE_TYPE = "Atrule";
 const NESTING_SELECTOR_TYPE = "NestingSelector";
@@ -84,7 +86,9 @@ const EMPTY_STRING = "";
 const CSS_IMPORTANCE_NOT_IMPORTANT = 0;
 const CSS_IMPORTANCE_IMPORTANT = 1;
 const INVALID_CSS_ESCAPE_TEST = /\\(?![0-9a-fA-F]{1,6}\s|[^0-9a-zA-Z])/;
-const ANONYMOUS_LAYER_PLACEHOLDER = "\u0000";
+const ANONYMOUS_LAYER_PREFIX = "\u0000";
+const UNCERTAIN_LAYER_ORDER = null;
+const UNDECLARED_LAYER_POSITION = Infinity;
 
 export {
 	process,
@@ -145,8 +149,9 @@ function process(doc, stylesheets) {
 		matchedSelectors: new Map(),
 		matchingSelectors: new Map(),
 		layerDeclarationCounter: 0,
-		layerDeclarations: [],
+		anonymousLayerCounter: 0,
 		layerOrder: new Map(),
+		layerComparisons: new Map(),
 		selectorData: new Map(),
 		selectorTexts: new Map(),
 		scopedSelectorTexts: new Map(),
@@ -157,7 +162,6 @@ function process(doc, stylesheets) {
 		scopeIdCounter: 0
 	};
 	collectLayerOrder(stylesheets, docContext);
-	buildEffectiveLayerOrder(docContext);
 	minifyRules(stylesheets, docContext);
 	computeCascade(docContext);
 	removeEmptyRules(stylesheets, docContext);
@@ -168,36 +172,25 @@ function collectLayerOrder(stylesheets, docContext) {
 	stylesheets.forEach((stylesheetInfo, key) => {
 		if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
 			if (hasChildNodes(stylesheetInfo.stylesheet)) {
-				collectStylesheetLayerOrder(stylesheetInfo.stylesheet.children, { layerStack: [], conditionalStack: [] }, docContext);
+				collectStylesheetLayerOrder(stylesheetInfo.stylesheet.children, { layerStack: [], conditionalStack: getTopConditionalStack(stylesheetInfo) }, docContext);
 			}
 		}
 	});
 }
 
-function buildEffectiveLayerOrder(docContext) {
-	const layerNames = [];
-	for (let indexDeclaration = 0; indexDeclaration < docContext.layerDeclarations.length; indexDeclaration++) {
-		const declaration = docContext.layerDeclarations[indexDeclaration];
-		layerNames.push(declaration.name);
-	}
-	for (let indexLayerName = 0; indexLayerName < layerNames.length; indexLayerName++) {
-		const name = layerNames[indexLayerName];
-		if (!docContext.layerOrder.has(name)) {
-			docContext.layerOrder.set(name, docContext.layerOrder.size);
-		}
-	}
+function getTopConditionalStack(stylesheetInfo) {
+	return stylesheetInfo.mediaText ? [{ name: MEDIA_AT_RULE_NAME, prelude: stylesheetInfo.mediaText }] : [];
 }
 
 function minifyRules(stylesheets, docContext) {
 	stylesheets.forEach((stylesheetInfo, key) => {
 		if (!stylesheetInfo.scoped && stylesheetInfo.stylesheet && !key.urlNode) {
 			if (hasChildNodes(stylesheetInfo.stylesheet)) {
-				const topConditionalStack = stylesheetInfo.mediaText ? [{ name: MEDIA_AT_RULE_NAME, prelude: stylesheetInfo.mediaText }] : [];
 				minifyStylesheetRules(stylesheetInfo.stylesheet.children, stylesheets, {
 					ancestorsSelectors: [],
 					layerStack: [],
 					scopeStack: [],
-					conditionalStack: topConditionalStack
+					conditionalStack: getTopConditionalStack(stylesheetInfo)
 				}, docContext);
 			}
 		}
@@ -239,25 +232,39 @@ function collectStylesheetLayerOrder(cssRules, layerContext, docContext) {
 
 function collectStylesheetLayerRule(ruleData, layerStack, conditionalStack, docContext) {
 	if (ruleData.block) {
-		const layerName = getPreludeText(ruleData.prelude, docContext);
-		registerLayerDeclaration(layerStack, layerName, conditionalStack, docContext);
-		collectStylesheetLayerOrder(ruleData.block.children, { layerStack: [...layerStack, layerName], conditionalStack }, docContext);
+		const layerSegments = getLayerSegments(ruleData, docContext);
+		registerLayerDeclaration(layerStack, layerSegments, conditionalStack, docContext);
+		collectStylesheetLayerOrder(ruleData.block.children, { layerStack: [...layerStack, ...layerSegments], conditionalStack }, docContext);
 	} else if (ruleData.prelude) {
-		const layerNames = getPreludeText(ruleData.prelude, docContext).split(PRELUDE_SEPARATOR);
-		layerNames.forEach(layerName => registerLayerDeclaration(layerStack, layerName, conditionalStack, docContext));
+		getPreludeText(ruleData.prelude, docContext).split(PRELUDE_SEPARATOR).forEach(layerName => registerLayerDeclaration(layerStack, splitLayerName(layerName), conditionalStack, docContext));
 	}
 }
 
 function collectImportLayerOrder(ruleData, layerContext, docContext) {
 	const urlNode = ruleData.prelude.children.head.data;
 	const conditionalStack = buildImportConditionalStack(layerContext.conditionalStack, urlNode);
-	const layerName = getImportLayerName(ruleData, urlNode);
+	const layerSegments = getImportLayerSegments(ruleData, urlNode, docContext);
 	let { layerStack } = layerContext;
-	if (layerName !== undefined) {
-		registerLayerDeclaration(layerStack, layerName, conditionalStack, docContext);
-		layerStack = [...layerStack, layerName];
+	if (layerSegments) {
+		registerLayerDeclaration(layerStack, layerSegments, conditionalStack, docContext);
+		layerStack = [...layerStack, ...layerSegments];
 	}
 	collectStylesheetLayerOrder(urlNode.importedChildren, { layerStack, conditionalStack }, docContext);
+}
+
+function getLayerSegments(ruleData, docContext) {
+	if (!ruleData.layerSegments) {
+		ruleData.layerSegments = ruleData.prelude ? splitLayerName(getPreludeText(ruleData.prelude, docContext)) : [createAnonymousLayerSegment(docContext)];
+	}
+	return ruleData.layerSegments;
+}
+
+function splitLayerName(layerName) {
+	return layerName.trim().split(LAYER_NAME_SEPARATOR);
+}
+
+function createAnonymousLayerSegment(docContext) {
+	return ANONYMOUS_LAYER_PREFIX + docContext.anonymousLayerCounter++;
 }
 
 function buildConditionalStack(conditionalStack, ruleData, docContext) {
@@ -278,25 +285,34 @@ function buildImportConditionalStack(conditionalStack, urlNode) {
 	return importConditionalStack;
 }
 
-function getImportLayerName(ruleData, urlNode) {
+function getImportLayerSegments(ruleData, urlNode, docContext) {
 	if (urlNode.importedLayerName !== undefined) {
-		return urlNode.importedLayerName;
+		return splitLayerName(urlNode.importedLayerName);
 	}
-	const layerKeyword = cssTree.find(ruleData.prelude, node => node.type === IDENTIFIER_TYPE && node.name.toLowerCase() === LAYER_NAME);
-	return layerKeyword ? EMPTY_STRING : undefined;
+	if (!urlNode.anonymousLayerSegments) {
+		const layerKeyword = cssTree.find(ruleData.prelude, node => node.type === IDENTIFIER_TYPE && node.name.toLowerCase() === LAYER_NAME);
+		urlNode.anonymousLayerSegments = layerKeyword ? [createAnonymousLayerSegment(docContext)] : null;
+	}
+	return urlNode.anonymousLayerSegments;
 }
 
 function isImportRule(ruleData) {
 	return ruleData.type === AT_RULE_TYPE && ruleData.name === IMPORT_NAME && hasChildNodes(ruleData.prelude) && Boolean(ruleData.prelude.children.head.data.importedChildren);
 }
 
-function registerLayerDeclaration(layerStack, layerName, conditionalStack, docContext) {
-	const fullLayerName = getFullLayerName([...layerStack, layerName]);
-	docContext.layerDeclarations.push({
-		name: fullLayerName,
-		order: docContext.layerDeclarationCounter++,
-		conditionalStack: conditionalStack.slice()
-	});
+function registerLayerDeclaration(layerStack, layerSegments, conditionalStack, docContext) {
+	const position = docContext.layerDeclarationCounter++;
+	const certain = !conditionalStack.some(context => UNCERTAIN_CONDITIONAL_AT_RULE_NAMES.has(context.name));
+	const segments = [...layerStack, ...layerSegments];
+	for (let length = layerStack.length + 1; length <= segments.length; length++) {
+		const fullLayerName = getFullLayerName(segments.slice(0, length));
+		const layerPosition = docContext.layerOrder.get(fullLayerName);
+		if (!layerPosition) {
+			docContext.layerOrder.set(fullLayerName, { first: position, firstCertain: certain ? position : UNDECLARED_LAYER_POSITION });
+		} else if (certain && layerPosition.firstCertain === UNDECLARED_LAYER_POSITION) {
+			layerPosition.firstCertain = position;
+		}
+	}
 }
 
 function minifyStylesheetRules(cssRules, stylesheets, processingContext, docContext) {
@@ -338,8 +354,8 @@ function minifyRule(ruleData, cssRule, stylesheets, processingContext, removedRu
 function minifyImportRule(ruleData, _cssRule, stylesheets, processingContext, _removedRules, docContext) {
 	const urlNode = ruleData.prelude.children.head.data;
 	const conditionalStack = buildImportConditionalStack(processingContext.conditionalStack, urlNode);
-	const layerName = getImportLayerName(ruleData, urlNode);
-	const layerStack = layerName === undefined ? processingContext.layerStack : [...processingContext.layerStack, layerName];
+	const layerSegments = getImportLayerSegments(ruleData, urlNode, docContext);
+	const layerStack = layerSegments ? [...processingContext.layerStack, ...layerSegments] : processingContext.layerStack;
 	minifyStylesheetRules(urlNode.importedChildren, stylesheets, {
 		...processingContext,
 		layerStack,
@@ -348,8 +364,12 @@ function minifyImportRule(ruleData, _cssRule, stylesheets, processingContext, _r
 }
 
 function minifyLayerRule(ruleData, cssRule, stylesheets, processingContext, removedRules, docContext) {
-	const layerName = getPreludeText(ruleData.prelude, docContext);
-	const newProcessingContext = { ...processingContext, layerStack: [...processingContext.layerStack, layerName] };
+	const layerSegments = getLayerSegments(ruleData, docContext);
+	const layerStack = [...processingContext.layerStack, ...layerSegments];
+	if (!docContext.layerOrder.has(getFullLayerName(layerStack))) {
+		registerLayerDeclaration(processingContext.layerStack, layerSegments, processingContext.conditionalStack, docContext);
+	}
+	const newProcessingContext = { ...processingContext, layerStack };
 	expandRawCssRules(ruleData);
 	minifyStylesheetRules(ruleData.block.children, stylesheets, newProcessingContext, docContext);
 	if (!hasChildNodes(ruleData.block)) {
@@ -678,6 +698,10 @@ function computeCascadedStylesForElement(element, winningDeclarations, docContex
 			propertyDeclarations.get(property).push(declarationData);
 		});
 		propertyDeclarations.forEach(candidates => {
+			if (hasUncertainLayerOrder(candidates, docContext)) {
+				candidates.forEach(candidate => winningDeclarations.add(candidate.declaration));
+				return;
+			}
 			for (let indexCandidate = candidates.length - 1; indexCandidate >= 0; indexCandidate--) {
 				const { declaration, validity } = candidates[indexCandidate];
 				winningDeclarations.add(declaration);
@@ -689,6 +713,27 @@ function computeCascadedStylesForElement(element, winningDeclarations, docContex
 				}
 			}
 		});
+	});
+}
+
+function hasUncertainLayerOrder(candidates, docContext) {
+	const layerStacks = [new Map(), new Map()];
+	candidates.forEach(({ declaration, selector }) => {
+		if (selector) {
+			const { layerStack } = docContext.selectorData.get(selector);
+			layerStacks[declaration.data.important ? CSS_IMPORTANCE_IMPORTANT : CSS_IMPORTANCE_NOT_IMPORTANT].set(getFullLayerName(layerStack), layerStack);
+		}
+	});
+	return layerStacks.some(importanceStacks => {
+		const stacks = Array.from(importanceStacks.values());
+		for (let indexA = 0; indexA < stacks.length; indexA++) {
+			for (let indexB = indexA + 1; indexB < stacks.length; indexB++) {
+				if (compareLayers(stacks[indexA], stacks[indexB], docContext) === UNCERTAIN_LAYER_ORDER) {
+					return true;
+				}
+			}
+		}
+		return false;
 	});
 }
 
@@ -979,7 +1024,7 @@ function compareDeclarations(declarationA, declarationB, docContext) {
 	const selectorDataB = declarationB.selector ? docContext.selectorData.get(declarationB.selector) : null;
 	if (selectorDataA && selectorDataB) {
 		const layerComparison = compareLayers(selectorDataA.layerStack, selectorDataB.layerStack, docContext);
-		if (layerComparison !== 0) {
+		if (layerComparison) {
 			return importantA ? -layerComparison : layerComparison;
 		}
 		const specificityA = declarationA.specificity;
@@ -1033,27 +1078,32 @@ function compareLayers(layersA, layersB, docContext) {
 	if (fullLayerNameA === fullLayerNameB) {
 		return 0;
 	}
+	const comparisonKey = fullLayerNameA + CONTEXT_KEY_SEPARATOR + fullLayerNameB;
+	if (!docContext.layerComparisons.has(comparisonKey)) {
+		docContext.layerComparisons.set(comparisonKey, compareLayerNames(layersA, layersB, docContext));
+	}
+	return docContext.layerComparisons.get(comparisonKey);
+}
+
+function compareLayerNames(layersA, layersB, docContext) {
 	const minLength = Math.min(layersA.length, layersB.length);
-	const effectiveMap = docContext.layerOrder;
 	for (let indexLayer = 0; indexLayer < minLength; indexLayer++) {
 		if (layersA[indexLayer] !== layersB[indexLayer]) {
-			const partialLayerA = getFullLayerName(layersA.slice(0, indexLayer + 1));
-			const partialLayerB = getFullLayerName(layersB.slice(0, indexLayer + 1));
-			const orderA = effectiveMap.get(partialLayerA);
-			const orderB = effectiveMap.get(partialLayerB);
-			if (orderA !== undefined && orderB !== undefined) {
-				return orderA - orderB;
+			const positionA = docContext.layerOrder.get(getFullLayerName(layersA.slice(0, indexLayer + 1)));
+			const positionB = docContext.layerOrder.get(getFullLayerName(layersB.slice(0, indexLayer + 1)));
+			if (!positionA || !positionB) {
+				return UNCERTAIN_LAYER_ORDER;
 			}
-			if (orderA !== undefined) {
+			if (positionA.firstCertain < positionB.first) {
 				return -1;
 			}
-			if (orderB !== undefined) {
+			if (positionB.firstCertain < positionA.first) {
 				return 1;
 			}
-			return 0;
+			return UNCERTAIN_LAYER_ORDER;
 		}
 	}
-	return layersA.length - layersB.length;
+	return layersB.length - layersA.length;
 }
 
 function removeStylesheetEmptyRules(cssRules, docContext) {
@@ -1237,7 +1287,7 @@ function getPreludeText(prelude, docContext) {
 }
 
 function getFullLayerName(layers) {
-	return layers.map(layerName => layerName === EMPTY_STRING ? ANONYMOUS_LAYER_PLACEHOLDER : layerName).join(LAYER_NAME_SEPARATOR);
+	return layers.join(LAYER_NAME_SEPARATOR);
 }
 
 function parseCss(text, context = SELECTOR_CONTEXT) {

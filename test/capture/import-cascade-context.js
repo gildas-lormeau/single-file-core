@@ -58,6 +58,24 @@ const cases = [
 		file: ["p{color:red}"]
 	},
 	{
+		label: "an import with a dotted layer() nests the rules it brings under the parent",
+		head: "<style>@import url(\"" + IMPORT_URL + "\") layer(a.b);@layer a { p { color: blue } }</style>",
+		imported: "p { color: red }",
+		page: ["@layer a{p{color:blue}}"],
+		pageRemoved: [],
+		file: [],
+		fileRemoved: ["red"]
+	},
+	{
+		label: "an import with the bare layer keyword brings an anonymous layer that a later layer beats",
+		head: "<style>@import url(\"" + IMPORT_URL + "\") layer;@layer b { p { color: blue } }</style>",
+		imported: "p { color: red }",
+		page: ["@layer b{p{color:blue}}"],
+		pageRemoved: [],
+		file: [],
+		fileRemoved: ["red"]
+	},
+	{
 		label: "an import's own media joins the inherited context instead of replacing it",
 		head: "<style>p { color: blue }</style><style media=\"screen\">@import url(\"" + IMPORT_URL + "\") print;</style>",
 		imported: "p { color: red }",
