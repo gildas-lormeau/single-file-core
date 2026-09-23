@@ -439,7 +439,8 @@ function markInvalidNestingInRoot(doc, root, rootTrackId, getContent) {
 		}
 		let ancestor = element.parentElement;
 		while (ancestor) {
-			if (RAW_TEXT_TAG_NAMES.includes(ancestor.tagName.toUpperCase())) {
+			const tagName = ancestor.tagName.toUpperCase();
+			if (tagName == "TEMPLATE" || RAW_TEXT_TAG_NAMES.includes(tagName)) {
 				return false;
 			}
 			ancestor = ancestor.parentElement;

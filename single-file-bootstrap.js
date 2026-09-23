@@ -31,6 +31,7 @@ import {
 	WAIT_FOR_USERSCRIPT_PROPERTY_NAME,
 	preProcessDoc,
 	postProcessDoc,
+	markInvalidNesting,
 	getShadowRoot
 } from "./core/helper.js";
 
@@ -46,6 +47,7 @@ const helper = {
 	serialize(doc, compressHTML) {
 		return serializer.process(doc, compressHTML);
 	},
+	markInvalidNesting,
 	getShadowRoot
 };
 
