@@ -20,16 +20,16 @@
 // Recognizing the invented element by shape is safe because `<p>` is the only element an invalid
 // nesting invents. Probed in Chromium over eleven shapes: `p > div`, `p > p` and `p > ul` each mint
 // an empty `<p>`, while `a > a`, `button > button`, `li > li`, `dt > dt`, `table > div` and
-// `select > div` keep every element and only move them. (`form > form` LOSES one, which is finding
-// 60da8 and not this.) The removal deliberately lives in core and not in `fixInvalidNesting`, whose
-// source is stringified into every saved page: at load time an empty paragraph next to the repaired
-// one is the page's own.
+// `select > div` keep every element and only move them. (`form > form` LOSES one, which the comment
+// markers further down carry.) The removal deliberately lives in core and not in `fixInvalidNesting`,
+// whose source is stringified into every saved page: at load time an empty paragraph next to the
+// repaired one is the page's own.
 //
 // The fixtures below are written ALREADY SPLIT, with the invented paragraph spelled out, because
 // that is what core receives from a browser — and because happy-dom does not mint it. It splits the
 // paragraph correctly but implements no such recovery, so a fixture written as `<p>text<div>` would
 // exercise nothing here while breaking in the field.
-import { capture, html } from "./common.js";
+import { capture, html, helper } from "./common.js";
 
 const PAGE_URL = "https://example.com/nesting.html";
 const TRACK = "data-sf-nesting-track-id";
@@ -99,15 +99,131 @@ let failed = false;
 	check("a link nested in a link is saved in the parsed shape", bodyContent(content), nested);
 }
 
+// An element the parser DROPS instead of moving: the inner `<form>` of a form in a form (the form
+// element pointer ignores its start tag), or a `<td>` outside a table. No track id can bring it back,
+// so the capture wraps its content in two comments carrying its tag and attributes. The fixture is
+// what a browser parse of that markup yields: the element gone, its content and the comments left
+// in place. Core re-creates the element for the whole processing, so a rule written for the real
+// structure is kept, then writes the comments back and the load-time script re-creates it.
+{
+	const dropped = `<form id="outer" ${TRACK}="1.1">before ${startMarker("1.1.1", "form", [["id", "inner"], ["class", "c"], [TRACK, "1.1.1"]])}` +
+		`inner <input id="field" ${TRACK}="1.1.1.1">${endMarker("1.1.1")}</form> after`;
+	const content = await captureBody(dropped, "<style>#outer > #inner > #field { color: red }</style>", { removeUnusedStyles: true });
+	check("a dropped element is saved as its markers", bodyContent(content), dropped);
+	check("and it existed while the page was processed", /#outer ?> ?#inner ?> ?#field/.test(content), true);
+	check("with the repair script carried for load time", content.includes(`(document, "${TRACK}")`), true);
+	const doc = loadSavedPage(content);
+	const inner = doc.querySelector("#outer > #inner.c");
+	check("the load-time script re-creates it with its attributes", Boolean(inner && inner.querySelector("#field")), true);
+	check("and its content", inner && inner.firstChild.textContent, "inner ");
+	check("and leaves no marker or track id behind", countLeftovers(doc), 0);
+}
+
+// Nested drops: the markers of the inner element sit inside those of the outer one, and the outer
+// element is re-created first so the inner markers are still siblings when their turn comes.
+{
+	const nested = `<form id="a" ${TRACK}="1.1">${startMarker("1.1.1", "form", [["id", "b"], [TRACK, "1.1.1"]])}` +
+		`${startMarker("1.1.1.1", "form", [["id", "c"], [TRACK, "1.1.1.1"]])}x${endMarker("1.1.1.1")}${endMarker("1.1.1")}</form>`;
+	const content = await captureBody(nested, "<style>#a > #b > #c { color: red }</style>", { removeUnusedStyles: true });
+	check("nested dropped elements are saved as their markers", bodyContent(content), nested);
+	check("and both existed while the page was processed", /#a ?> ?#b ?> ?#c/.test(content), true);
+	check("and the load-time script re-creates both", Boolean(loadSavedPage(content).querySelector("#a > #b > #c")), true);
+}
+
+// The capture side, on a DOM: happy-dom drops a `<td>` outside a table as a browser does, so the marking
+// can run here. The editor calls markInvalidNesting on its live document for every save and never runs
+// preProcessDoc, so the markers must be complete when it returns, and a second call must not add a
+// second pair: the load-time script would re-create the element twice, one inside the other.
+{
+	const doc = new globalThis.DOMParser().parseFromString("<!doctype html><html><head></head><body><div id=\"wrap\">a</div></body></html>", "text/html");
+	const cell = doc.createElement("td");
+	cell.id = "cell";
+	cell.textContent = "cell";
+	doc.getElementById("wrap").append(cell, "b");
+	helper.markInvalidNesting(doc);
+	helper.markInvalidNesting(doc);
+	const markers = Array.from(cell.childNodes).filter(node => node.nodeType == 8).map(node => node.data.split(" ").slice(0, 2).join(" "));
+	check("a dropped element gets one pair of markers, however often it is marked", JSON.stringify(markers), JSON.stringify([helper.NESTING_START_MARKER + "1.1.1", helper.NESTING_END_MARKER.trim() + " 1.1.1"]));
+	const loaded = loadSavedPage(helper.serialize(doc));
+	const wrap = loaded.getElementById("wrap");
+	check("and a load of the serialized page re-creates it", JSON.stringify(Array.from(wrap.childNodes).map(node => node.nodeType == 1 ? node.localName + "#" + node.id + ":" + node.textContent : node.data)), JSON.stringify(["a", "td#cell:cell", "b"]));
+	helper.removeNestingMarkers(doc);
+	check("and removing the markers restores the live element", JSON.stringify(Array.from(cell.childNodes).map(node => node.nodeType)), "[3]");
+}
+
+// The load-time script is written into the saved page as source text, and bundlers rename the
+// module-level aliases core keeps for globals (`const JSON = globalThis.JSON` in helper.js): a bare
+// `JSON` in it became `lr` in the CLI bundle, threw inside a try, and re-created nothing, with no
+// error. The function may only reach those globals through `globalThis`.
+{
+	const source = helper.fixInvalidNesting.toString();
+	const aliases = source.match(/(?<![.\w])(JSON|crypto|TextEncoder|Blob|CustomEvent|MutationObserver|URL|DOMParser|btoa|FileReader)\b/g);
+	check("the load-time script names no module-level alias", aliases, null);
+}
+
+// Shadow roots: their content reaches core as the live root's innerHTML, track ids included, and is
+// parsed again here, so the same repair applies inside the template, and a closed root that needs it
+// is saved open because the load-time script cannot reach a closed declarative root. Only the shape
+// and the controls can be checked in this harness: core fills the `<template>` with appendChild,
+// which per the DOM spec and in every browser makes the nodes children of the template element, but
+// happy-dom routes them into `template.content`, where no document query looks, so the repair, the
+// open mode and the script are never reached here. Lifting its overrides breaks its TreeWalker. The
+// repair inside templates is checked in Chrome instead, through the CLI.
+{
+	const content = await captureShadowRoot("closed", `<p id="sp" ${TRACK}="s0.1">text<div id="sdiv" ${TRACK}="s0.1.1">block</div></p>`);
+	check("shadow content is saved in the shape a parser reproduces", content.includes(`<p id="sp" ${TRACK}="s0.1">text</p><div id="sdiv" ${TRACK}="s0.1.1">block</div>`), true);
+}
+{
+	const content = await captureShadowRoot("closed", "<p>fine</p>");
+	check("a closed shadow root with nothing to repair stays closed", content.includes("<template shadowrootmode=\"closed\">"), true);
+	check("and gets no repair script", content.includes(`(document, "${TRACK}")`), false);
+}
+{
+	const dropped = `<form id="outer" ${TRACK}="s0.1">${startMarker("s0.1.1", "form", [["id", "inner"], [TRACK, "s0.1.1"]])}inner${endMarker("s0.1.1")}</form>`;
+	const content = await captureShadowRoot("open", dropped);
+	check("a dropped element in a shadow root is saved as its markers", content.includes(dropped), true);
+}
+
 if (failed) {
 	console.log("FAILED");
 	Deno.exit(1);
 }
 console.log("OK");
 
-async function captureBody(body) {
-	const page = html(body);
-	return capture({ [PAGE_URL]: { body: page } }, { url: PAGE_URL, content: page });
+async function captureBody(body, head, options) {
+	const page = html(body, head);
+	return capture({ [PAGE_URL]: { body: page } }, { url: PAGE_URL, content: page, ...options });
+}
+
+async function captureShadowRoot(mode, shadowContent) {
+	const page = html(`<div id="host" ${helper.SHADOW_ROOT_ATTRIBUTE_NAME}="0"></div>`);
+	return capture({ [PAGE_URL]: { body: page } }, { url: PAGE_URL, content: page, shadowRoots: [{ mode, content: shadowContent }] });
+}
+
+function startMarker(id, tag, attributes) {
+	return `<!--${helper.NESTING_START_MARKER}${id} ${encodeURIComponent(JSON.stringify({ tag, attributes }))}-->`;
+}
+
+function endMarker(id) {
+	return `<!--${helper.NESTING_END_MARKER}${id}-->`;
+}
+
+// the saved page as a browser would run it: parsed, then the embedded script, from its source text
+function loadSavedPage(content) {
+	const doc = new globalThis.DOMParser().parseFromString(content.replace(/<script>[\s\S]*?<\/script>/g, ""), "text/html");
+	new Function("document", `(${helper.fixInvalidNesting.toString().replace(/\s+/g, " ")})(document, "${TRACK}");`)(doc);
+	return doc;
+}
+
+function countLeftovers(doc) {
+	let count = doc.querySelectorAll(`[${TRACK}]`).length;
+	const walker = doc.createTreeWalker(doc.body, 128);
+	while (walker.nextNode()) {
+		if (walker.currentNode.data.startsWith(TRACK)) {
+			count++;
+		}
+	}
+	return count;
 }
 
 // the saved body, without the repair script core appends to it

@@ -94,6 +94,13 @@ const EMPTY_RESOURCE = "data:,";
 const POSTER_CONTENT_TYPES = ["image/webp", "image/jpeg"];
 const POSTER_QUALITY = 0.8;
 const NESTING_TRACK_ID_ATTRIBUTE_NAME = "data-sf-nesting-track-id";
+const NESTING_START_MARKER = NESTING_TRACK_ID_ATTRIBUTE_NAME + "-start ";
+const NESTING_END_MARKER = NESTING_TRACK_ID_ATTRIBUTE_NAME + "-end ";
+const NESTING_RECREATED_ATTRIBUTE_NAME = NESTING_TRACK_ID_ATTRIBUTE_NAME + "-recreated";
+const NESTING_SHADOW_ROOT_TRACK_ID_PREFIX = "s";
+const HTML_NAMESPACE = "http://www.w3.org/1999/xhtml";
+const RAW_TEXT_TAG_NAMES = ["SCRIPT", "STYLE", "TEXTAREA", "TITLE", "XMP", "IFRAME", "NOEMBED", "NOFRAMES", "PLAINTEXT", "NOSCRIPT"];
+const COMMENT_NODE_FILTER = 128;
 const DEPRECATED_OPTION_NAMES = {
 	loadDeferredImages: "loadDeferredContent",
 	loadDeferredImagesMaxIdleTime: "loadDeferredContentMaxIdleTime",
@@ -141,6 +148,8 @@ export {
 	parseDocContent,
 	markInvalidNesting,
 	fixInvalidNesting,
+	removeNestingMarkers,
+	getNestingMarkerData,
 	normalizeOptions,
 	ON_BEFORE_CAPTURE_EVENT_NAME,
 	ON_AFTER_CAPTURE_EVENT_NAME,
@@ -171,6 +180,9 @@ export {
 	MESSAGE_PREFIX,
 	NO_SCRIPT_PROPERTY_NAME,
 	NESTING_TRACK_ID_ATTRIBUTE_NAME,
+	NESTING_START_MARKER,
+	NESTING_END_MARKER,
+	NESTING_RECREATED_ATTRIBUTE_NAME,
 	getPosterDataURI
 };
 
@@ -311,6 +323,7 @@ function preProcessDoc(doc, win, options) {
 			markedElements: []
 		};
 	}
+	setNestingMarkersData(doc);
 	let referrer = "";
 	if (doc.referrer) {
 		try {
@@ -343,18 +356,30 @@ function markInvalidNesting(doc) {
 	if (!doc.body) {
 		return;
 	}
-	addTrackIds(doc.body);
-	const verificationDoc = parseDocContent(serialize(doc));
-	const markedMap = buildTrackIdMap(doc.body);
-	const normalizedMap = buildTrackIdMap(verificationDoc.body);
+	removeNestingMarkers(doc);
+	markInvalidNestingInRoot(doc, doc.body, "", () => serialize(doc));
+	getShadowRoots(doc.body).forEach((shadowRoot, indexShadowRoot) =>
+		markInvalidNestingInRoot(doc, shadowRoot, NESTING_SHADOW_ROOT_TRACK_ID_PREFIX + indexShadowRoot, () => shadowRoot.innerHTML));
+}
+
+function markInvalidNestingInRoot(doc, root, rootTrackId, getContent) {
+	if (rootTrackId) {
+		Array.from(root.children).forEach((child, indexChild) => addTrackIds(child, indexChild, rootTrackId));
+	} else {
+		addTrackIds(root);
+	}
+	const verificationDoc = parseDocContent(getContent());
+	const markedMap = buildTrackIdMap(root);
+	const normalizedMap = buildTrackIdMap(verificationDoc.documentElement);
 	const trackIds = new Set();
+	const droppedElements = [];
 	Object.keys(markedMap).forEach(id => {
 		if (id in normalizedMap) {
 			const markedParent = markedMap[id].parentElement?.getAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME) || null;
 			const normalizedParent = normalizedMap[id]?.parentElement?.getAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME) || null;
 			if (markedParent !== normalizedParent) {
 				let current = markedMap[id];
-				while (current && current !== doc.body) {
+				while (current && current !== root) {
 					const currentId = current.getAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME);
 					if (currentId) {
 						trackIds.add(currentId);
@@ -362,9 +387,22 @@ function markInvalidNesting(doc) {
 					current = current.parentElement;
 				}
 			}
+		} else if (testDroppedElement(markedMap[id])) {
+			trackIds.add(id);
+			droppedElements.push(markedMap[id]);
 		}
 	});
-	cleanupTrackIds(doc.body, trackIds);
+	droppedElements.forEach(element => {
+		const id = element.getAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME);
+		element.prepend(doc.createComment(NESTING_START_MARKER + id));
+		element.append(doc.createComment(NESTING_END_MARKER + id));
+	});
+	setNestingMarkersData(root);
+	if (rootTrackId) {
+		Array.from(root.children).forEach(child => cleanupTrackIds(child, trackIds));
+	} else {
+		cleanupTrackIds(root, trackIds);
+	}
 
 	function addTrackIds(element, index = 0, parentTrackId = "") {
 		const trackId = parentTrackId ? `${parentTrackId}.${index + 1}` : `${index + 1}`;
@@ -375,9 +413,13 @@ function markInvalidNesting(doc) {
 		Array.from(element.children).forEach((child, indexChild) => addTrackIds(child, indexChild, trackId));
 	}
 
-	function buildTrackIdMap(element) {
+	function buildTrackIdMap(root) {
 		const trackIds = {};
-		traverse(element);
+		if (root.getAttribute) {
+			traverse(root);
+		} else {
+			Array.from(root.children).forEach(traverse);
+		}
 		return trackIds;
 
 		function traverse(element) {
@@ -391,6 +433,20 @@ function markInvalidNesting(doc) {
 		}
 	}
 
+	function testDroppedElement(element) {
+		if (element.namespaceURI != HTML_NAMESPACE) {
+			return false;
+		}
+		let ancestor = element.parentElement;
+		while (ancestor) {
+			if (RAW_TEXT_TAG_NAMES.includes(ancestor.tagName.toUpperCase())) {
+				return false;
+			}
+			ancestor = ancestor.parentElement;
+		}
+		return true;
+	}
+
 	function cleanupTrackIds(element, toKeep) {
 		const id = element.getAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME);
 		if (id && !toKeep.has(id)) {
@@ -400,33 +456,164 @@ function markInvalidNesting(doc) {
 	}
 }
 
-function fixInvalidNesting(document, NESTING_TRACK_ID_ATTRIBUTE_NAME, preventCleanup = false) {
-	const trackIds = {};
+function getShadowRoots(element, shadowRoots = []) {
+	Array.from(element.children).forEach(child => {
+		if (child.namespaceURI == HTML_NAMESPACE && !child.classList.contains(SINGLE_FILE_UI_ELEMENT_CLASS) && child.tagName.toLowerCase() != INFOBAR_TAGNAME) {
+			const shadowRoot = getShadowRoot(child);
+			if (shadowRoot) {
+				shadowRoots.push(shadowRoot);
+				getShadowRoots(shadowRoot, shadowRoots);
+			}
+		}
+		getShadowRoots(child, shadowRoots);
+	});
+	return shadowRoots;
+}
+
+function getNestingMarkerData(element) {
+	return encodeURIComponent(JSON.stringify({
+		tag: element.localName,
+		attributes: Array.from(element.attributes)
+			.filter(attribute => attribute.name != NESTING_RECREATED_ATTRIBUTE_NAME)
+			.map(attribute => [attribute.name, attribute.value])
+	}));
+}
+
+function setNestingMarkersData(root) {
+	const walker = (root.ownerDocument || root).createTreeWalker(root, COMMENT_NODE_FILTER);
+	while (walker.nextNode()) {
+		const comment = walker.currentNode;
+		if (comment.data.startsWith(NESTING_START_MARKER)) {
+			const id = comment.data.substring(NESTING_START_MARKER.length).split(" ")[0];
+			comment.data = NESTING_START_MARKER + id + " " + getNestingMarkerData(comment.parentNode);
+		}
+	}
+}
+
+function removeNestingMarkers(doc) {
+	if (doc.body) {
+		[doc, ...getShadowRoots(doc.body)].forEach(root => {
+			const comments = [];
+			const walker = doc.createTreeWalker(root, COMMENT_NODE_FILTER);
+			while (walker.nextNode()) {
+				if (walker.currentNode.data.startsWith(NESTING_START_MARKER) || walker.currentNode.data.startsWith(NESTING_END_MARKER)) {
+					comments.push(walker.currentNode);
+				}
+			}
+			comments.forEach(comment => comment.remove());
+		});
+	}
+}
+
+function fixInvalidNesting(document, NESTING_TRACK_ID_ATTRIBUTE_NAME, preventCleanup = false, options = {}) {
+	const START_MARKER = NESTING_TRACK_ID_ATTRIBUTE_NAME + "-start ";
+	const END_MARKER = NESTING_TRACK_ID_ATTRIBUTE_NAME + "-end ";
+	const RECREATED_ATTRIBUTE_NAME = NESTING_TRACK_ID_ATTRIBUTE_NAME + "-recreated";
 	if (document.currentScript) {
 		document.currentScript.remove();
 	}
-	buildTrackIdMap(document.body);
-	Object.keys(trackIds).forEach(id => {
-		const element = trackIds[id];
-		const idParts = id.split(".");
-		if (idParts.length > 1) {
-			const parentId = idParts.slice(0, -1).join(".");
-			const expectedParent = trackIds[parentId];
-			if (expectedParent && element.parentElement !== expectedParent && !element.contains(expectedParent)) {
-				expectedParent.appendChild(element);
-			}
+	const roots = [];
+	if (options.rootElement) {
+		roots.push(options.rootElement);
+	} else if (document.body) {
+		addRoots(document.body);
+	}
+	roots.forEach(root => {
+		recreateElements(root);
+		if (!options.recreateOnly) {
+			moveElements(root);
 		}
 	});
 	if (!preventCleanup) {
-		document.querySelectorAll("[" + NESTING_TRACK_ID_ATTRIBUTE_NAME + "]").forEach(element => element.removeAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME));
+		roots.forEach(root => {
+			const elements = Array.from(root.querySelectorAll("[" + NESTING_TRACK_ID_ATTRIBUTE_NAME + "]"));
+			if (root.getAttribute && root.getAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME)) {
+				elements.push(root);
+			}
+			elements.forEach(element => element.removeAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME));
+		});
 	}
 
-	function buildTrackIdMap(element) {
-		const id = element.getAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME);
-		if (id) {
-			trackIds[id] = element;
+	function addRoots(root) {
+		roots.push(root);
+		root.querySelectorAll("*").forEach(element => {
+			if (element.shadowRoot) {
+				addRoots(element.shadowRoot);
+			}
+		});
+	}
+
+	function recreateElements(root) {
+		const startComments = [];
+		const walker = document.createTreeWalker(root, 128);
+		while (walker.nextNode()) {
+			if (walker.currentNode.data.startsWith(START_MARKER)) {
+				startComments.push(walker.currentNode);
+			}
 		}
-		Array.from(element.children).forEach(buildTrackIdMap);
+		startComments.forEach(startComment => {
+			const separatorIndex = startComment.data.indexOf(" ", START_MARKER.length);
+			let endComment, data;
+			if (separatorIndex != -1) {
+				const id = startComment.data.substring(START_MARKER.length, separatorIndex);
+				endComment = startComment.nextSibling;
+				while (endComment && !(endComment.nodeType == 8 && endComment.data == END_MARKER + id)) {
+					endComment = endComment.nextSibling;
+				}
+				try {
+					data = globalThis.JSON.parse(decodeURIComponent(startComment.data.substring(separatorIndex + 1)));
+				} catch {
+					/* ignored */
+				}
+			}
+			if (endComment && data) {
+				const element = document.createElement(data.tag);
+				data.attributes.forEach(([name, value]) => {
+					try {
+						element.setAttribute(name, value);
+					} catch {
+						/* ignored */
+					}
+				});
+				if (preventCleanup) {
+					element.setAttribute(RECREATED_ATTRIBUTE_NAME, "");
+				}
+				startComment.before(element);
+				while (startComment.nextSibling != endComment) {
+					element.appendChild(startComment.nextSibling);
+				}
+				startComment.remove();
+				endComment.remove();
+			}
+		});
+	}
+
+	function moveElements(root) {
+		const trackIds = {};
+		if (root.getAttribute) {
+			buildTrackIdMap(root);
+		} else {
+			Array.from(root.children).forEach(buildTrackIdMap);
+		}
+		Object.keys(trackIds).forEach(id => {
+			const element = trackIds[id];
+			const idParts = id.split(".");
+			if (idParts.length > 1) {
+				const parentId = idParts.slice(0, -1).join(".");
+				const expectedParent = trackIds[parentId];
+				if (expectedParent && element.parentElement !== expectedParent && !element.contains(expectedParent)) {
+					expectedParent.appendChild(element);
+				}
+			}
+		});
+
+		function buildTrackIdMap(element) {
+			const id = element.getAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME);
+			if (id) {
+				trackIds[id] = element;
+			}
+			Array.from(element.children).forEach(buildTrackIdMap);
+		}
 	}
 }
 
@@ -509,6 +696,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 					// ignored
 				}
 				getElementsInfo(win, doc, shadowRoot, options, data, adoptedStyleSheetsCache, elementHidden);
+				setNestingMarkersData(shadowRoot);
 				shadowRootInfo.content = shadowRoot.innerHTML;
 				shadowRootInfo.mode = shadowRoot.mode;
 				shadowRootInfo.delegateFocus = shadowRoot.delegatesFocus;
@@ -852,6 +1040,7 @@ function testHiddenElement(element, computedStyle) {
 }
 
 function postProcessDoc(doc, markedElements, invalidElements) {
+	removeNestingMarkers(doc);
 	doc.querySelectorAll("[" + DISABLED_NOSCRIPT_ATTRIBUTE_NAME + "]").forEach(element => {
 		element.textContent = element.getAttribute(DISABLED_NOSCRIPT_ATTRIBUTE_NAME);
 		element.removeAttribute(DISABLED_NOSCRIPT_ATTRIBUTE_NAME);

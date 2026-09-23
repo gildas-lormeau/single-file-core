@@ -212,6 +212,9 @@ class Runner {
 			this.options.frames = [];
 		}
 		this.options.content = this.options.content || (rootDocDefined ? util.serialize(this.options.doc) : null);
+		if (rootDocDefined) {
+			util.removeNestingMarkers(this.options.doc);
+		}
 		this.onprogress = options.onprogress || (() => { });
 	}
 
@@ -498,6 +501,7 @@ class Processor {
 			pageContent = content.data || "";
 		}
 		this.doc = util.parseDocContent(pageContent, this.baseURI);
+		util.fixInvalidNesting(this.doc, true, { recreateOnly: true });
 		removeInsertedParagraphs(this.doc);
 		this.nestingPositions = getNestingPositions(this.doc);
 		util.fixInvalidNesting(this.doc);
@@ -609,7 +613,8 @@ class Processor {
 			size = util.getContentSize(this.doc.documentElement.outerHTML);
 		}
 		restoreNestingPositions(this.nestingPositions);
-		if (this.doc.querySelector(`[${util.NESTING_TRACK_ID_ATTRIBUTE_NAME}]`)) {
+		const collapsedElementCount = collapseRecreatedElements(this.doc);
+		if (collapsedElementCount || this.doc.querySelector(`[${util.NESTING_TRACK_ID_ATTRIBUTE_NAME}]`)) {
 			const scriptElement = this.doc.createElement("script");
 			scriptElement.textContent = `(${util.getFixInvalidNestingSource()})(document, "${util.NESTING_TRACK_ID_ATTRIBUTE_NAME}");`;
 			this.doc.body.appendChild(scriptElement);
@@ -1442,6 +1447,7 @@ class Processor {
 	insertShadowRootContents() {
 		const doc = this.doc;
 		const options = this.options;
+		const nestingPositions = this.nestingPositions || [];
 		if (options.shadowRoots && options.shadowRoots.length) {
 			processElement(this.doc);
 		}
@@ -1481,6 +1487,13 @@ class Processor {
 						}
 						if (shadowDoc.body) {
 							shadowDoc.body.childNodes.forEach(node => templateElement.appendChild(shadowDoc.importNode(node, true)));
+						}
+						util.fixInvalidNesting(doc, true, { rootElement: templateElement, recreateOnly: true });
+						removeInsertedParagraphs(templateElement);
+						nestingPositions.push(...getNestingPositions(templateElement));
+						util.fixInvalidNesting(doc, true, { rootElement: templateElement });
+						if (templateElement.querySelector(`[${util.NESTING_TRACK_ID_ATTRIBUTE_NAME}]`)) {
+							templateElement.setAttribute(SHADOWROOT_ATTRIBUTE_NAME, "open");
 						}
 						processElement(templateElement);
 						if (element.firstChild) {
@@ -1820,6 +1833,20 @@ function restoreNestingPositions(positions) {
 			}
 		});
 	}
+}
+
+function collapseRecreatedElements(doc) {
+	const elements = Array.from(doc.querySelectorAll(`[${util.NESTING_RECREATED_ATTRIBUTE_NAME}]`)).reverse();
+	elements.forEach(element => {
+		const id = element.getAttribute(util.NESTING_TRACK_ID_ATTRIBUTE_NAME);
+		element.before(doc.createComment(util.NESTING_START_MARKER + id + " " + util.getNestingMarkerData(element)));
+		while (element.firstChild) {
+			element.before(element.firstChild);
+		}
+		element.before(doc.createComment(util.NESTING_END_MARKER + id));
+		element.remove();
+	});
+	return elements.length;
 }
 
 function removeInsertedParagraphs(doc) {

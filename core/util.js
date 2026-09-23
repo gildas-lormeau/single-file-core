@@ -128,8 +128,14 @@ function getInstance(utilOptions) {
 				return doc;
 			}
 		},
-		fixInvalidNesting(doc, preventCleanup = true) {
-			helper.fixInvalidNesting(doc, helper.NESTING_TRACK_ID_ATTRIBUTE_NAME, preventCleanup);
+		fixInvalidNesting(doc, preventCleanup = true, options) {
+			helper.fixInvalidNesting(doc, helper.NESTING_TRACK_ID_ATTRIBUTE_NAME, preventCleanup, options);
+		},
+		removeNestingMarkers(doc) {
+			helper.removeNestingMarkers(doc);
+		},
+		getNestingMarkerData(element) {
+			return helper.getNestingMarkerData(element);
 		},
 		markInvalidNesting(doc) {
 			helper.markInvalidNesting(doc, helper.NESTING_TRACK_ID_ATTRIBUTE_NAME);
@@ -226,6 +232,9 @@ function getInstance(utilOptions) {
 		WAIT_FOR_USERSCRIPT_PROPERTY_NAME: helper.WAIT_FOR_USERSCRIPT_PROPERTY_NAME,
 		NO_SCRIPT_PROPERTY_NAME: helper.NO_SCRIPT_PROPERTY_NAME,
 		NESTING_TRACK_ID_ATTRIBUTE_NAME: helper.NESTING_TRACK_ID_ATTRIBUTE_NAME,
+		NESTING_START_MARKER: helper.NESTING_START_MARKER,
+		NESTING_END_MARKER: helper.NESTING_END_MARKER,
+		NESTING_RECREATED_ATTRIBUTE_NAME: helper.NESTING_RECREATED_ATTRIBUTE_NAME,
 		getPosterDataURI: helper.getPosterDataURI
 	};
 
