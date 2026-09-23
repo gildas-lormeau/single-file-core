@@ -77,13 +77,13 @@ function process(doc, compressHTML) {
 	return docTypeString + serialize(doc.documentElement, compressHTML);
 }
 
-function serialize(node, compressHTML, isSVG) {
+function serialize(node, compressHTML) {
 	if (node.nodeType == Node_TEXT_NODE) {
 		return serializeTextNode(node);
 	} else if (node.nodeType == Node_COMMENT_NODE) {
 		return serializeCommentNode(node);
 	} else if (node.nodeType == Node_ELEMENT_NODE) {
-		return serializeElement(node, compressHTML, isSVG);
+		return serializeElement(node, compressHTML);
 	}
 }
 
@@ -107,7 +107,7 @@ function serializeCommentNode(commentNode) {
 	return "<!--" + commentNode.textContent + "-->";
 }
 
-function serializeElement(element, compressHTML, isSVG) {
+function serializeElement(element, compressHTML) {
 	const tagName = getTagName(element);
 	const omittedStartTag = compressHTML && OMITTED_START_TAGS.find(omittedStartTag => tagName == getTagName(omittedStartTag) && omittedStartTag.accept(element));
 	let content = "";
@@ -119,10 +119,10 @@ function serializeElement(element, compressHTML, isSVG) {
 	if (tagName == "TEMPLATE" && !element.childNodes.length) {
 		content += element.innerHTML;
 	} else {
-		Array.from(element.childNodes).forEach(childNode => content += serialize(childNode, compressHTML, isSVG || tagName == "svg"));
+		Array.from(element.childNodes).forEach(childNode => content += serialize(childNode, compressHTML));
 	}
 	const omittedEndTag = compressHTML && OMITTED_END_TAGS.find(omittedEndTag => tagName == getTagName(omittedEndTag) && omittedEndTag.accept(element.nextSibling, element));
-	if (isSVG || (!omittedEndTag && !VOID_TAG_NAMES.includes(tagName))) {
+	if (!omittedEndTag && !VOID_TAG_NAMES.includes(tagName)) {
 		content += "</" + tagName.toLowerCase() + ">";
 	}
 	return content;
