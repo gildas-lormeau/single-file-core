@@ -1799,15 +1799,20 @@ function getNestingPositions(doc) {
 	return Array.from(doc.querySelectorAll(`[${util.NESTING_TRACK_ID_ATTRIBUTE_NAME}]`)).map(element => ({
 		element,
 		parentNode: element.parentNode,
+		previousSibling: element.previousSibling,
 		nextSibling: element.nextSibling
 	}));
 }
 
 function restoreNestingPositions(positions) {
 	if (positions) {
-		positions.slice().reverse().forEach(({ element, parentNode, nextSibling }) => {
+		positions.forEach(({ element, parentNode, previousSibling, nextSibling }) => {
 			if (element.isConnected && parentNode && parentNode.isConnected) {
-				if (nextSibling && nextSibling.parentNode == parentNode) {
+				if (previousSibling && previousSibling.parentNode == parentNode) {
+					parentNode.insertBefore(element, previousSibling.nextSibling);
+				} else if (!previousSibling) {
+					parentNode.insertBefore(element, parentNode.firstChild);
+				} else if (nextSibling && nextSibling.parentNode == parentNode) {
 					parentNode.insertBefore(element, nextSibling);
 				} else {
 					parentNode.appendChild(element);

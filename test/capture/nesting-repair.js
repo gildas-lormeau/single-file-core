@@ -81,6 +81,24 @@ let failed = false;
 	check("a non-paragraph nesting removes nothing", countEmptyParagraphs(content), 1);
 }
 
+// A link nested in a link, as on Substack home pages (midwesterndoctor.com). The parser clones the
+// outer `<a>`, track id included, at each level it closes, so `fixInvalidNesting` takes the LAST
+// clone as the expected parent and moves `#box` inside it. Restoring in reverse document order then
+// put that clone back into `#row` while `#row` was still inside it, and the capture threw a
+// HierarchyRequestError. Restoring ancestors first, in document order, reproduces the parsed shape.
+{
+	const nested = `<div id="card" ${TRACK}="1.1"><a id="outer" ${TRACK}="1.1.1"></a>` +
+		`<div id="box" ${TRACK}="1.1.1.1"><a id="outer" ${TRACK}="1.1.1"></a>` +
+		`<div id="row"><a id="outer" ${TRACK}="1.1.1"></a><a id="inner" ${TRACK}="1.1.1.1.1.1">x</a></div></div></div>`;
+	let content;
+	try {
+		content = await captureBody(nested);
+	} catch (error) {
+		content = error.message;
+	}
+	check("a link nested in a link is saved in the parsed shape", bodyContent(content), nested);
+}
+
 if (failed) {
 	console.log("FAILED");
 	Deno.exit(1);
