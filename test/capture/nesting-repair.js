@@ -97,6 +97,34 @@ let failed = false;
 		content = error.message;
 	}
 	check("a link nested in a link is saved in the parsed shape", bodyContent(content), nested);
+	const doc = loadSavedPage(content);
+	check("and the load-time script puts the box back in the link", Boolean(doc.querySelector("#card > #outer > #box > #row > #inner")), true);
+	check("leaving one link, not its copies", doc.querySelectorAll("#outer").length, 1);
+}
+
+// What the load-time script does with those copies. The parser keeps the original `<a>` in place and
+// only adds copies after it, so the first element carrying a track id is the original: it is the
+// parent the moves target, a copy inside it is unwrapped, a copy outside hands it its children. The
+// script used to target the LAST copy, which sits inside the very block it had to move, so nothing
+// moved and every saved Substack card kept its links split. The processor, which passes
+// preventCleanup, leaves the copies alone, because the saved markup has to stay the shape the parser
+// produced. The fixtures are Chrome's parse of the script-built pages, as saved by the CLI.
+{
+	const textAroundInnerLink = `<a id="outer" href="#outer" ${TRACK}="1.1"></a><div id="block" ${TRACK}="1.1.1">` +
+		`<a id="outer" href="#outer" ${TRACK}="1.1">x </a><a id="inner" href="#inner">inner</a> y</div>`;
+	const content = await captureBody(textAroundInnerLink);
+	check("the processor saves the copies as they are", bodyContent(content), textAroundInnerLink);
+	const block = loadSavedPage(content).querySelector("#outer > #block");
+	check("the load-time script unwraps a copy inside the original", JSON.stringify(block && Array.from(block.childNodes).map(node => node.nodeType == 1 ? node.localName + "#" + node.id : node.data)), JSON.stringify(["x ", "a#inner", " y"]));
+}
+{
+	const twoBlocks = `<a id="outer" href="#outer" ${TRACK}="1.1"></a><div id="first" ${TRACK}="1.1.1"><a id="outer" href="#outer" ${TRACK}="1.1"></a>` +
+		`<a id="inner1" href="#inner1">one</a></div><div id="second" ${TRACK}="1.1.2"><a id="inner2" href="#inner2">two</a></div>`;
+	const doc = loadSavedPage(await captureBody(twoBlocks));
+	const outer = doc.querySelector("#outer");
+	check("two blocks go back into the one link, in order", JSON.stringify(Array.from(outer.children).map(element => element.id)), JSON.stringify(["first", "second"]));
+	check("each keeping its own link", Boolean(doc.querySelector("#first > #inner1") && doc.querySelector("#second > #inner2")), true);
+	check("and no copy is left", doc.querySelectorAll("#outer").length, 1);
 }
 
 // An element the parser DROPS instead of moving: the inner `<form>` of a form in a form (the form

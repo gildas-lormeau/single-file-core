@@ -590,19 +590,32 @@ function fixInvalidNesting(document, NESTING_TRACK_ID_ATTRIBUTE_NAME, preventCle
 
 	function moveElements(root) {
 		const trackIds = {};
+		const elements = [];
 		if (root.getAttribute) {
 			buildTrackIdMap(root);
 		} else {
 			Array.from(root.children).forEach(buildTrackIdMap);
 		}
-		Object.keys(trackIds).forEach(id => {
-			const element = trackIds[id];
-			const idParts = id.split(".");
-			if (idParts.length > 1) {
-				const parentId = idParts.slice(0, -1).join(".");
-				const expectedParent = trackIds[parentId];
-				if (expectedParent && element.parentElement !== expectedParent && !element.contains(expectedParent)) {
-					expectedParent.appendChild(element);
+		elements.forEach(element => {
+			const id = element.getAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME);
+			const originalElement = trackIds[id];
+			if (originalElement != element) {
+				if (!preventCleanup) {
+					if (originalElement.contains(element)) {
+						element.replaceWith(...element.childNodes);
+					} else {
+						originalElement.append(...element.childNodes);
+						element.remove();
+					}
+				}
+			} else {
+				const idParts = id.split(".");
+				if (idParts.length > 1) {
+					const parentId = idParts.slice(0, -1).join(".");
+					const expectedParent = trackIds[parentId];
+					if (expectedParent && element.parentElement !== expectedParent && !element.contains(expectedParent)) {
+						expectedParent.appendChild(element);
+					}
 				}
 			}
 		});
@@ -610,7 +623,10 @@ function fixInvalidNesting(document, NESTING_TRACK_ID_ATTRIBUTE_NAME, preventCle
 		function buildTrackIdMap(element) {
 			const id = element.getAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME);
 			if (id) {
-				trackIds[id] = element;
+				if (!(id in trackIds)) {
+					trackIds[id] = element;
+				}
+				elements.push(element);
 			}
 			Array.from(element.children).forEach(buildTrackIdMap);
 		}
