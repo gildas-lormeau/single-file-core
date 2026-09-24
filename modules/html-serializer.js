@@ -95,7 +95,7 @@ function serializeTextNode(textNode) {
 	}
 	if (!parentTagName || TEXT_NODE_TAGS.includes(parentTagName)) {
 		if ((parentTagName == "SCRIPT" && (!parentNode.type || parentNode.type == "text/javascript")) || parentTagName == "STYLE") {
-			return textNode.textContent.replace(/<\//gi, "<\\/").replace(/\/>/gi, "\\/>");
+			return textNode.textContent.replace(/<\//gi, "<\\/");
 		}
 		return textNode.textContent;
 	} else {
