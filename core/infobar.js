@@ -149,12 +149,26 @@ const INFOBAR_STYLES = `
 }
 `;
 const INFOBAR_ANIMATIONS_STYLES = `
-.infobar {
+.infobar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-color: #dd6a00;
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
   animation-name: flash;
   animation-duration: .5s;
   animation-timing-function: cubic-bezier(0.39, 0.58, 0.57, 1);
   animation-delay: 1s;
   animation-iteration-count: 2;
+  transition: visibility 0s 999999s;
+}
+
+.infobar:focus-within::before, .infobar.infobar-focus::before {
+  visibility: hidden;
+  transition-delay: 0s;
 }
 
 .infobar::after {
@@ -180,10 +194,10 @@ const INFOBAR_ANIMATIONS_STYLES = `
 
 @keyframes flash {
   0%, 100% {
-    background-color: #737373;
+    opacity: 0;
   }
   50% {
-    background-color: #dd6a00;
+    opacity: 1;
   }
 }
 
@@ -199,7 +213,7 @@ const INFOBAR_ANIMATIONS_STYLES = `
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .infobar,
+  .infobar::before,
   .infobar::after {
     animation-name: none;
   }

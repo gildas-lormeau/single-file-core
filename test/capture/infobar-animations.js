@@ -21,16 +21,23 @@ let failed = false;
 	check("animateInfobar true keeps the reduced-motion opt-out", content.includes("prefers-reduced-motion"), true);
 	// The ring must live on a pseudo-element that exists in both states. Scoping it to the collapsed
 	// state re-creates it on every collapse, and a re-created pseudo-element replays its animation,
-	// so the ripple showed again each time the infobar was folded back. The flash never had this
-	// problem because it animates the infobar itself. Hiding with visibility keeps the animation
-	// clock running; display: none would cancel it and start it over on the next collapse.
-	// The transition is a latch: expanding hides the ring at once, and the collapsed rule brings
-	// visible back only after a delay long enough to count as never, so an infobar opened and
+	// so the ripple showed again each time the infobar was folded back. Hiding with visibility keeps
+	// the animation clock running; display: none would cancel it and start it over on the next
+	// collapse. The transition is a latch: expanding hides the ring at once, and the collapsed rule
+	// brings visible back only after a delay long enough to count as never, so an infobar opened and
 	// folded back during the ripple window does not resume the ripple either.
 	check("the ripple ring is not scoped to the collapsed state", content.includes(":not(.infobar-focus)::after"), false);
 	check("the ripple ring exists in both states", content.includes(".infobar::after {"), true);
 	check("the expanded infobar hides the ring at once", content.includes(".infobar:focus-within::after,.infobar.infobar-focus::after {visibility:hidden;transition-delay:0s;}"), true);
 	check("the ring stays hidden once the infobar has been expanded", content.includes("transition:visibility 0s 999999s;"), true);
+	// The flash used to animate the background color of the infobar itself. An animated value wins
+	// over the expanded rule, so an infobar opened in the first two seconds flashed orange around the
+	// open panel. It is now an overlay on ::before with the same latch as the ring, and the infobar's
+	// own background is never animated.
+	check("the flash is an overlay", content.includes(".infobar::before {"), true);
+	check("the expanded infobar hides the flash at once", content.includes(".infobar:focus-within::before,.infobar.infobar-focus::before {visibility:hidden;transition-delay:0s;}"), true);
+	check("the flash does not animate a background color", /@keyframes flash \{[^@]*background-color/.test(content), false);
+	check("the reduced-motion opt-out covers the flash", content.includes(".infobar::before,.infobar::after {animation-name:none;}"), true);
 }
 
 {
