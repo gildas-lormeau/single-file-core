@@ -1015,11 +1015,17 @@ class Processor {
 	}
 
 	resetReferrerMeta() {
-		this.doc.querySelectorAll("meta[name=referrer]").forEach(element => element.remove());
 		const metaElement = this.doc.createElement("meta");
 		metaElement.setAttribute("name", "referrer");
 		metaElement.setAttribute("content", "no-referrer");
-		this.doc.head.appendChild(metaElement);
+		const referrerElements = Array.from(this.doc.querySelectorAll("meta[name=referrer]"));
+		const headReferrerElement = referrerElements.find(element => element.parentElement == this.doc.head);
+		if (headReferrerElement) {
+			headReferrerElement.replaceWith(metaElement);
+		} else {
+			this.doc.head.appendChild(metaElement);
+		}
+		referrerElements.forEach(element => element.remove());
 	}
 
 	setInputValues() {
