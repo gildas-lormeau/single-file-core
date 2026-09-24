@@ -11,11 +11,20 @@
 // computed 12px, in Chromium 151, Firefox 153 and WebKit 26.5 alike.
 //
 // Two things fix it and both are needed. Core drops the paragraph its own parse invented, and core
-// restores the SPLIT shape — the one the parser produced — before serializing, so the saved file is
-// a fixed point of parse and serialize and a browser mints nothing when it opens it. The injected
-// script still does the moving at load, which is what it was always for. Measured end to end with
-// the CLI after the fix: three generations byte-identical, and all three engines render the saved
-// page with the same single paragraph, the same 0px margin and the block back inside it.
+// leaves out the `</p>` that would be stray, so a browser mints nothing when it opens the saved page.
+// Which end tags are stray is asked to the parser itself: the serialized page is parsed once more,
+// the paragraphs it invented name the paragraph they come from, and that paragraph is serialized
+// without its end tag. The injected script still does the moving at load, which is what it was
+// always for.
+//
+// Core used to write back the split shape instead, by recording the neighbours of every tracked
+// element when the page was loaded and putting the element back next to them before serializing.
+// Every step in between can remove a neighbour: compressHTML removes the `<!---->` anchors an Angular
+// page puts around its elements, and the element was then appended at the end of its parent. On a
+// Gemini chat saved with the default options, the conversation went after the input field
+// (SingleFile#2000). Nothing is recorded any more, so no step can break it. Measured with the CLI
+// in Chrome: a second capture of the saved page is byte-identical, the block is back inside its
+// paragraph with no empty paragraph and a 0px margin, and the Gemini page keeps its order.
 //
 // Recognizing the invented element by shape is safe because `<p>` is the only element an invalid
 // nesting invents. Probed in Chromium over eleven shapes: `p > div`, `p > p` and `p > ul` each mint
@@ -28,7 +37,10 @@
 // The fixtures below are written ALREADY SPLIT, with the invented paragraph spelled out, because
 // that is what core receives from a browser — and because happy-dom does not mint it. It splits the
 // paragraph correctly but implements no such recovery, so a fixture written as `<p>text<div>` would
-// exercise nothing here while breaking in the field.
+// exercise nothing here while breaking in the field. For the same reason the omitted `</p>` cannot
+// be observed here: the parse core asks finds no invented paragraph in happy-dom. Nor does happy-dom
+// clone a link nested in a link as a browser does, so the load-time checks start from the fixture,
+// which is Chrome's parse of the saved page, rather than from a parse of the capture.
 import { capture, html, helper } from "./common.js";
 
 const PAGE_URL = "https://example.com/nesting.html";
@@ -36,15 +48,16 @@ const TRACK = "data-sf-nesting-track-id";
 const PARAGRAPH = `<p id="para" ${TRACK}="1.1">text</p>`;
 const BLOCK = `<div id="block" ${TRACK}="1.1.1">block</div>`;
 const INVENTED = "<p></p>";
+const LIVE_PARAGRAPH = `<p id="para" ${TRACK}="1.1">text<div id="block" ${TRACK}="1.1.1">block</div></p>`;
 
 let failed = false;
 
 // The case this exists for: the paragraph the parser invented is dropped, and what is written back
-// is the split shape rather than the repaired one.
+// is the repaired shape.
 {
 	const content = await captureBody(PARAGRAPH + BLOCK + INVENTED);
 	check("the invented paragraph is gone", countEmptyParagraphs(content), 0);
-	check("and the markup is the shape a parser reproduces", bodyContent(content), PARAGRAPH + BLOCK);
+	check("and the markup is the repaired shape", bodyContent(content), LIVE_PARAGRAPH);
 	check("with the repair script carried for load time", content.includes(`(document, "${TRACK}")`), true);
 }
 
@@ -63,7 +76,7 @@ let failed = false;
 {
 	const content = await captureBody(PARAGRAPH + BLOCK + INVENTED + "<p></p>");
 	check("an empty paragraph the page wrote is kept", countEmptyParagraphs(content), 1);
-	check("and it stays where it was", bodyContent(content), PARAGRAPH + BLOCK + "<p></p>");
+	check("and it stays where it was", bodyContent(content), LIVE_PARAGRAPH.replace(/<\/p>$/, "") + "<p></p>");
 }
 
 // The second control: with no track id there is nothing to repair, so nothing is removed either. The
@@ -82,10 +95,10 @@ let failed = false;
 }
 
 // A link nested in a link, as on Substack home pages (midwesterndoctor.com). The parser clones the
-// outer `<a>`, track id included, at each level it closes, so `fixInvalidNesting` takes the LAST
-// clone as the expected parent and moves `#box` inside it. Restoring in reverse document order then
-// put that clone back into `#row` while `#row` was still inside it, and the capture threw a
-// HierarchyRequestError. Restoring ancestors first, in document order, reproduces the parsed shape.
+// outer `<a>`, track id included, at each level it closes. Core merges the copies into the original
+// as soon as the page is loaded, so the page is processed and saved as it was live, and a browser
+// parses the saved page back into this fixture. Putting the parsed shape back before serializing
+// used to throw a HierarchyRequestError here.
 {
 	const nested = `<div id="card" ${TRACK}="1.1"><a id="outer" ${TRACK}="1.1.1"></a>` +
 		`<div id="box" ${TRACK}="1.1.1.1"><a id="outer" ${TRACK}="1.1.1"></a>` +
@@ -96,8 +109,9 @@ let failed = false;
 	} catch (error) {
 		content = error.message;
 	}
-	check("a link nested in a link is saved in the parsed shape", bodyContent(content), nested);
-	const doc = loadSavedPage(content);
+	check("a link nested in a link is saved in the live shape", bodyContent(content), `<div id="card" ${TRACK}="1.1"><a id="outer" ${TRACK}="1.1.1">` +
+		`<div id="box" ${TRACK}="1.1.1.1"><div id="row"><a id="inner" ${TRACK}="1.1.1.1.1.1">x</a></div></div></a></div>`);
+	const doc = loadSavedPage(nested);
 	check("and the load-time script puts the box back in the link", Boolean(doc.querySelector("#card > #outer > #box > #row > #inner")), true);
 	check("leaving one link, not its copies", doc.querySelectorAll("#outer").length, 1);
 }
@@ -107,20 +121,21 @@ let failed = false;
 // parent the moves target, a copy inside it is unwrapped, a copy outside hands it its children. The
 // script used to target the LAST copy, which sits inside the very block it had to move, so nothing
 // moved and every saved Substack card kept its links split. The processor, which passes
-// preventCleanup, leaves the copies alone, because the saved markup has to stay the shape the parser
-// produced. The fixtures are Chrome's parse of the script-built pages, as saved by the CLI.
+// preventCleanup to keep the track ids, merges the copies the same way. The fixtures are Chrome's
+// parse of the script-built pages.
 {
 	const textAroundInnerLink = `<a id="outer" href="#outer" ${TRACK}="1.1"></a><div id="block" ${TRACK}="1.1.1">` +
 		`<a id="outer" href="#outer" ${TRACK}="1.1">x </a><a id="inner" href="#inner">inner</a> y</div>`;
 	const content = await captureBody(textAroundInnerLink);
-	check("the processor saves the copies as they are", bodyContent(content), textAroundInnerLink);
-	const block = loadSavedPage(content).querySelector("#outer > #block");
+	check("the processor merges the copies", bodyContent(content), `<a id="outer" href="#outer" ${TRACK}="1.1"><div id="block" ${TRACK}="1.1.1">` +
+		"x <a id=\"inner\" href=\"#inner\">inner</a> y</div></a>");
+	const block = loadSavedPage(textAroundInnerLink).querySelector("#outer > #block");
 	check("the load-time script unwraps a copy inside the original", JSON.stringify(block && Array.from(block.childNodes).map(node => node.nodeType == 1 ? node.localName + "#" + node.id : node.data)), JSON.stringify(["x ", "a#inner", " y"]));
 }
 {
 	const twoBlocks = `<a id="outer" href="#outer" ${TRACK}="1.1"></a><div id="first" ${TRACK}="1.1.1"><a id="outer" href="#outer" ${TRACK}="1.1"></a>` +
 		`<a id="inner1" href="#inner1">one</a></div><div id="second" ${TRACK}="1.1.2"><a id="inner2" href="#inner2">two</a></div>`;
-	const doc = loadSavedPage(await captureBody(twoBlocks));
+	const doc = loadSavedPage(twoBlocks);
 	const outer = doc.querySelector("#outer");
 	check("two blocks go back into the one link, in order", JSON.stringify(Array.from(outer.children).map(element => element.id)), JSON.stringify(["first", "second"]));
 	check("each keeping its own link", Boolean(doc.querySelector("#first > #inner1") && doc.querySelector("#second > #inner2")), true);

@@ -601,7 +601,7 @@ function fixInvalidNesting(document, NESTING_TRACK_ID_ATTRIBUTE_NAME, preventCle
 			const id = element.getAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME);
 			const originalElement = trackIds[id];
 			if (originalElement != element) {
-				if (!preventCleanup) {
+				if (!preventCleanup || options.mergeCopies) {
 					if (originalElement.contains(element)) {
 						element.replaceWith(...element.childNodes);
 					} else {

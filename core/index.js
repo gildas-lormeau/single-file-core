@@ -503,8 +503,7 @@ class Processor {
 		this.doc = util.parseDocContent(pageContent, this.baseURI);
 		util.fixInvalidNesting(this.doc, true, { recreateOnly: true });
 		removeInsertedParagraphs(this.doc);
-		this.nestingPositions = getNestingPositions(this.doc);
-		util.fixInvalidNesting(this.doc);
+		util.fixInvalidNesting(this.doc, true, { mergeCopies: true });
 		if (this.options.saveRawPage) {
 			let charset;
 			this.doc.querySelectorAll("meta[charset]").forEach(element => {
@@ -612,14 +611,20 @@ class Processor {
 		if (this.options.displayStats) {
 			size = util.getContentSize(this.doc.documentElement.outerHTML);
 		}
-		restoreNestingPositions(this.nestingPositions);
 		const collapsedElementCount = collapseRecreatedElements(this.doc);
-		if (collapsedElementCount || this.doc.querySelector(`[${util.NESTING_TRACK_ID_ATTRIBUTE_NAME}]`)) {
+		const invalidNesting = collapsedElementCount || this.doc.querySelector(`[${util.NESTING_TRACK_ID_ATTRIBUTE_NAME}]`);
+		if (invalidNesting) {
 			const scriptElement = this.doc.createElement("script");
 			scriptElement.textContent = `(${util.getFixInvalidNestingSource()})(document, "${util.NESTING_TRACK_ID_ATTRIBUTE_NAME}");`;
 			this.doc.body.appendChild(scriptElement);
 		}
-		const content = util.serialize(this.doc, this.options.compressHTML);
+		let content = util.serialize(this.doc, this.options.compressHTML);
+		if (invalidNesting) {
+			const closedParagraphs = getClosedParagraphs(this.doc, content);
+			if (closedParagraphs.size) {
+				content = util.serialize(this.doc, this.options.compressHTML, closedParagraphs);
+			}
+		}
 		if (this.options.displayStats) {
 			const contentSize = util.getContentSize(content);
 			this.stats.set("processed", "HTML bytes", contentSize);
@@ -1447,7 +1452,6 @@ class Processor {
 	insertShadowRootContents() {
 		const doc = this.doc;
 		const options = this.options;
-		const nestingPositions = this.nestingPositions || [];
 		if (options.shadowRoots && options.shadowRoots.length) {
 			processElement(this.doc);
 		}
@@ -1490,8 +1494,7 @@ class Processor {
 						}
 						util.fixInvalidNesting(doc, true, { rootElement: templateElement, recreateOnly: true });
 						removeInsertedParagraphs(templateElement);
-						nestingPositions.push(...getNestingPositions(templateElement));
-						util.fixInvalidNesting(doc, true, { rootElement: templateElement });
+						util.fixInvalidNesting(doc, true, { rootElement: templateElement, mergeCopies: true });
 						if (templateElement.querySelector(`[${util.NESTING_TRACK_ID_ATTRIBUTE_NAME}]`)) {
 							templateElement.setAttribute(SHADOWROOT_ATTRIBUTE_NAME, "open");
 						}
@@ -1808,33 +1811,6 @@ function testIgnoredPath(resourceURL) {
 	return resourceURL && (resourceURL.startsWith(DATA_URI_PREFIX) || resourceURL == ABOUT_BLANK_URI);
 }
 
-function getNestingPositions(doc) {
-	return Array.from(doc.querySelectorAll(`[${util.NESTING_TRACK_ID_ATTRIBUTE_NAME}]`)).map(element => ({
-		element,
-		parentNode: element.parentNode,
-		previousSibling: element.previousSibling,
-		nextSibling: element.nextSibling
-	}));
-}
-
-function restoreNestingPositions(positions) {
-	if (positions) {
-		positions.forEach(({ element, parentNode, previousSibling, nextSibling }) => {
-			if (element.isConnected && parentNode && parentNode.isConnected) {
-				if (previousSibling && previousSibling.parentNode == parentNode) {
-					parentNode.insertBefore(element, previousSibling.nextSibling);
-				} else if (!previousSibling) {
-					parentNode.insertBefore(element, parentNode.firstChild);
-				} else if (nextSibling && nextSibling.parentNode == parentNode) {
-					parentNode.insertBefore(element, nextSibling);
-				} else {
-					parentNode.appendChild(element);
-				}
-			}
-		});
-	}
-}
-
 function collapseRecreatedElements(doc) {
 	const elements = Array.from(doc.querySelectorAll(`[${util.NESTING_RECREATED_ATTRIBUTE_NAME}]`)).reverse();
 	elements.forEach(element => {
@@ -1850,6 +1826,25 @@ function collapseRecreatedElements(doc) {
 }
 
 function removeInsertedParagraphs(doc) {
+	getInsertedParagraphs(doc).forEach((_, paragraph) => paragraph.remove());
+}
+
+function getClosedParagraphs(doc, content) {
+	const parsedDoc = util.parseDocContent(content);
+	const roots = [];
+	addRoots(parsedDoc);
+	const trackIds = new Set();
+	roots.forEach(root => getInsertedParagraphs(root).forEach(trackId => trackIds.add(trackId)));
+	return new Set(Array.from(doc.querySelectorAll(`[${util.NESTING_TRACK_ID_ATTRIBUTE_NAME}]`)).filter(element =>
+		element.tagName == PARAGRAPH_TAG_NAME && trackIds.has(element.getAttribute(util.NESTING_TRACK_ID_ATTRIBUTE_NAME))));
+
+	function addRoots(root) {
+		roots.push(root);
+		root.querySelectorAll("template").forEach(templateElement => addRoots(templateElement.content));
+	}
+}
+
+function getInsertedParagraphs(doc) {
 	const trackedElements = new Map();
 	doc.querySelectorAll(`[${util.NESTING_TRACK_ID_ATTRIBUTE_NAME}]`).forEach(element =>
 		trackedElements.set(element.getAttribute(util.NESTING_TRACK_ID_ATTRIBUTE_NAME), element));
@@ -1858,33 +1853,33 @@ function removeInsertedParagraphs(doc) {
 		const parentTrackId = getParentTrackId(trackId);
 		const expectedParent = trackedElements.get(parentTrackId);
 		if (expectedParent && element.parentElement != expectedParent && !element.contains(expectedParent) &&
-			testParagraphExpectedAncestor(trackedElements, parentTrackId)) {
+			getExpectedParagraphTrackId(trackedElements, parentTrackId)) {
 			displacedElements.add(element);
 		}
 	});
-	const insertedParagraphs = new Set();
+	const insertedParagraphs = new Map();
 	displacedElements.forEach(element => {
 		let sibling = element.nextSibling;
 		while (sibling && (sibling.nodeType != 1 || displacedElements.has(sibling))) {
 			sibling = sibling.nextSibling;
 		}
 		if (sibling && sibling.tagName == PARAGRAPH_TAG_NAME && !sibling.attributes.length && !sibling.childNodes.length) {
-			insertedParagraphs.add(sibling);
+			const trackId = element.getAttribute(util.NESTING_TRACK_ID_ATTRIBUTE_NAME);
+			insertedParagraphs.set(sibling, getExpectedParagraphTrackId(trackedElements, getParentTrackId(trackId)));
 		}
 	});
-	insertedParagraphs.forEach(paragraph => paragraph.remove());
+	return insertedParagraphs;
 }
 
-function testParagraphExpectedAncestor(trackedElements, trackId) {
+function getExpectedParagraphTrackId(trackedElements, trackId) {
 	let element = trackedElements.get(trackId);
 	while (element) {
 		if (element.tagName == PARAGRAPH_TAG_NAME) {
-			return true;
+			return trackId;
 		}
 		trackId = getParentTrackId(trackId);
 		element = trackId ? trackedElements.get(trackId) : null;
 	}
-	return false;
 }
 
 function getParentTrackId(trackId) {

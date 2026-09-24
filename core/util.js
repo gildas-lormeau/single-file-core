@@ -185,8 +185,8 @@ function getInstance(utilOptions) {
 		postProcessDoc(doc, markedElements, invalidElements) {
 			helper.postProcessDoc(doc, markedElements, invalidElements);
 		},
-		serialize(doc, compressHTML) {
-			return modules.serializer.process(doc, compressHTML);
+		serialize(doc, compressHTML, omittedEndTagElements) {
+			return modules.serializer.process(doc, compressHTML, omittedEndTagElements);
 		},
 		removeQuotes(string) {
 			return helper.removeQuotes(string);

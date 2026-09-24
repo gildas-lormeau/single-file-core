@@ -59,7 +59,7 @@ export {
 	process
 };
 
-function process(doc, compressHTML) {
+function process(doc, compressHTML, omittedEndTagElements) {
 	const docType = doc.doctype;
 	let docTypeString = "";
 	if (docType) {
@@ -74,16 +74,16 @@ function process(doc, compressHTML) {
 			docTypeString += " [" + docType.internalSubset + "]";
 		docTypeString += "> ";
 	}
-	return docTypeString + serialize(doc.documentElement, compressHTML);
+	return docTypeString + serialize(doc.documentElement, compressHTML, omittedEndTagElements);
 }
 
-function serialize(node, compressHTML) {
+function serialize(node, compressHTML, omittedEndTagElements) {
 	if (node.nodeType == Node_TEXT_NODE) {
 		return serializeTextNode(node);
 	} else if (node.nodeType == Node_COMMENT_NODE) {
 		return serializeCommentNode(node);
 	} else if (node.nodeType == Node_ELEMENT_NODE) {
-		return serializeElement(node, compressHTML);
+		return serializeElement(node, compressHTML, omittedEndTagElements);
 	}
 }
 
@@ -107,7 +107,7 @@ function serializeCommentNode(commentNode) {
 	return "<!--" + commentNode.textContent + "-->";
 }
 
-function serializeElement(element, compressHTML) {
+function serializeElement(element, compressHTML, omittedEndTagElements) {
 	const tagName = getTagName(element);
 	const omittedStartTag = compressHTML && OMITTED_START_TAGS.find(omittedStartTag => tagName == getTagName(omittedStartTag) && omittedStartTag.accept(element));
 	let content = "";
@@ -119,9 +119,9 @@ function serializeElement(element, compressHTML) {
 	if (tagName == "TEMPLATE" && !element.childNodes.length) {
 		content += element.innerHTML;
 	} else {
-		Array.from(element.childNodes).forEach(childNode => content += serialize(childNode, compressHTML));
+		Array.from(element.childNodes).forEach(childNode => content += serialize(childNode, compressHTML, omittedEndTagElements));
 	}
-	const omittedEndTag = compressHTML && OMITTED_END_TAGS.find(omittedEndTag => tagName == getTagName(omittedEndTag) && omittedEndTag.accept(element.nextSibling, element));
+	const omittedEndTag = (omittedEndTagElements && omittedEndTagElements.has(element)) || compressHTML && OMITTED_END_TAGS.find(omittedEndTag => tagName == getTagName(omittedEndTag) && omittedEndTag.accept(element.nextSibling, element));
 	if (!omittedEndTag && !VOID_TAG_NAMES.includes(tagName)) {
 		content += "</" + tagName.toLowerCase() + ">";
 	}
