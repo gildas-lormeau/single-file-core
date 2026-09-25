@@ -77,13 +77,18 @@ function createProcessor(pageResources, options) {
 // A data: URL carries its own bytes, and the fetch core is given in the field — the page's in the
 // extension, the browser's in the CLI — resolves one without asking the network. The map here holds
 // the pages and their files, never a data: URL, so those go to the real fetch rather than to a 404.
-function fetchResource(url) {
+// A resource declaring `onRequest` is handed the options core passed to the fetch, which is how a
+// suite reads the headers of a request.
+function fetchResource(url, fetchOptions) {
 	if (url.startsWith("data:")) {
 		return globalThis.fetch(url);
 	}
 	const resource = resources.get(url);
 	if (!resource) {
 		return Promise.resolve(new Response("", { status: 404 }));
+	}
+	if (resource.onRequest) {
+		resource.onRequest(fetchOptions);
 	}
 	const contentType = resource.contentType || "text/html";
 	const response = new Response(resource.body, {

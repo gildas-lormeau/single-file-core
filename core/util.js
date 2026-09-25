@@ -262,7 +262,7 @@ function getInstance(utilOptions) {
 			});
 		}
 		try {
-			const accept = options.acceptHeaders ? options.acceptHeaders[options.expectedType] : "*/*";
+			const accept = (options.acceptHeaders && options.acceptHeaders[options.expectedType]) || "*/*";
 			if (options.frameId) {
 				try {
 					response = await Promise.race([
