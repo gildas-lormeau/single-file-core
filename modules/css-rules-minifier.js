@@ -33,9 +33,7 @@ const PSEUDO_ELEMENT_SYNONYMS = new Set(["after", "before", "first-letter", "fir
 const FUNCTIONAL_PSEUDO_CLASS_NAMES = new Set(["not", "is", "where", "has", "nth-child", "nth-last-child"]);
 const MEDIA_AT_RULE_NAME = "media";
 const SUPPORTS_AT_RULE_NAME = "supports";
-const STARTING_STYLE_AT_RULE_NAME = "starting-style";
-const CONDITIONAL_AT_RULE_NAMES = new Set([MEDIA_AT_RULE_NAME, SUPPORTS_AT_RULE_NAME, "container", STARTING_STYLE_AT_RULE_NAME]);
-const UNCERTAIN_CONDITIONAL_AT_RULE_NAMES = new Set([MEDIA_AT_RULE_NAME, SUPPORTS_AT_RULE_NAME, STARTING_STYLE_AT_RULE_NAME]);
+const CERTAIN_CONDITIONAL_AT_RULE_NAMES = new Set(["container"]);
 const RULE_TYPE = "Rule";
 const AT_RULE_TYPE = "Atrule";
 const NESTING_SELECTOR_TYPE = "NestingSelector";
@@ -48,6 +46,7 @@ const IDENTIFIER_TYPE = "Identifier";
 const PSEUDO_ELEMENT_SELECTOR_TYPE = "PseudoElementSelector";
 const LAYER_NAME = "layer";
 const SCOPE_NAME = "scope";
+const UNCONDITIONAL_AT_RULE_NAMES = new Set([LAYER_NAME, SCOPE_NAME]);
 const IMPORT_NAME = "import";
 const FONT_FACE_NAME = "font-face";
 const KEYFRAMES_NAME = "keyframes";
@@ -308,7 +307,7 @@ function createAnonymousLayerSegment(docContext) {
 }
 
 function buildConditionalStack(conditionalStack, ruleData, docContext) {
-	const isConditional = CONDITIONAL_AT_RULE_NAMES.has(decodeName(ruleData.name));
+	const isConditional = !UNCONDITIONAL_AT_RULE_NAMES.has(decodeName(ruleData.name));
 	return isConditional
 		? [...conditionalStack, { name: ruleData.name, prelude: getPreludeText(ruleData.prelude, docContext) }]
 		: conditionalStack;
@@ -342,7 +341,7 @@ function isImportRule(ruleData) {
 
 function registerLayerDeclaration(layerStack, layerSegments, conditionalStack, docContext) {
 	const position = docContext.layerDeclarationCounter++;
-	const certain = !conditionalStack.some(context => UNCERTAIN_CONDITIONAL_AT_RULE_NAMES.has(decodeName(context.name)));
+	const certain = !conditionalStack.some(context => !CERTAIN_CONDITIONAL_AT_RULE_NAMES.has(decodeName(context.name)));
 	const segments = [...layerStack, ...layerSegments];
 	for (let length = layerStack.length + 1; length <= segments.length; length++) {
 		const fullLayerName = getFullLayerName(segments.slice(0, length));
