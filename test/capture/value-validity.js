@@ -27,7 +27,7 @@ const UNKNOWN_PROPERTY = ["view-transition-group", "row-rule", "scroll-start", "
 // browser stand-in that records what it was asked.
 const BROWSER_SUPPORTS = new Set([
 	"color:red", "color:blue", "color:var(--x)", "display:flex", "display:-webkit-box",
-	"background-image:-webkit-linear-gradient(red,blue)"
+	"background-image:-webkit-linear-gradient(red,blue)", "color:color-mix(in srgb,red,blue,lime)"
 ]);
 
 const cases = [
@@ -179,6 +179,34 @@ const cases = [
 		body: "<p>t</p>",
 		kept: ["p{width:--double(50px)}"],
 		removed: []
+	},
+	// A value this browser accepts may still be one another browser rejects, and there the loser is
+	// what renders: Firefox accepts a three-color color-mix(), pruned the rgb() written before it, and
+	// the page saved there was black in Chrome 153. A winner prunes only when the vendored css-tree
+	// dictionary knows its value too; otherwise its losers are kept down to the first value it knows.
+	{
+		label: "browser: a fallback in the same rule survives a winner the dictionary does not know",
+		css: "p { color: red; color: color-mix(in srgb, red, blue, lime) }",
+		body: "<p>t</p>",
+		kept: ["color:red", "color-mix(in srgb,red,blue,lime)"],
+		removed: [],
+		browser: true
+	},
+	{
+		label: "browser: a fallback in another rule survives it too",
+		css: "p { color: red } .a { color: color-mix(in srgb, red, blue, lime) }",
+		body: "<p class=\"a\">t</p>",
+		kept: ["p{color:red}", "color-mix(in srgb,red,blue,lime)"],
+		removed: [],
+		browser: true
+	},
+	{
+		label: "browser: a known winner still prunes the fallback in its rule",
+		css: "p { color: red; color: blue }",
+		body: "<p>t</p>",
+		kept: ["p{color:blue}"],
+		removed: ["red"],
+		browser: true
 	},
 	{
 		label: "browser: a valid value written last still prunes what it beats",

@@ -176,6 +176,7 @@ function process(doc, stylesheets) {
 		scopedSelectorTexts: new Map(),
 		supportedSelectors: new Map(),
 		valueValidities: new Map(),
+		baselineValues: new Map(),
 		preludeTexts: new Map(),
 		rulesCounter: 0,
 		scopeIdCounter: 0
@@ -823,7 +824,9 @@ function computeCascadedStylesForElement(element, winningDeclarations, docContex
 				winningDeclarations.add(declaration);
 				if (validity === VALIDITY_VALID) {
 					hasWinningRevertLayer ||= hasRevertLayerKeyword(declaration, docContext);
-					break;
+					if (isBaselineValue(declaration, docContext)) {
+						break;
+					}
 				}
 			}
 		});
@@ -950,6 +953,28 @@ function collectDeclarationItemsForElement(element, docContext) {
 				});
 			}
 		}
+	}
+}
+
+function isBaselineValue(declaration, docContext) {
+	const { property, value } = declaration.data;
+	if (property.startsWith(CUSTOM_PROPERTY_PREFIX)) {
+		return true;
+	}
+	if (!docContext.baselineValues.has(value)) {
+		docContext.baselineValues.set(value, getBaselineValue(property, value));
+	}
+	return docContext.baselineValues.get(value);
+}
+
+function getBaselineValue(property, value) {
+	if (cssTree.find(value, node => node.type === FUNCTION_TYPE && decodeName(node.name) === VAR_FUNCTION_NAME)) {
+		return true;
+	}
+	try {
+		return Boolean(cssTree.lexer.matchProperty(property, value).matched);
+	} catch {
+		return false;
 	}
 }
 
