@@ -716,7 +716,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 				setNestingMarkersData(shadowRoot);
 				shadowRootInfo.content = shadowRoot.innerHTML;
 				shadowRootInfo.mode = shadowRoot.mode;
-				shadowRootInfo.delegateFocus = shadowRoot.delegatesFocus;
+				shadowRootInfo.delegatesFocus = shadowRoot.delegatesFocus;
 				shadowRootInfo.clonable = shadowRoot.clonable;
 				shadowRootInfo.serializable = shadowRoot.serializable;
 				try {
