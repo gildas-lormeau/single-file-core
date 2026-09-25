@@ -115,7 +115,8 @@ class ProcessorHelperCommon {
 		resourcePromises.push(this.processAttribute(doc, doc.querySelectorAll("audio[src], audio > source[src]"), "src", baseURI, options, "audio", resources, false, batchRequest, styles));
 		resourcePromises.push(this.processAttribute(doc, doc.querySelectorAll("video[src], video > source[src]"), "src", baseURI, options, "video", resources, false, batchRequest, styles));
 		resourcePromises.push(this.processAttribute(doc, doc.querySelectorAll("audio track[src], video track[src]"), "src", baseURI, options, null, resources, false, batchRequest, styles));
-		resourcePromises.push(this.processAttribute(doc, doc.querySelectorAll("model[src]"), "src", baseURI, options, null, resources, false, batchRequest, styles));
+		resourcePromises.push(this.processAttribute(doc, doc.querySelectorAll("model[src], model > source[src]"), "src", baseURI, options, null, resources, false, batchRequest, styles));
+		resourcePromises.push(this.processAttribute(doc, doc.querySelectorAll("model[environmentmap]"), "environmentmap", baseURI, options, null, resources, false, batchRequest, styles));
 		await Promise.all(resourcePromises);
 		if (options.saveFavicon) {
 			this.processShortcutIcons(doc);
