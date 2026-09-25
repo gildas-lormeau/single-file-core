@@ -504,14 +504,8 @@ function getProcessorHelperClass(utilInstance) {
 		}
 
 		generateStylesheetContent(stylesheet, options) {
-			if (options.compressCSS) {
-				this.removeSingleLineCssComments(stylesheet);
-			}
 			this.replacePseudoClassDefined(stylesheet);
 			let stylesheetContent = cssTree.generate(stylesheet);
-			if (options.compressCSS) {
-				stylesheetContent = util.compressCSS(stylesheetContent);
-			}
 			if (options.saveOriginalURLs) {
 				stylesheetContent = replaceOriginalURLs(stylesheetContent);
 			}

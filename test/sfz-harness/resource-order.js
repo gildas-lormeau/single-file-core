@@ -27,8 +27,7 @@ globalThis.MutationObserver = class MutationObserver { observe() { } };
 const { getProcessorHelperClass } = await import("../../core/lib/processor-helper.js");
 
 const util = {
-	getDoctypeString: () => "<!DOCTYPE html>",
-	compressCSS: content => content
+	getDoctypeString: () => "<!DOCTYPE html>"
 };
 const ProcessorHelper = getProcessorHelperClass(util, cssTree);
 const helper = new ProcessorHelper();

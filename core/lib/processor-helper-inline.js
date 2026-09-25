@@ -109,9 +109,6 @@ function getProcessorHelperClass(utilInstance) {
 					}
 				}
 				if (stylesheet && stylesheet.children) {
-					if (options.compressCSS) {
-						this.removeSingleLineCssComments(stylesheet);
-					}
 					this.replacePseudoClassDefined(stylesheet);
 					options.inlineStylesheets.forEach(({ content, styleElement }, index) => {
 						if (content === element.textContent) {
@@ -471,9 +468,6 @@ function getProcessorHelperClass(utilInstance) {
 
 		generateStylesheetContent(stylesheet, options) {
 			let stylesheetContent = cssTree.generate(stylesheet);
-			if (options.compressCSS) {
-				stylesheetContent = util.compressCSS(stylesheetContent);
-			}
 			if (options.saveOriginalURLs) {
 				stylesheetContent = replaceOriginalURLs(stylesheetContent);
 			}

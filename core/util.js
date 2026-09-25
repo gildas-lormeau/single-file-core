@@ -170,9 +170,6 @@ function getInstance(utilOptions) {
 		removeUnusedFonts(doc, stylesheets, styles, options) {
 			return modules.fontsMinifier.process(doc, stylesheets, styles, options);
 		},
-		compressCSS(content, options) {
-			return vendor.cssMinifier.processString(content, options);
-		},
 		minifyMedias(stylesheets, options) {
 			return modules.mediasAltMinifier.process(stylesheets, options);
 		},

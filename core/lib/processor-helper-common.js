@@ -334,19 +334,6 @@ class ProcessorHelperCommon {
 		}
 	}
 
-	removeSingleLineCssComments(stylesheet) {
-		if (stylesheet.children) {
-			const removedRules = [];
-			for (let cssRule = stylesheet.children.head; cssRule; cssRule = cssRule.next) {
-				const ruleData = cssRule.data;
-				if (ruleData.type == "Raw" && ruleData.value && ruleData.value.trim().startsWith("//")) {
-					removedRules.push(cssRule);
-				}
-			}
-			removedRules.forEach(cssRule => stylesheet.children.remove(cssRule));
-		}
-	}
-
 	replacePseudoClassDefined(stylesheet) {
 		cssTree.walk(stylesheet, {
 			enter: function (node, item, list) {
