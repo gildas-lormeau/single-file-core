@@ -434,6 +434,8 @@ const SHADOWROOT_ATTRIBUTE_NAME = "shadowrootmode";
 const SHADOWROOT_DELEGATES_FOCUS = "shadowrootdelegatesfocus";
 const SHADOWROOT_CLONABLE = "shadowrootclonable";
 const SHADOWROOT_SERIALIZABLE = "shadowrootserializable";
+const SLOT_NAME_PREFIX = "single-file-slot-";
+const UNASSIGNED_SLOT_NAME = SLOT_NAME_PREFIX + "unassigned";
 const SCRIPT_OPTIONS = "data-single-file-options";
 const JAVASCRIPT_URI_PROTOCOL = "javascript:";
 const DISABLED_SCRIPT_URI = "javascript:void(0)";
@@ -1503,6 +1505,17 @@ class Processor {
 						util.fixInvalidNesting(doc, true, { rootElement: templateElement, mergeCopies: true });
 						if (templateElement.querySelector(`[${util.NESTING_TRACK_ID_ATTRIBUTE_NAME}]`)) {
 							templateElement.setAttribute(SHADOWROOT_ATTRIBUTE_NAME, "open");
+						}
+						if (shadowRootData.slotAssignment == "manual") {
+							templateElement.querySelectorAll("[" + util.SLOT_ATTRIBUTE_NAME + "]").forEach(slotElement => {
+								slotElement.setAttribute("name", SLOT_NAME_PREFIX + slotElement.getAttribute(util.SLOT_ATTRIBUTE_NAME));
+								slotElement.removeAttribute(util.SLOT_ATTRIBUTE_NAME);
+							});
+							Array.from(element.children).forEach(childElement => {
+								const indexSlot = childElement.getAttribute(util.ASSIGNED_SLOT_ATTRIBUTE_NAME);
+								childElement.setAttribute("slot", indexSlot === null ? UNASSIGNED_SLOT_NAME : SLOT_NAME_PREFIX + indexSlot);
+								childElement.removeAttribute(util.ASSIGNED_SLOT_ATTRIBUTE_NAME);
+							});
 						}
 						processElement(templateElement);
 						if (element.firstChild) {

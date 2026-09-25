@@ -51,6 +51,8 @@ const KEPT_CONTENT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "kept-content
 const HIDDEN_FRAME_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "hidden-frame";
 const PRESERVED_SPACE_ELEMENT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "preserved-space-element";
 const SHADOW_ROOT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "shadow-root-element";
+const SLOT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "slot";
+const ASSIGNED_SLOT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "assigned-slot";
 const WIN_ID_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "win-id";
 const IMAGE_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "image";
 const POSTER_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "poster";
@@ -165,6 +167,8 @@ export {
 	INPUT_VALUE_ATTRIBUTE_NAME,
 	INPUT_CHECKED_ATTRIBUTE_NAME,
 	SHADOW_ROOT_ATTRIBUTE_NAME,
+	SLOT_ATTRIBUTE_NAME,
+	ASSIGNED_SLOT_ATTRIBUTE_NAME,
 	STYLE_ATTRIBUTE_NAME,
 	LAZY_SRC_ATTRIBUTE_NAME,
 	STYLESHEET_ATTRIBUTE_NAME,
@@ -714,6 +718,19 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 				}
 				getElementsInfo(win, doc, shadowRoot, options, data, adoptedStyleSheetsCache, elementHidden);
 				setNestingMarkersData(shadowRoot);
+				if (shadowRoot.slotAssignment == "manual") {
+					shadowRootInfo.slotAssignment = shadowRoot.slotAssignment;
+					shadowRoot.querySelectorAll("slot").forEach((slotElement, indexSlot) => {
+						slotElement.setAttribute(SLOT_ATTRIBUTE_NAME, indexSlot);
+						data.markedElements.push(slotElement);
+						slotElement.assignedNodes().forEach(node => {
+							if (node.nodeType == ELEMENT_NODE_TYPE) {
+								node.setAttribute(ASSIGNED_SLOT_ATTRIBUTE_NAME, indexSlot);
+								data.markedElements.push(node);
+							}
+						});
+					});
+				}
 				shadowRootInfo.content = shadowRoot.innerHTML;
 				shadowRootInfo.mode = shadowRoot.mode;
 				shadowRootInfo.delegatesFocus = shadowRoot.delegatesFocus;
@@ -1070,7 +1087,7 @@ function postProcessDoc(doc, markedElements, invalidElements) {
 		doc.head.querySelectorAll("*:not(base):not(link):not(meta):not(noscript):not(script):not(style):not(template):not(title)").forEach(element => element.removeAttribute("hidden"));
 	}
 	if (!markedElements) {
-		const singleFileAttributes = [REMOVED_CONTENT_ATTRIBUTE_NAME, HIDDEN_FRAME_ATTRIBUTE_NAME, HIDDEN_CONTENT_ATTRIBUTE_NAME, PRESERVED_SPACE_ELEMENT_ATTRIBUTE_NAME, IMAGE_ATTRIBUTE_NAME, POSTER_ATTRIBUTE_NAME, VIDEO_ATTRIBUTE_NAME, CANVAS_ATTRIBUTE_NAME, INPUT_VALUE_ATTRIBUTE_NAME, INPUT_CHECKED_ATTRIBUTE_NAME, SHADOW_ROOT_ATTRIBUTE_NAME, STYLESHEET_ATTRIBUTE_NAME, ASYNC_SCRIPT_ATTRIBUTE_NAME];
+		const singleFileAttributes = [REMOVED_CONTENT_ATTRIBUTE_NAME, HIDDEN_FRAME_ATTRIBUTE_NAME, HIDDEN_CONTENT_ATTRIBUTE_NAME, PRESERVED_SPACE_ELEMENT_ATTRIBUTE_NAME, IMAGE_ATTRIBUTE_NAME, POSTER_ATTRIBUTE_NAME, VIDEO_ATTRIBUTE_NAME, CANVAS_ATTRIBUTE_NAME, INPUT_VALUE_ATTRIBUTE_NAME, INPUT_CHECKED_ATTRIBUTE_NAME, SHADOW_ROOT_ATTRIBUTE_NAME, SLOT_ATTRIBUTE_NAME, ASSIGNED_SLOT_ATTRIBUTE_NAME, STYLESHEET_ATTRIBUTE_NAME, ASYNC_SCRIPT_ATTRIBUTE_NAME];
 		markedElements = doc.querySelectorAll(singleFileAttributes.map(name => "[" + name + "]").join(","));
 	}
 	markedElements.forEach(element => {
@@ -1086,6 +1103,8 @@ function postProcessDoc(doc, markedElements, invalidElements) {
 		element.removeAttribute(INPUT_VALUE_ATTRIBUTE_NAME);
 		element.removeAttribute(INPUT_CHECKED_ATTRIBUTE_NAME);
 		element.removeAttribute(SHADOW_ROOT_ATTRIBUTE_NAME);
+		element.removeAttribute(SLOT_ATTRIBUTE_NAME);
+		element.removeAttribute(ASSIGNED_SLOT_ATTRIBUTE_NAME);
 		element.removeAttribute(STYLESHEET_ATTRIBUTE_NAME);
 		element.removeAttribute(ASYNC_SCRIPT_ATTRIBUTE_NAME);
 		element.removeAttribute(STYLE_ATTRIBUTE_NAME);
