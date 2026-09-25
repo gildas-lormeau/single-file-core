@@ -53,6 +53,7 @@ const PRESERVED_SPACE_ELEMENT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "p
 const SHADOW_ROOT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "shadow-root-element";
 const SLOT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "slot";
 const ASSIGNED_SLOT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "assigned-slot";
+const ASSIGNED_SLOT_SEPARATOR = ".";
 const WIN_ID_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "win-id";
 const IMAGE_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "image";
 const POSTER_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "poster";
@@ -169,6 +170,7 @@ export {
 	SHADOW_ROOT_ATTRIBUTE_NAME,
 	SLOT_ATTRIBUTE_NAME,
 	ASSIGNED_SLOT_ATTRIBUTE_NAME,
+	ASSIGNED_SLOT_SEPARATOR,
 	STYLE_ATTRIBUTE_NAME,
 	LAZY_SRC_ATTRIBUTE_NAME,
 	STYLESHEET_ATTRIBUTE_NAME,
@@ -723,11 +725,9 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 					shadowRoot.querySelectorAll("slot").forEach((slotElement, indexSlot) => {
 						slotElement.setAttribute(SLOT_ATTRIBUTE_NAME, indexSlot);
 						data.markedElements.push(slotElement);
-						slotElement.assignedNodes().forEach(node => {
-							if (node.nodeType == ELEMENT_NODE_TYPE) {
-								node.setAttribute(ASSIGNED_SLOT_ATTRIBUTE_NAME, indexSlot);
-								data.markedElements.push(node);
-							}
+						slotElement.assignedNodes().filter(node => node.nodeType == ELEMENT_NODE_TYPE).forEach((node, indexNode) => {
+							node.setAttribute(ASSIGNED_SLOT_ATTRIBUTE_NAME, indexSlot + ASSIGNED_SLOT_SEPARATOR + indexNode);
+							data.markedElements.push(node);
 						});
 					});
 				}

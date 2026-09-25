@@ -436,6 +436,7 @@ const SHADOWROOT_CLONABLE = "shadowrootclonable";
 const SHADOWROOT_SERIALIZABLE = "shadowrootserializable";
 const SLOT_NAME_PREFIX = "single-file-slot-";
 const UNASSIGNED_SLOT_NAME = SLOT_NAME_PREFIX + "unassigned";
+const SLOT_NAME_SEPARATOR = "-";
 const SCRIPT_OPTIONS = "data-single-file-options";
 const JAVASCRIPT_URI_PROTOCOL = "javascript:";
 const DISABLED_SCRIPT_URI = "javascript:void(0)";
@@ -1507,14 +1508,20 @@ class Processor {
 							templateElement.setAttribute(SHADOWROOT_ATTRIBUTE_NAME, "open");
 						}
 						if (shadowRootData.slotAssignment == "manual") {
+							const splitSlots = nameAssignedElements(element);
 							templateElement.querySelectorAll("[" + util.SLOT_ATTRIBUTE_NAME + "]").forEach(slotElement => {
-								slotElement.setAttribute("name", SLOT_NAME_PREFIX + slotElement.getAttribute(util.SLOT_ATTRIBUTE_NAME));
+								const indexSlot = slotElement.getAttribute(util.SLOT_ATTRIBUTE_NAME);
 								slotElement.removeAttribute(util.SLOT_ATTRIBUTE_NAME);
-							});
-							Array.from(element.children).forEach(childElement => {
-								const indexSlot = childElement.getAttribute(util.ASSIGNED_SLOT_ATTRIBUTE_NAME);
-								childElement.setAttribute("slot", indexSlot === null ? UNASSIGNED_SLOT_NAME : SLOT_NAME_PREFIX + indexSlot);
-								childElement.removeAttribute(util.ASSIGNED_SLOT_ATTRIBUTE_NAME);
+								if (splitSlots.has(indexSlot)) {
+									splitSlots.get(indexSlot).forEach(position => {
+										const splitSlotElement = slotElement.cloneNode(false);
+										splitSlotElement.setAttribute("name", SLOT_NAME_PREFIX + indexSlot + SLOT_NAME_SEPARATOR + position);
+										slotElement.before(splitSlotElement);
+									});
+									slotElement.remove();
+								} else {
+									slotElement.setAttribute("name", SLOT_NAME_PREFIX + indexSlot);
+								}
 							});
 						}
 						processElement(templateElement);
@@ -1842,6 +1849,34 @@ function collapseRecreatedElements(doc) {
 		element.remove();
 	});
 	return elements.length;
+}
+
+function nameAssignedElements(hostElement) {
+	const assignedElements = new Map();
+	Array.from(hostElement.children).forEach(childElement => {
+		const assignedSlot = childElement.getAttribute(util.ASSIGNED_SLOT_ATTRIBUTE_NAME);
+		childElement.removeAttribute(util.ASSIGNED_SLOT_ATTRIBUTE_NAME);
+		if (assignedSlot === null) {
+			childElement.setAttribute("slot", UNASSIGNED_SLOT_NAME);
+		} else {
+			const [indexSlot, position] = assignedSlot.split(util.ASSIGNED_SLOT_SEPARATOR);
+			if (!assignedElements.has(indexSlot)) {
+				assignedElements.set(indexSlot, []);
+			}
+			assignedElements.get(indexSlot).push({ childElement, position: Number(position) });
+		}
+	});
+	const splitSlots = new Map();
+	assignedElements.forEach((assigned, indexSlot) => {
+		const inTreeOrder = assigned.every((item, index) => !index || assigned[index - 1].position < item.position);
+		if (inTreeOrder) {
+			assigned.forEach(({ childElement }) => childElement.setAttribute("slot", SLOT_NAME_PREFIX + indexSlot));
+		} else {
+			assigned.forEach(({ childElement, position }) => childElement.setAttribute("slot", SLOT_NAME_PREFIX + indexSlot + SLOT_NAME_SEPARATOR + position));
+			splitSlots.set(indexSlot, assigned.map(({ position }) => position).sort((positionA, positionB) => positionA - positionB));
+		}
+	});
+	return splitSlots;
 }
 
 function removeInsertedParagraphs(doc) {
