@@ -100,6 +100,23 @@ const PARTIAL_CSS = INDETERMINATE_CSS.replace("body:has(.has:hover) .has", ".has
 const PARTIAL_MARKUP = "<p class=\"has active\">active</p><p class=\"has\">has</p><p class=\"other\">other</p>";
 const PARTIAL_PAGE = html(PARTIAL_MARKUP, "<style>" + PARTIAL_CSS + "</style>");
 
+// `revert-rule` (Safari 27) rolls the cascade back to what it would be without the rule declaring
+// it, so what it reaches is a loser too, in any layer or none. The pass knew only `revert-layer`,
+// pruned `.rr { color: red }` as beaten by the rule below it, and the saved page went black where
+// the live page is red: measured in Safari 27, and in Chrome 153, whose save made the same cut. The
+// element protection above covers it unchanged, since keeping every declaration that reaches the
+// element is a superset of what either keyword can roll back to.
+const REVERT_RULE_CSS = [
+	".rr { color: red; padding: 0 }",
+	".rr { color: revert-rule; padding: 1px }",
+	".rrvar { color: red }",
+	".rrvar { color: blue; color: var(--nope, revert-rule) }",
+	".rrno { color: red }",
+	".rrno { color: blue }"
+].join("\n");
+const REVERT_RULE_MARKUP = "<p class=\"rr\">rr</p><p class=\"rrvar\">rrvar</p><p class=\"rrno\">rrno</p>";
+const REVERT_RULE_PAGE = html(REVERT_RULE_MARKUP, "<style>" + REVERT_RULE_CSS + "</style>");
+
 const resources = {
 	[PAGE_URL]: { body: PAGE }
 };
@@ -146,6 +163,14 @@ let failed = false;
 	check("a partly matching state selector keeps what its revert-layer rolls back to", content.includes(".has{color:red}"), true);
 	check("and it keeps every loser on the page, not only on what it matched", content.includes(".other{color:red}"), true);
 	check("control: the partly matching rule itself is kept", content.includes("color:revert-layer"), true);
+}
+
+{
+	const content = await capture({ [PAGE_URL]: { body: REVERT_RULE_PAGE } }, { url: PAGE_URL, content: REVERT_RULE_PAGE, removeUnusedStyles: true });
+	check("the declaration revert-rule rolls back to is kept", content.includes(".rr{color:red"), true);
+	check("the revert-rule declaration is kept", content.includes("color:revert-rule;"), true);
+	check("a revert-rule reached through a var() fallback keeps it too", content.includes(".rrvar{color:red}"), true);
+	check("control: an element with no revert-rule still loses its losers", content.includes(".rrno{color:red}"), false);
 }
 
 if (failed) {

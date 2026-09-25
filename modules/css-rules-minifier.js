@@ -84,8 +84,9 @@ const CUSTOM_PROPERTY_PREFIX = "--";
 const LAYER_NAME_SEPARATOR = ".";
 const LAYER_NAME_KEY_SEPARATOR = "\u0000";
 const CONTEXT_KEY_SEPARATOR = "|";
-const REVERT_LAYER_KEYWORD = "revert-layer";
-const REVERT_LAYER_TEST = /(^|[^-\w])revert-layer([^-\w]|$)/i;
+const REVERT_RULE_KEYWORD = "revert-rule";
+const REVERT_LAYER_KEYWORDS = ["revert-layer", REVERT_RULE_KEYWORD];
+const REVERT_LAYER_TEST = /(^|[^-\w])revert-(layer|rule)([^-\w]|$)/i;
 const NAMESPACE_AT_RULE_NAME = "namespace";
 const URL_TYPE = "Url";
 const STRING_TYPE = "String";
@@ -134,6 +135,9 @@ function getValueValidity(property, value) {
 		return isVendorValue ? VALIDITY_INVALID : VALIDITY_UNKNOWN;
 	}
 	if (cssTree.find(value, node => node.type === FUNCTION_TYPE && decodeName(node.name) === VAR_FUNCTION_NAME)) {
+		return VALIDITY_VALID;
+	}
+	if (name && decodeIdentifier(name).toLowerCase() === REVERT_RULE_KEYWORD) {
 		return VALIDITY_VALID;
 	}
 	let match;
@@ -903,7 +907,7 @@ function findRevertLayerKeyword(declaration) {
 	if (value.type === RAW_TYPE) {
 		return REVERT_LAYER_TEST.test(decodeIdentifier(value.value));
 	}
-	return Boolean(cssTree.find(value, node => node.type === IDENTIFIER_TYPE && decodeIdentifier(node.name).toLowerCase() === REVERT_LAYER_KEYWORD));
+	return Boolean(cssTree.find(value, node => node.type === IDENTIFIER_TYPE && REVERT_LAYER_KEYWORDS.includes(decodeIdentifier(node.name).toLowerCase())));
 }
 
 function createContextKey(conditionalStack) {
