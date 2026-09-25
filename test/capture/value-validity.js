@@ -12,9 +12,11 @@ const UNKNOWN_PROPERTY = ["view-transition-group", "row-rule", "scroll-start", "
 
 // A declaration's value now gets one of three verdicts before it enters the cascade. Valid: the
 // browser accepts it, it competes and prunes. Invalid: dropped outright. Unknown: the browser
-// rejects it but it is not vendor-prefixed, so it may be a typo or syntax newer than this browser,
-// and telling the two apart is impossible; it is kept, never prunes what it would beat, and is
-// itself dropped only when a valid declaration beats it. Before, an identifier or a function was
+// rejects it, so it may be a typo, syntax newer than this browser, or a prefix another engine
+// reads, and telling them apart is impossible; it is kept, never prunes what it would beat, and is
+// itself dropped only when a valid declaration beats it. A rejected vendor value used to be
+// invalid, "dead here", so a page saved in Chrome lost its -moz- values for Firefox, and a
+// dashed ident, which starts with "-" too, went with them. Before, an identifier or a function was
 // never validated at all, so `color: red; color: bogus` kept `bogus`, pruned `red`, and the saved
 // page rendered black; the same for `color: future-color(1)`, the ordinary progressive-enhancement
 // pattern. And a vendor function was asked of the browser by its NAME alone,
@@ -120,7 +122,15 @@ const cases = [
 		browser: true
 	},
 	{
-		label: "browser: a rejected vendor value is dropped as dead here",
+		label: "browser: a rejected vendor value is kept for the browsers that read it",
+		css: "p { display: flex; display: -ms-flexbox }",
+		body: "<p>t</p>",
+		kept: ["p{display:flex;display:-ms-flexbox}"],
+		removed: [],
+		browser: true
+	},
+	{
+		label: "browser: a rejected vendor value a valid one beats is still dropped",
 		css: "p { display: -ms-flexbox; display: flex }",
 		body: "<p>t</p>",
 		kept: ["p{display:flex}"],
@@ -143,6 +153,32 @@ const cases = [
 		removed: [],
 		browser: true,
 		asked: ["background-image:-webkit-linear-gradient(red,blue)"]
+	},
+	// A value named with a dashed ident was the worst hit: a custom function from `@function`, or the
+	// timeline, anchor or palette a property names. Firefox saved `width: --double(50px)` as nothing,
+	// and the page lost the width in Chrome, which renders it.
+	{
+		label: "browser: a rejected custom function is kept",
+		css: "p { width: --double(50px) }",
+		body: "<p>t</p>",
+		kept: ["p{width:--double(50px)}"],
+		removed: [],
+		browser: true
+	},
+	{
+		label: "browser: a rejected dashed identifier is kept",
+		css: "p { animation-timeline: --scroller }",
+		body: "<p>t</p>",
+		kept: ["p{animation-timeline:--scroller}"],
+		removed: [],
+		browser: true
+	},
+	{
+		label: "lexer: a custom function the dictionary cannot know is kept",
+		css: "p { width: --double(50px) }",
+		body: "<p>t</p>",
+		kept: ["p{width:--double(50px)}"],
+		removed: []
 	},
 	{
 		label: "browser: a valid value written last still prunes what it beats",

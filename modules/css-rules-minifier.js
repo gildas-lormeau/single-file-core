@@ -121,7 +121,6 @@ function getValueValidity(property, value) {
 	if (name && INVALID_CSS_ESCAPE_TEST.test(name)) {
 		return VALIDITY_INVALID;
 	}
-	const isVendorValue = Boolean(name && name.startsWith(VENDOR_PREFIX));
 	if (globalThis.CSS && globalThis.CSS.supports) {
 		let supported;
 		try {
@@ -129,11 +128,9 @@ function getValueValidity(property, value) {
 		} catch {
 			return VALIDITY_UNKNOWN;
 		}
-		if (supported) {
-			return VALIDITY_VALID;
-		}
-		return isVendorValue ? VALIDITY_INVALID : VALIDITY_UNKNOWN;
+		return supported ? VALIDITY_VALID : VALIDITY_UNKNOWN;
 	}
+	const isVendorValue = Boolean(name && name.startsWith(VENDOR_PREFIX));
 	if (cssTree.find(value, node => node.type === FUNCTION_TYPE && decodeName(node.name) === VAR_FUNCTION_NAME)) {
 		return VALIDITY_VALID;
 	}

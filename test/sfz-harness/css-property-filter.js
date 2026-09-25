@@ -99,9 +99,11 @@ check("wrong value reports SyntaxMatchError", wrongValue.error && wrongValue.err
 // the last group: with no browser to ask, this must KEEP, which is the same fail-open rule as above.
 //
 // The verdict has three values. A value the browser accepts is valid and takes part in the cascade.
-// A vendor-prefixed value it rejects is invalid and dropped. Any other value it rejects is unknown:
-// it may be a typo or syntax newer than this browser, and telling the two apart is impossible, so
-// it is kept but never allowed to prune the declaration it would beat, which is how
+// A value it rejects is unknown, vendor-prefixed or not: it may be a typo, syntax newer than this
+// browser, or a prefix another engine reads, and telling them apart is impossible, so it is kept
+// but never allowed to prune the declaration it would beat. A rejected vendor value used to be
+// invalid, "dead in this browser", which cost a page saved in Chrome its -moz- values in Firefox,
+// and every dashed ident with them, `--double(50px)` from `@function` included. That is how
 // `color: red; color: future-color(1)` stops losing its fallback. The browser is asked with the
 // whole value, since a function name alone, `-webkit-linear-gradient`, is rejected by every browser.
 const CHROME_SUPPORTS = new Set(["display:-webkit-box", "display:-webkit-inline-box", "-webkit-box-orient:vertical", "background-image:-webkit-linear-gradient(red,blue)"]);
@@ -112,9 +114,10 @@ try {
 	check("vendor value kept: display: -webkit-box", validity("display", "-webkit-box"), VALIDITY_VALID);
 	check("vendor value kept: display: -webkit-inline-box", validity("display", "-webkit-inline-box"), VALIDITY_VALID);
 	check("vendor function kept with its arguments: -webkit-linear-gradient(red,blue)", validity("background-image", "-webkit-linear-gradient(red,blue)"), VALIDITY_VALID);
-	// dead in this browser, and the reason the check exists at all — the fix must not disable it
-	check("vendor value dropped: display: -ms-flexbox", validity("display", "-ms-flexbox"), VALIDITY_INVALID);
-	check("vendor value dropped: display: -moz-box", validity("display", "-moz-box"), VALIDITY_INVALID);
+	// rejected here, but another engine may read them, so the verdict stays open
+	check("vendor value unknown: display: -ms-flexbox", validity("display", "-ms-flexbox"), VALIDITY_UNKNOWN);
+	check("vendor value unknown: display: -moz-box", validity("display", "-moz-box"), VALIDITY_UNKNOWN);
+	check("dashed function unknown: width: --double(50px)", validity("width", "--double(50px)"), VALIDITY_UNKNOWN);
 	// not vendor-prefixed and rejected, so the verdict must stay open
 	check("non-vendor value unknown: display: flex", validity("display", "flex"), VALIDITY_UNKNOWN);
 	check("non-vendor value unknown: color: nonsense", validity("color", "nonsense"), VALIDITY_UNKNOWN);
