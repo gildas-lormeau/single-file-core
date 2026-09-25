@@ -65,8 +65,11 @@ const CONTENT_TYPE_EXTENSIONS = {
 const CONTENT_TYPE_OCTET_STREAM = "application/octet-stream";
 const TRANSPORT_STREAM_SYNC_BYTE = 71;
 const TRANSPORT_STREAM_PACKET_SIZE = 188;
+const ZIP_FILENAME_LENGTH_OFFSET = 26;
+const ZIP_FILENAME_OFFSET = 30;
+const USD_FILENAME_REGEXP = /\.usd[ac]?$/i;
 const CONTENT_TYPES_HTML = ["text/html", "application/xhtml+xml"];
-const EXPECTED_TYPES_MEDIA = ["font", "image", "video", "audio"];
+const EXPECTED_TYPES_MEDIA = ["font", "image", "video", "audio", "model"];
 
 const URL = globalThis.URL;
 const DOMParser = globalThis.DOMParser;
@@ -504,6 +507,26 @@ function guessMIMEType(expectedType, buffer) {
 		if (compareBytes([0, 0, 0, 0, 255, 255, 255, 255, 255, 255], [0, 0, 0, 0, 102, 116, 121, 112, 51, 103])) {
 			return "audio/3gpp";
 		}
+	}
+	if (expectedType == "model") {
+		if (compareBytes([255, 255, 255, 255], [103, 108, 84, 70])) {
+			return "model/gltf-binary";
+		}
+		if (compareBytes([255, 255, 255, 255], [80, 75, 3, 4]) && isUSDZ()) {
+			return "model/vnd.usdz+zip";
+		}
+	}
+
+	function isUSDZ() {
+		const value = new Uint8Array(buffer);
+		if (value.length > ZIP_FILENAME_OFFSET) {
+			const filenameLength = value[ZIP_FILENAME_LENGTH_OFFSET] | (value[ZIP_FILENAME_LENGTH_OFFSET + 1] << 8);
+			if (value.length >= ZIP_FILENAME_OFFSET + filenameLength) {
+				const filename = new TextDecoder().decode(value.subarray(ZIP_FILENAME_OFFSET, ZIP_FILENAME_OFFSET + filenameLength));
+				return USD_FILENAME_REGEXP.test(filename);
+			}
+		}
+		return false;
 	}
 
 	function isTransportStream() {

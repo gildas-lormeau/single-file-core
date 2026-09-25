@@ -46,11 +46,49 @@ let failed = false;
 	check("an archive holds both files", names, "images/0.usdz,images/1.hdr");
 }
 
+// Servers often answer .glb and .usdz files with application/octet-stream, and the saved data URI
+// carried that type. The bytes say what they are: a binary glTF starts with "glTF", and a USDZ is a
+// zip whose first file is a USD layer. Another zip is left as the server described it.
+{
+	const page = html("<model id=\"m1\" src=\"a.glb\"></model><model id=\"m2\" src=\"b.usdz\"></model><model id=\"m3\" src=\"c.zip\"></model>");
+	const glb = new Uint8Array([103, 108, 84, 70, 2, 0, 0, 0]);
+	const content = await capture({
+		[PAGE_URL]: { body: page },
+		"https://example.com/a.glb": { body: glb, contentType: "application/octet-stream" },
+		"https://example.com/b.usdz": { body: zip("scene.usdc"), contentType: "application/octet-stream" },
+		"https://example.com/c.zip": { body: zip("readme.txt"), contentType: "application/octet-stream" }
+	}, { url: PAGE_URL, content: page });
+	check("a glb served as octet-stream is saved as model/gltf-binary", content.includes("data:model/gltf-binary;base64,"), true);
+	check("a usdz served as octet-stream is saved as model/vnd.usdz+zip", content.includes("data:model/vnd.usdz+zip;base64,"), true);
+	check("a zip holding no USD layer keeps its type", content.includes("data:application/octet-stream;base64,"), true);
+}
+
+// A missing model answered with an HTML page, a soft 404, is not saved as the model.
+{
+	const page = html("<model src=\"gone.usdz\"></model>");
+	const errorPage = "<!DOCTYPE html><title>Not found</title>";
+	const content = await capture({
+		[PAGE_URL]: { body: page },
+		"https://example.com/gone.usdz": { body: errorPage, contentType: "text/html" }
+	}, { url: PAGE_URL, content: page });
+	check("an HTML error page is not saved as a model", content.includes(btoa(errorPage)), false);
+}
+
 if (failed) {
 	console.log("FAILED");
 	Deno.exit(1);
 }
 console.log("OK");
+
+// the local file header of a zip whose first entry is `filename`, which is all the sniffing reads
+function zip(filename) {
+	const name = new globalThis.TextEncoder().encode(filename);
+	const header = new Uint8Array(30 + name.length);
+	header.set([80, 75, 3, 4]);
+	header[26] = name.length;
+	header.set(name, 30);
+	return header;
+}
 
 function check(label, actual, expected) {
 	const ok = actual === expected;
