@@ -423,9 +423,13 @@ class ProcessorHelperCommon {
 	async removeAlternativeFonts(doc, stylesheets, fonts, fontTests) {
 		const fontsDetails = this.createFontsDetailsInfo();
 		const stats = { rules: { processed: 0, discarded: 0 }, fonts: { processed: 0, discarded: 0 } };
+		const ruleScopes = new Map();
 		let sheetIndex = 0;
 		stylesheets.forEach(stylesheetInfo => {
 			if (stylesheetInfo.stylesheet) {
+				if (stylesheetInfo.scope) {
+					cssTree.walk(stylesheetInfo.stylesheet, { visit: "Atrule", enter: node => ruleScopes.set(node, stylesheetInfo.scope) });
+				}
 				const cssRules = stylesheetInfo.stylesheet.children;
 				if (cssRules) {
 					stats.rules.processed += cssRules.size;
@@ -442,7 +446,7 @@ class ProcessorHelperCommon {
 			sheetIndex++;
 		});
 		processFontDetails(fontsDetails, fonts);
-		this.markRepeatedFontFaceRules(fontsDetails);
+		this.markRepeatedFontFaceRules(fontsDetails, ruleScopes, new Map());
 		await Promise.all([...stylesheets].map(async ([, stylesheetInfo], sheetIndex) => {
 			if (stylesheetInfo.stylesheet) {
 				const cssRules = stylesheetInfo.stylesheet.children;
@@ -460,19 +464,23 @@ class ProcessorHelperCommon {
 		return stats;
 	}
 
-	markRepeatedFontFaceRules(fontsDetails) {
+	markRepeatedFontFaceRules(fontsDetails, ruleScopes, scopeIds) {
 		const lastRules = new Map();
 		fontsDetails.fonts.forEach((fontInfo, ruleData) => {
-			const ruleKey = this.getFontKey(ruleData) + " " + this.getPropertyValue(ruleData, "src");
+			const scope = ruleScopes.get(ruleData);
+			if (scope && !scopeIds.has(scope)) {
+				scopeIds.set(scope, scopeIds.size + 1);
+			}
+			const ruleKey = (scope ? scopeIds.get(scope) : 0) + " " + this.getFontKey(ruleData) + " " + this.getPropertyValue(ruleData, "src");
 			const previousRuleData = lastRules.get(ruleKey);
 			if (previousRuleData) {
 				fontsDetails.repeatedFonts.add(previousRuleData);
 			}
 			lastRules.set(ruleKey, ruleData);
 		});
-		fontsDetails.medias.forEach(mediaFontsDetails => this.markRepeatedFontFaceRules(mediaFontsDetails));
-		fontsDetails.supports.forEach(supportsFontsDetails => this.markRepeatedFontFaceRules(supportsFontsDetails));
-		fontsDetails.layers.forEach(layerFontsDetails => this.markRepeatedFontFaceRules(layerFontsDetails));
+		fontsDetails.medias.forEach(mediaFontsDetails => this.markRepeatedFontFaceRules(mediaFontsDetails, ruleScopes, scopeIds));
+		fontsDetails.supports.forEach(supportsFontsDetails => this.markRepeatedFontFaceRules(supportsFontsDetails, ruleScopes, scopeIds));
+		fontsDetails.layers.forEach(layerFontsDetails => this.markRepeatedFontFaceRules(layerFontsDetails, ruleScopes, scopeIds));
 	}
 
 	async processFontFaceRules(cssRules, sheetIndex, fontsDetails, fonts, fontTests, stats) {

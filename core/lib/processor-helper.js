@@ -216,7 +216,7 @@ function getProcessorHelperClass(utilInstance) {
 
 		async resolveImportURLs(stylesheetInfo, baseURI, options, workStylesheet, resources, stylesheets, importedStyleSheets = new Set(), stylesheetReferrer) {
 			const stylesheet = stylesheetInfo.stylesheet;
-			const scoped = stylesheetInfo.scoped;
+			const { scoped, scope } = stylesheetInfo;
 			this.resolveStylesheetURLs(stylesheet, baseURI, workStylesheet, stylesheetReferrer, options.stylesheetReferrers);
 			const imports = getImportFunctions(stylesheet);
 			await Promise.all(imports.map(async node => {
@@ -247,6 +247,7 @@ function getProcessorHelperClass(utilInstance) {
 							}
 							const stylesheetInfo = {
 								scoped,
+								scope,
 								mediaText,
 								layerName,
 								supportsCondition

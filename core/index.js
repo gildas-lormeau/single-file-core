@@ -1343,10 +1343,11 @@ class Processor {
 			if (element.media) {
 				mediaText = element.media.toLowerCase();
 			}
-			const scoped = Boolean(element.closest("[" + SHADOWROOT_ATTRIBUTE_NAME + "]"));
+			const scope = element.closest("[" + SHADOWROOT_ATTRIBUTE_NAME + "]");
 			const stylesheetInfo = {
 				mediaText,
-				scoped
+				scoped: Boolean(scope),
+				scope
 			};
 			await this.processorHelper.resolveStylesheets(element, stylesheetInfo, this.stylesheets, this.baseURI, options, this.workStyleElement, this.resources);
 		}));
