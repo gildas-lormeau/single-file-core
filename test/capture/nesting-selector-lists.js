@@ -91,6 +91,34 @@ const cases = [
 		removed: []
 	},
 	{
+		label: "an unmatched parent alternative more specific than the kept ones stays",
+		css: ".m, .r.r { & .c { color: red } } .m span.c { color: blue }",
+		body: "<i class=\"k\"></i><div class=\"m\"><span class=\"c\">t</span></div>",
+		kept: [".m,.r.r{& .c{color:red}}"],
+		removed: []
+	},
+	{
+		label: "a kept parent alternative with a pseudo-element does not let a more specific unmatched one go",
+		css: ".k.k.k::before, .m, .r.r { & .c { color: red } } .m span.c { color: blue }",
+		body: "<i class=\"k\"></i><div class=\"m\"><span class=\"c\">t</span></div>",
+		kept: [".k.k.k::before,.m,.r.r{& .c{color:red}}"],
+		removed: []
+	},
+	{
+		label: "a kept parent alternative with a pseudo-element of lower specificity keeps the unmatched one",
+		css: ".k.k::before, .m, .r.r.r { & .c { color: red } } div.m span.c.c { color: blue }",
+		body: "<i class=\"k\"></i><div class=\"m\"><span class=\"c\">t</span></div>",
+		kept: [".k.k::before,.m,.r.r.r{& .c{color:red}}"],
+		removed: []
+	},
+	{
+		label: "a kept parent alternative with a legacy pseudo-element does not let a more specific unmatched one go",
+		css: ".k.k:before, .m, .r.r.r { & .c { color: red } } div.m span.c.c { color: blue }",
+		body: "<i class=\"k\"></i><div class=\"m\"><span class=\"c\">t</span></div>",
+		kept: [".k.k:before,.m,.r.r.r{& .c{color:red}}"],
+		removed: []
+	},
+	{
 		label: "a parent with a state pseudo-class still reaches its nested rules",
 		css: "p { color: blue } .a:hover, .b { & p { color: red } }",
 		body: "<div class=\"a\"><p>t</p></div>",

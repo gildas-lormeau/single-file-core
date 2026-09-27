@@ -643,7 +643,7 @@ function getRemovableSelectors(ruleData, removedSelectors, docContext) {
 	const removedSet = new Set(removedSelectors);
 	let keptSpecificity = { a: 0, b: 0, c: 0 };
 	for (let selector = ruleData.prelude.children.head; selector; selector = selector.next) {
-		if (!removedSet.has(selector)) {
+		if (!removedSet.has(selector) && !hasPseudoElement(selector.data)) {
 			const { specificity } = docContext.selectorData.get(selector);
 			if (compareSpecificities(specificity, keptSpecificity) > 0) {
 				keptSpecificity = specificity;
