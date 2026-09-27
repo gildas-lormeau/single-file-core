@@ -101,7 +101,7 @@ function fetchResource(url, fetchOptions) {
 	const contentType = resource.contentType || "text/html";
 	const response = new Response(resource.body, {
 		status: resource.status || 200,
-		headers: { "content-type": contentType }
+		headers: { "content-type": contentType, ...resource.headers }
 	});
 	// Every other resource here answers in the same microtask, so a capture driven from this file has
 	// no latency and nothing that races in the field races here. A resource declaring `delay` answers

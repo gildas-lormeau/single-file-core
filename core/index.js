@@ -185,6 +185,7 @@ class Runner {
 		this.options.rootDocument = root;
 		this.options.updatedResources = this.options.updatedResources || {};
 		this.options.fontTests = new Map();
+		this.options.stylesheetReferrers = new Map();
 		if (root && !this.options.saveFilenameTemplateData && (this.options.openEditor || /{digest-sha-\d/.test(this.options.filenameTemplate))) {
 			this.options.saveFilenameTemplateData = true;
 			this.options.omitReferrerInTemplateData = !/{url-referrer/.test(this.options.filenameTemplate);
@@ -346,9 +347,9 @@ class BatchRequest {
 		this.duplicates = new Map();
 	}
 
-	addURL(resourceURL, { asBinary, expectedType, groupDuplicates, baseURI, blockMixedContent, contentType, referrerPolicy } = {}) {
+	addURL(resourceURL, { asBinary, expectedType, groupDuplicates, baseURI, blockMixedContent, contentType, referrerPolicy, stylesheetURL, stylesheetReferrerPolicy } = {}) {
 		return new Promise((resolve, reject) => {
-			const requestKey = JSON.stringify([resourceURL, asBinary, expectedType, baseURI, blockMixedContent, contentType, referrerPolicy]);
+			const requestKey = JSON.stringify([resourceURL, asBinary, expectedType, baseURI, blockMixedContent, contentType, referrerPolicy, stylesheetURL, stylesheetReferrerPolicy]);
 			let resourceRequests = this.requests.get(requestKey);
 			if (this.cancelled) {
 				reject();
@@ -382,7 +383,7 @@ class BatchRequest {
 		const resourceURLs = [...this.requests.keys()];
 		let indexResource = 0;
 		return Promise.all(resourceURLs.map(async requestKey => {
-			const [resourceURL, asBinary, expectedType, baseURI, blockMixedContent, contentType, referrerPolicy] = JSON.parse(requestKey);
+			const [resourceURL, asBinary, expectedType, baseURI, blockMixedContent, contentType, referrerPolicy, stylesheetURL, stylesheetReferrerPolicy] = JSON.parse(requestKey);
 			const resourceRequests = this.requests.get(requestKey);
 			try {
 				const currentIndexResource = indexResource;
@@ -397,6 +398,8 @@ class BatchRequest {
 					frameId: options.windowId,
 					resourceReferrer: options.resourceReferrer,
 					referrerPolicy,
+					stylesheetURL,
+					stylesheetReferrerPolicy,
 					baseURI,
 					blockMixedContent,
 					acceptHeaders: options.acceptHeaders,

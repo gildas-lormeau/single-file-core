@@ -85,7 +85,8 @@ export {
 	testValidURL,
 	resizeImage,
 	toDataURI,
-	getReferrerPolicy
+	getReferrerPolicy,
+	getStylesheetReferrer
 };
 
 function getProcessorHelperCommonClass(utilInstance, cssTreeInstance) {
@@ -292,7 +293,7 @@ class ProcessorHelperCommon {
 		element.style.setProperty("background-attachment", "scroll", "important");
 	}
 
-	async getStylesheetContent(resourceURL, options) {
+	async getStylesheetContent(resourceURL, options, stylesheetReferrer = {}) {
 		const content = await util.getContent(resourceURL, {
 			inline: !options.compressContent,
 			maxResourceSize: options.maxResourceSize,
@@ -301,6 +302,8 @@ class ProcessorHelperCommon {
 			frameId: options.frameId,
 			charset: options.charset,
 			resourceReferrer: options.resourceReferrer,
+			stylesheetURL: stylesheetReferrer.stylesheetURL,
+			stylesheetReferrerPolicy: stylesheetReferrer.stylesheetReferrerPolicy,
 			baseURI: options.baseURI,
 			blockMixedContent: options.blockMixedContent,
 			expectedType: "stylesheet",
@@ -317,6 +320,8 @@ class ProcessorHelperCommon {
 				frameId: options.frameId,
 				charset: options.charset,
 				resourceReferrer: options.resourceReferrer,
+				stylesheetURL: stylesheetReferrer.stylesheetURL,
+				stylesheetReferrerPolicy: stylesheetReferrer.stylesheetReferrerPolicy,
 				baseURI: options.baseURI,
 				blockMixedContent: options.blockMixedContent,
 				expectedType: "stylesheet",
@@ -380,7 +385,7 @@ class ProcessorHelperCommon {
 		});
 	}
 
-	resolveStylesheetURLs(stylesheet, baseURI, workStylesheet) {
+	resolveStylesheetURLs(stylesheet, baseURI, workStylesheet, stylesheetReferrer, stylesheetReferrers) {
 		const urls = getUrlFunctions(stylesheet);
 		urls.map(urlNode => {
 			const originalResourceURL = urlNode.value;
@@ -403,6 +408,9 @@ class ProcessorHelperCommon {
 						}
 						if (testValidURL(resolvedURL)) {
 							urlNode.value = resolvedURL;
+							if (stylesheetReferrer && stylesheetReferrers && !stylesheetReferrers.has(normalizeURL(resolvedURL))) {
+								stylesheetReferrers.set(normalizeURL(resolvedURL), stylesheetReferrer);
+							}
 						}
 					} else {
 						urlNode.value = util.EMPTY_RESOURCE;
@@ -688,6 +696,10 @@ function findShortcutIcon(shortcutIcons) {
 	shortcutIcons = shortcutIcons.filter(linkElement => linkElement.href != util.EMPTY_RESOURCE);
 	shortcutIcons.sort((linkElement1, linkElement2) => (parseInt(linkElement2.sizes, 10) || 16) - (parseInt(linkElement1.sizes, 10) || 16));
 	return shortcutIcons[0];
+}
+
+function getStylesheetReferrer(resourceURL, options) {
+	return (options.stylesheetReferrers && options.stylesheetReferrers.get(normalizeURL(resourceURL))) || {};
 }
 
 function getReferrerPolicy(element) {

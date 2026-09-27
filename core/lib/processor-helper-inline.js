@@ -72,6 +72,7 @@ import {
 	testValidPath,
 	testValidURL,
 	getReferrerPolicy,
+	getStylesheetReferrer,
 	resizeImage,
 	toDataURI
 } from "./processor-helper-common.js";
@@ -195,9 +196,9 @@ function getProcessorHelperClass(utilInstance) {
 			});
 		}
 
-		async resolveImportURLs(stylesheet, baseURI, options, workStylesheet, importedStyleSheets = new Set()) {
+		async resolveImportURLs(stylesheet, baseURI, options, workStylesheet, importedStyleSheets = new Set(), stylesheetReferrer) {
 			let importFound;
-			this.resolveStylesheetURLs(stylesheet, baseURI, workStylesheet);
+			this.resolveStylesheetURLs(stylesheet, baseURI, workStylesheet, stylesheetReferrer, options.stylesheetReferrers);
 			const imports = getImportFunctions(stylesheet);
 			await Promise.all(imports.map(async node => {
 				const urlNode = cssTree.find(node, node => node.type == "Url") || cssTree.find(node, node => node.type == "String");
@@ -213,7 +214,7 @@ function getProcessorHelperClass(utilInstance) {
 						}
 						if (testValidURL(resourceURL) && !importedStyleSheets.has(resourceURL)) {
 							options.inline = true;
-							const content = await this.getStylesheetContent(resourceURL, options);
+							const content = await this.getStylesheetContent(resourceURL, options, stylesheetReferrer);
 							resourceURL = content.resourceURL;
 							content.data = getUpdatedResourceContent(resourceURL, options) || content.data;
 							if (content.data && content.data.match(/^<!doctype /i)) {
@@ -234,7 +235,7 @@ function getProcessorHelperClass(utilInstance) {
 							const importedStylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
 							const ancestorStyleSheets = new Set(importedStyleSheets);
 							ancestorStyleSheets.add(resourceURL);
-							await this.resolveImportURLs(importedStylesheet, resourceURL, options, workStylesheet, ancestorStyleSheets);
+							await this.resolveImportURLs(importedStylesheet, resourceURL, options, workStylesheet, ancestorStyleSheets, { stylesheetURL: resourceURL, stylesheetReferrerPolicy: content.referrerPolicy });
 							for (let keyName of Object.keys(importedStylesheet)) {
 								node[keyName] = importedStylesheet[keyName];
 							}
@@ -280,7 +281,7 @@ function getProcessorHelperClass(utilInstance) {
 					content.data = "";
 				}
 				let stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
-				const importFound = await this.resolveImportURLs(stylesheet, resourceURL, options, workStylesheet);
+				const importFound = await this.resolveImportURLs(stylesheet, resourceURL, options, workStylesheet, undefined, { stylesheetURL: resourceURL, stylesheetReferrerPolicy: content.referrerPolicy });
 				if (importFound) {
 					stylesheet = cssTree.parse(cssTree.generate(stylesheet), { context: "stylesheet", parseCustomProperty: true });
 				}
@@ -310,7 +311,8 @@ function getProcessorHelperClass(utilInstance) {
 				asBinary: true,
 				expectedType: "font",
 				baseURI,
-				blockMixedContent: options.blockMixedContent
+				blockMixedContent: options.blockMixedContent,
+				...getStylesheetReferrer(resourceURL, options)
 			});
 			let resourceURLs = resources.fonts.get(urlNode);
 			if (!resourceURLs) {
@@ -332,7 +334,7 @@ function getProcessorHelperClass(utilInstance) {
 				if (!options.blockImages) {
 					const resourceURL = normalizeURL(originalResourceURL);
 					if (!testIgnoredPath(resourceURL) && testValidURL(resourceURL)) {
-						let { content, indexResource, duplicate } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "image", groupDuplicates: options.groupDuplicateImages });
+						let { content, indexResource, duplicate } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "image", groupDuplicates: options.groupDuplicateImages, ...getStylesheetReferrer(resourceURL, options) });
 						if (!originalResourceURL.startsWith("#")) {
 							const maxSizeDuplicateImages = options.maxSizeDuplicateImages || SINGLE_FILE_VARIABLE_MAX_SIZE;
 							if (duplicate && options.groupDuplicateImages && util.getContentSize(content) < maxSizeDuplicateImages) {

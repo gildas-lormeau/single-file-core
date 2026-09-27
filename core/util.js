@@ -268,19 +268,19 @@ function getInstance(utilOptions) {
 			if (options.frameId) {
 				try {
 					response = await Promise.race([
-						fetchFrameResource(resourceURL, { frameId: options.frameId, referrer: options.resourceReferrer, referrerPolicy: options.referrerPolicy || undefined, headers: { accept } }),
+						fetchFrameResource(resourceURL, { frameId: options.frameId, referrer: options.resourceReferrer, referrerPolicy: options.referrerPolicy || undefined, stylesheetURL: options.stylesheetURL || undefined, stylesheetReferrerPolicy: options.stylesheetReferrerPolicy || undefined, headers: { accept } }),
 						networkTimeoutPromise
 					]);
 					// eslint-disable-next-line no-unused-vars
 				} catch (error) {
 					response = await Promise.race([
-						fetchResource(resourceURL, { referrer: options.resourceReferrer, referrerPolicy: options.referrerPolicy || undefined, headers: { accept } }),
+						fetchResource(resourceURL, { referrer: options.resourceReferrer, referrerPolicy: options.referrerPolicy || undefined, stylesheetURL: options.stylesheetURL || undefined, stylesheetReferrerPolicy: options.stylesheetReferrerPolicy || undefined, headers: { accept } }),
 						networkTimeoutPromise
 					]);
 				}
 			} else {
 				response = await Promise.race([
-					fetchResource(resourceURL, { referrer: options.resourceReferrer, referrerPolicy: options.referrerPolicy || undefined, headers: { accept } }),
+					fetchResource(resourceURL, { referrer: options.resourceReferrer, referrerPolicy: options.referrerPolicy || undefined, stylesheetURL: options.stylesheetURL || undefined, stylesheetReferrerPolicy: options.stylesheetReferrerPolicy || undefined, headers: { accept } }),
 					networkTimeoutPromise
 				]);
 			}
@@ -353,7 +353,9 @@ function getInstance(utilOptions) {
 				return getFetchResponse(resourceURL, options, null, charset);
 			} else {
 				try {
-					return getFetchResponse(resourceURL, options, buffer, charset, contentType);
+					const fetchResponse = await getFetchResponse(resourceURL, options, buffer, charset, contentType);
+					fetchResponse.referrerPolicy = (response.headers && response.headers.get("referrer-policy")) || undefined;
+					return fetchResponse;
 					// eslint-disable-next-line no-unused-vars
 				} catch (error) {
 					return getFetchResponse(resourceURL, options, null, charset);

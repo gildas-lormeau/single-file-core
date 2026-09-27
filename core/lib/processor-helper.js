@@ -61,6 +61,7 @@ import {
 	testValidPath,
 	testValidURL,
 	getReferrerPolicy,
+	getStylesheetReferrer,
 	resizeImage,
 	toDataURI
 } from "./processor-helper-common.js";
@@ -213,10 +214,10 @@ function getProcessorHelperClass(utilInstance) {
 			}
 		}
 
-		async resolveImportURLs(stylesheetInfo, baseURI, options, workStylesheet, resources, stylesheets, importedStyleSheets = new Set()) {
+		async resolveImportURLs(stylesheetInfo, baseURI, options, workStylesheet, resources, stylesheets, importedStyleSheets = new Set(), stylesheetReferrer) {
 			const stylesheet = stylesheetInfo.stylesheet;
 			const scoped = stylesheetInfo.scoped;
-			this.resolveStylesheetURLs(stylesheet, baseURI, workStylesheet);
+			this.resolveStylesheetURLs(stylesheet, baseURI, workStylesheet, stylesheetReferrer, options.stylesheetReferrers);
 			const imports = getImportFunctions(stylesheet);
 			await Promise.all(imports.map(async node => {
 				const urlNode = cssTree.find(node, node => node.type == "Url") || cssTree.find(node, node => node.type == "String");
@@ -253,14 +254,14 @@ function getProcessorHelperClass(utilInstance) {
 							const importDeclaresLayer = Boolean(cssTree.find(node, node => node.type == "Layer" || ((node.type == "Identifier" || node.type == "Function") && node.name.toLowerCase() == "layer")));
 							stylesheets.set({ urlNode, importNode: node, importParent: stylesheet, importDeclaresLayer }, stylesheetInfo);
 							const requestedURL = resourceURL;
-							const content = await this.getStylesheetContent(resourceURL, options);
+							const content = await this.getStylesheetContent(resourceURL, options, stylesheetReferrer);
 							stylesheetInfo.url = resourceURL = content.resourceURL;
 							content.data = getUpdatedResourceContent(resourceURL, options) || content.data;
 							stylesheetInfo.stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
 							const ancestorStyleSheets = new Set(importedStyleSheets);
 							ancestorStyleSheets.add(requestedURL);
 							ancestorStyleSheets.add(resourceURL);
-							await this.resolveImportURLs(stylesheetInfo, resourceURL, options, workStylesheet, resources, stylesheets, ancestorStyleSheets);
+							await this.resolveImportURLs(stylesheetInfo, resourceURL, options, workStylesheet, resources, stylesheets, ancestorStyleSheets, { stylesheetURL: resourceURL, stylesheetReferrerPolicy: content.referrerPolicy });
 							urlNode.importedChildren = stylesheetInfo.stylesheet.children;
 							urlNode.importedMediaText = mediaText;
 							urlNode.importedLayerName = layerName;
@@ -301,7 +302,7 @@ function getProcessorHelperClass(utilInstance) {
 					resourceURL = content.resourceURL;
 					content.data = getUpdatedResourceContent(content.resourceURL, options) || content.data;
 					stylesheetInfo.stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
-					await this.resolveImportURLs(stylesheetInfo, resourceURL, options, workStylesheet, resources, stylesheets);
+					await this.resolveImportURLs(stylesheetInfo, resourceURL, options, workStylesheet, resources, stylesheets, undefined, { stylesheetURL: resourceURL, stylesheetReferrerPolicy: content.referrerPolicy });
 				}
 			}
 		}
@@ -326,7 +327,8 @@ function getProcessorHelperClass(utilInstance) {
 				asBinary: true,
 				expectedType: "font",
 				baseURI,
-				blockMixedContent: options.blockMixedContent
+				blockMixedContent: options.blockMixedContent,
+				...getStylesheetReferrer(resourceURL, options)
 			});
 			const name = "fonts/" + indexResource + extension;
 			if (!isDataURL(resourceURL) && options.saveOriginalURLs) {
@@ -408,7 +410,7 @@ function getProcessorHelperClass(utilInstance) {
 					const resourceURL = normalizeURL(originalResourceURL);
 					if ((!testIgnoredPath(resourceURL) && testValidURL(resourceURL)) || testGeneratedDataURI(resourceURL, options)) {
 						let { content, indexResource, contentType, extension } = await batchRequest.addURL(resourceURL,
-							{ asBinary: true, expectedType: "image" });
+							{ asBinary: true, expectedType: "image", ...getStylesheetReferrer(resourceURL, options) });
 						const name = "images/" + indexResource + extension;
 						if (!isDataURL(resourceURL) && options.saveOriginalURLs) {
 							urlNode.value = "-sf-url-original(" + JSON.stringify(originalResourceURL) + ") " + name;
