@@ -65,6 +65,7 @@ const Blob = globalThis.Blob;
 const Image = globalThis.Image;
 const OffscreenCanvas = globalThis.OffscreenCanvas;
 const DEFAULT_IMAGE_QUALITY = 0.8;
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
 let util, cssTree;
 
@@ -701,7 +702,7 @@ function getFontStretch(stretch) {
 	return FONT_STRETCHES[stretch] || stretch;
 }
 
-async function resizeImage(doc, dataURI, { imageReductionFactor, imageQuality }) {
+async function resizeImage(doc, dataURI, { imageReductionFactor, imageQuality }, element) {
 	if (dataURI) {
 		const contentType = dataURI.substring(5, dataURI.indexOf(";"));
 		if (contentType == "image/jpeg" ||
@@ -739,6 +740,10 @@ async function resizeImage(doc, dataURI, { imageReductionFactor, imageQuality })
 				}
 				if (blob.type == contentType) {
 					dataURI = await toDataURI(blob, contentType);
+					if (element && isUnsizedSVGImage(element)) {
+						element.setAttribute("width", image.naturalWidth);
+						element.setAttribute("height", image.naturalHeight);
+					}
 				}
 			} catch {
 				// ignored
@@ -746,6 +751,17 @@ async function resizeImage(doc, dataURI, { imageReductionFactor, imageQuality })
 		}
 	}
 	return dataURI;
+}
+
+function isUnsizedSVGImage(element) {
+	return element.namespaceURI == SVG_NAMESPACE &&
+		element.localName == "image" &&
+		isAutoSize(element.getAttribute("width")) &&
+		isAutoSize(element.getAttribute("height"));
+}
+
+function isAutoSize(value) {
+	return value == null || value.trim().toLowerCase() == "auto";
 }
 
 function toDataURI(content, contentType, charset) {

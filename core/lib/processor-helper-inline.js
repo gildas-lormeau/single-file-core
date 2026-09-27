@@ -403,7 +403,7 @@ function getProcessorHelperClass(utilInstance) {
 										}
 									}
 									if (options.imageReductionFactor > 1 && expectedType == "image") {
-										content = await resizeImage(doc, content, options);
+										content = await resizeImage(doc, content, options, resourceElement);
 									}
 									if (removeElementIfMissing && this.testEmptyResource(content)) {
 										resourceElement.remove();

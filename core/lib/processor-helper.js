@@ -470,7 +470,7 @@ function getProcessorHelperClass(utilInstance) {
 										}
 									}
 									if (options.imageReductionFactor > 1 && expectedType == "image") {
-										const dataURI = await resizeImage(doc, await toDataURI(new Blob([content], { type: contentType }), charset), options);
+										const dataURI = await resizeImage(doc, await toDataURI(new Blob([content], { type: contentType }), charset), options, resourceElement);
 										content = (await util.getContent(dataURI, { asBinary: true })).data;
 									}
 									if (removeElementIfMissing && this.testEmptyResource(content)) {
