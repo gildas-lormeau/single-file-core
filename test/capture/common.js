@@ -30,6 +30,11 @@ const EMPTY_DOC_DATA = {
 // of the run in progress; captures are sequential, so nothing races.
 let resources = new Map();
 
+// A browser rejects a request whose referrerPolicy is not one of these, before it reaches the network:
+// Chrome and Node's fetch both throw a TypeError for null. core once passed null for every batched
+// resource without a policy, which lost them all in the field while this fetch served them anyway.
+const REFERRER_POLICIES = ["", "no-referrer", "no-referrer-when-downgrade", "same-origin", "origin", "strict-origin", "origin-when-cross-origin", "strict-origin-when-cross-origin", "unsafe-url"];
+
 const initOptions = {
 	fetch: fetchResource,
 	frameFetch: fetchResource
@@ -80,6 +85,9 @@ function createProcessor(pageResources, options) {
 // A resource declaring `onRequest` is handed the options core passed to the fetch, which is how a
 // suite reads the headers of a request.
 function fetchResource(url, fetchOptions) {
+	if (fetchOptions && fetchOptions.referrerPolicy !== undefined && !REFERRER_POLICIES.includes(fetchOptions.referrerPolicy)) {
+		return Promise.reject(new TypeError("The provided value '" + fetchOptions.referrerPolicy + "' is not a valid enum value of type ReferrerPolicy."));
+	}
 	if (url.startsWith("data:")) {
 		return globalThis.fetch(url);
 	}

@@ -60,6 +60,7 @@ import {
 	testIgnoredPath,
 	testValidPath,
 	testValidURL,
+	getReferrerPolicy,
 	resizeImage,
 	toDataURI
 } from "./processor-helper-common.js";
@@ -279,6 +280,7 @@ function getProcessorHelperClass(utilInstance) {
 					charset: options.charset,
 					frameId: options.frameId,
 					resourceReferrer: options.resourceReferrer,
+					referrerPolicy: getReferrerPolicy(element),
 					validateTextContentType: true,
 					baseURI: baseURI,
 					blockMixedContent: options.blockMixedContent,
@@ -447,7 +449,7 @@ function getProcessorHelperClass(utilInstance) {
 								if (testValidURL(resourceURL) || generatedDataURI) {
 									const declaredContentType = ["OBJECT", "EMBED"].includes(resourceElement.tagName.toUpperCase()) ? resourceElement.getAttribute("type") : "";
 									let { content, indexResource, extension, contentType, charset } = await batchRequest.addURL(resourceURL,
-										{ asBinary: true, expectedType, contentType: declaredContentType });
+										{ asBinary: true, expectedType, contentType: declaredContentType, referrerPolicy: getReferrerPolicy(resourceElement) });
 									if (originURL) {
 										if (this.testEmptyResource(content)) {
 											try {
@@ -466,6 +468,7 @@ function getProcessorHelperClass(utilInstance) {
 													maxResourceSizeEnabled: options.maxResourceSizeEnabled,
 													frameId: options.windowId,
 													resourceReferrer: options.resourceReferrer,
+													referrerPolicy: getReferrerPolicy(resourceElement),
 													acceptHeaders: options.acceptHeaders,
 													networkTimeout: options.networkTimeout
 												})).data;
@@ -498,7 +501,7 @@ function getProcessorHelperClass(utilInstance) {
 		}
 
 		async processImageSrcset(resourceURL, srcsetValue, resources, batchRequest, resourceElement) {
-			const { content, indexResource, extension, contentType } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "image" });
+			const { content, indexResource, extension, contentType } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "image", referrerPolicy: getReferrerPolicy(resourceElement) });
 			const name = "images/" + indexResource + extension;
 			resources.images.set(indexResource, { name, content, extension, contentType, url: resourceURL });
 			resourceElement.removeAttribute(CROSS_ORIGIN_ATTRIBUTE_NAME);
@@ -549,6 +552,7 @@ function getProcessorHelperClass(utilInstance) {
 				maxResourceSizeEnabled: options.maxResourceSizeEnabled,
 				frameId: options.windowId,
 				resourceReferrer: options.resourceReferrer,
+				referrerPolicy: getReferrerPolicy(element),
 				baseURI: options.baseURI,
 				blockMixedContent: options.blockMixedContent,
 				expectedType: "script",

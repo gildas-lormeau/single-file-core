@@ -29,6 +29,24 @@ globalThis.getComputedStyle = element => window.getComputedStyle(element);
 // happy-dom has a real MutationObserver, and that is the reason not to use it: the hook above
 // observes the document and re-runs init() on every mutation a capture makes. It has nothing to do
 // here, and the stub keeps it from being called once per mutation for the length of a capture.
+// core reads the referrerPolicy IDL property, which a browser reflects "limited to only known values":
+// matched case-insensitively, never trimmed, and "" for anything else. Measured in Chrome on
+// "No-Referrer", " origin " and "bogus": "no-referrer", "", "". happy-dom returns the raw attribute
+// for all three, so the reflection is redefined here the way the browser does it.
+const REFERRER_POLICIES = ["no-referrer", "no-referrer-when-downgrade", "same-origin", "origin", "strict-origin", "origin-when-cross-origin", "strict-origin-when-cross-origin", "unsafe-url"];
+[window.HTMLImageElement, window.HTMLLinkElement, window.HTMLScriptElement].forEach(elementClass => {
+	Object.defineProperty(elementClass.prototype, "referrerPolicy", {
+		configurable: true,
+		get() {
+			const value = (this.getAttribute("referrerpolicy") || "").toLowerCase();
+			return REFERRER_POLICIES.includes(value) ? value : "";
+		},
+		set(value) {
+			this.setAttribute("referrerpolicy", value);
+		}
+	});
+});
+
 globalThis.MutationObserver = class {
 	observe() { }
 	disconnect() { }

@@ -268,19 +268,19 @@ function getInstance(utilOptions) {
 			if (options.frameId) {
 				try {
 					response = await Promise.race([
-						fetchFrameResource(resourceURL, { frameId: options.frameId, referrer: options.resourceReferrer, headers: { accept } }),
+						fetchFrameResource(resourceURL, { frameId: options.frameId, referrer: options.resourceReferrer, referrerPolicy: options.referrerPolicy || undefined, headers: { accept } }),
 						networkTimeoutPromise
 					]);
 					// eslint-disable-next-line no-unused-vars
 				} catch (error) {
 					response = await Promise.race([
-						fetchResource(resourceURL, { referrer: options.resourceReferrer, headers: { accept } }),
+						fetchResource(resourceURL, { referrer: options.resourceReferrer, referrerPolicy: options.referrerPolicy || undefined, headers: { accept } }),
 						networkTimeoutPromise
 					]);
 				}
 			} else {
 				response = await Promise.race([
-					fetchResource(resourceURL, { referrer: options.resourceReferrer, headers: { accept } }),
+					fetchResource(resourceURL, { referrer: options.resourceReferrer, referrerPolicy: options.referrerPolicy || undefined, headers: { accept } }),
 					networkTimeoutPromise
 				]);
 			}

@@ -71,6 +71,7 @@ import {
 	testIgnoredPath,
 	testValidPath,
 	testValidURL,
+	getReferrerPolicy,
 	resizeImage,
 	toDataURI
 } from "./processor-helper-common.js";
@@ -255,6 +256,7 @@ function getProcessorHelperClass(utilInstance) {
 					charset: options.charset,
 					frameId: options.frameId,
 					resourceReferrer: options.resourceReferrer,
+					referrerPolicy: getReferrerPolicy(element),
 					validateTextContentType: true,
 					baseURI: baseURI,
 					blockMixedContent: options.blockMixedContent,
@@ -379,7 +381,7 @@ function getProcessorHelperClass(utilInstance) {
 									const groupDuplicates = options.groupDuplicateImages && resourceElement.tagName.toUpperCase() == "IMG" && attributeName == "src";
 									let { content, indexResource, duplicate } = await batchRequest.addURL(
 										resourceURL,
-										{ asBinary: true, expectedType, contentType: declaredContentType, groupDuplicates });
+										{ asBinary: true, expectedType, contentType: declaredContentType, groupDuplicates, referrerPolicy: getReferrerPolicy(resourceElement) });
 									if (originURL) {
 										if (this.testEmptyResource(content)) {
 											try {
@@ -399,6 +401,7 @@ function getProcessorHelperClass(utilInstance) {
 													maxResourceSizeEnabled: options.maxResourceSizeEnabled,
 													frameId: options.windowId,
 													resourceReferrer: options.resourceReferrer,
+													referrerPolicy: getReferrerPolicy(resourceElement),
 													acceptHeaders: options.acceptHeaders,
 													networkTimeout: options.networkTimeout
 												})).data;
@@ -459,8 +462,8 @@ function getProcessorHelperClass(utilInstance) {
 			}));
 		}
 
-		async processImageSrcset(resourceURL, srcsetValue, resources, batchRequest) {
-			const { content } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "image" });
+		async processImageSrcset(resourceURL, srcsetValue, resources, batchRequest, resourceElement) {
+			const { content } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "image", referrerPolicy: getReferrerPolicy(resourceElement) });
 			const forbiddenPrefixFound = PREFIXES_FORBIDDEN_DATA_URI.filter(prefixDataURI => content.startsWith(prefixDataURI)).length;
 			if (forbiddenPrefixFound) {
 				return "";
@@ -533,6 +536,7 @@ function getProcessorHelperClass(utilInstance) {
 					maxResourceSizeEnabled: options.maxResourceSizeEnabled,
 					frameId: options.windowId,
 					resourceReferrer: options.resourceReferrer,
+					referrerPolicy: getReferrerPolicy(element),
 					baseURI: options.baseURI,
 					blockMixedContent: options.blockMixedContent,
 					expectedType: "script",

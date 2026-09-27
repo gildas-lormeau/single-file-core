@@ -37,6 +37,7 @@ const FILE_URI_PREFIX = /^file:\/\//;
 const EMPTY_URL = /^https?:\/\/+\s*$/;
 const NOT_EMPTY_URL = /^(https?:\/\/|file:\/\/|blob:).+/;
 const PREFIX_DATA_URI_IMAGE_SVG = "data:image/svg+xml";
+const REFERRER_POLICY_ELEMENTS = ["IMG", "LINK", "SCRIPT"];
 const UTF8_CHARSET = "utf-8";
 const REGEXP_URL_FUNCTION = /(url|local|-sf-url-original)\(.*?\)\s*(,|$)/g;
 const REGEXP_URL_SIMPLE_QUOTES_FN = /url\s*\(\s*'(.*?)'\s*\)/i;
@@ -83,7 +84,8 @@ export {
 	testValidPath,
 	testValidURL,
 	resizeImage,
-	toDataURI
+	toDataURI,
+	getReferrerPolicy
 };
 
 function getProcessorHelperCommonClass(utilInstance, cssTreeInstance) {
@@ -686,6 +688,15 @@ function findShortcutIcon(shortcutIcons) {
 	shortcutIcons = shortcutIcons.filter(linkElement => linkElement.href != util.EMPTY_RESOURCE);
 	shortcutIcons.sort((linkElement1, linkElement2) => (parseInt(linkElement2.sizes, 10) || 16) - (parseInt(linkElement1.sizes, 10) || 16));
 	return shortcutIcons[0];
+}
+
+function getReferrerPolicy(element) {
+	if (element.tagName.toUpperCase() == "SOURCE" && element.parentElement && element.parentElement.tagName.toUpperCase() == "PICTURE") {
+		element = element.parentElement.querySelector("img");
+	}
+	if (element && REFERRER_POLICY_ELEMENTS.includes(element.tagName.toUpperCase()) && element.referrerPolicy) {
+		return element.referrerPolicy;
+	}
 }
 
 function isDataURL(url) {
