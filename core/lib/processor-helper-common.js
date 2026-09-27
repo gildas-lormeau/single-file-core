@@ -267,6 +267,16 @@ class ProcessorHelperCommon {
 		}
 	}
 
+	async resizeCanvasImages(doc, canvases, options) {
+		if (canvases && options.imageReductionFactor > 1) {
+			await Promise.all(canvases.map(async canvasData => {
+				if (canvasData && canvasData.dataURI) {
+					canvasData.dataURI = await resizeImage(doc, canvasData.dataURI, options);
+				}
+			}));
+		}
+	}
+
 	setBackgroundImage(element, url, style) {
 		element.style.setProperty("background-blend-mode", "normal", "important");
 		element.style.setProperty("background-clip", "content-box", "important");

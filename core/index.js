@@ -526,6 +526,7 @@ class Processor {
 				return this.loadPage(pageContent, charset);
 			}
 		}
+		await this.processorHelper.resizeCanvasImages(this.doc, this.options.canvases, this.options);
 		this.workStyleElement = this.doc.createElement("style");
 		this.doc.body.appendChild(this.workStyleElement);
 		this.onEventAttributeNames = new Set(getOnEventAttributeNames(this.doc));
