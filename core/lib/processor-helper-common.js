@@ -64,6 +64,7 @@ const FONT_STRETCHES = {
 const Blob = globalThis.Blob;
 const Image = globalThis.Image;
 const OffscreenCanvas = globalThis.OffscreenCanvas;
+const DEFAULT_IMAGE_QUALITY = 0.8;
 
 let util, cssTree;
 
@@ -690,7 +691,7 @@ function getFontStretch(stretch) {
 	return FONT_STRETCHES[stretch] || stretch;
 }
 
-async function resizeImage(doc, dataURI, { imageReductionFactor }) {
+async function resizeImage(doc, dataURI, { imageReductionFactor, imageQuality }) {
 	if (dataURI) {
 		const contentType = dataURI.substring(5, dataURI.indexOf(";"));
 		if (contentType == "image/jpeg" ||
@@ -705,12 +706,13 @@ async function resizeImage(doc, dataURI, { imageReductionFactor }) {
 				});
 				const width = image.naturalWidth / imageReductionFactor;
 				const height = image.naturalHeight / imageReductionFactor;
+				const quality = imageQuality === undefined ? DEFAULT_IMAGE_QUALITY : Number(imageQuality);
 				let blob;
 				try {
 					const canvas = new OffscreenCanvas(width, height);
 					const context = canvas.getContext("2d");
 					context.drawImage(image, 0, 0, width, height);
-					blob = await canvas.convertToBlob({ type: contentType });
+					blob = await canvas.convertToBlob({ type: contentType, quality });
 				} catch {
 					const canvas = doc.createElement("canvas");
 					canvas.width = width;
@@ -723,7 +725,7 @@ async function resizeImage(doc, dataURI, { imageReductionFactor }) {
 						} else {
 							throw new Error("Canvas toBlob failed");
 						}
-					}, contentType));
+					}, contentType, quality));
 				}
 				if (blob.type == contentType) {
 					dataURI = await toDataURI(blob, contentType);
