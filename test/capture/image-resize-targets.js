@@ -41,8 +41,8 @@ const resources = {
 	[PAGE_URL]: { body: page },
 	"https://example.com/tile.png": { body: "TILE", contentType: "image/png" },
 	"https://example.com/cell.png": { body: "CELL", contentType: "image/png" },
-	"https://example.com/image.png": { body: "IMAGE", contentType: "image/png" },
-	"https://example.com/input.png": { body: "INPUT", contentType: "image/png" }
+	"https://example.com/image.png": { body: "IMAGE-ORIGINAL-BYTES", contentType: "image/png" },
+	"https://example.com/input.png": { body: "INPUT-ORIGINAL-BYTES", contentType: "image/png" }
 };
 
 {

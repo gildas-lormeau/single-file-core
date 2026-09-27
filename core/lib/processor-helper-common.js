@@ -780,10 +780,13 @@ async function resizeImage(doc, dataURI, { imageReductionFactor, imageQuality },
 					}, contentType, quality));
 				}
 				if (blob.type == contentType) {
-					dataURI = await toDataURI(blob, contentType);
-					if (element && isUnsizedSVGImage(element)) {
-						element.setAttribute("width", image.naturalWidth);
-						element.setAttribute("height", image.naturalHeight);
+					const resizedDataURI = await toDataURI(blob, contentType);
+					if (resizedDataURI.length < dataURI.length) {
+						dataURI = resizedDataURI;
+						if (element && isUnsizedSVGImage(element)) {
+							element.setAttribute("width", image.naturalWidth);
+							element.setAttribute("height", image.naturalHeight);
+						}
 					}
 				}
 			} catch {

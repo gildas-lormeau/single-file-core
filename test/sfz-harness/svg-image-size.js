@@ -32,7 +32,7 @@ globalThis.OffscreenCanvas = class OffscreenCanvas {
 
 const { resizeImage } = await import("../../core/lib/processor-helper-common.js");
 
-const WEBP_DATA_URI = "data:image/webp;base64,UklGRg==";
+const WEBP_DATA_URI = "data:image/webp;base64,UklGRgAAAABXRUJQVlA4IA==";
 
 let failed = false;
 

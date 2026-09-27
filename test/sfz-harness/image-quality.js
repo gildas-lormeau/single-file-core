@@ -58,7 +58,7 @@ const doc = {
 const { resizeImage } = await import("../../core/lib/processor-helper-common.js");
 
 const JPEG_DATA_URI = "data:image/jpeg;base64,/9j/";
-const WEBP_DATA_URI = "data:image/webp;base64,UklGRg==";
+const WEBP_DATA_URI = "data:image/webp;base64,UklGRgAAAABXRUJQVlA4IA==";
 
 let failed = false;
 

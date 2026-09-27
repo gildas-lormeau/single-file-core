@@ -39,7 +39,7 @@ const { getProcessorHelperClass } = await import("../../core/lib/processor-helpe
 const ProcessorHelper = getProcessorHelperClass({}, cssTree);
 const helper = new ProcessorHelper();
 
-const PNG_DATA_URI = "data:image/png;base64,iVBORw0KGgo=";
+const PNG_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB";
 
 let failed = false;
 
