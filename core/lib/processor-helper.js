@@ -478,7 +478,7 @@ function getProcessorHelperClass(utilInstance) {
 											}
 										}
 									}
-									if (options.imageReductionFactor > 1 && expectedType == "image") {
+									if (options.imageReductionFactor > 1 && expectedType == "image" && attributeName != "background") {
 										const dataURI = await resizeImage(doc, await toDataURI(new Blob([content], { type: contentType }), charset), options, resourceElement);
 										content = (await util.getContent(dataURI, { asBinary: true })).data;
 									}
