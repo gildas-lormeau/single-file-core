@@ -95,6 +95,23 @@ let failed = false;
 	check("postProcessDoc removes the numbers", document.querySelectorAll("[" + LINK_ATTRIBUTE + "]").length, 0);
 }
 
+// a <style> whose rules a script changed gets its own marker, so that its CSSOM replaces its text in
+// the saved page; that marker was never added to markedElements, so it stayed on the live page after
+// every save. Measured in Chromium: data-single-file-stylesheet=0 was left on the style element.
+{
+	const window = new Window({ url: PAGE_URL });
+	const document = window.document;
+	globalThis.HTMLElement = window.HTMLElement;
+	globalThis.SVGElement = window.SVGElement;
+	document.head.innerHTML = "<style>.a{color:red}</style><style>.c{color:green}</style>";
+	document.head.querySelector("style").sheet.insertRule(".b{color:blue}", 1);
+	const docData = helper.preProcessDoc(document, window, {});
+	check("control: the changed style is marked", document.querySelectorAll("[" + helper.STYLESHEET_ATTRIBUTE_NAME + "]").length, 1);
+	check("and its rules are kept", String(docData.stylesheets[0]).includes(".b"), true);
+	helper.postProcessDoc(document, docData.markedElements, docData.invalidElements);
+	check("postProcessDoc removes the style marker", document.querySelectorAll("[" + helper.STYLESHEET_ATTRIBUTE_NAME + "]").length, 0);
+}
+
 if (failed) {
 	console.log("FAILED");
 	Deno.exit(1);

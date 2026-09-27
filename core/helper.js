@@ -346,7 +346,7 @@ function preProcessDoc(doc, win, options) {
 		canvases: elementsInfo.canvases,
 		fonts: getFontsData(),
 		worklets: getWorkletsData(),
-		stylesheets: getStylesheetsData(doc),
+		stylesheets: getStylesheetsData(doc, elementsInfo.markedElements),
 		linkStylesheets,
 		images: elementsInfo.images,
 		posters: elementsInfo.posters,
@@ -1128,7 +1128,7 @@ function markLinkStylesheets(doc, markedElements) {
 	return linkElements;
 }
 
-function getStylesheetsData(doc) {
+function getStylesheetsData(doc, markedElements) {
 	if (doc) {
 		const contents = [];
 		doc.querySelectorAll("style").forEach((styleElement, styleIndex) => {
@@ -1143,6 +1143,7 @@ function getStylesheetsData(doc) {
 					const sheetStylesheet = Array.from(styleElement.sheet.cssRules).map(cssRule => cssRule.cssText).join("\n");
 					if (!stylesheet || textContentStylesheet != sheetStylesheet) {
 						styleElement.setAttribute(STYLESHEET_ATTRIBUTE_NAME, styleIndex);
+						markedElements.push(styleElement);
 						contents[styleIndex] = Array.from(styleElement.sheet.cssRules).map(cssRule => cssRule.cssText).join("\n");
 					}
 				}
