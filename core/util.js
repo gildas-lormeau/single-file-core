@@ -225,6 +225,7 @@ function getInstance(utilOptions) {
 		ASSIGNED_SLOT_SEPARATOR: helper.ASSIGNED_SLOT_SEPARATOR,
 		PRESERVED_SPACE_ELEMENT_ATTRIBUTE_NAME: helper.PRESERVED_SPACE_ELEMENT_ATTRIBUTE_NAME,
 		STYLESHEET_ATTRIBUTE_NAME: helper.STYLESHEET_ATTRIBUTE_NAME,
+		LINK_STYLESHEET_ATTRIBUTE_NAME: helper.LINK_STYLESHEET_ATTRIBUTE_NAME,
 		SELECTED_CONTENT_ATTRIBUTE_NAME: helper.SELECTED_CONTENT_ATTRIBUTE_NAME,
 		INVALID_ELEMENT_ATTRIBUTE_NAME: helper.INVALID_ELEMENT_ATTRIBUTE_NAME,
 		COMMENT_HEADER: helper.COMMENT_HEADER,
@@ -285,7 +286,7 @@ function getInstance(utilOptions) {
 			}
 			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
-			return getFetchResponse(resourceURL, options);
+			return getFailedFetchResponse(resourceURL, options);
 		} finally {
 			resolveNetworkTimeoutPromise();
 			if (options.networkTimeout) {
@@ -336,7 +337,10 @@ function getInstance(utilOptions) {
 				return getFetchResponse(resourceURL, options);
 			}
 		} else {
-			if (response.status >= 400 || (options.validateTextContentType && contentType && !contentType.startsWith(PREFIX_CONTENT_TYPE_TEXT))) {
+			if (response.status >= 400) {
+				return getFailedFetchResponse(resourceURL, options);
+			}
+			if (options.validateTextContentType && contentType && !contentType.startsWith(PREFIX_CONTENT_TYPE_TEXT)) {
 				return getFetchResponse(resourceURL, options);
 			}
 			if (!charset) {
@@ -357,6 +361,12 @@ function getInstance(utilOptions) {
 			}
 		}
 	}
+}
+
+async function getFailedFetchResponse(resourceURL, options) {
+	const response = await getFetchResponse(resourceURL, options);
+	response.failed = true;
+	return response;
 }
 
 async function getFetchResponse(resourceURL, options, data, charset, contentType) {

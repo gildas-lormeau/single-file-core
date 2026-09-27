@@ -64,6 +64,7 @@ const INPUT_VALUE_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "input-value";
 const INPUT_CHECKED_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "input-checked";
 const LAZY_SRC_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "lazy-loaded-src";
 const STYLESHEET_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "stylesheet";
+const LINK_STYLESHEET_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "link-stylesheet";
 const DISABLED_NOSCRIPT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "disabled-noscript";
 const SELECTED_CONTENT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "selected-content";
 const INVALID_ELEMENT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "invalid-element";
@@ -174,6 +175,7 @@ export {
 	STYLE_ATTRIBUTE_NAME,
 	LAZY_SRC_ATTRIBUTE_NAME,
 	STYLESHEET_ATTRIBUTE_NAME,
+	LINK_STYLESHEET_ATTRIBUTE_NAME,
 	SELECTED_CONTENT_ATTRIBUTE_NAME,
 	INVALID_ELEMENT_ATTRIBUTE_NAME,
 	ASYNC_SCRIPT_ATTRIBUTE_NAME,
@@ -330,6 +332,7 @@ function preProcessDoc(doc, win, options) {
 		};
 	}
 	setNestingMarkersData(doc);
+	const linkStylesheets = markLinkStylesheets(doc, elementsInfo.markedElements);
 	let referrer = "";
 	if (doc.referrer) {
 		try {
@@ -344,6 +347,7 @@ function preProcessDoc(doc, win, options) {
 		fonts: getFontsData(),
 		worklets: getWorkletsData(),
 		stylesheets: getStylesheetsData(doc),
+		linkStylesheets,
 		images: elementsInfo.images,
 		posters: elementsInfo.posters,
 		videos: elementsInfo.videos,
@@ -1087,7 +1091,7 @@ function postProcessDoc(doc, markedElements, invalidElements) {
 		doc.head.querySelectorAll("*:not(base):not(link):not(meta):not(noscript):not(script):not(style):not(template):not(title)").forEach(element => element.removeAttribute("hidden"));
 	}
 	if (!markedElements) {
-		const singleFileAttributes = [REMOVED_CONTENT_ATTRIBUTE_NAME, HIDDEN_FRAME_ATTRIBUTE_NAME, HIDDEN_CONTENT_ATTRIBUTE_NAME, PRESERVED_SPACE_ELEMENT_ATTRIBUTE_NAME, IMAGE_ATTRIBUTE_NAME, POSTER_ATTRIBUTE_NAME, VIDEO_ATTRIBUTE_NAME, CANVAS_ATTRIBUTE_NAME, INPUT_VALUE_ATTRIBUTE_NAME, INPUT_CHECKED_ATTRIBUTE_NAME, SHADOW_ROOT_ATTRIBUTE_NAME, SLOT_ATTRIBUTE_NAME, ASSIGNED_SLOT_ATTRIBUTE_NAME, STYLESHEET_ATTRIBUTE_NAME, ASYNC_SCRIPT_ATTRIBUTE_NAME];
+		const singleFileAttributes = [REMOVED_CONTENT_ATTRIBUTE_NAME, HIDDEN_FRAME_ATTRIBUTE_NAME, HIDDEN_CONTENT_ATTRIBUTE_NAME, PRESERVED_SPACE_ELEMENT_ATTRIBUTE_NAME, IMAGE_ATTRIBUTE_NAME, POSTER_ATTRIBUTE_NAME, VIDEO_ATTRIBUTE_NAME, CANVAS_ATTRIBUTE_NAME, INPUT_VALUE_ATTRIBUTE_NAME, INPUT_CHECKED_ATTRIBUTE_NAME, SHADOW_ROOT_ATTRIBUTE_NAME, SLOT_ATTRIBUTE_NAME, ASSIGNED_SLOT_ATTRIBUTE_NAME, STYLESHEET_ATTRIBUTE_NAME, LINK_STYLESHEET_ATTRIBUTE_NAME, ASYNC_SCRIPT_ATTRIBUTE_NAME];
 		markedElements = doc.querySelectorAll(singleFileAttributes.map(name => "[" + name + "]").join(","));
 	}
 	markedElements.forEach(element => {
@@ -1106,12 +1110,22 @@ function postProcessDoc(doc, markedElements, invalidElements) {
 		element.removeAttribute(SLOT_ATTRIBUTE_NAME);
 		element.removeAttribute(ASSIGNED_SLOT_ATTRIBUTE_NAME);
 		element.removeAttribute(STYLESHEET_ATTRIBUTE_NAME);
+		element.removeAttribute(LINK_STYLESHEET_ATTRIBUTE_NAME);
 		element.removeAttribute(ASYNC_SCRIPT_ATTRIBUTE_NAME);
 		element.removeAttribute(STYLE_ATTRIBUTE_NAME);
 	});
 	if (invalidElements) {
 		invalidElements.forEach((placeholderElement, element) => placeholderElement.replaceWith(element));
 	}
+}
+
+function markLinkStylesheets(doc, markedElements) {
+	const linkElements = Array.from(doc.querySelectorAll("link[rel*=stylesheet]"));
+	linkElements.forEach((linkElement, linkIndex) => {
+		linkElement.setAttribute(LINK_STYLESHEET_ATTRIBUTE_NAME, linkIndex);
+		markedElements.push(linkElement);
+	});
+	return linkElements;
 }
 
 function getStylesheetsData(doc) {

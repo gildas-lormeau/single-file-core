@@ -197,6 +197,7 @@ class Runner {
 			this.options.fonts = docData.fonts;
 			this.options.worklets = docData.worklets;
 			this.options.stylesheets = docData.stylesheets;
+			this.options.linkStylesheets = docData.linkStylesheets;
 			this.options.images = docData.images;
 			this.options.posters = docData.posters;
 			this.options.videos = docData.videos;
@@ -1443,6 +1444,7 @@ class Processor {
 			options.fonts = frameData.fonts;
 			options.worklets = frameData.worklets;
 			options.stylesheets = frameData.stylesheets;
+			options.linkStylesheets = null;
 			options.images = frameData.images;
 			options.posters = frameData.posters;
 			options.videos = frameData.videos;

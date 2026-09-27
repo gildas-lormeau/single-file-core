@@ -99,7 +99,7 @@ function getProcessorHelperClass(utilInstance) {
 			if (!options.inlineStylesheetsRefs.has(element)) {
 				if (!options.blockStylesheets || (options.keepPrintStyleSheets && stylesheetInfo.mediaText == "print")) {
 					if (element.tagName.toUpperCase() == "LINK") {
-						stylesheet = await this.resolveLinkStylesheetURLs(element.href, baseURI, options, workStyleElement);
+						stylesheet = await this.resolveLinkStylesheetURLs(element, element.href, baseURI, options, workStyleElement);
 					} else {
 						stylesheet = cssTree.parse(element.textContent, { context: "stylesheet", parseCustomProperty: true });
 						const importFound = await this.resolveImportURLs(stylesheet, baseURI, options, workStyleElement);
@@ -245,7 +245,7 @@ function getProcessorHelperClass(utilInstance) {
 			return importFound;
 		}
 
-		async resolveLinkStylesheetURLs(resourceURL, baseURI, options, workStylesheet) {
+		async resolveLinkStylesheetURLs(element, resourceURL, baseURI, options, workStylesheet) {
 			resourceURL = normalizeURL(resourceURL);
 			if (resourceURL && resourceURL != baseURI && resourceURL != ABOUT_BLANK_URI) {
 				const content = await util.getContent(resourceURL, {
@@ -262,9 +262,15 @@ function getProcessorHelperClass(utilInstance) {
 					acceptHeaders: options.acceptHeaders,
 					networkTimeout: options.networkTimeout
 				});
+				if (content.failed) {
+					const liveContent = this.getLiveStylesheetContent(element, options);
+					if (liveContent) {
+						content.data = liveContent;
+					}
+				}
 				if (!(matchCharsetEquals(content.data, content.charset) || matchCharsetEquals(content.data, options.charset))) {
 					options = Object.assign({}, options, { charset: getCharset(content.data) });
-					return this.resolveLinkStylesheetURLs(resourceURL, baseURI, options, workStylesheet);
+					return this.resolveLinkStylesheetURLs(element, resourceURL, baseURI, options, workStylesheet);
 				}
 				resourceURL = content.resourceURL;
 				content.data = getUpdatedResourceContent(content.resourceURL, options) || content.data;

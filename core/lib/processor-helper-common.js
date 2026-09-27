@@ -326,6 +326,24 @@ class ProcessorHelperCommon {
 		}
 	}
 
+	getLiveStylesheetContent(element, options) {
+		const linkIndex = element.getAttribute(util.LINK_STYLESHEET_ATTRIBUTE_NAME);
+		if (options.linkStylesheets && linkIndex !== null) {
+			const liveElement = options.linkStylesheets[Number(linkIndex)];
+			if (liveElement && liveElement.href == element.href) {
+				try {
+					const cssRules = liveElement.sheet && liveElement.sheet.cssRules;
+					if (cssRules && cssRules.length) {
+						return Array.from(cssRules).map(cssRule => cssRule.cssText).join("\n");
+					}
+					// eslint-disable-next-line no-unused-vars
+				} catch (error) {
+					// ignored
+				}
+			}
+		}
+	}
+
 	processShortcutIcons(doc) {
 		let shortcutIcon = findShortcutIcon(Array.from(doc.querySelectorAll("link[href][rel=\"shortcut icon\"]")));
 		if (!shortcutIcon) {

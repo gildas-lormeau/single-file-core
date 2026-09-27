@@ -286,6 +286,12 @@ function getProcessorHelperClass(utilInstance) {
 					acceptHeaders: options.acceptHeaders,
 					networkTimeout: options.networkTimeout
 				});
+				if (content.failed) {
+					const liveContent = this.getLiveStylesheetContent(element, options);
+					if (liveContent) {
+						content.data = liveContent;
+					}
+				}
 				if (!(matchCharsetEquals(content.data, content.charset) || matchCharsetEquals(content.data, options.charset))) {
 					options = Object.assign({}, options, { charset: getCharset(content.data) });
 					await this.resolveLinkStylesheetURLs(stylesheetInfo, element, resourceURL, baseURI, options, workStylesheet, resources, stylesheets);
