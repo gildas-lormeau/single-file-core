@@ -123,6 +123,7 @@ const FONT_DESCRIPTOR_KEYS = new Set([
 
 const OPERATOR_TYPE = "Operator";
 const IDENTIFIER_TYPE = "Identifier";
+const NUMBER_TYPE = "Number";
 const NORMAL_KEYWORD = "normal";
 const LINE_HEIGHT_SEPARATOR = "/";
 const FAMILY_SEPARATOR = ",";
@@ -154,7 +155,8 @@ function parse(value) {
 	for (let tokenNode = tokens.head; tokenNode; tokenNode = tokenNode.next) {
 		const tokenRaw = tokenNode.data.name || tokenNode.data.value || cssTree.generate(tokenNode.data);
 		const token = tokenRaw.toLowerCase();
-		if (token === NORMAL_KEYWORD) {
+		const keyword = tokenNode.data.type == IDENTIFIER_TYPE || tokenNode.data.type == NUMBER_TYPE;
+		if (keyword && token === NORMAL_KEYWORD) {
 			FONT_DESCRIPTOR_KEYS.forEach((prop) => {
 				if (!seen[prop]) {
 					font[prop] = tokenRaw;
@@ -162,28 +164,28 @@ function parse(value) {
 			});
 			continue;
 		}
-		if (FONT_WEIGHT_KEYWORDS.has(token)) {
+		if (keyword && FONT_WEIGHT_KEYWORDS.has(token)) {
 			if (!seen.weight) {
 				font.weight = tokenRaw;
 				seen.weight = true;
 			}
 			continue;
 		}
-		if (FONT_STYLE_KEYWORDS.has(token)) {
+		if (keyword && FONT_STYLE_KEYWORDS.has(token)) {
 			if (!seen.style) {
 				font.style = tokenRaw;
 				seen.style = true;
 			}
 			continue;
 		}
-		if (FONT_VARIANT_KEYWORDS.has(token)) {
+		if (keyword && FONT_VARIANT_KEYWORDS.has(token)) {
 			if (!seen.variant) {
 				font.variant = tokenRaw;
 				seen.variant = true;
 			}
 			continue;
 		}
-		if (FONT_STRETCH_KEYWORDS.has(token)) {
+		if (keyword && FONT_STRETCH_KEYWORDS.has(token)) {
 			if (!seen.stretch) {
 				font.stretch = tokenRaw;
 				seen.stretch = true;
