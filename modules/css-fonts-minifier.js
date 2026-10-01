@@ -601,7 +601,8 @@ function getUsedFontWeight(fontInfo, fontStyle, fontWeights) {
 	if (testFontStyle(fontInfo[2], fontStyle)) {
 		let fontWeight = Number(fontInfo[1]);
 		if (fontWeights.length > 1) {
-			if (fontWeight >= 400 && fontWeight <= 500) {
+			foundWeight = fontWeights.find(weights => weights[0] <= fontWeight && weights[weights.length - 1] >= fontWeight);
+			if (!foundWeight && fontWeight >= 400 && fontWeight <= 500) {
 				foundWeight = fontWeights.find(weights => weights[0] >= fontWeight && weights[0] <= 500);
 				if (!foundWeight) {
 					foundWeight = findDescendingFontWeight(fontWeight, fontWeights);
@@ -610,20 +611,17 @@ function getUsedFontWeight(fontInfo, fontStyle, fontWeights) {
 					foundWeight = findAscendingFontWeight(fontWeight, fontWeights);
 				}
 			}
-			if (fontWeight < 400) {
+			if (!foundWeight && fontWeight < 400) {
 				foundWeight = fontWeights.slice().reverse().find(weights => weights[weights.length - 1] <= fontWeight);
 				if (!foundWeight) {
 					foundWeight = findAscendingFontWeight(fontWeight, fontWeights);
 				}
 			}
-			if (fontWeight > 500) {
+			if (!foundWeight && fontWeight > 500) {
 				foundWeight = fontWeights.find(weights => weights[0] >= fontWeight);
 				if (!foundWeight) {
 					foundWeight = findDescendingFontWeight(fontWeight, fontWeights);
 				}
-			}
-			if (!foundWeight) {
-				foundWeight = fontWeights.find(weights => weights[0] <= fontWeight && weights[weights.length - 1] >= fontWeight);
 			}
 		} else {
 			foundWeight = fontWeights[0];
