@@ -15,7 +15,8 @@ const FONT_CONTENT_TYPE = "font/woff2";
 const VARIABLE_FONT_BYTES = new Uint8Array(512).fill(65);
 const BOLD_FONT_BYTES = new Uint8Array(512).fill(66);
 const RANGE_FACES = face("100 600", VARIABLE_FONT_URL) + face("bold", BOLD_FONT_URL);
-const STATIC_FACES = face("400", VARIABLE_FONT_URL) + face("700", BOLD_FONT_URL);
+const TIED_FACES = face("100 900", VARIABLE_FONT_URL) + face("bold", BOLD_FONT_URL);
+const STATIC_FACES =face("400", VARIABLE_FONT_URL) + face("700", BOLD_FONT_URL);
 
 let failed = false;
 
@@ -23,6 +24,20 @@ for (const weight of ["400", "500", "600"]) {
 	const content = await run(RANGE_FACES, [weight]);
 	check("a weight of " + weight + " keeps the face whose range holds it", content.includes("font-weight:100 600"), true);
 	check("and drops the bold face nothing lands on (" + weight + ")", content.includes("font-weight:bold"), false);
+}
+
+// Two faces holding the same weight are a tie §5.2 leaves to the browser, and browsers differ: with a
+// variable face at 100 900 and a static bold one, measured, Chrome draws text at 700 with the bold face
+// in either order and Firefox with the face declared last. So both are kept.
+{
+	const content = await run(TIED_FACES, ["700"]);
+	check("a weight of 700 keeps the range that holds it", content.includes("font-weight:100 900"), true);
+	check("and the static face that holds it too", content.includes("font-weight:bold"), true);
+}
+
+{
+	const content = await run(TIED_FACES, ["400"]);
+	check("a weight of 400 keeps the range alone", content.includes("font-weight:bold"), false);
 }
 
 // The control: a weight outside every range still goes through the nearest-weight search.
