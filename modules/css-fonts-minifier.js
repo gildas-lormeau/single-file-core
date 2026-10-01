@@ -27,6 +27,7 @@ import {
 	normalizeFontFamily,
 	flatten,
 	getFontWeight,
+	getFontStretch,
 	removeQuotes
 } from "./../core/helper.js";
 
@@ -34,6 +35,7 @@ const helper = {
 	normalizeFontFamily,
 	flatten,
 	getFontWeight,
+	getFontStretch,
 	removeQuotes
 };
 
@@ -167,9 +169,10 @@ function getFontsInfo(cssRules, fontsInfo, options) {
 					const fontWeight = getDeclarationValue(ruleData.block.children, "font-weight") || "400";
 					const fontStyle = getDeclarationValue(ruleData.block.children, "font-style") || "normal";
 					const fontVariant = getDeclarationValue(ruleData.block.children, "font-variant") || "normal";
+					const fontStretch = getDeclarationValue(ruleData.block.children, "font-stretch") || "normal";
 					const unicodeRange = getDeclarationValue(ruleData.block.children, "unicode-range");
 					fontWeight.split(",").forEach(weightValue =>
-						fontsInfo.declared.push({ fontFamily, fontWeight: helper.getFontWeight(helper.removeQuotes(weightValue)), fontStyle, fontVariant, unicodeRange, ruleData }));
+						fontsInfo.declared.push({ fontFamily, fontWeight: helper.getFontWeight(helper.removeQuotes(weightValue)), fontStyle, fontVariant, fontStretch, unicodeRange, ruleData }));
 				}
 			}
 		}
@@ -403,23 +406,20 @@ function testUsedFont(ruleData, familyName, declaredFonts, filteredUsedFonts) {
 		const fontStyle = getDeclarationValue(ruleData.block.children, "font-style") || "normal";
 		if (VALID_FONT_STYLES.find(rule => fontStyle.trim().match(rule))) {
 			const fontWeight = helper.getFontWeight(getDeclarationValue(ruleData.block.children, "font-weight") || "400");
-			const declaredFontsWeights = declaredFonts
-				.filter(fontInfo => fontInfo.fontFamily == familyName && testFontStyle(fontInfo.fontStyle, fontStyle))
-				.map(fontInfo => fontInfo.fontWeight.split(" "))
-				.sort((weight1, weight2) => Number.parseInt(weight1[0], 10) - Number.parseInt(weight2[0], 10));
-			let usedFontWeights = optionalUsedFonts
-				.map(fontInfo => getUsedFontWeight(fontInfo, fontStyle, declaredFontsWeights))
-				.filter(fontWeight => fontWeight);
-			test = testFontweight(fontWeight, usedFontWeights);
-			if (!test) {
-				usedFontWeights = optionalUsedFonts
-					.map(fontInfo => {
-						fontInfo = Array.from(fontInfo);
-						fontInfo[2] = "normal";
-						return getUsedFontWeight(fontInfo, fontStyle, declaredFontsWeights);
-					})
-					.filter(fontWeight => fontWeight);
-				test = testFontweight(fontWeight, usedFontWeights);
+			const fontStretch = parseFontStretch(getDeclarationValue(ruleData.block.children, "font-stretch") || "normal");
+			const familyFonts = declaredFonts.filter(fontInfo => fontInfo.fontFamily == familyName);
+			const usedFontsByStretch = new Map();
+			optionalUsedFonts.forEach(fontInfo => {
+				const usedFonts = usedFontsByStretch.get(fontInfo[4]) || [];
+				usedFonts.push(fontInfo);
+				usedFontsByStretch.set(fontInfo[4], usedFonts);
+			});
+			for (const [usedFontStretch, usedFonts] of usedFontsByStretch) {
+				const testStretch = getFontStretchTest(familyFonts, usedFontStretch);
+				if (!test && testStretch(fontStretch)) {
+					const stretchFonts = familyFonts.filter(fontInfo => testStretch(parseFontStretch(fontInfo.fontStretch)));
+					test = testUsedFontWeights(fontWeight, fontStyle, usedFonts, stretchFonts);
+				}
 			}
 		} else {
 			test = true;
@@ -428,6 +428,60 @@ function testUsedFont(ruleData, familyName, declaredFonts, filteredUsedFonts) {
 		test = true;
 	}
 	return test;
+}
+
+function testUsedFontWeights(fontWeight, fontStyle, usedFonts, declaredFonts) {
+	const declaredFontsWeights = declaredFonts
+		.filter(fontInfo => testFontStyle(fontInfo.fontStyle, fontStyle))
+		.map(fontInfo => fontInfo.fontWeight.split(" "))
+		.sort((weight1, weight2) => Number.parseInt(weight1[0], 10) - Number.parseInt(weight2[0], 10));
+	let usedFontWeights = usedFonts
+		.map(fontInfo => getUsedFontWeight(fontInfo, fontStyle, declaredFontsWeights))
+		.filter(fontWeight => fontWeight);
+	let test = testFontweight(fontWeight, usedFontWeights);
+	if (!test) {
+		usedFontWeights = usedFonts
+			.map(fontInfo => {
+				fontInfo = Array.from(fontInfo);
+				fontInfo[2] = "normal";
+				return getUsedFontWeight(fontInfo, fontStyle, declaredFontsWeights);
+			})
+			.filter(fontWeight => fontWeight);
+		test = testFontweight(fontWeight, usedFontWeights);
+	}
+	return test;
+}
+
+function getFontStretchTest(declaredFonts, usedFontStretch) {
+	const stretch = usedFontStretch && parseFontStretch(usedFontStretch);
+	if (!stretch || stretch[0] != stretch[1]) {
+		return () => true;
+	}
+	const [value] = stretch;
+	const stretches = declaredFonts.map(fontInfo => parseFontStretch(fontInfo.fontStretch));
+	if (stretches.find(([min, max]) => min <= value && value <= max)) {
+		return ([min, max]) => min <= value && value <= max;
+	}
+	const narrowerStretches = stretches.filter(([, max]) => max < value).map(([, max]) => max);
+	const widerStretches = stretches.filter(([min]) => min > value).map(([min]) => min);
+	const narrower = narrowerStretches.length ? Math.max(...narrowerStretches) : undefined;
+	const wider = widerStretches.length ? Math.min(...widerStretches) : undefined;
+	if (narrower !== undefined && (value <= 100 || wider === undefined)) {
+		return ([, max]) => max == narrower;
+	} else if (wider !== undefined) {
+		return ([min]) => min == wider;
+	} else {
+		return () => true;
+	}
+}
+
+function parseFontStretch(fontStretch) {
+	const values = String(fontStretch).trim().split(REGEXP_SPACES)
+		.map(value => Number.parseFloat(helper.getFontStretch(value)));
+	if (!values.length || values.length > 2 || values.some(value => Number.isNaN(value))) {
+		return [0, Infinity];
+	}
+	return [Math.min(...values), Math.max(...values)];
 }
 
 function testFontStyle(fontStyle, otherFontStyle) {

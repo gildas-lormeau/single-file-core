@@ -24,6 +24,7 @@
 import {
 	normalizeFontFamily,
 	getFontWeight,
+	getFontStretch,
 	getDataURI
 } from "./../helper.js";
 import { serialize as serializeSrcset } from "./../../vendor/html-srcset-parser.js";
@@ -51,17 +52,6 @@ const REGEXP_FONT_FORMAT = /\.([^.?#]+)((\?|#).*?)?$/;
 const REGEXP_FONT_FORMAT_VALUE = /format\((.*?)\)\s*,?$/;
 const REGEXP_FONT_SRC = /(.*?)\s*,?$/;
 const MEDIA_ALL = "all";
-const FONT_STRETCHES = {
-	"ultra-condensed": "50%",
-	"extra-condensed": "62.5%",
-	"condensed": "75%",
-	"semi-condensed": "87.5%",
-	"normal": "100%",
-	"semi-expanded": "112.5%",
-	"expanded": "125%",
-	"extra-expanded": "150%",
-	"ultra-expanded": "200%"
-};
 const Blob = globalThis.Blob;
 const Image = globalThis.Image;
 const OffscreenCanvas = globalThis.OffscreenCanvas;
@@ -745,10 +735,6 @@ function getURL(urlFunction) {
 		urlFunction.match(REGEXP_URL_DOUBLE_QUOTES_FN) ||
 		urlFunction.match(REGEXP_URL_NO_QUOTES_FN);
 	return urlMatch && urlMatch[1];
-}
-
-function getFontStretch(stretch) {
-	return FONT_STRETCHES[stretch] || stretch;
 }
 
 async function resizeImage(doc, dataURI, { imageReductionFactor, imageQuality }, element) {

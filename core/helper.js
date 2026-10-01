@@ -86,6 +86,17 @@ const FONT_WEIGHTS = {
 	bolder: "700",
 	lighter: "100"
 };
+const FONT_STRETCHES = {
+	"ultra-condensed": "50%",
+	"extra-condensed": "62.5%",
+	"condensed": "75%",
+	"semi-condensed": "87.5%",
+	"normal": "100%",
+	"semi-expanded": "112.5%",
+	"expanded": "125%",
+	"extra-expanded": "150%",
+	"ultra-expanded": "200%"
+};
 const COMMENT_HEADER_LEGACY = "Archive processed by SingleFile";
 const ELEMENT_NODE_TYPE = 1;
 const TEXT_NODE_TYPE = 3;
@@ -139,6 +150,7 @@ export {
 	removeQuotes,
 	flatten,
 	getFontWeight,
+	getFontStretch,
 	normalizeFontFamily,
 	getShadowRoot,
 	appendInfobar,
@@ -926,8 +938,9 @@ function getUsedFont(computedStyle, usedFonts, usedFontsCharacters, drawnCharact
 			if (fontFamilyName) {
 				const fontWeight = getFontWeight(computedStyle.getPropertyValue("font-weight"));
 				const fontVariant = computedStyle.getPropertyValue("font-variant") || "normal";
-				const value = [fontFamilyName, fontWeight, fontStyle, fontVariant];
-				usedFonts.set(JSON.stringify(value), [fontFamilyName, fontWeight, fontStyle, fontVariant]);
+				const fontStretch = getFontStretch(computedStyle.getPropertyValue("font-stretch") || "normal");
+				const value = [fontFamilyName, fontWeight, fontStyle, fontVariant, fontStretch];
+				usedFonts.set(JSON.stringify(value), value);
 				if (usedFontsCharacters && drawnCharacters) {
 					addUsedFontCharacters(usedFontsCharacters, fontFamilyName, fontStyle, drawnCharacters);
 				}
@@ -1244,6 +1257,10 @@ function removeQuotes(string) {
 
 function getFontWeight(weight) {
 	return FONT_WEIGHTS[weight.toLowerCase().trim()] || weight;
+}
+
+function getFontStretch(stretch) {
+	return FONT_STRETCHES[stretch] || stretch;
 }
 
 function getContentSize(content) {
