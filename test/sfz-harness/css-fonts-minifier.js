@@ -195,8 +195,10 @@ check("a name is ended by a token that is not an identifier",
 // face declared "oblique" or "oblique 0deg 20deg" — which is how MDN declares Inter and Fira Sans.
 // A fallback rung papered over it by forcing BOTH sides of the comparison to "normal", which kept
 // every slanted face of any family drawn at a compatible weight: apple.com carried 1.13 MB of SF
-// Pro italics for a page holding no italic text at all. CSS Fonts 4 makes italic and oblique
-// interchangeable, so they are matched as one bucket now and the rung is gone.
+// Pro italics for a page holding no italic text at all. The rung is gone: each used style is matched
+// the way WebKit, Blink and Gecko each pick a face, from their own distance functions, and every face
+// one of them would pick is kept. An italic request with an oblique face declared picks the oblique
+// one in all three engines (measured in Chrome 154 and Firefox 156), so the upright face goes.
 const STYLE_FACES = `
 	@font-face{font-family:"Probe";font-style:normal;font-weight:400;src:url(n.woff2)}
 	@font-face{font-family:"Probe";font-style:italic;font-weight:400;src:url(i.woff2)}
@@ -235,7 +237,7 @@ check("an italic face is kept when italic text was drawn",
 
 check("an oblique face matches an italic request",
 	runStyles([["slanted", "400", "italic", "normal"]]),
-	["slanted normal", "slanted oblique 0deg 20deg"]);
+	["slanted oblique 0deg 20deg"]);
 
 // the rung that stays: nothing declares a slanted face, so the browser slants the upright one and
 // reports italic. Dropping it would leave the text with no face at all
@@ -262,7 +264,7 @@ check("a 14deg oblique face is dropped when only upright text was drawn",
 
 check("a 14deg oblique face is kept when italic text was drawn",
 	runStyles([["steep", "400", "italic", "normal"]]),
-	["steep normal", "steep oblique"]);
+	["steep oblique"]);
 
 // the 2022 MDN page, declaration for declaration: ONE variable face carrying the whole site, with a
 // weight RANGE and a style RANGE at once (font-stretch:75% 100%;font-style:oblique 0deg 20deg;

@@ -41,15 +41,32 @@ const helper = {
 
 const REGEXP_COMMA = /\s*,\s*/;
 const REGEXP_SPACES = /\s+/g;
-const REGEXP_FONT_STYLE_ANGLE = /-?\d*\.?\d+/g;
+const REGEXP_ANGLE = /^([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)(deg|grad|rad|turn)?$/;
+const ANGLE_UNITS = { deg: 1, grad: 0.9, rad: 180 / Math.PI, turn: 360 };
+const NORMAL_FONT_STYLE = "normal";
+const ITALIC_FONT_STYLE = "italic";
+const OBLIQUE_FONT_STYLE = "oblique";
 const DEFAULT_OBLIQUE_ANGLE = 14;
+const NORMAL_FONT_STRETCH = 100;
+const LOWER_WEIGHT_SEARCH_THRESHOLD = 400;
+const UPPER_WEIGHT_SEARCH_THRESHOLD = 500;
+const GECKO_REVERSE_STRETCH_DISTANCE = 1000;
+const GECKO_REVERSE_STYLE_DISTANCE = 100;
+const GECKO_NEGATE_STYLE_DISTANCE = 200;
+const GECKO_BAD_STYLE_DISTANCE = 700;
+const GECKO_REVERSE_WEIGHT_DISTANCE = 600;
+const GECKO_LIGHTER_WEIGHT_DISTANCE = 100;
+const FONT_MATCHING_ALGORITHMS = [
+	{ getStretchDistance: getWebKitStretchDistance, getStyleDistance: getWebKitStyleDistance, getWeightDistance: getWebKitWeightDistance },
+	{ getStretchDistance: getWebKitStretchDistance, getStyleDistance: getWebKitObliqueStyleDistance, getWeightDistance: getWebKitWeightDistance },
+	{ getStretchDistance: getGeckoStretchDistance, getStyleDistance: getGeckoStyleDistance, getWeightDistance: getGeckoWeightDistance }
+];
 const REGEXP_DASH = /-/;
 const REGEXP_QUESTION_MARK = /\?/g;
 const REGEXP_STARTS_U_PLUS = /^U\+/i;
 const REGEXP_CUSTOM_PROPERTY = /var\(\s*(--[^\s,)]+)\s*(?:,[^)]*)?\)/g;
 const REGEXP_CUSTOM_PROPERTY_FAMILY = /^var\(\s*(--[^\s,)]+)\s*(?:,(.*))?\)$/;
 const REGEXP_CUSTOM_PROPERTY_NAME = /^--/;
-const VALID_FONT_STYLES = [/^normal$/, /^italic$/, /^oblique$/, /^oblique\s+/];
 const NON_GLYPH_CHAR_CODES = [9, 10, 12, 13];
 const MAX_NON_GLYPH_CHAR_CODE = 13;
 // a family name kept when the "font" shorthand cannot be read: it resolves to nothing, so it
@@ -105,7 +122,7 @@ function process(doc, stylesheets, styles, options) {
 	// DOMParser, and that document is never rendered, so it reports nothing and every face it
 	// declares would be dropped
 	const usedFontsUnknown = !options.usedFonts || !options.usedFonts.length;
-	let unusedFonts, filteredUsedFonts;
+	let unusedFonts, filteredUsedFonts, selectedFonts;
 	if (usedFontsUnknown) {
 		unusedFonts = [];
 	} else {
@@ -127,6 +144,7 @@ function process(doc, stylesheets, styles, options) {
 				keepDeclaredFontIfRendered(fontInfo.fontFamily, fontsInfo, filteredUsedFonts, options));
 		}
 		unusedFonts = fontsInfo.declared.filter(fontInfo => !filteredUsedFonts.has(fontInfo.fontFamily));
+		selectedFonts = getSelectedFonts(fontsInfo.declared, filteredUsedFonts);
 	}
 	const docChars = Array.from(new Set(docContent)).map(char => char.charCodeAt(0)).sort((value1, value2) => value1 - value2);
 	const usedFontsCharacters = getUsedFontsCharacters(options);
@@ -134,7 +152,7 @@ function process(doc, stylesheets, styles, options) {
 		if (stylesheetInfo.stylesheet) {
 			const cssRules = stylesheetInfo.stylesheet.children;
 			if (cssRules) {
-				filterUnusedFonts(cssRules, fontsInfo.declared, unusedFonts, filteredUsedFonts, docChars, usedFontsCharacters);
+				filterUnusedFonts(cssRules, fontsInfo.declared, unusedFonts, selectedFonts, docChars, usedFontsCharacters);
 				stats.rules.discarded -= cssRules.size;
 			}
 		}
@@ -299,14 +317,14 @@ function splitValues(value) {
 	return values;
 }
 
-function filterUnusedFonts(cssRules, declaredFonts, unusedFonts, filteredUsedFonts, docChars, usedFontsCharacters) {
+function filterUnusedFonts(cssRules, declaredFonts, unusedFonts, selectedFonts, docChars, usedFontsCharacters) {
 	const removedRules = [];
 	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
 		const ruleData = cssRule.data;
 		if (ruleData.type == "Atrule" && ruleData.name == "import" && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head.data.importedChildren) {
-			filterUnusedFonts(ruleData.prelude.children.head.data.importedChildren, declaredFonts, unusedFonts, filteredUsedFonts, docChars, usedFontsCharacters);
+			filterUnusedFonts(ruleData.prelude.children.head.data.importedChildren, declaredFonts, unusedFonts, selectedFonts, docChars, usedFontsCharacters);
 		} else if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports" || ruleData.name == "layer" || ruleData.name == "container") && ruleData.block && ruleData.block.children) {
-			filterUnusedFonts(ruleData.block.children, declaredFonts, unusedFonts, filteredUsedFonts, docChars, usedFontsCharacters);
+			filterUnusedFonts(ruleData.block.children, declaredFonts, unusedFonts, selectedFonts, docChars, usedFontsCharacters);
 		} else if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
 			const fontFamily = helper.normalizeFontFamily(getDeclarationValue(ruleData.block.children, "font-family"));
 			if (fontFamily) {
@@ -315,8 +333,8 @@ function filterUnusedFonts(cssRules, declaredFonts, unusedFonts, filteredUsedFon
 				if (unusedFonts.find(fontInfo => fontInfo.fontFamily == fontFamily) ||
 					!testUnicodeRange(docChars, unicodeRange) ||
 					!testReachableUnicodeRange(docChars, unicodeRange, laterUnicodeRanges) ||
-					!testDrawnUnicodeRange(ruleData, fontFamily, unicodeRange, usedFontsCharacters) ||
-					!testUsedFont(ruleData, fontFamily, declaredFonts, filteredUsedFonts)) {
+					!testDrawnUnicodeRange(ruleData, fontFamily, unicodeRange, usedFontsCharacters, selectedFonts) ||
+					!testUsedFont(ruleData, fontFamily, selectedFonts)) {
 					removedRules.push(cssRule);
 				}
 			}
@@ -349,7 +367,7 @@ function getUsedFontsCharacters(options) {
 	return usedFontsCharacters;
 }
 
-function testDrawnUnicodeRange(ruleData, familyName, unicodeRange, usedFontsCharacters) {
+function testDrawnUnicodeRange(ruleData, familyName, unicodeRange, usedFontsCharacters, selectedFonts) {
 	if (!unicodeRange || !usedFontsCharacters || !usedFontsCharacters.size) {
 		return true;
 	}
@@ -357,11 +375,11 @@ function testDrawnUnicodeRange(ruleData, familyName, unicodeRange, usedFontsChar
 	if (!buckets || !buckets.length) {
 		return true;
 	}
-	const fontStyle = getDeclarationValue(ruleData.block.children, "font-style") || "normal";
-	if (!VALID_FONT_STYLES.find(rule => fontStyle.trim().match(rule))) {
+	const selection = selectedFonts && selectedFonts.get(familyName);
+	if (!selection || !selection.candidates.has(ruleData) || buckets.find(bucket => !selection.rulesByStyle.has(bucket.fontStyle))) {
 		return true;
 	}
-	const matchedBuckets = buckets.filter(bucket => testFontStyle(bucket.fontStyle, fontStyle));
+	const matchedBuckets = buckets.filter(bucket => selection.rulesByStyle.get(bucket.fontStyle).has(ruleData));
 	if (!matchedBuckets.length || matchedBuckets.find(bucket => bucket.unknown)) {
 		return true;
 	}
@@ -399,144 +417,242 @@ function testDrawnGlyph(drawnRange, range) {
 	return false;
 }
 
-function testUsedFont(ruleData, familyName, declaredFonts, filteredUsedFonts) {
-	let test;
-	const optionalUsedFonts = filteredUsedFonts && filteredUsedFonts.get(familyName);
-	if (optionalUsedFonts && optionalUsedFonts.length) {
-		const fontStyle = getDeclarationValue(ruleData.block.children, "font-style") || "normal";
-		if (VALID_FONT_STYLES.find(rule => fontStyle.trim().match(rule))) {
-			const fontWeight = helper.getFontWeight(getDeclarationValue(ruleData.block.children, "font-weight") || "400");
-			const fontStretch = parseFontStretch(getDeclarationValue(ruleData.block.children, "font-stretch") || "normal");
-			const familyFonts = declaredFonts.filter(fontInfo => fontInfo.fontFamily == familyName);
-			const usedFontsByStretch = new Map();
-			optionalUsedFonts.forEach(fontInfo => {
-				const usedFonts = usedFontsByStretch.get(fontInfo[4]) || [];
-				usedFonts.push(fontInfo);
-				usedFontsByStretch.set(fontInfo[4], usedFonts);
-			});
-			for (const [usedFontStretch, usedFonts] of usedFontsByStretch) {
-				const testStretch = getFontStretchTest(familyFonts, usedFontStretch);
-				if (!test && testStretch(fontStretch)) {
-					const stretchFonts = familyFonts.filter(fontInfo => testStretch(parseFontStretch(fontInfo.fontStretch)));
-					test = testUsedFontWeights(fontWeight, fontStyle, usedFonts, stretchFonts);
-				}
+function testUsedFont(ruleData, familyName, selectedFonts) {
+	const selection = selectedFonts && selectedFonts.get(familyName);
+	return !selection || !selection.candidates.has(ruleData) || selection.rules.has(ruleData);
+}
+
+function getSelectedFonts(declaredFonts, filteredUsedFonts) {
+	const selectedFonts = new Map();
+	filteredUsedFonts.forEach((usedFonts, familyName) => {
+		const fonts = declaredFonts
+			.filter(fontInfo => fontInfo.fontFamily == familyName)
+			.map(fontInfo => ({
+				ruleData: fontInfo.ruleData,
+				weight: parseFontWeight(fontInfo.fontWeight),
+				style: parseFontStyle(fontInfo.fontStyle),
+				stretch: parseFontStretch(fontInfo.fontStretch)
+			}))
+			.filter(fontInfo => fontInfo.weight && fontInfo.style && fontInfo.stretch);
+		const selection = { candidates: new Set(fonts.map(fontInfo => fontInfo.ruleData)), rules: new Set(), rulesByStyle: new Map() };
+		usedFonts.forEach(([, fontWeight, fontStyle, , fontStretch]) => {
+			let styleRules = selection.rulesByStyle.get(fontStyle);
+			if (!styleRules) {
+				styleRules = new Set();
+				selection.rulesByStyle.set(fontStyle, styleRules);
 			}
-		} else {
-			test = true;
-		}
-	} else {
-		test = true;
-	}
-	return test;
-}
-
-function testUsedFontWeights(fontWeight, fontStyle, usedFonts, declaredFonts) {
-	const declaredFontsWeights = declaredFonts
-		.filter(fontInfo => testFontStyle(fontInfo.fontStyle, fontStyle))
-		.map(fontInfo => fontInfo.fontWeight.split(" "))
-		.sort((weight1, weight2) => Number.parseInt(weight1[0], 10) - Number.parseInt(weight2[0], 10));
-	let usedFontWeights = usedFonts
-		.map(fontInfo => getUsedFontWeight(fontInfo, fontStyle, declaredFontsWeights))
-		.filter(fontWeight => fontWeight);
-	let test = testFontweight(fontWeight, usedFontWeights);
-	if (!test) {
-		usedFontWeights = usedFonts
-			.map(fontInfo => {
-				fontInfo = Array.from(fontInfo);
-				fontInfo[2] = "normal";
-				return getUsedFontWeight(fontInfo, fontStyle, declaredFontsWeights);
-			})
-			.filter(fontWeight => fontWeight);
-		test = testFontweight(fontWeight, usedFontWeights);
-	}
-	return test;
-}
-
-function getFontStretchTest(declaredFonts, usedFontStretch) {
-	const stretch = usedFontStretch && parseFontStretch(usedFontStretch);
-	if (!stretch || stretch[0] != stretch[1]) {
-		return () => true;
-	}
-	const [value] = stretch;
-	const stretches = declaredFonts.map(fontInfo => parseFontStretch(fontInfo.fontStretch));
-	if (stretches.find(([min, max]) => min <= value && value <= max)) {
-		return ([min, max]) => min <= value && value <= max;
-	}
-	const narrowerStretches = stretches.filter(([, max]) => max < value).map(([, max]) => max);
-	const widerStretches = stretches.filter(([min]) => min > value).map(([min]) => min);
-	const narrower = narrowerStretches.length ? Math.max(...narrowerStretches) : undefined;
-	const wider = widerStretches.length ? Math.min(...widerStretches) : undefined;
-	if (narrower !== undefined && (value <= 100 || wider === undefined)) {
-		return ([, max]) => max == narrower;
-	} else if (wider !== undefined) {
-		return ([min]) => min == wider;
-	} else {
-		return () => true;
-	}
-}
-
-function parseFontStretch(fontStretch) {
-	const values = String(fontStretch).trim().split(REGEXP_SPACES)
-		.map(value => Number.parseFloat(helper.getFontStretch(value)));
-	if (!values.length || values.length > 2 || values.some(value => Number.isNaN(value))) {
-		return [0, Infinity];
-	}
-	return [Math.min(...values), Math.max(...values)];
-}
-
-function testFontStyle(fontStyle, otherFontStyle) {
-	const angles = getFontStyleAngles(fontStyle);
-	const otherAngles = getFontStyleAngles(otherFontStyle);
-	if (angles && otherAngles) {
-		return angles[0] <= otherAngles[1] && otherAngles[0] <= angles[1];
-	} else {
-		return normalizeFontStyle(fontStyle) == normalizeFontStyle(otherFontStyle);
-	}
-}
-
-function getFontStyleAngles(fontStyle) {
-	fontStyle = normalizeFontStyle(fontStyle);
-	if (fontStyle == "normal") {
-		return [0, 0];
-	} else if (fontStyle == "italic") {
-		return [DEFAULT_OBLIQUE_ANGLE, DEFAULT_OBLIQUE_ANGLE];
-	} else if (fontStyle == "oblique" || fontStyle.startsWith("oblique ")) {
-		const angles = (fontStyle.match(REGEXP_FONT_STYLE_ANGLE) || [])
-			.map(angle => Number.parseFloat(angle))
-			.filter(angle => !Number.isNaN(angle));
-		return angles.length ? [Math.min(...angles), Math.max(...angles)] : [DEFAULT_OBLIQUE_ANGLE, DEFAULT_OBLIQUE_ANGLE];
-	}
-}
-
-function normalizeFontStyle(fontStyle) {
-	return String(fontStyle || "normal").trim().toLowerCase().replace(REGEXP_SPACES, " ");
-}
-
-function testFontweight(fontWeight, usedFontWeights) {
-	let test;
-	for (const fontWeightValue of fontWeight.split(",")) {
-		let { min: fontWeightMin, max: fontWeightMax } = parseFontWeight(fontWeightValue);
-		if (!fontWeightMax) {
-			fontWeightMax = fontWeightMin;
-		}
-		test = test || usedFontWeights.find(usedFontWeight => {
-			let { min: usedFontWeightMin, max: usedFontWeightMax } = parseFontWeight(usedFontWeight);
-			if (!usedFontWeightMax) {
-				usedFontWeightMax = usedFontWeightMin;
-			}
-			return usedFontWeightMin >= fontWeightMin && usedFontWeightMax <= fontWeightMax;
+			FONT_MATCHING_ALGORITHMS.forEach(algorithm => selectFonts(fonts, fontWeight, fontStyle, fontStretch, algorithm).forEach(fontInfo => {
+				styleRules.add(fontInfo.ruleData);
+				selection.rules.add(fontInfo.ruleData);
+			}));
 		});
+		selectedFonts.set(familyName, selection);
+	});
+	return selectedFonts;
+}
+
+function selectFonts(fonts, fontWeight, fontStyle, fontStretch, algorithm) {
+	const stretchBounds = getBounds(fonts.map(fontInfo => fontInfo.stretch));
+	const styleBounds = getBounds(fonts.map(fontInfo => fontInfo.style.range));
+	const weightBounds = getBounds(fonts.map(fontInfo => fontInfo.weight));
+	const stretch = fontStretch && parseFontStretch(fontStretch);
+	if (fonts.length && stretch && stretch[0] == stretch[1]) {
+		fonts = filterFonts(fonts, fontInfo => fontInfo.stretch, fontInfo => algorithm.getStretchDistance(fontInfo.stretch, stretch[0], stretchBounds));
 	}
-	return test;
+	const style = fontStyle && parseFontStyle(fontStyle);
+	if (fonts.length && style && style.range[0] == style.range[1]) {
+		fonts = filterFonts(fonts, fontInfo => fontInfo.style.range, fontInfo => algorithm.getStyleDistance(fontInfo.style, style, styleBounds));
+	}
+	const weight = fontWeight && parseFontWeight(String(fontWeight));
+	if (fonts.length && weight && weight[0] == weight[1]) {
+		fonts = filterFonts(fonts, fontInfo => fontInfo.weight, fontInfo => algorithm.getWeightDistance(fontInfo.weight, weight[0], weightBounds));
+	}
+	return fonts;
+}
+
+function filterFonts(fonts, getRange, getDistance) {
+	const results = fonts.map(getDistance);
+	const distance = Math.min(...results.map(result => result.distance));
+	const values = results
+		.filter(result => result.distance == distance && result.value !== undefined)
+		.map(result => result.value);
+	return fonts.filter((fontInfo, index) => results[index].distance == distance || values.some(value => testRange(getRange(fontInfo), value)));
+}
+
+function getBounds(ranges) {
+	return [Math.min(...ranges.map(([min]) => min)), Math.max(...ranges.map(([, max]) => max))];
+}
+
+function getWebKitStretchDistance([min, max], stretch, [boundsMin, boundsMax]) {
+	if (testRange([min, max], stretch)) {
+		return { distance: 0, value: stretch };
+	} else if (stretch > NORMAL_FONT_STRETCH) {
+		return min > stretch ? { distance: min - stretch, value: min } : { distance: Math.max(stretch, boundsMax) - max, value: max };
+	} else {
+		return max < stretch ? { distance: stretch - max, value: max } : { distance: min - Math.min(stretch, boundsMin), value: min };
+	}
+}
+
+function getWebKitStyleDistance({ range: [min, max] }, { range: [slope] }, [boundsMin, boundsMax]) {
+	if (testRange([min, max], slope)) {
+		return { distance: 0, value: slope };
+	} else if (slope >= DEFAULT_OBLIQUE_ANGLE) {
+		return min > slope ? { distance: min - slope, value: min } : { distance: Math.max(slope, boundsMax) - max, value: max };
+	} else if (slope >= 0) {
+		if (max >= 0 && max < slope) {
+			return { distance: slope - max, value: max };
+		} else {
+			return min > slope ? { distance: min, value: min } : { distance: Math.max(slope, boundsMax) - max, value: max };
+		}
+	} else if (slope > -DEFAULT_OBLIQUE_ANGLE) {
+		if (min > slope && min <= 0) {
+			return { distance: min - slope, value: min };
+		} else {
+			return max < slope ? { distance: -max, value: max } : { distance: min - Math.min(slope, boundsMin), value: min };
+		}
+	} else {
+		return max < slope ? { distance: slope - max, value: max } : { distance: min - Math.min(slope, boundsMin), value: min };
+	}
+}
+
+function getWebKitObliqueStyleDistance(fontStyle, style, bounds) {
+	if (fontStyle.italic && !style.italic) {
+		return { distance: Infinity };
+	} else {
+		return getWebKitStyleDistance(fontStyle, style, bounds);
+	}
+}
+
+function getWebKitWeightDistance([min, max], weight, [boundsMin, boundsMax]) {
+	if (testRange([min, max], weight)) {
+		return { distance: 0, value: weight };
+	} else if (weight >= LOWER_WEIGHT_SEARCH_THRESHOLD && weight <= UPPER_WEIGHT_SEARCH_THRESHOLD) {
+		if (min > weight && min <= UPPER_WEIGHT_SEARCH_THRESHOLD) {
+			return { distance: min - weight, value: min };
+		} else {
+			return max < weight ? { distance: UPPER_WEIGHT_SEARCH_THRESHOLD - max, value: max } : { distance: min - Math.min(weight, boundsMin), value: min };
+		}
+	} else if (weight < LOWER_WEIGHT_SEARCH_THRESHOLD) {
+		return max < weight ? { distance: weight - max, value: max } : { distance: min - Math.min(weight, boundsMin), value: min };
+	} else {
+		return min > weight ? { distance: min - weight, value: min } : { distance: Math.max(weight, boundsMax) - max, value: max };
+	}
+}
+
+function getGeckoStretchDistance([min, max], stretch) {
+	if (stretch < min) {
+		return { distance: min - stretch + (stretch > NORMAL_FONT_STRETCH ? 0 : GECKO_REVERSE_STRETCH_DISTANCE) };
+	} else if (stretch > max) {
+		return { distance: stretch - max + (stretch <= NORMAL_FONT_STRETCH ? 0 : GECKO_REVERSE_STRETCH_DISTANCE) };
+	} else {
+		return { distance: 0 };
+	}
+}
+
+function getGeckoStyleDistance({ italic, range: [min, max] }, style) {
+	const [angle] = style.range;
+	if (italic ? style.italic : !style.italic && (angle == min || angle == max)) {
+		return { distance: 0 };
+	} else if (!style.italic && angle == 0) {
+		if (italic) {
+			return { distance: GECKO_BAD_STYLE_DISTANCE };
+		} else if (min >= 0) {
+			return { distance: min };
+		} else {
+			return { distance: max >= 0 ? 0 : GECKO_NEGATE_STYLE_DISTANCE - max };
+		}
+	} else if (style.italic) {
+		if (min >= DEFAULT_OBLIQUE_ANGLE) {
+			return { distance: min - DEFAULT_OBLIQUE_ANGLE + 1 };
+		} else if (max >= DEFAULT_OBLIQUE_ANGLE) {
+			return { distance: 1 };
+		} else {
+			return { distance: (max > 0 ? GECKO_REVERSE_STYLE_DISTANCE : GECKO_REVERSE_STYLE_DISTANCE + GECKO_NEGATE_STYLE_DISTANCE) + DEFAULT_OBLIQUE_ANGLE - max };
+		}
+	} else if (italic) {
+		return { distance: GECKO_BAD_STYLE_DISTANCE };
+	} else if (angle >= DEFAULT_OBLIQUE_ANGLE || angle <= -DEFAULT_OBLIQUE_ANGLE) {
+		const sign = Math.sign(angle);
+		const [signedMin, signedMax] = sign > 0 ? [min, max] : [-max, -min];
+		const signedAngle = sign * angle;
+		if (signedMin >= signedAngle) {
+			return { distance: signedMin - signedAngle };
+		} else if (signedMax >= signedAngle) {
+			return { distance: 0 };
+		} else {
+			return { distance: (signedMax > 0 ? GECKO_REVERSE_STYLE_DISTANCE : GECKO_REVERSE_STYLE_DISTANCE + GECKO_NEGATE_STYLE_DISTANCE) + signedAngle - signedMax };
+		}
+	} else {
+		const sign = angle > 0 ? 1 : -1;
+		const [signedMin, signedMax] = sign > 0 ? [min, max] : [-max, -min];
+		const signedAngle = sign * angle;
+		if (signedMin > signedAngle) {
+			return { distance: GECKO_REVERSE_STYLE_DISTANCE + signedMin - signedAngle };
+		} else if (signedMax >= signedAngle) {
+			return { distance: 0 };
+		} else {
+			return { distance: (signedMax > 0 ? 0 : GECKO_REVERSE_STYLE_DISTANCE + GECKO_NEGATE_STYLE_DISTANCE) + signedAngle - signedMax };
+		}
+	}
+}
+
+function getGeckoWeightDistance([min, max], weight) {
+	if (testRange([min, max], weight)) {
+		return { distance: 0 };
+	} else if (weight < LOWER_WEIGHT_SEARCH_THRESHOLD) {
+		return { distance: max < weight ? weight - max : min - weight + GECKO_REVERSE_WEIGHT_DISTANCE };
+	} else if (weight > UPPER_WEIGHT_SEARCH_THRESHOLD) {
+		return { distance: min > weight ? min - weight : weight - max + GECKO_REVERSE_WEIGHT_DISTANCE };
+	} else if (min > weight) {
+		return { distance: min - weight + (min <= UPPER_WEIGHT_SEARCH_THRESHOLD ? 0 : GECKO_REVERSE_WEIGHT_DISTANCE) };
+	} else {
+		return { distance: weight - max + GECKO_LIGHTER_WEIGHT_DISTANCE };
+	}
+}
+
+function testRange([min, max], value) {
+	return min <= value && value <= max;
 }
 
 function parseFontWeight(fontWeight) {
-	const fontWeightValues = fontWeight.split(" ");
-	const min = Number.parseInt(helper.getFontWeight(fontWeightValues[0]), 10);
-	const max = fontWeightValues[1] && Number.parseInt(helper.getFontWeight(fontWeightValues[1]), 10);
-	return {
-		min, max
-	};
+	return parseRange(fontWeight, value => Number(helper.getFontWeight(value)));
+}
+
+function parseFontStretch(fontStretch) {
+	return parseRange(fontStretch, value => {
+		value = helper.getFontStretch(value.toLowerCase());
+		return value.endsWith("%") ? Number(value.slice(0, -1)) : NaN;
+	});
+}
+
+function parseFontStyle(fontStyle) {
+	const values = String(fontStyle).trim().toLowerCase().split(REGEXP_SPACES);
+	if (values.length == 1 && values[0] == NORMAL_FONT_STYLE) {
+		return { italic: false, range: [0, 0] };
+	} else if (values.length == 1 && values[0] == ITALIC_FONT_STYLE) {
+		return { italic: true, range: [DEFAULT_OBLIQUE_ANGLE, DEFAULT_OBLIQUE_ANGLE] };
+	} else if (values[0] == OBLIQUE_FONT_STYLE) {
+		const range = values.length == 1 ? [DEFAULT_OBLIQUE_ANGLE, DEFAULT_OBLIQUE_ANGLE] : parseRange(values.slice(1).join(" "), parseAngle);
+		if (range) {
+			return { italic: false, range };
+		}
+	}
+}
+
+function parseAngle(angle) {
+	const match = angle.match(REGEXP_ANGLE);
+	if (match && (match[2] || Number(match[1]) == 0)) {
+		return Number(match[1]) * ANGLE_UNITS[match[2] || "deg"];
+	} else {
+		return NaN;
+	}
+}
+
+function parseRange(value, parseValue) {
+	const values = String(value).trim().split(REGEXP_SPACES).map(parseValue);
+	if (values.length && values.length <= 2 && values.every(Number.isFinite)) {
+		return [Math.min(...values), Math.max(...values)];
+	}
 }
 
 function getDeclarationValue(declarations, propertyName) {
@@ -649,51 +765,6 @@ function parseFamilyNames(fontFamilyNameTokenData, fontFamilyNames) {
 	}
 }
 
-function getUsedFontWeight(fontInfo, fontStyle, fontWeights) {
-	let foundWeight;
-	fontWeights = fontWeights.map(weights => weights.map(value => String(Number.parseInt(value, 10))));
-	if (testFontStyle(fontInfo[2], fontStyle)) {
-		let fontWeight = Number(fontInfo[1]);
-		if (fontWeights.length > 1) {
-			if (fontWeights.find(weights => weights[0] <= fontWeight && weights[weights.length - 1] >= fontWeight)) {
-				foundWeight = [String(fontWeight)];
-			}
-			if (!foundWeight && fontWeight >= 400 && fontWeight <= 500) {
-				foundWeight = fontWeights.find(weights => weights[0] >= fontWeight && weights[0] <= 500);
-				if (!foundWeight) {
-					foundWeight = findDescendingFontWeight(fontWeight, fontWeights);
-				}
-				if (!foundWeight) {
-					foundWeight = findAscendingFontWeight(fontWeight, fontWeights);
-				}
-			}
-			if (!foundWeight && fontWeight < 400) {
-				foundWeight = fontWeights.slice().reverse().find(weights => weights[weights.length - 1] <= fontWeight);
-				if (!foundWeight) {
-					foundWeight = findAscendingFontWeight(fontWeight, fontWeights);
-				}
-			}
-			if (!foundWeight && fontWeight > 500) {
-				foundWeight = fontWeights.find(weights => weights[0] >= fontWeight);
-				if (!foundWeight) {
-					foundWeight = findDescendingFontWeight(fontWeight, fontWeights);
-				}
-			}
-		} else {
-			foundWeight = fontWeights[0];
-		}
-	}
-	return foundWeight ? foundWeight.join(" ") : undefined;
-}
-
-function findDescendingFontWeight(fontWeight, fontWeights) {
-	return fontWeights.slice().reverse().find(weights => weights[weights.length - 1] < fontWeight);
-}
-
-function findAscendingFontWeight(fontWeight, fontWeights) {
-	return fontWeights.find(weights => weights[0] > fontWeight);
-}
-
 function getRulesTextContent(doc, cssRules, workStylesheet, content) {
 	cssRules.forEach(ruleData => {
 		if (ruleData.block && ruleData.block.children && ruleData.prelude && ruleData.prelude.children) {
@@ -764,13 +835,14 @@ function getLaterUnicodeRanges(declaredFonts, ruleData) {
 	if (index == -1) {
 		return [];
 	}
-	const { fontFamily, fontWeight, fontStyle } = declaredFonts[index];
+	const { fontFamily, fontWeight, fontStyle, fontStretch } = declaredFonts[index];
 	return declaredFonts
 		.slice(index + 1)
 		.filter(fontInfo => fontInfo.ruleData != ruleData &&
 			fontInfo.fontFamily == fontFamily &&
 			fontInfo.fontWeight == fontWeight &&
-			fontInfo.fontStyle == fontStyle)
+			fontInfo.fontStyle == fontStyle &&
+			fontInfo.fontStretch == fontStretch)
 		.map(fontInfo => fontInfo.unicodeRange);
 }
 

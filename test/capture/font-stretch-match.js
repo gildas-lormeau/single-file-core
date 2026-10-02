@@ -65,7 +65,8 @@ let failed = false;
 {
 	const content = await run(face("400", "auto", NORMAL_FONT_URL) + face("700", "condensed", CONDENSED_FONT_URL),
 		[["s", "400", "normal", "normal", "75%"]]);
-	check("a face whose stretch cannot be read is matched at every stretch", content.includes("font-stretch:auto"), true);
+	check("a face whose stretch cannot be read is kept", content.includes("font-stretch:auto"), true);
+	check("and does not hide the condensed face the browsers pick", content.includes("font-stretch:condensed"), true);
 }
 
 if (failed) {
