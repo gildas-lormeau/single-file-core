@@ -970,13 +970,29 @@ async function getContent() {
 		if (offset != zipDataLength || indexLFCode != lfCodesLength || crc32 != expectedCRC32) {
 			throw new Error("Invalid checksum of the extracted zip data");
 		}
-		return new Blob([zipData], { type: "application/octet-stream" });
+		return new Blob([new Uint8Array(getPrependedDataLength(zipData)), zipData], { type: "application/octet-stream" });
 
 		function writeByte(byte) {
 			zipData[offset] = byte;
 			crc32 = (crc32 >>> 8) ^ crc32Table[(crc32 ^ byte) & 0xff];
 			offset++;
 		}
+	}
+
+	function getPrependedDataLength(zipData) {
+		const view = new DataView(zipData.buffer, zipData.byteOffset, zipData.length);
+		const endOfDirectoryOffset = zipData.length - 22;
+		const locatorOffset = endOfDirectoryOffset - 20;
+		if (endOfDirectoryOffset < 0 || view.getUint32(endOfDirectoryOffset, true) != 0x06054b50) {
+			return 0;
+		}
+		let storedDirectoryOffset = view.getUint32(endOfDirectoryOffset + 16, true);
+		let directoryOffset = endOfDirectoryOffset - view.getUint32(endOfDirectoryOffset + 12, true);
+		if (locatorOffset >= 0 && view.getUint32(locatorOffset, true) == 0x07064b50) {
+			storedDirectoryOffset = view.getUint32(locatorOffset + 8, true) + view.getUint32(locatorOffset + 12, true) * 0x100000000;
+			directoryOffset = locatorOffset - 56;
+		}
+		return Math.max(0, storedDirectoryOffset - directoryOffset);
 	}
 
 	function base64Decode(b64) {

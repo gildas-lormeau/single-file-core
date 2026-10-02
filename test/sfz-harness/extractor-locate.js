@@ -2,13 +2,21 @@
 // The bootstrap is lifted out of the page text and evaluated here with the globals it binds from
 // globalThis: a happy-dom document parsed from the page, happy-dom's NodeFilter, the vendor
 // inflater, and an XMLHttpRequest whose every request fails, which is how a file: load reaches
-// page-text extraction (§4.1). What comes back is the recovered ZIP region as a Blob, compared
-// byte for byte with the region in the file, or the error the extractor threw.
+// page-text extraction (§4.1). What comes back is the recovered ZIP region as a Blob, preceded by
+// as many zero bytes as the file holds before the region, so every offset the central directory
+// stores points where it does in the file. It is compared byte for byte with the file from the
+// first local header the region holds, or the error the extractor threw is.
 //
 // Six layouts: the comment rung alone, an element rung alone, and each with a second candidate
 // appended -- a duplicate of the same kind, which §7.4 says MUST be refused, a candidate of the
 // other kind, which the tie-break settles in favour of the element, and an element bearing the
 // identifier that is not a wrapper rung, which is never a candidate.
+//
+// Then the PDF face, whose hand-built page.pdf record comes first in the central directory and
+// whose local header lies outside the region. zip.js 2.22.0 decides on that first record whether
+// to shift the offsets of a region read without its prefix, so it shifted nothing and every entry
+// failed with "Local file header not found". The padding makes the shift unnecessary: the entries
+// are read back with the vendor reader.
 //
 // One shim: a browser's input stream preprocessing turns CR LF and lone CR into LF before the
 // tokenizer sees them, which is what the payload's newline codes describe (§5.5), and happy-dom's
@@ -16,12 +24,13 @@
 /* global clearTimeout */
 import "./dom-stub.js";
 import { Window } from "npm:happy-dom@20.14.5";
-import { inflateRaw } from "../../vendor/zip/zip.js";
+import { inflateRaw, ZipReader, BlobReader, TextWriter } from "../../vendor/zip/zip.js";
 import { makePageData, makeOptions, runProcess, sameBytes } from "./common.js";
 
 const window = new Window();
 const DECODER = new TextDecoder("windows-1252");
 const LOCAL_HEADER = "PK\x03\x04";
+const PDF = new TextEncoder().encode("%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n");
 
 let failed = false;
 
@@ -56,7 +65,7 @@ async function locate(text) {
 			bootstrapOf(text)(),
 			new Promise((_, reject) => timer = setTimeout(() => reject(new Error("the bootstrap never settled")), 5000))
 		]);
-		return { bytes: new Uint8Array(await blob.arrayBuffer()) };
+		return { blob, bytes: new Uint8Array(await blob.arrayBuffer()) };
 	} catch (error) {
 		return { error: error.message };
 	} finally {
@@ -65,9 +74,11 @@ async function locate(text) {
 	}
 }
 
-function regionOf(bytes, text, length) {
-	const start = text.indexOf(LOCAL_HEADER);
-	return bytes.subarray(start, start + length);
+function isFilesBytes(recovered, bytes) {
+	const start = recovered.findIndex(byte => byte != 0);
+	return start > 0 && recovered.length <= bytes.length &&
+		DECODER.decode(recovered.subarray(start, start + 4)) == LOCAL_HEADER &&
+		sameBytes(recovered.subarray(start), bytes.subarray(start, recovered.length));
 }
 
 // a stored resource carrying --> pushes the ZIP region off the comment rung and onto the script
@@ -78,10 +89,10 @@ function triggerResource(literal) {
 	return { name: "images/trigger.png", extension: ".png", content, url: "https://example.com/trigger.png" };
 }
 
-async function page(seed, resources = []) {
+async function page(seed, resources = [], overrides) {
 	const pageData = makePageData(seed, 4 * 1024);
 	pageData.resources.images = resources;
-	const { bytes } = await runProcess(pageData, makeOptions());
+	const { bytes } = await runProcess(pageData, makeOptions(overrides));
 	const text = DECODER.decode(bytes);
 	return { bytes, text };
 }
@@ -102,10 +113,29 @@ for (const [label, { bytes, text }, appended, expected] of [
 	const result = await locate(text + appended);
 	if (expected == "region") {
 		check(`${label}: extracts`, result.error, undefined);
-		check(`${label}: the recovered region is the file's`, Boolean(result.bytes) && sameBytes(result.bytes, regionOf(bytes, text, result.bytes.length)), true);
+		check(`${label}: the recovered region is the file's, at its offset`, Boolean(result.bytes) && isFilesBytes(result.bytes, bytes), true);
 	} else {
 		check(`${label}: is refused`, result.error, "Multiple zip data candidates found");
 	}
+}
+
+const pdf = await page(43, [], { embeddedPdf: PDF });
+const pdfResult = await locate(pdf.text);
+check("pdf face: extracts", pdfResult.error, undefined);
+check("pdf face: the recovered region is the file's, at its offset", Boolean(pdfResult.bytes) && isFilesBytes(pdfResult.bytes, pdf.bytes), true);
+if (pdfResult.blob) {
+	const zipReader = new ZipReader(new BlobReader(pdfResult.blob));
+	const entries = (await zipReader.getEntries()).filter(entry => entry.filename != "page.pdf");
+	const indexEntry = entries.find(entry => entry.filename == "index.html");
+	check("pdf face: index.html is listed", Boolean(indexEntry), true);
+	let readError;
+	try {
+		await Promise.all(entries.map(entry => entry.getData(new TextWriter())));
+	} catch (error) {
+		readError = error.message;
+	}
+	check("pdf face: every entry but page.pdf reads back", readError, undefined);
+	await zipReader.close();
 }
 
 Deno.exit(failed ? 1 : 0);
