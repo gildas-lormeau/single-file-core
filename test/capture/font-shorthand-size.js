@@ -41,10 +41,17 @@ for (const size of ["100%", "100%/1.5", "400px", "bold 100px/1", "italic 700 900
 // style. Only the keywords and 100 to 900 were known, so `450` or `18deg` was read as the size, and a
 // size keyword after it was joined to an unquoted family: `450 medium Used` named "medium Used", the
 // real family was removed, and Chrome, Firefox and Safari drew the text with their default font.
-for (const value of ["450 medium", "450.5 large", "1000 small", "italic 450 condensed medium", "oblique 18deg medium", "oblique 0.05turn x-large", "oblique -10deg 450 medium", "450 16px/1.2"]) {
+for (const value of ["450 medium", "450.5 large", "1000 small", "italic 450 condensed medium", "oblique 18deg medium", "oblique 0.05turn x-large", "oblique -10deg 450 medium", "450 16px/1.2", "calc(450) medium", "min(450, 500) large", "oblique calc(18deg) medium", "oblique calc(10deg + 8deg) 450 medium"]) {
 	const content = await run("p{font:" + value + " Used,sans-serif}");
 	check("a family named after " + value + " is kept", content.includes("font-family:\"Used\""), true);
 	check("and the unused family is still removed (" + value + ")", content.includes("font-family:\"Unused\""), false);
+}
+
+// A math function is read by the units in it: none makes a weight, an angle after oblique belongs to
+// the style, and a length or a percentage is still the size.
+for (const value of ["calc(12px + 1em)", "clamp(12px, 2vw, 20px)", "calc(100%)"]) {
+	const content = await run("p{font:" + value + " Used,sans-serif}");
+	check("a family named after the calculated size " + value + " is kept", content.includes("font-family:\"Used\""), true);
 }
 
 // 0 cannot be a weight, so it is a size; and a page in quirks mode may give a unitless size, which is
