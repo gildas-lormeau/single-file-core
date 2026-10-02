@@ -18,6 +18,10 @@
 // failed with "Local file header not found". The padding makes the shift unnecessary: the entries
 // are read back with the vendor reader.
 //
+// Last, the padding computation alone, on synthetic regions: it confirms the central directory
+// signature (or the zip64 record signature, expected 56 bytes before the locator) where the shift
+// puts it, and pads nothing when it is absent, which leaves the shift to the ZIP library as before.
+//
 // One shim: a browser's input stream preprocessing turns CR LF and lone CR into LF before the
 // tokenizer sees them, which is what the payload's newline codes describe (§5.5), and happy-dom's
 // parser does not, so the text is normalized here before it is parsed.
@@ -26,6 +30,8 @@ import "./dom-stub.js";
 import { Window } from "npm:happy-dom@20.14.5";
 import { inflateRaw, ZipReader, BlobReader, TextWriter } from "../../vendor/zip/zip.js";
 import { makePageData, makeOptions, runProcess, sameBytes } from "./common.js";
+
+const COMPRESSION_SOURCE = await Deno.readTextFile(new URL("../../processors/compression/compression.js", import.meta.url));
 
 const window = new Window();
 const DECODER = new TextDecoder("windows-1252");
@@ -136,6 +142,49 @@ if (pdfResult.blob) {
 	}
 	check("pdf face: every entry but page.pdf reads back", readError, undefined);
 	await zipReader.close();
+}
+
+const getPrependedDataLength = helperOf(COMPRESSION_SOURCE, "getPrependedDataLength");
+const SHIFT = 1000;
+check("padding: a region whose stored offset overshoots by the shift", getPrependedDataLength(region()), SHIFT);
+check("padding: a region read from its file start", getPrependedDataLength(region({ shift: 0 })), 0);
+check("padding: no central directory signature where the shift puts it", getPrependedDataLength(region({ directorySignature: 0 })), 0);
+check("padding: no end of central directory record", getPrependedDataLength(region().subarray(0, 60)), 0);
+check("padding: a zip64 region", getPrependedDataLength(zip64Region()), SHIFT);
+check("padding: a zip64 record with an extensible data sector", getPrependedDataLength(zip64Region({ extensibleDataLength: 4 })), 0);
+
+function helperOf(source, name) {
+	const start = source.indexOf("\tfunction " + name + "(");
+	const end = source.indexOf("\n\t}\n", start) + 3;
+	return new Function("return " + source.slice(start, end))();
+}
+
+function region({ shift = SHIFT, directorySignature = 0x02014b50 } = {}) {
+	const directoryOffset = 10, directoryLength = 46;
+	const bytes = new Uint8Array(directoryOffset + directoryLength + 22);
+	const view = new DataView(bytes.buffer);
+	view.setUint32(directoryOffset, directorySignature, true);
+	const endOfDirectoryOffset = directoryOffset + directoryLength;
+	view.setUint32(endOfDirectoryOffset, 0x06054b50, true);
+	view.setUint32(endOfDirectoryOffset + 12, directoryLength, true);
+	view.setUint32(endOfDirectoryOffset + 16, directoryOffset + shift, true);
+	return bytes;
+}
+
+function zip64Region({ extensibleDataLength = 0 } = {}) {
+	const recordOffset = 10, recordLength = 56 + extensibleDataLength;
+	const locatorOffset = recordOffset + recordLength;
+	const bytes = new Uint8Array(locatorOffset + 20 + 22);
+	const view = new DataView(bytes.buffer);
+	view.setUint32(recordOffset, 0x06064b50, true);
+	view.setBigUint64(recordOffset + 4, BigInt(recordLength - 12), true);
+	view.setUint32(locatorOffset, 0x07064b50, true);
+	view.setBigUint64(locatorOffset + 8, BigInt(recordOffset + SHIFT), true);
+	const endOfDirectoryOffset = locatorOffset + 20;
+	view.setUint32(endOfDirectoryOffset, 0x06054b50, true);
+	view.setUint32(endOfDirectoryOffset + 12, 0xFFFFFFFF, true);
+	view.setUint32(endOfDirectoryOffset + 16, 0xFFFFFFFF, true);
+	return bytes;
 }
 
 Deno.exit(failed ? 1 : 0);

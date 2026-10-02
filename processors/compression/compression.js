@@ -988,9 +988,14 @@ async function getContent() {
 		}
 		let storedDirectoryOffset = view.getUint32(endOfDirectoryOffset + 16, true);
 		let directoryOffset = endOfDirectoryOffset - view.getUint32(endOfDirectoryOffset + 12, true);
+		let signature = 0x02014b50;
 		if (locatorOffset >= 0 && view.getUint32(locatorOffset, true) == 0x07064b50) {
 			storedDirectoryOffset = view.getUint32(locatorOffset + 8, true) + view.getUint32(locatorOffset + 12, true) * 0x100000000;
 			directoryOffset = locatorOffset - 56;
+			signature = 0x06064b50;
+		}
+		if (directoryOffset < 0 || view.getUint32(directoryOffset, true) != signature) {
+			return 0;
 		}
 		return Math.max(0, storedDirectoryOffset - directoryOffset);
 	}

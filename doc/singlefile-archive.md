@@ -777,7 +777,10 @@ A reader can apply the shift in two ways. It can hand the region to a ZIP librar
 rely on the library's prepended-data compensation. Or it can put the region back at its
 position in the file, behind as many zero bytes as the shift, so that every stored
 offset is valid as it stands and no compensation runs at all. The second way is
-RECOMMENDED, and the reference extractor uses it since core 1.6.22. Compensation is a
+RECOMMENDED, and the reference extractor uses it since core 1.6.22. It first checks that
+the shifted position holds the central directory signature, or under zip64 that the
+record sits 56 bytes before the locator, and pads nothing otherwise, which leaves the
+shift to the library. Compensation is a
 heuristic, and libraries do not all apply it unconditionally. zip.js 2.22.0, the
 version core 1.6.21 embedded, confirms a backward shift on the first central record
 alone: it shifts only when that record's local header is missing at the stored offset
