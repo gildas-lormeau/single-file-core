@@ -28,6 +28,7 @@ import {
 	flatten,
 	getFontWeight,
 	getFontStretch,
+	getStylesheetsInCascadeOrder,
 	removeQuotes
 } from "./../core/helper.js";
 
@@ -36,6 +37,7 @@ const helper = {
 	flatten,
 	getFontWeight,
 	getFontStretch,
+	getStylesheetsInCascadeOrder,
 	removeQuotes
 };
 
@@ -93,7 +95,7 @@ function process(doc, stylesheets, styles, options) {
 	});
 	styles.forEach(declarations => getCustomProperties(declarations.children, customProperties));
 	options = Object.assign({}, options, { customProperties });
-	stylesheets.forEach(stylesheetInfo => {
+	helper.getStylesheetsInCascadeOrder(stylesheets).forEach(({ stylesheetInfo }) => {
 		if (stylesheetInfo.stylesheet) {
 			const cssRules = stylesheetInfo.stylesheet.children;
 			if (cssRules) {

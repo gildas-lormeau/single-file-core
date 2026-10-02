@@ -151,6 +151,7 @@ export {
 	flatten,
 	getFontWeight,
 	getFontStretch,
+	getStylesheetsInCascadeOrder,
 	normalizeFontFamily,
 	getShadowRoot,
 	appendInfobar,
@@ -1261,6 +1262,53 @@ function getFontWeight(weight) {
 
 function getFontStretch(stretch) {
 	return FONT_STRETCHES[stretch] || stretch;
+}
+
+function getStylesheetsInCascadeOrder(stylesheets) {
+	const entries = [];
+	const entriesByRules = new Map();
+	stylesheets.forEach((stylesheetInfo, key) => {
+		const entry = { stylesheetInfo, key, index: entries.length };
+		entries.push(entry);
+		if (stylesheetInfo.stylesheet && stylesheetInfo.stylesheet.children) {
+			entriesByRules.set(stylesheetInfo.stylesheet.children, entry);
+		}
+	});
+	const importedEntries = new Set();
+	entries.forEach(entry => getImportedStylesheetEntries(entry, entriesByRules).forEach(importedEntry => importedEntries.add(importedEntry)));
+	const orderedEntries = [];
+	const visitedEntries = new Set();
+	entries
+		.filter(entry => !importedEntries.has(entry))
+		.forEach(entry => addStylesheetEntry(entry, entriesByRules, orderedEntries, visitedEntries));
+	entries
+		.filter(entry => !visitedEntries.has(entry))
+		.forEach(entry => addStylesheetEntry(entry, entriesByRules, orderedEntries, visitedEntries));
+	return orderedEntries;
+}
+
+function addStylesheetEntry(entry, entriesByRules, orderedEntries, visitedEntries) {
+	if (!visitedEntries.has(entry)) {
+		visitedEntries.add(entry);
+		getImportedStylesheetEntries(entry, entriesByRules).forEach(importedEntry => addStylesheetEntry(importedEntry, entriesByRules, orderedEntries, visitedEntries));
+		orderedEntries.push(entry);
+	}
+}
+
+function getImportedStylesheetEntries(entry, entriesByRules) {
+	const importedEntries = [];
+	const stylesheet = entry.stylesheetInfo.stylesheet;
+	if (stylesheet && stylesheet.children) {
+		stylesheet.children.forEach(ruleData => {
+			if (ruleData.type == "Atrule" && ruleData.name == "import" && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head) {
+				const importedEntry = entriesByRules.get(ruleData.prelude.children.head.data.importedChildren);
+				if (importedEntry) {
+					importedEntries.push(importedEntry);
+				}
+			}
+		});
+	}
+	return importedEntries;
 }
 
 function getContentSize(content) {

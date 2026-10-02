@@ -25,6 +25,7 @@ import {
 	normalizeFontFamily,
 	getFontWeight,
 	getFontStretch,
+	getStylesheetsInCascadeOrder,
 	getDataURI
 } from "./../helper.js";
 import { serialize as serializeSrcset } from "./../../vendor/html-srcset-parser.js";
@@ -414,8 +415,7 @@ class ProcessorHelperCommon {
 		const fontsDetails = this.createFontsDetailsInfo();
 		const stats = { rules: { processed: 0, discarded: 0 }, fonts: { processed: 0, discarded: 0 } };
 		const ruleScopes = new Map();
-		let sheetIndex = 0;
-		stylesheets.forEach(stylesheetInfo => {
+		getStylesheetsInCascadeOrder(stylesheets).forEach(({ stylesheetInfo, index: sheetIndex }) => {
 			if (stylesheetInfo.stylesheet) {
 				if (stylesheetInfo.scope) {
 					cssTree.walk(stylesheetInfo.stylesheet, { visit: "Atrule", enter: node => ruleScopes.set(node, stylesheetInfo.scope) });
@@ -433,7 +433,6 @@ class ProcessorHelperCommon {
 					}
 				}
 			}
-			sheetIndex++;
 		});
 		processFontDetails(fontsDetails, fonts);
 		this.markRepeatedFontFaceRules(fontsDetails, ruleScopes, new Map());
