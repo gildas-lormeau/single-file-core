@@ -6,24 +6,36 @@
 // as a literal backslash before the `/>`: the SVG no longer parsed and the "○" markers disappeared.
 // Measured with the CLI: two more backslashes per generation, and a re-save never byte-identical.
 //
-// It only shows where the CSS reaches the serializer as it was written. Gemini's marker sits in a rule
-// nested with `&`, which the stylesheet pass keeps as text, so the escapes in its `url()` are never
-// decoded. A top-level rule is parsed and written out again, which drops the backslashes, and hides
-// the defect.
+// It only shows where the text reaches the serializer as it was written. Gemini's marker sat in a rule
+// nested with `&`, which css-tree 3.2.1 could not parse, so the stylesheet pass kept it as text. The
+// css-tree fork vendored since parses that rule and writes its `url()` out again, which drops the
+// backslashes, so a style no longer reaches the defect and a script carries the escape instead: the
+// pass never rewrites script text.
 import { capture, html } from "./common.js";
 
 const PAGE_URL = "https://example.com/raw-text.html";
 const SVG_RULE = ".list{.theme &>li{mask-image:url(data:image/svg+xml;utf8,<svg\\ xmlns=\\\"http://www.w3.org/2000/svg\\\"><circle\\ r=\\\"1\\\"\\/><\\/svg>)}}";
+const SVG_SCRIPT = "document.body.dataset.marker = \"<circle\\ r=\\\"1\\\"\\/>\";";
 
 let failed = false;
 
-// The case this exists for: a style holding `\/>` is written back as it was, and so is every later
+// The case this exists for: a script holding `\/>` is written back as it was, and so is every later
 // generation.
 {
-	const first = await captureBody("<div class=\"theme\"><ul class=\"list\"><li>x</li></ul></div>", `<style>${SVG_RULE}</style>`);
-	check("a style holding an escaped `/>` is saved unchanged", styleContent(first).includes("<circle\\ r=\\\"1\\\"\\/>"), true);
+	const first = await captureBody("<div>x</div>", `<script>${SVG_SCRIPT}</script>`);
+	check("a script holding an escaped `/>` is saved unchanged", scriptContent(first), SVG_SCRIPT);
 	const second = await captureBody(bodyOf(first), headOf(first));
-	check("and a capture of the saved page keeps it", styleContent(second), styleContent(first));
+	check("and a capture of the saved page keeps it", scriptContent(second), SVG_SCRIPT);
+	const third = await captureBody(bodyOf(second), headOf(second));
+	check("generation after generation", scriptContent(third), SVG_SCRIPT);
+}
+
+// Gemini's marker itself: whatever the pass writes for it, a re-save writes the same.
+{
+	const first = await captureBody("<div class=\"theme\"><ul class=\"list\"><li>x</li></ul></div>", `<style>${SVG_RULE}</style>`);
+	check("a style holding an escaped `/>` keeps its marker", styleContent(first).includes("<circle\\ r=\\\"1\\\""), true);
+	const second = await captureBody(bodyOf(first), headOf(first));
+	check("and a capture of the saved page writes the same style", styleContent(second), styleContent(first));
 	const third = await captureBody(bodyOf(second), headOf(second));
 	check("generation after generation", styleContent(third), styleContent(first));
 }
@@ -54,6 +66,10 @@ async function captureBody(body, head) {
 
 function styleContent(content) {
 	return Array.from(content.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)).map(match => match[1]).filter(text => !text.includes(".sf-hidden")).join("");
+}
+
+function scriptContent(content) {
+	return Array.from(content.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)).map(match => match[1]).join("");
 }
 
 function headOf(content) {

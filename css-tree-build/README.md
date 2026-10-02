@@ -1,8 +1,12 @@
 # Rebuilding `vendor/css-tree.js`
 
 [`../vendor/css-tree.js`](../vendor/css-tree.js) is a custom build of
-[css-tree](https://www.npmjs.com/package/css-tree) with three patches applied
-to the npm sources.
+[@eslint/css-tree](https://www.npmjs.com/package/@eslint/css-tree), the ESLint
+fork of [css-tree](https://www.npmjs.com/package/css-tree), with three patches
+applied to the npm sources. The fork is installed under the `css-tree` alias in
+`package.json`. It is maintained where upstream is not, and it parses nested
+rules that upstream 3.2.1 kept as raw text, but it still carries the three
+defects below.
 
 `lib/tokenizer/TokenStream.js`: the token offset field is widened from 24 to
 27 bits (`OFFSET_MASK`/`TYPE_SHIFT`, with unsigned shifts for the token type).
@@ -63,7 +67,8 @@ patch. The same guard catches that too, and did when the second
 
 ## Updating css-tree
 
-1. Bump `css-tree` in `package.json` and run `npm install`.
+1. Bump the version in the `css-tree` alias in `package.json`
+   (`npm:@eslint/css-tree@<version>`) and run `npm install`.
 2. Run `npm run build`. If the build fails because a patched file changed,
    review that patch in `build.js` against the new sources (or drop it once
    upstream has the fix: wider token offsets, the bounded balance fill, or

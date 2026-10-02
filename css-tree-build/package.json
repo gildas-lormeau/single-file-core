@@ -7,7 +7,7 @@
 		"build": "node build.js"
 	},
 	"devDependencies": {
-		"css-tree": "3.2.1",
+		"css-tree": "npm:@eslint/css-tree@4.1.1",
 		"esbuild": "0.25.4"
 	}
 }

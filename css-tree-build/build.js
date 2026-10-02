@@ -5,7 +5,7 @@ import { build } from "esbuild";
 const require = createRequire(import.meta.url);
 const packagePath = require.resolve("css-tree/package.json");
 const licensePath = packagePath.replace(/package\.json$/, "LICENSE");
-const { version } = JSON.parse(readFileSync(packagePath));
+const { name, version } = JSON.parse(readFileSync(packagePath));
 
 const PATCHES = [
 	{
@@ -78,7 +78,7 @@ const patchPlugin = {
 };
 
 const banner = [
-	`// css-tree ${version} (https://github.com/csstree/csstree), bundled by css-tree-build/build.js`,
+	`// ${name} ${version} (https://github.com/eslint/csstree), bundled by css-tree-build/build.js`,
 	"// with the token offset field widened from 24 to 27 bits so stylesheets larger",
 	"// than 16MB do not corrupt the token stream (parsing never terminated on them),",
 	"// with the tokenizer clearing only the part of its balance buffer it uses (the",
