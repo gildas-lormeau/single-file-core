@@ -128,27 +128,11 @@ const ANGLE_UNITS = new Set([
 	"turn"
 ]);
 
-const MATH_FUNCTION_NAMES = new Set([
-	"calc",
-	"min",
-	"max",
-	"clamp",
-	"round",
-	"mod",
-	"rem",
-	"abs",
-	"sign"
-]);
-
 const OPERATOR_TYPE = "Operator";
 const IDENTIFIER_TYPE = "Identifier";
 const NUMBER_TYPE = "Number";
 const DIMENSION_TYPE = "Dimension";
-const PERCENTAGE_TYPE = "Percentage";
 const FUNCTION_TYPE = "Function";
-const NUMBER_VALUE_TYPE = "number";
-const ANGLE_VALUE_TYPE = "angle";
-const LENGTH_VALUE_TYPE = "length";
 const NORMAL_KEYWORD = "normal";
 const OBLIQUE_KEYWORD = "oblique";
 const MIN_FONT_WEIGHT = 1;
@@ -171,15 +155,24 @@ function parse(value) {
 	if (GLOBAL_KEYWORDS.has(stringValueLower)) {
 		return { global: stringValue };
 	}
-	try {
-		return parseFont(value.children, true);
-		// eslint-disable-next-line no-unused-vars
-	} catch (error) {
-		return parseFont(value.children, false);
+	const fonts = [];
+	let parseError;
+	[true, false].forEach(descriptorsFirst => {
+		try {
+			fonts.push(parseFont(value.children, descriptorsFirst));
+		} catch (error) {
+			parseError = error;
+		}
+	});
+	if (!fonts.length) {
+		throw parseError;
 	}
+	const [font] = fonts;
+	font.family = Array.from(new Set(fonts.flatMap(parsedFont => parsedFont.family)));
+	return font;
 }
 
-function parseFont(tokens, numberWeights) {
+function parseFont(tokens, descriptorsFirst) {
 	const font = {
 		lineHeight: NORMAL_KEYWORD,
 		stretch: NORMAL_KEYWORD,
@@ -207,7 +200,7 @@ function parseFont(tokens, numberWeights) {
 			}
 			continue;
 		}
-		if (numberWeights && !seen.weight && ((tokenNode.data.type == NUMBER_TYPE && Number(token) >= MIN_FONT_WEIGHT && Number(token) <= MAX_FONT_WEIGHT) || getMathValueType(tokenNode.data) == NUMBER_VALUE_TYPE)) {
+		if (descriptorsFirst && !seen.weight && ((tokenNode.data.type == NUMBER_TYPE && Number(token) >= MIN_FONT_WEIGHT && Number(token) <= MAX_FONT_WEIGHT) || tokenNode.data.type == FUNCTION_TYPE)) {
 			font.weight = tokenRaw;
 			seen.weight = true;
 			continue;
@@ -217,7 +210,7 @@ function parseFont(tokens, numberWeights) {
 				font.style = tokenRaw;
 				seen.style = true;
 				const nextToken = tokenNode.next && tokenNode.next.data;
-				if (token == OBLIQUE_KEYWORD && nextToken && ((nextToken.type == DIMENSION_TYPE && ANGLE_UNITS.has(nextToken.unit.toLowerCase())) || getMathValueType(nextToken) == ANGLE_VALUE_TYPE)) {
+				if (token == OBLIQUE_KEYWORD && nextToken && ((nextToken.type == DIMENSION_TYPE && ANGLE_UNITS.has(nextToken.unit.toLowerCase())) || (descriptorsFirst && nextToken.type == FUNCTION_TYPE))) {
 					font.style += " " + cssTree.generate(nextToken);
 					tokenNode = tokenNode.next;
 				}
@@ -277,26 +270,6 @@ function parseFont(tokens, numberWeights) {
 	}
 
 	throw error("Missing required font-size.");
-}
-
-function getMathValueType(node) {
-	if (node.type == FUNCTION_TYPE && MATH_FUNCTION_NAMES.has(node.name.toLowerCase())) {
-		let angle, length;
-		cssTree.walk(node, childNode => {
-			if (childNode.type == PERCENTAGE_TYPE || (childNode.type == DIMENSION_TYPE && !ANGLE_UNITS.has(childNode.unit.toLowerCase()))) {
-				length = true;
-			} else if (childNode.type == DIMENSION_TYPE) {
-				angle = true;
-			}
-		});
-		if (length) {
-			return LENGTH_VALUE_TYPE;
-		} else if (angle) {
-			return ANGLE_VALUE_TYPE;
-		} else {
-			return NUMBER_VALUE_TYPE;
-		}
-	}
 }
 
 function error(message) {
