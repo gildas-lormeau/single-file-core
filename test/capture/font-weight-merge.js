@@ -101,6 +101,30 @@ let failed = false;
 	check("and each keeping its own subset", countMatches(content, /data:font\/woff2;base64/g), 2);
 }
 
+// Identical faces of two sheets that the same tree reads under the same media are copies of one face,
+// and they merge like the faces of one sheet: the later copy is kept. A sheet with another media, or
+// one in a shadow root, is read apart, so a face it repeats is not a copy of the document's. Every
+// sheet used to be grouped together, which kept only the last copy: nytimes declares its 227 faces in
+// the document and again in 13 shadow roots, and the document lost nyt-imperial and
+// nyt-cheltenham-text-cond to the copy in the last shadow root, drawing the summaries in Georgia
+// (de7a7). happy-dom does not show a shadow root's style to the capture, so the media case stands in
+// for it here, and nytimes is checked in Chrome through the CLI.
+{
+	const content = await runSheets([["screen", "", face(500, FONT_A_URL)], ["print", "print", face(500, FONT_A_URL)]]);
+	check("a face repeated in a print sheet stays in the screen sheet", content, { screen: 1, print: 1 });
+}
+
+{
+	const content = await runSheets([["print", "print", face(500, FONT_A_URL)], ["screen", "", face(500, FONT_A_URL)]]);
+	check("and in the print sheet when the print sheet comes first", content, { print: 1, screen: 1 });
+}
+
+// The control: two sheets read by the same tree under the same media still share one copy.
+{
+	const content = await runSheets([["first", "", face(500, FONT_A_URL)], ["second", "", face(500, FONT_A_URL)]]);
+	check("a face repeated in two screen sheets is kept once, in the later one", content, { first: 0, second: 1 });
+}
+
 if (failed) {
 	Deno.exit(1);
 }
@@ -119,6 +143,25 @@ async function run(faces, secondFontBytes, usedFonts, thirdFontBytes = OTHER_FON
 		[FONT_C_URL, { body: thirdFontBytes, contentType: FONT_CONTENT_TYPE }]
 	]);
 	return capture(pageResources, { url: PAGE_URL, content: page, usedFonts, removeAlternativeFonts: true });
+}
+
+async function runSheets(sheets) {
+	const styles = sheets.map(([name, media, faces]) =>
+		"<style" + (media ? " media=\"" + media + "\"" : "") + ">" + faces + "." + name + "{font-family:\"Merged\"}</style>").join("");
+	const page = html("<p class=\"" + sheets.map(([name]) => name).join(" ") + "\">Aa</p>", styles);
+	const pageResources = new Map([
+		[PAGE_URL, { body: page, contentType: "text/html" }],
+		[FONT_A_URL, { body: FONT_BYTES, contentType: FONT_CONTENT_TYPE }]
+	]);
+	const content = await capture(pageResources, { url: PAGE_URL, content: page, usedFonts: [["merged", "500", "normal", "normal"]], removeAlternativeFonts: true });
+	const faces = {};
+	for (const [, css] of content.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)) {
+		const name = sheets.map(([name]) => name).find(name => css.includes("." + name + "{"));
+		if (name) {
+			faces[name] = countMatches(css, /@font-face/g);
+		}
+	}
+	return faces;
 }
 
 function countMatches(content, pattern) {

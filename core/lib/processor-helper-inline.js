@@ -582,9 +582,15 @@ function getProcessorHelperClass(utilInstance) {
 		groupDuplicateFonts(stylesheets, fonts, options) {
 			if (options.usedFonts && options.usedFonts.length) {
 				const fontFaces = [];
+				const scopeIds = new Map();
 				stylesheets.forEach(stylesheetInfo => {
 					if (stylesheetInfo.stylesheet && stylesheetInfo.stylesheet.children) {
-						getFontFaces(stylesheetInfo.stylesheet.children, "", fontFaces);
+						const scope = stylesheetInfo.scope || null;
+						if (!scopeIds.has(scope)) {
+							scopeIds.set(scope, scopeIds.size);
+						}
+						const mediaScope = stylesheetInfo.mediaText ? "|media " + stylesheetInfo.mediaText : "";
+						getFontFaces(stylesheetInfo.stylesheet.children, scopeIds.get(scope) + mediaScope, fontFaces);
 					}
 				});
 				const families = new Map();
