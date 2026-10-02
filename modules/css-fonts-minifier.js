@@ -146,7 +146,7 @@ function process(doc, stylesheets, styles, options) {
 		unusedFonts = fontsInfo.declared.filter(fontInfo => !filteredUsedFonts.has(fontInfo.fontFamily));
 		selectedFonts = getSelectedFonts(fontsInfo.declared, filteredUsedFonts);
 	}
-	const docChars = Array.from(new Set(docContent)).map(char => char.charCodeAt(0)).sort((value1, value2) => value1 - value2);
+	const docChars = Array.from(new Set(docContent)).map(char => char.codePointAt(0)).sort((value1, value2) => value1 - value2);
 	const usedFontsCharacters = getUsedFontsCharacters(options);
 	stylesheets.forEach(stylesheetInfo => {
 		if (stylesheetInfo.stylesheet) {
