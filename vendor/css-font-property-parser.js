@@ -121,10 +121,21 @@ const FONT_DESCRIPTOR_KEYS = new Set([
 	"stretch"
 ]);
 
+const ANGLE_UNITS = new Set([
+	"deg",
+	"grad",
+	"rad",
+	"turn"
+]);
+
 const OPERATOR_TYPE = "Operator";
 const IDENTIFIER_TYPE = "Identifier";
 const NUMBER_TYPE = "Number";
+const DIMENSION_TYPE = "Dimension";
 const NORMAL_KEYWORD = "normal";
+const OBLIQUE_KEYWORD = "oblique";
+const MIN_FONT_WEIGHT = 1;
+const MAX_FONT_WEIGHT = 1000;
 const LINE_HEIGHT_SEPARATOR = "/";
 const FAMILY_SEPARATOR = ",";
 
@@ -143,7 +154,15 @@ function parse(value) {
 	if (GLOBAL_KEYWORDS.has(stringValueLower)) {
 		return { global: stringValue };
 	}
-	const tokens = value.children;
+	try {
+		return parseFont(value.children, true);
+		// eslint-disable-next-line no-unused-vars
+	} catch (error) {
+		return parseFont(value.children, false);
+	}
+}
+
+function parseFont(tokens, numberWeights) {
 	const font = {
 		lineHeight: NORMAL_KEYWORD,
 		stretch: NORMAL_KEYWORD,
@@ -171,10 +190,20 @@ function parse(value) {
 			}
 			continue;
 		}
+		if (numberWeights && tokenNode.data.type == NUMBER_TYPE && !seen.weight && Number(token) >= MIN_FONT_WEIGHT && Number(token) <= MAX_FONT_WEIGHT) {
+			font.weight = tokenRaw;
+			seen.weight = true;
+			continue;
+		}
 		if (keyword && FONT_STYLE_KEYWORDS.has(token)) {
 			if (!seen.style) {
 				font.style = tokenRaw;
 				seen.style = true;
+				const nextToken = tokenNode.next && tokenNode.next.data;
+				if (token == OBLIQUE_KEYWORD && nextToken && nextToken.type == DIMENSION_TYPE && ANGLE_UNITS.has(nextToken.unit.toLowerCase())) {
+					font.style += " " + cssTree.generate(nextToken);
+					tokenNode = tokenNode.next;
+				}
 			}
 			continue;
 		}

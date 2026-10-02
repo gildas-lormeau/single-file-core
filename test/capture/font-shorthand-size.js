@@ -37,6 +37,23 @@ for (const size of ["100%", "100%/1.5", "400px", "bold 100px/1", "italic 700 900
 	check("a weight before the size is still read as a weight", content.includes("font-family:\"Used\""), true);
 }
 
+// Any number from 1 to 1000 is a weight in the shorthand, and an angle after oblique belongs to the
+// style. Only the keywords and 100 to 900 were known, so `450` or `18deg` was read as the size, and a
+// size keyword after it was joined to an unquoted family: `450 medium Used` named "medium Used", the
+// real family was removed, and Chrome, Firefox and Safari drew the text with their default font.
+for (const value of ["450 medium", "450.5 large", "1000 small", "italic 450 condensed medium", "oblique 18deg medium", "oblique 0.05turn x-large", "oblique -10deg 450 medium", "450 16px/1.2"]) {
+	const content = await run("p{font:" + value + " Used,sans-serif}");
+	check("a family named after " + value + " is kept", content.includes("font-family:\"Used\""), true);
+	check("and the unused family is still removed (" + value + ")", content.includes("font-family:\"Unused\""), false);
+}
+
+// 0 cannot be a weight, so it is a size; and a page in quirks mode may give a unitless size, which is
+// read as a size again when reading it as a weight leaves no size at all.
+for (const value of ["0", "12"]) {
+	const content = await run("p{font:" + value + " \"Used\",sans-serif}");
+	check("a family named after the bare number " + value + " is kept", content.includes("font-family:\"Used\""), true);
+}
+
 if (failed) {
 	Deno.exit(1);
 }
