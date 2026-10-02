@@ -773,6 +773,22 @@ extra fields are arbitrary bytes, and past that through entry data, and a four-b
 signature turns up in bytes nothing constrains. The test settles each candidate against
 the record's own field, so it needs no offset it does not already have.
 
+A reader can apply the shift in two ways. It can hand the region to a ZIP library and
+rely on the library's prepended-data compensation. Or it can put the region back at its
+position in the file, behind as many zero bytes as the shift, so that every stored
+offset is valid as it stands and no compensation runs at all. The second way is
+RECOMMENDED, and the reference extractor uses it since core 1.6.22. Compensation is a
+heuristic, and libraries do not all apply it unconditionally. zip.js 2.22.0, the
+version core 1.6.21 embedded, confirms a backward shift on the first central record
+alone: it shifts only when that record's local header is missing at the stored offset
+and present at the shifted one. In the PDF-with-HTML variants the first record is
+`page.pdf` (§3.1), whose local header is never inside the region, so the test cannot
+pass, the library shifted nothing, and every entry failed to read. A reader that relies
+on compensation has to check that its library does not decide on the first record alone.
+The zero prefix costs as much memory as the shift, that is, everything the file holds
+before the region. `page.pdf` then points into the zeros instead of before the start of
+the data, which fails the same way, and the extractor still skips the entry.
+
 ### 4.6 Text tools
 
 The optional text body (`insertTextBody`) addresses one more consumer: software that
@@ -1979,6 +1995,7 @@ predicts.
 | September 2026 | The universal-mode extractor enumerates every `sfz-data` candidate before choosing and refuses two (§4.5, §7.4). It used to take the first element or the first comment, which could never meet §7.4's rule on a second candidate; the non-rung element fallback that §4.5 stated as a SHOULD the reference skipped is now how candidates are filtered |
 | September 2026 | §2.1 gains its second charset criterion, that the label survive HTML's encoding selection, and §8.4 lists 19 qualifying encodings instead of 20: `x-user-defined` is injective, but the HTML standard replaces the label with windows-1252 before decoding a document, so a file declaring it fails recovery on every load |
 | September 2026 | §5.8 states UTF-8 names and comments as this format's own requirement. The rule had been attributed to ZIP, which permits the legacy code page with the flag clear; read with the sentence forbidding the flag on a legacy-encoded name, that left a code page 437 writer no valid choice |
+| October 2026 | Core 1.6.22: the universal-mode extractor puts the recovered region back at its file position behind a zero-filled prefix, instead of relying on the ZIP library's prepended-data compensation (§4.5). zip.js 2.22.0 decides that compensation on the first central record, which is `page.pdf` in the PDF-with-HTML variants, so core 1.6.21 could not extract those archives from the page text |
 
 This document was itself revised in August 2026, against core 1.5.108, after several
 independent reviews. One of them was a reader built from this specification alone, with
