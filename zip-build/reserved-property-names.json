@@ -347,6 +347,7 @@
 	"requestPassword",
 	"ZipDirectoryEntryImportOptions",
 	"duplicates",
+	"ZipDirectoryEntryAddFileSystemHandleOptions",
 	"ZipDirectoryEntryImportHttpOptions",
 	"ZipDirectoryEntryGetChildrenOptions",
 	"recursive",
