@@ -21,7 +21,7 @@
  *   Source.
  */
 
-/* global DOMParser, setTimeout */
+/* global setTimeout */
 
 export {
 	display
@@ -50,7 +50,10 @@ async function display(document, docContent, { disableFramePointerEvents, inPlac
 	}
 	docContent = docContent.replace(/<noscript/gi, "<template disabled-noscript");
 	docContent = docContent.replace(/<\/noscript/gi, "</template");
-	const doc = (new DOMParser()).parseFromString(docContent, "text/html");
+	const doc = document.implementation.createHTMLDocument("");
+	doc.open();
+	doc.write(docContent);
+	doc.close();
 	if (disableFramePointerEvents) {
 		doc.querySelectorAll("iframe").forEach(element => {
 			const pointerEvents = "pointer-events";
