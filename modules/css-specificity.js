@@ -22,10 +22,16 @@
  */
 
 import * as cssTree from "./../vendor/css-tree.js";
+import { decodeName } from "./css-identifier.js";
+
+const PSEUDO_ELEMENT_SYNONYMS = new Set(["after", "before", "first-letter", "first-line"]);
+const SELECTOR_ARGUMENT_PSEUDO_CLASSES = new Set(["host", "host-context"]);
+const SELECTOR_ARGUMENT_PSEUDO_ELEMENTS = new Set(["slotted"]);
 
 export {
     computeSpecificity,
-    computeMaxSpecificity
+    computeMaxSpecificity,
+    PSEUDO_ELEMENT_SYNONYMS
 };
 
 function computeSpecificity(selector, specificity = { a: 0, b: 0, c: 0 }) {
@@ -57,13 +63,27 @@ function computeSpecificity(selector, specificity = { a: 0, b: 0, c: 0 }) {
 
         case "PseudoElementSelector":
             specificity.c++;
+            if (SELECTOR_ARGUMENT_PSEUDO_ELEMENTS.has(decodeName(selector.name))) {
+                addArgumentSpecificity(specificity, selector);
+            }
             break;
 
         case "PseudoClassSelector": {
-            const pseudoName = selector.name.toLowerCase();
+            const pseudoName = decodeName(selector.name);
 
             if (pseudoName === "where") {
                 // :where() has zero specificity - do nothing
+                break;
+            }
+
+            if (PSEUDO_ELEMENT_SYNONYMS.has(pseudoName)) {
+                specificity.c++;
+                break;
+            }
+
+            if (SELECTOR_ARGUMENT_PSEUDO_CLASSES.has(pseudoName)) {
+                specificity.b++;
+                addArgumentSpecificity(specificity, selector);
                 break;
             }
 
@@ -101,6 +121,14 @@ function computeSpecificity(selector, specificity = { a: 0, b: 0, c: 0 }) {
     }
 
     return specificity;
+}
+
+function addArgumentSpecificity(specificity, selector) {
+    traverseChildren(selector.children, (child) => {
+        if (child.type === "Selector") {
+            addMaxSpecificity(specificity, computeSpecificity(child, { a: 0, b: 0, c: 0 }));
+        }
+    });
 }
 
 function addMaxSpecificity(specificity, maxSpec) {

@@ -22,14 +22,13 @@
  */
 
 import * as cssTree from "./../vendor/css-tree.js";
-import { computeMaxSpecificity } from "./css-specificity.js";
+import { computeMaxSpecificity, PSEUDO_ELEMENT_SYNONYMS } from "./css-specificity.js";
 import { parsePrelude } from "./css-scope-prelude-parser.js";
 import { sanitizeSelector, matchUnqueryableAttributeSelector, matchUnqueryablePseudoClass } from "./css-selector-sanitizer.js";
 import { ESCAPE_CHARACTER, decodeIdentifier, decodeName } from "./css-identifier.js";
 
 const DEBUG = false;
 
-const PSEUDO_ELEMENT_SYNONYMS = new Set(["after", "before", "first-letter", "first-line"]);
 const FUNCTIONAL_PSEUDO_CLASS_NAMES = new Set(["not", "is", "where", "has", "nth-child", "nth-last-child"]);
 const MEDIA_AT_RULE_NAME = "media";
 const SUPPORTS_AT_RULE_NAME = "supports";
