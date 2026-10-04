@@ -583,6 +583,7 @@ class ProcessorHelperCommon {
 			this.getPropertyValue(ruleData, "font-style") || "normal",
 			this.getPropertyValue(ruleData, "unicode-range"),
 			getFontStretch(this.getPropertyValue(ruleData, "font-stretch")),
+			this.getPropertyValue(ruleData, "font-width"),
 			this.getPropertyValue(ruleData, "font-variant") || "normal",
 			this.getPropertyValue(ruleData, "font-feature-settings"),
 			this.getPropertyValue(ruleData, "font-variation-settings"),

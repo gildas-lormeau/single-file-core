@@ -44,6 +44,8 @@ const helper = {
 };
 
 const FONT_FACE_PARENT_AT_RULE_NAMES = ["media", "supports", "layer", "container"];
+const FONT_WIDTH_DESCRIPTOR_NAMES = ["font-stretch", "font-width"];
+const FONT_STRETCH_READINGS = ["fontStretch", "legacyFontStretch"];
 const REGEXP_COMMA = /\s*,\s*/;
 const REGEXP_SPACES = /\s+/g;
 const REGEXP_ANGLE = /^([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)(deg|grad|rad|turn)?$/;
@@ -185,10 +187,11 @@ function getFontsInfo(cssRules, fontsInfo, options, fontFaceAllowed = true) {
 					const fontWeight = getDeclarationValue(ruleData.block.children, "font-weight") || "400";
 					const fontStyle = getDeclarationValue(ruleData.block.children, "font-style") || "normal";
 					const fontVariant = getDeclarationValue(ruleData.block.children, "font-variant") || "normal";
-					const fontStretch = getDeclarationValue(ruleData.block.children, "font-stretch") || "normal";
+					const fontStretch = getDeclarationValue(ruleData.block.children, FONT_WIDTH_DESCRIPTOR_NAMES) || "normal";
+					const legacyFontStretch = getDeclarationValue(ruleData.block.children, "font-stretch") || "normal";
 					const unicodeRange = getDeclarationValue(ruleData.block.children, "unicode-range");
 					fontWeight.split(",").forEach(weightValue =>
-						fontsInfo.declared.push({ fontFamily, fontWeight: helper.getFontWeight(helper.removeQuotes(weightValue)), fontStyle, fontVariant, fontStretch, unicodeRange, ruleData }));
+						fontsInfo.declared.push({ fontFamily, fontWeight: helper.getFontWeight(helper.removeQuotes(weightValue)), fontStyle, fontVariant, fontStretch, legacyFontStretch, unicodeRange, ruleData }));
 				}
 			}
 		} else {
@@ -434,26 +437,27 @@ function testUsedFont(ruleData, familyName, selectedFonts) {
 function getSelectedFonts(declaredFonts, filteredUsedFonts) {
 	const selectedFonts = new Map();
 	filteredUsedFonts.forEach((usedFonts, familyName) => {
-		const fonts = declaredFonts
-			.filter(fontInfo => fontInfo.fontFamily == familyName)
+		const familyFonts = declaredFonts.filter(fontInfo => fontInfo.fontFamily == familyName);
+		const readings = familyFonts.some(fontInfo => fontInfo.legacyFontStretch != fontInfo.fontStretch) ? FONT_STRETCH_READINGS : FONT_STRETCH_READINGS.slice(0, 1);
+		const fontLists = readings.map(reading => familyFonts
 			.map(fontInfo => ({
 				ruleData: fontInfo.ruleData,
 				weight: parseFontWeight(fontInfo.fontWeight),
 				style: parseFontStyle(fontInfo.fontStyle),
-				stretch: parseFontStretch(fontInfo.fontStretch)
+				stretch: parseFontStretch(fontInfo[reading])
 			}))
-			.filter(fontInfo => fontInfo.weight && fontInfo.style && fontInfo.stretch);
-		const selection = { candidates: new Set(fonts.map(fontInfo => fontInfo.ruleData)), rules: new Set(), rulesByStyle: new Map() };
+			.filter(fontInfo => fontInfo.weight && fontInfo.style && fontInfo.stretch));
+		const selection = { candidates: new Set(helper.flatten(fontLists).map(fontInfo => fontInfo.ruleData)), rules: new Set(), rulesByStyle: new Map() };
 		usedFonts.forEach(([, fontWeight, fontStyle, , fontStretch]) => {
 			let styleRules = selection.rulesByStyle.get(fontStyle);
 			if (!styleRules) {
 				styleRules = new Set();
 				selection.rulesByStyle.set(fontStyle, styleRules);
 			}
-			FONT_MATCHING_ALGORITHMS.forEach(algorithm => selectFonts(fonts, fontWeight, fontStyle, fontStretch, algorithm).forEach(fontInfo => {
+			fontLists.forEach(fonts => FONT_MATCHING_ALGORITHMS.forEach(algorithm => selectFonts(fonts, fontWeight, fontStyle, fontStretch, algorithm).forEach(fontInfo => {
 				styleRules.add(fontInfo.ruleData);
 				selection.rules.add(fontInfo.ruleData);
-			}));
+			})));
 		});
 		selectedFonts.set(familyName, selection);
 	});
@@ -672,9 +676,10 @@ function getDeclarationValue(declarations, propertyName) {
 }
 
 function getDeclarationText(declarations, propertyName) {
+	const propertyNames = Array.isArray(propertyName) ? propertyName : [propertyName];
 	let property;
 	if (declarations) {
-		property = declarations.filter(declaration => declaration.property == propertyName).tail;
+		property = declarations.filter(declaration => propertyNames.includes(declaration.property)).tail;
 	}
 	if (property) {
 		try {
@@ -849,14 +854,15 @@ function getLaterUnicodeRanges(declaredFonts, ruleData) {
 	if (index == -1) {
 		return [];
 	}
-	const { fontFamily, fontWeight, fontStyle, fontStretch } = declaredFonts[index];
+	const { fontFamily, fontWeight, fontStyle, fontStretch, legacyFontStretch } = declaredFonts[index];
 	return declaredFonts
 		.slice(index + 1)
 		.filter(fontInfo => fontInfo.ruleData != ruleData &&
 			fontInfo.fontFamily == fontFamily &&
 			fontInfo.fontWeight == fontWeight &&
 			fontInfo.fontStyle == fontStyle &&
-			fontInfo.fontStretch == fontStretch)
+			fontInfo.fontStretch == fontStretch &&
+			fontInfo.legacyFontStretch == legacyFontStretch)
 		.map(fontInfo => fontInfo.unicodeRange);
 }
 
