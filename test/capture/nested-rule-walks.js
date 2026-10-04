@@ -37,6 +37,24 @@ await checkFont("the content of a nested pseudo-element counts as drawn text",
 	check("control: a face the browser did not draw with is still dropped", countFaces(content), 0);
 }
 
+// An @font-face is valid at the top level and in @media, @supports, @layer and @container only: in a
+// style rule, or in a group rule nested in one, browsers drop it. The walker made the pass read it
+// as declared, so bold text drawn by the only valid face, at 400, kept the nested 700 face instead
+// and the saved page lost the font. Measured in Chrome 151 with css-corpus/tmp-aster/nested-ff/a.html.
+{
+	const style = "@font-face{font-family:\"T\";font-weight:400;src:url(" + FONT_URL + ") format(\"woff2\")}" +
+		".a{color:#000;@font-face{font-family:\"T\";font-weight:700;src:url(" + FONT_URL + ") format(\"woff2\")}}.a p{font-family:\"T\";font-weight:700}";
+	const content = await captureFonts(style, [["t", "700", "normal", "normal", "100%"]]);
+	check("a face nested in a style rule does not displace the valid face the browser drew with", /@font-face\s*\{[^}]*font-weight:400/.test(content), true);
+	check("and the nested face is left as it was", countFaces(content), 2);
+}
+{
+	const style = "@font-face{font-family:\"T\";font-weight:400;src:url(" + FONT_URL + ") format(\"woff2\")}" +
+		"@media all{@font-face{font-family:\"T\";font-weight:700;src:url(" + FONT_URL + ") format(\"woff2\")}}.a p{font-family:\"T\";font-weight:700}";
+	const content = await captureFonts(style, [["t", "700", "normal", "normal", "100%"]]);
+	check("control: the same 700 face in @media is valid and wins", /@font-face\s*\{[^}]*font-weight:400/.test(content), false);
+}
+
 await checkImage("a url() in @scope is embedded",
 	"@scope (.a){p{background:url(" + IMAGE_URL + ")}}", ".a p{background:url(" + IMAGE_URL + ")}");
 await checkImage("a url() in @starting-style is embedded",
