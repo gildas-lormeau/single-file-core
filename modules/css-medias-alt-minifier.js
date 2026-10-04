@@ -23,6 +23,7 @@
 
 import * as cssTree from "./../vendor/css-tree.js";
 import { flatten } from "./../core/helper.js";
+import { getNestedChildren } from "./css-nested-rules.js";
 import {
 	parseMediaListSafe,
 	containsNotKeyword as utilContainsNotKeyword,
@@ -71,6 +72,8 @@ function processRules(cssRules, stats, keepPrintStyleSheets, removedRules = []) 
 				removedRules.push({ cssRules, cssRule });
 				stats.discarded++;
 			}
+		} else if (getNestedChildren(ruleData)) {
+			processRules(ruleData.block.children, stats, keepPrintStyleSheets, removedRules);
 		}
 	}
 	return removedRules;

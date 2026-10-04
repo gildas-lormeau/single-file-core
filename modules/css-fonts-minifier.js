@@ -23,6 +23,7 @@
 
 import * as cssTree from "./../vendor/css-tree.js";
 import * as fontPropertyParser from "./../vendor/css-font-property-parser.js";
+import { getNestedChildren } from "./css-nested-rules.js";
 import {
 	normalizeFontFamily,
 	flatten,
@@ -175,25 +176,25 @@ function keepDeclaredFontIfRendered(familyName, fontsInfo, filteredUsedFonts, op
 
 function getFontsInfo(cssRules, fontsInfo, options) {
 	cssRules.forEach(ruleData => {
-		if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports" || ruleData.name == "layer" || ruleData.name == "container") && ruleData.block && ruleData.block.children) {
-			getFontsInfo(ruleData.block.children, fontsInfo, options);
-		} else if (ruleData.type == "Rule") {
-			const fontFamilyNames = getFontFamilyNames(ruleData.block, options);
-			if (fontFamilyNames.length) {
-				fontsInfo.used.push(fontFamilyNames);
+		if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
+			const fontFamily = helper.normalizeFontFamily(getDeclarationValue(ruleData.block.children, "font-family"));
+			if (fontFamily) {
+				const fontWeight = getDeclarationValue(ruleData.block.children, "font-weight") || "400";
+				const fontStyle = getDeclarationValue(ruleData.block.children, "font-style") || "normal";
+				const fontVariant = getDeclarationValue(ruleData.block.children, "font-variant") || "normal";
+				const fontStretch = getDeclarationValue(ruleData.block.children, "font-stretch") || "normal";
+				const unicodeRange = getDeclarationValue(ruleData.block.children, "unicode-range");
+				fontWeight.split(",").forEach(weightValue =>
+					fontsInfo.declared.push({ fontFamily, fontWeight: helper.getFontWeight(helper.removeQuotes(weightValue)), fontStyle, fontVariant, fontStretch, unicodeRange, ruleData }));
 			}
 		} else {
-			if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
-				const fontFamily = helper.normalizeFontFamily(getDeclarationValue(ruleData.block.children, "font-family"));
-				if (fontFamily) {
-					const fontWeight = getDeclarationValue(ruleData.block.children, "font-weight") || "400";
-					const fontStyle = getDeclarationValue(ruleData.block.children, "font-style") || "normal";
-					const fontVariant = getDeclarationValue(ruleData.block.children, "font-variant") || "normal";
-					const fontStretch = getDeclarationValue(ruleData.block.children, "font-stretch") || "normal";
-					const unicodeRange = getDeclarationValue(ruleData.block.children, "unicode-range");
-					fontWeight.split(",").forEach(weightValue =>
-						fontsInfo.declared.push({ fontFamily, fontWeight: helper.getFontWeight(helper.removeQuotes(weightValue)), fontStyle, fontVariant, fontStretch, unicodeRange, ruleData }));
+			const children = getNestedChildren(ruleData);
+			if (children) {
+				const fontFamilyNames = getFontFamilyNames(ruleData.block, options);
+				if (fontFamilyNames.length) {
+					fontsInfo.used.push(fontFamilyNames);
 				}
+				getFontsInfo(children, fontsInfo, options);
 			}
 		}
 	});
@@ -203,10 +204,12 @@ function getCustomPropertiesInfo(cssRules, customProperties) {
 	cssRules.forEach(ruleData => {
 		if (ruleData.type == "Atrule" && ruleData.name == "import" && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head.data.importedChildren) {
 			getCustomPropertiesInfo(ruleData.prelude.children.head.data.importedChildren, customProperties);
-		} else if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports" || ruleData.name == "layer" || ruleData.name == "container") && ruleData.block && ruleData.block.children) {
-			getCustomPropertiesInfo(ruleData.block.children, customProperties);
-		} else if (ruleData.type == "Rule" && ruleData.block && ruleData.block.children) {
-			getCustomProperties(ruleData.block.children, customProperties);
+		} else {
+			const children = getNestedChildren(ruleData);
+			if (children) {
+				getCustomProperties(children, customProperties);
+				getCustomPropertiesInfo(children, customProperties);
+			}
 		}
 	});
 }
@@ -325,7 +328,7 @@ function filterUnusedFonts(cssRules, declaredFonts, unusedFonts, selectedFonts, 
 		const ruleData = cssRule.data;
 		if (ruleData.type == "Atrule" && ruleData.name == "import" && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head.data.importedChildren) {
 			filterUnusedFonts(ruleData.prelude.children.head.data.importedChildren, declaredFonts, unusedFonts, selectedFonts, docChars, usedFontsCharacters);
-		} else if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports" || ruleData.name == "layer" || ruleData.name == "container") && ruleData.block && ruleData.block.children) {
+		} else if (getNestedChildren(ruleData)) {
 			filterUnusedFonts(ruleData.block.children, declaredFonts, unusedFonts, selectedFonts, docChars, usedFontsCharacters);
 		} else if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
 			const fontFamily = helper.normalizeFontFamily(getDeclarationValue(ruleData.block.children, "font-family"));
@@ -769,12 +772,10 @@ function parseFamilyNames(fontFamilyNameTokenData, fontFamilyNames) {
 
 function getRulesTextContent(doc, cssRules, workStylesheet, content) {
 	cssRules.forEach(ruleData => {
-		if (ruleData.block && ruleData.block.children && ruleData.prelude && ruleData.prelude.children) {
-			if (ruleData.type == "Atrule" && (ruleData.name == "media" || ruleData.name == "supports" || ruleData.name == "layer" || ruleData.name == "container")) {
-				content = getRulesTextContent(doc, ruleData.block.children, workStylesheet, content);
-			} else if (ruleData.type == "Rule") {
-				content = getDeclarationsTextContent(ruleData.block.children, workStylesheet, content);
-			}
+		const children = getNestedChildren(ruleData);
+		if (children) {
+			content = getDeclarationsTextContent(children, workStylesheet, content);
+			content = getRulesTextContent(doc, children, workStylesheet, content);
 		}
 	});
 	return content;
