@@ -63,6 +63,18 @@
 		variationSettings: "font-variation-settings",
 		weight: "font-weight"
 	};
+	const FONT_FACE_DEFAULT_VALUES = {
+		ascentOverride: "normal",
+		descentOverride: "normal",
+		display: "auto",
+		featureSettings: "normal",
+		lineGapOverride: "normal",
+		stretch: "normal",
+		style: "normal",
+		unicodeRange: "u+0-10ffff",
+		variationSettings: "normal",
+		weight: "normal"
+	};
 
 	const fetch = globalThis.fetch.bind(globalThis);
 	const CustomEvent = globalThis.CustomEvent;
@@ -411,8 +423,9 @@
 				if (!new.target) {
 					return origFontFace();
 				}
-				getDetailObject(family, source, ...args).then(detail => document.dispatchEvent(new CustomEvent(NEW_FONT_FACE_EVENT, { detail })));
-				return new origFontFace(family, source, ...args);
+				const fontFace = new origFontFace(family, source, ...args);
+				getDetailObject(fontFace, source).then(detail => document.dispatchEvent(new CustomEvent(NEW_FONT_FACE_EVENT, { detail })));
+				return fontFace;
 			} catch (error) {
 				error.stack = error.message + "\n" + "    \n" + error.stack.trim().split("\n").slice(-1).join("\n");
 				throw error;
@@ -424,7 +437,7 @@
 		const deleteFont = document.fonts.delete;
 		document.fonts.delete = function (fontFace) {
 			try {
-				getDetailObject(fontFace.family).then(detail => document.dispatchEvent(new CustomEvent(DELETE_FONT_EVENT, { detail })));
+				getDetailObject(fontFace).then(detail => document.dispatchEvent(new CustomEvent(DELETE_FONT_EVENT, { detail })));
 				return deleteFont.call(document.fonts, fontFace);
 			} catch (error) {
 				error.stack = error.message + "\n" + "    \n" + error.stack.trim().split("\n").slice(-1).join("\n");
@@ -605,17 +618,15 @@
 		event.currentTarget.removeEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, getAdoptedStylesheetsListener, { capture: true });
 	}
 
-	async function getDetailObject(fontFamily, src, descriptors) {
+	async function getDetailObject(fontFace, src) {
 		const detail = {};
-		detail["font-family"] = fontFamily;
+		Object.keys(FONT_STYLE_PROPERTIES).forEach(descriptor => {
+			const value = fontFace[descriptor];
+			if (typeof value == "string" && value && value.toLowerCase() != FONT_FACE_DEFAULT_VALUES[descriptor]) {
+				detail[FONT_STYLE_PROPERTIES[descriptor]] = value;
+			}
+		});
 		detail.src = src;
-		if (descriptors) {
-			Object.keys(descriptors).forEach(descriptor => {
-				if (FONT_STYLE_PROPERTIES[descriptor]) {
-					detail[FONT_STYLE_PROPERTIES[descriptor]] = descriptors[descriptor];
-				}
-			});
-		}
 		if (detail.src instanceof ArrayBuffer) {
 			const bytes = new Uint8Array(detail.src);
 			let content = "";
