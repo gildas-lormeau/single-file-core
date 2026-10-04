@@ -250,7 +250,7 @@ function compressJSONLD(node) {
 
 function removeEmptyInlineElements(doc) {
 	doc.querySelectorAll("style, script:not([src])").forEach(element => {
-		if (!element.textContent.trim()) {
+		if (!element.textContent.trim() && element.parentElement == doc.head) {
 			element.remove();
 		}
 	});

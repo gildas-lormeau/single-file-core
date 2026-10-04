@@ -911,7 +911,7 @@ class Processor {
 		const scriptElements = this.doc.querySelectorAll("script:not([type=\"application/ld+json\"]):not([" + SCRIPT_OPTIONS + "])");
 		this.stats.set("discarded", "scripts", scriptElements.length);
 		this.stats.set("processed", "scripts", scriptElements.length);
-		scriptElements.forEach(element => element.remove());
+		scriptElements.forEach(element => removeElement(element));
 	}
 
 	removeDiscardedResources() {
@@ -929,7 +929,7 @@ class Processor {
 				placeholderElement.replaceWith(noscriptElement);
 			});
 		} else {
-			this.doc.querySelectorAll("noscript").forEach(element => element.remove());
+			this.doc.querySelectorAll("noscript").forEach(element => removeElement(element));
 		}
 		this.doc.querySelectorAll("meta[http-equiv=refresh], meta[disabled-http-equiv]").forEach(element => element.remove());
 		this.doc.querySelectorAll("meta[http-equiv=\"content-security-policy\"]").forEach(element => element.remove());
@@ -946,13 +946,13 @@ class Processor {
 			if (relValue.length) {
 				element.setAttribute("rel", relValue);
 			} else {
-				element.remove();
+				removeElement(element);
 			}
 		});
 		this.processorHelper.removeUnusedStylesheets(this.doc);
 		this.doc.querySelectorAll("link[rel*=stylesheet]:not([href]),link[rel*=stylesheet][href=\"\"]").forEach(element => element.remove());
 		if (this.options.removeHiddenElements) {
-			this.doc.querySelectorAll("input[type=hidden]").forEach(element => element.remove());
+			this.doc.querySelectorAll("input[type=hidden]").forEach(element => removeElement(element));
 		}
 		if (this.options.removedElementsSelector) {
 			try {
@@ -1075,6 +1075,9 @@ class Processor {
 	moveStylesInHead() {
 		this.doc.querySelectorAll("style").forEach(stylesheet => {
 			if (stylesheet.getAttribute(util.STYLE_ATTRIBUTE_NAME) == "") {
+				if (testSiblingPositionKept(stylesheet)) {
+					stylesheet.before(createPlaceholderElement(stylesheet));
+				}
 				this.doc.head.appendChild(stylesheet);
 			}
 		});
@@ -1814,6 +1817,26 @@ function normalizeURL(url) {
 	} else {
 		return url.split("#")[0];
 	}
+}
+
+function removeElement(element) {
+	if (testSiblingPositionKept(element)) {
+		element.replaceWith(createPlaceholderElement(element));
+	} else {
+		element.remove();
+	}
+}
+
+function testSiblingPositionKept(element) {
+	return Boolean(element.parentElement) && element.parentElement != element.ownerDocument.head;
+}
+
+function createPlaceholderElement(element) {
+	const placeholderElement = element.ownerDocument.createElementNS(element.namespaceURI, element.localName);
+	if (element.localName == "input") {
+		placeholderElement.setAttribute("type", "hidden");
+	}
+	return placeholderElement;
 }
 
 function isScriptURI(value) {
