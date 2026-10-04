@@ -22,9 +22,18 @@
 // signature (or the zip64 record signature, expected 56 bytes before the locator) where the shift
 // puts it, and pads nothing when it is absent, which leaves the shift to the ZIP library as before.
 //
-// One shim: a browser's input stream preprocessing turns CR LF and lone CR into LF before the
+// Two shims. A browser's input stream preprocessing turns CR LF and lone CR into LF before the
 // tokenizer sees them, which is what the payload's newline codes describe (§5.5), and happy-dom's
 // parser does not, so the text is normalized here before it is parsed.
+//
+// And happy-dom 20.14.5 ends a raw text element in the wrong place. Inside <script> it still looks
+// for start tags, and its pattern for one runs over `<`, so a `<` followed by anything but a space
+// swallows the `<` of the end tag, and the rest of the page is lost: `<script>a<Z</script><p>` keeps
+// nothing after the script. Browsers read those bytes as script text up to `</script>`. The ZIP
+// data in an element rung hits it whenever a byte 0x3C comes before the end tag with no space or
+// `>` in between. On 2026-10-04 a bootstrap 33 bytes longer moved the central directory to offset
+// 0x5A3C, and the element rung pages lost their data. So the contents of the raw text elements are
+// cut out before happy-dom parses the page and put back as their text afterwards.
 /* global clearTimeout */
 import "./dom-stub.js";
 import { Window } from "npm:happy-dom@20.14.5";
@@ -36,6 +45,10 @@ const COMPRESSION_SOURCE = await Deno.readTextFile(new URL("../../processors/com
 const window = new Window();
 const DECODER = new TextDecoder("windows-1252");
 const LOCAL_HEADER = "PK\x03\x04";
+const RAW_TEXT_ELEMENTS = ["script", "style", "xmp", "iframe", "noembed", "noframes"];
+const REGEXP_RAW_TEXT_ELEMENT = new RegExp("(<(" + RAW_TEXT_ELEMENTS.join("|") + ")(?:[\\s/][^>]*)?>)([\\s\\S]*?)(</\\2(?=[\\s/>]))", "gi");
+const RAW_TEXT_PLACEHOLDER = "sfz-harness-raw-text-";
+const REGEXP_RAW_TEXT_PLACEHOLDER = new RegExp(RAW_TEXT_PLACEHOLDER + "(\\d+)\\.", "g");
 const PDF = new TextEncoder().encode("%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n");
 
 let failed = false;
@@ -60,8 +73,24 @@ function bootstrapOf(text) {
 	return new Function("return " + text.slice(start, end))();
 }
 
+function parseHTML(text) {
+	const contents = [];
+	const source = text.replace(REGEXP_RAW_TEXT_ELEMENT, (_, startTag, tagName, content, endTag) => {
+		contents.push(content);
+		return startTag + RAW_TEXT_PLACEHOLDER + (contents.length - 1) + "." + endTag;
+	});
+	const document = new window.DOMParser().parseFromString(source, "text/html");
+	const restore = value => value.replace(REGEXP_RAW_TEXT_PLACEHOLDER, (_, index) => contents[index]);
+	document.querySelectorAll(RAW_TEXT_ELEMENTS.join(",")).forEach(element => element.textContent = restore(element.textContent));
+	const walker = document.createTreeWalker(document, window.NodeFilter.SHOW_COMMENT);
+	while (walker.nextNode()) {
+		walker.currentNode.data = restore(walker.currentNode.data);
+	}
+	return document;
+}
+
 async function locate(text) {
-	const document = new window.DOMParser().parseFromString(text.replace(/\r\n?/g, "\n"), "text/html");
+	const document = parseHTML(text.replace(/\r\n?/g, "\n"));
 	Object.assign(globalThis, { document, NodeFilter: window.NodeFilter, zip: { inflateRaw }, XMLHttpRequest: FailingXMLHttpRequest });
 	const { error: consoleError } = console;
 	console.error = () => { };
