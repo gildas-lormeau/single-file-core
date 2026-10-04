@@ -4,7 +4,9 @@
 // only in a nested rule, which is how asteriskmag.com lost Noe Standard on its pull quotes and nav
 // links, the url() in @scope and @starting-style stayed remote, and a nested @media print survived
 // removeAlternativeMedias. They now share getNestedChildren, which descends into any rule or at-rule
-// with a block except @font-face and @keyframes. Each case is paired with the same CSS written flat,
+// with a block except @font-face and @keyframes. Embedding hands @keyframes, and the declarations
+// met in @page and its margin rules, to processStyle whole, where their url() used to stay remote,
+// and recognizes @font-face in any case. Each case is paired with the same CSS written flat,
 // which every pass handled before, so a case cannot pass on a capture that keeps everything.
 import { capture, html } from "./common.js";
 
@@ -41,6 +43,25 @@ await checkImage("a url() in @starting-style is embedded",
 	".a p{transition:background 1s}@starting-style{.a p{background:url(" + IMAGE_URL + ")}}", ".a p{background:url(" + IMAGE_URL + ")}");
 await checkImage("a url() in an @media nested in a rule is embedded",
 	".a p{@media all{background:url(" + IMAGE_URL + ")}}", "@media all{.a p{background:url(" + IMAGE_URL + ")}}");
+
+await checkImage("a url() in @keyframes is embedded",
+	".a p{animation:k 1s}@keyframes k{from{background:url(" + IMAGE_URL + ")}}", ".a p{background:url(" + IMAGE_URL + ")}");
+await checkImage("a url() in @-webkit-keyframes is embedded",
+	".a p{animation:k 1s}@-webkit-keyframes k{from{background:url(" + IMAGE_URL + ")}}", ".a p{background:url(" + IMAGE_URL + ")}");
+await checkImage("a url() declared in @page is embedded",
+	"@page{background:url(" + IMAGE_URL + ")}", ".a p{background:url(" + IMAGE_URL + ")}");
+await checkImage("a url() in a page-margin rule is embedded",
+	"@page{@top-left{background:url(" + IMAGE_URL + ")}}", ".a p{background:url(" + IMAGE_URL + ")}");
+{
+	const style = "@FONT-FACE{font-family:\"T\";src:url(" + FONT_URL + ") format(\"woff2\")}.a p{font-family:\"T\"}";
+	const page = getPage(style);
+	const pageResources = new Map([
+		[PAGE_URL, { body: page, contentType: "text/html" }],
+		[FONT_URL, { body: new Uint8Array(512).fill(65), contentType: "font/woff2" }]
+	]);
+	const content = await capture(pageResources, { url: PAGE_URL, content: page });
+	check("an upper-case @FONT-FACE is embedded as a font", !content.includes(FONT_URL) && content.includes("data:font/woff2"), true);
+}
 
 await checkPrintMedia("an @media print nested in @supports is removed",
 	"@supports (display:grid){@media print{.a p{color:red}}}", "@media print{.a p{color:red}}");

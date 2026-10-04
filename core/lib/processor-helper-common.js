@@ -30,6 +30,7 @@ import {
 } from "./../helper.js";
 import { serialize as serializeSrcset } from "./../../vendor/html-srcset-parser.js";
 import { getNestedChildren } from "./../../modules/css-nested-rules.js";
+import { decodeName } from "./../../modules/css-identifier.js";
 
 const DATA_URI_PREFIX = "data:";
 const ABOUT_BLANK_URI = "about:blank";
@@ -183,13 +184,15 @@ class ProcessorHelperCommon {
 			if (ruleData.type == "Atrule" && ruleData.name == "charset") {
 				removedRules.push(cssRule);
 			} else if (ruleData.block && ruleData.block.children) {
-				if (ruleData.type == "Rule") {
-					promises.push(processorHelper.processStyle(ruleData, options, resources, batchRequest));
-				} else if (ruleData.type == "Atrule" && ruleData.name == "font-face") {
+				if (ruleData.type == "Atrule" && decodeName(ruleData.name) == "font-face") {
 					promises.push(processFontFaceRule(ruleData));
-				} else if (getNestedChildren(ruleData)) {
+				} else if (ruleData.type == "Atrule" && getNestedChildren(ruleData)) {
 					promises.push(processorHelper.processStylesheet(ruleData.block.children, baseURI, options, resources, batchRequest));
+				} else {
+					promises.push(processorHelper.processStyle(ruleData, options, resources, batchRequest));
 				}
+			} else if (ruleData.type == "Declaration") {
+				promises.push(processorHelper.processStyle(ruleData, options, resources, batchRequest));
 			}
 		}
 		removedRules.forEach(cssRule => cssRules.remove(cssRule));
