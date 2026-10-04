@@ -238,24 +238,20 @@ function getCustomProperties(declarations, customProperties) {
 }
 
 function getCustomPropertyValues(name, options) {
-	let values;
+	const values = new Set();
 	if (globalThis.getComputedStyle && options.doc) {
 		const computedValue = globalThis.getComputedStyle(options.doc.body).getPropertyValue(name);
 		if (computedValue && computedValue.trim()) {
-			values = [computedValue];
+			values.add(computedValue.trim());
 		}
 	}
-	if (!values) {
-		// the property is not inherited by the body: it is declared on a descendant, or in a
-		// media query that does not apply, so the value seen by the element using it cannot be
-		// determined here. Every value declared for it in the document is taken as a candidate,
-		// which still discards the fonts named by none of them
-		const declaredValues = options.customProperties && options.customProperties.get(name);
-		if (declaredValues && declaredValues.size) {
-			values = Array.from(declaredValues);
-		}
+	const declaredValues = options.customProperties && options.customProperties.get(name);
+	if (declaredValues) {
+		declaredValues.forEach(value => values.add(value));
 	}
-	return values;
+	if (values.size) {
+		return Array.from(values);
+	}
 }
 
 function resolveFamilyName(familyName, options, resolvedProperties = new Set()) {
@@ -661,13 +657,20 @@ function parseRange(value, parseValue) {
 }
 
 function getDeclarationValue(declarations, propertyName) {
+	const value = getDeclarationText(declarations, propertyName);
+	if (value !== undefined) {
+		return value.toLowerCase();
+	}
+}
+
+function getDeclarationText(declarations, propertyName) {
 	let property;
 	if (declarations) {
 		property = declarations.filter(declaration => declaration.property == propertyName).tail;
 	}
 	if (property) {
 		try {
-			return helper.removeQuotes(cssTree.generate(property.data.value)).toLowerCase();
+			return helper.removeQuotes(cssTree.generate(property.data.value));
 			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			// ignored
@@ -794,7 +797,7 @@ function getDeclarationsTextContent(declarations, workStylesheet, content) {
 }
 
 function getDeclarationUnescapedValue(declarations, property, workStylesheet) {
-	const rawValue = getDeclarationValue(declarations, property) || "";
+	const rawValue = getDeclarationText(declarations, property) || "";
 	if (rawValue) {
 		workStylesheet.textContent = "tmp { content:\"" + rawValue + "\"}";
 		if (workStylesheet.sheet && workStylesheet.sheet.cssRules) {
