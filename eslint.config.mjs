@@ -17,6 +17,13 @@ export default [
 			}
 		},
 		rules: {
+			"indent": [
+				"error",
+				"tab",
+				{
+					"SwitchCase": 1
+				}
+			],
 			"linebreak-style": [
 				"error",
 				"unix"

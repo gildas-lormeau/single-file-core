@@ -29,159 +29,159 @@ const SELECTOR_ARGUMENT_PSEUDO_CLASSES = new Set(["host", "host-context"]);
 const SELECTOR_ARGUMENT_PSEUDO_ELEMENTS = new Set(["slotted"]);
 
 export {
-    computeSpecificity,
-    computeMaxSpecificity,
-    PSEUDO_ELEMENT_SYNONYMS
+	computeSpecificity,
+	computeMaxSpecificity,
+	PSEUDO_ELEMENT_SYNONYMS
 };
 
 function computeSpecificity(selector, specificity = { a: 0, b: 0, c: 0 }) {
-    if (!selector || !selector.type) {
-        return specificity;
-    }
-    switch (selector.type) {
-        case "Selector":
-            traverseChildren(selector.children, (child) => computeSpecificity(child, specificity));
-            break;
+	if (!selector || !selector.type) {
+		return specificity;
+	}
+	switch (selector.type) {
+		case "Selector":
+			traverseChildren(selector.children, (child) => computeSpecificity(child, specificity));
+			break;
 
-        case "IdSelector":
-            specificity.a++;
-            break;
+		case "IdSelector":
+			specificity.a++;
+			break;
 
-        case "ClassSelector":
-            specificity.b++;
-            break;
+		case "ClassSelector":
+			specificity.b++;
+			break;
 
-        case "AttributeSelector":
-            specificity.b++;
-            break;
+		case "AttributeSelector":
+			specificity.b++;
+			break;
 
-        case "TypeSelector":
-            if (selector.name !== "*") {
-                specificity.c++;
-            }
-            break;
+		case "TypeSelector":
+			if (selector.name !== "*") {
+				specificity.c++;
+			}
+			break;
 
-        case "PseudoElementSelector":
-            specificity.c++;
-            if (SELECTOR_ARGUMENT_PSEUDO_ELEMENTS.has(decodeName(selector.name))) {
-                addArgumentSpecificity(specificity, selector);
-            }
-            break;
+		case "PseudoElementSelector":
+			specificity.c++;
+			if (SELECTOR_ARGUMENT_PSEUDO_ELEMENTS.has(decodeName(selector.name))) {
+				addArgumentSpecificity(specificity, selector);
+			}
+			break;
 
-        case "PseudoClassSelector": {
-            const pseudoName = decodeName(selector.name);
+		case "PseudoClassSelector": {
+			const pseudoName = decodeName(selector.name);
 
-            if (pseudoName === "where") {
-                // :where() has zero specificity - do nothing
-                break;
-            }
+			if (pseudoName === "where") {
+				// :where() has zero specificity - do nothing
+				break;
+			}
 
-            if (PSEUDO_ELEMENT_SYNONYMS.has(pseudoName)) {
-                specificity.c++;
-                break;
-            }
+			if (PSEUDO_ELEMENT_SYNONYMS.has(pseudoName)) {
+				specificity.c++;
+				break;
+			}
 
-            if (SELECTOR_ARGUMENT_PSEUDO_CLASSES.has(pseudoName)) {
-                specificity.b++;
-                addArgumentSpecificity(specificity, selector);
-                break;
-            }
+			if (SELECTOR_ARGUMENT_PSEUDO_CLASSES.has(pseudoName)) {
+				specificity.b++;
+				addArgumentSpecificity(specificity, selector);
+				break;
+			}
 
-            if (pseudoName === "is" || pseudoName === "not" || pseudoName === "has") {
-                // :is(), :not(), :has() - use the max specificity from their selector list
-                traverseChildren(selector.children, (child) => {
-                    if (child.type === "SelectorList") {
-                        addMaxSpecificity(specificity, getMaxSpecificityFromList(child));
-                    }
-                });
-                break;
-            }
+			if (pseudoName === "is" || pseudoName === "not" || pseudoName === "has") {
+				// :is(), :not(), :has() - use the max specificity from their selector list
+				traverseChildren(selector.children, (child) => {
+					if (child.type === "SelectorList") {
+						addMaxSpecificity(specificity, getMaxSpecificityFromList(child));
+					}
+				});
+				break;
+			}
 
-            if (pseudoName === "nth-child" || pseudoName === "nth-last-child") {
-                // :nth-child() and :nth-last-child() count as one pseudo-class
-                specificity.b++;
+			if (pseudoName === "nth-child" || pseudoName === "nth-last-child") {
+				// :nth-child() and :nth-last-child() count as one pseudo-class
+				specificity.b++;
 
-                // Plus the max specificity from their selector list (if any)
-                traverseChildren(selector.children, (child) => {
-                    if (child.type === "Nth" && child.selector) {
-                        addMaxSpecificity(specificity, getMaxSpecificityFromList(child.selector));
-                    }
-                });
-                break;
-            }
+				// Plus the max specificity from their selector list (if any)
+				traverseChildren(selector.children, (child) => {
+					if (child.type === "Nth" && child.selector) {
+						addMaxSpecificity(specificity, getMaxSpecificityFromList(child.selector));
+					}
+				});
+				break;
+			}
 
-            // Regular pseudo-classes contribute to 'b'
-            specificity.b++;
-            break;
-        }
+			// Regular pseudo-classes contribute to 'b'
+			specificity.b++;
+			break;
+		}
 
-        case "Combinator":
-        case "Raw":
-            break;
-    }
+		case "Combinator":
+		case "Raw":
+			break;
+	}
 
-    return specificity;
+	return specificity;
 }
 
 function addArgumentSpecificity(specificity, selector) {
-    traverseChildren(selector.children, (child) => {
-        if (child.type === "Selector") {
-            addMaxSpecificity(specificity, computeSpecificity(child, { a: 0, b: 0, c: 0 }));
-        }
-    });
+	traverseChildren(selector.children, (child) => {
+		if (child.type === "Selector") {
+			addMaxSpecificity(specificity, computeSpecificity(child, { a: 0, b: 0, c: 0 }));
+		}
+	});
 }
 
 function addMaxSpecificity(specificity, maxSpec) {
-    specificity.a += maxSpec.a;
-    specificity.b += maxSpec.b;
-    specificity.c += maxSpec.c;
+	specificity.a += maxSpec.a;
+	specificity.b += maxSpec.b;
+	specificity.c += maxSpec.c;
 }
 
 function traverseChildren(children, callback) {
-    if (!children) return;
+	if (!children) return;
 
-    let current = children.head;
-    while (current) {
-        callback(current.data);
-        current = current.next;
-    }
+	let current = children.head;
+	while (current) {
+		callback(current.data);
+		current = current.next;
+	}
 }
 
 function getMaxSpecificityFromList(selectorList) {
-    let maxSpec = { a: 0, b: 0, c: 0 };
+	let maxSpec = { a: 0, b: 0, c: 0 };
 
-    traverseChildren(selectorList.children, (selector) => {
-        const spec = computeSpecificity(selector, { a: 0, b: 0, c: 0 });
-        if (spec.a > maxSpec.a ||
+	traverseChildren(selectorList.children, (selector) => {
+		const spec = computeSpecificity(selector, { a: 0, b: 0, c: 0 });
+		if (spec.a > maxSpec.a ||
             (spec.a === maxSpec.a && spec.b > maxSpec.b) ||
             (spec.a === maxSpec.a && spec.b === maxSpec.b && spec.c > maxSpec.c)) {
-            maxSpec = spec;
-        }
-    });
+			maxSpec = spec;
+		}
+	});
 
-    return maxSpec;
+	return maxSpec;
 }
 
 function computeMaxSpecificity(selector) {
-    let maxSpecificity = { a: 0, b: 0, c: 0 };
-    const stack = [];
-    cssTree.walk(selector, {
-        enter(node) {
-            stack.push(node);
-            if (node.type === "Selector") {
-                const insideWhere = stack.some(n => n.type === "PseudoClassSelector" && n.name.toLowerCase() === "where");
-                if (insideWhere) return;
-                const specificity = computeSpecificity(node);
-                if (specificity.a > maxSpecificity.a ||
+	let maxSpecificity = { a: 0, b: 0, c: 0 };
+	const stack = [];
+	cssTree.walk(selector, {
+		enter(node) {
+			stack.push(node);
+			if (node.type === "Selector") {
+				const insideWhere = stack.some(n => n.type === "PseudoClassSelector" && n.name.toLowerCase() === "where");
+				if (insideWhere) return;
+				const specificity = computeSpecificity(node);
+				if (specificity.a > maxSpecificity.a ||
                     (specificity.a === maxSpecificity.a && specificity.b > maxSpecificity.b) ||
                     (specificity.a === maxSpecificity.a && specificity.b === maxSpecificity.b && specificity.c > maxSpecificity.c)) {
-                    maxSpecificity = specificity;
-                }
-            }
-        },
-        leave() {
-            stack.pop();
-        }
-    });
-    return maxSpecificity;
+					maxSpecificity = specificity;
+				}
+			}
+		},
+		leave() {
+			stack.pop();
+		}
+	});
+	return maxSpecificity;
 }
