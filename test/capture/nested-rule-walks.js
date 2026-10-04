@@ -46,7 +46,7 @@ await checkFont("the content of a nested pseudo-element counts as drawn text",
 		".a{color:#000;@font-face{font-family:\"T\";font-weight:700;src:url(" + FONT_URL + ") format(\"woff2\")}}.a p{font-family:\"T\";font-weight:700}";
 	const content = await captureFonts(style, [["t", "700", "normal", "normal", "100%"]]);
 	check("a face nested in a style rule does not displace the valid face the browser drew with", /@font-face\s*\{[^}]*font-weight:400/.test(content), true);
-	check("and the nested face is left as it was", countFaces(content), 2);
+	check("and the nested face is dropped from the save", countFaces(content), 1);
 }
 {
 	const style = "@font-face{font-family:\"T\";font-weight:400;src:url(" + FONT_URL + ") format(\"woff2\")}" +
@@ -79,6 +79,28 @@ await checkImage("a url() in a page-margin rule is embedded",
 	]);
 	const content = await capture(pageResources, { url: PAGE_URL, content: page });
 	check("an upper-case @FONT-FACE is embedded as a font", !content.includes(FONT_URL) && content.includes("data:font/woff2"), true);
+}
+
+// An @font-face nested in a style rule, at any depth, or in @scope, whose body is parsed the same way,
+// is dropped by every browser, yet embedding fetched its font, as an image, inside the style rule:
+// 39,400 bytes of woff2 a save could never use (css-corpus/tmp-aster/nested-ff/b.html). The rule is
+// now removed before anything is fetched. An @font-face in an at-rule the walk does not know to be
+// a nested context, such as @starting-style, is left as it was.
+for (const [label, style] of [
+	["nested in a style rule", ".a{color:#000;@font-face{font-family:\"T\";src:url(" + FONT_URL + ")}}"],
+	["nested in an @media nested in a style rule", ".a{@media all{@font-face{font-family:\"T\";src:url(" + FONT_URL + ")}}}"],
+	["in @scope", "@scope (.a){@font-face{font-family:\"T\";src:url(" + FONT_URL + ")}}"]
+]) {
+	const content = await captureFontFile(style);
+	check("an @font-face " + label + " is removed and its font not embedded", content.includes("@font-face") || content.includes("data:font/woff2"), false);
+}
+{
+	const content = await captureFontFile("@media all{@font-face{font-family:\"T\";src:url(" + FONT_URL + ")}}");
+	check("control: an @font-face in a top-level @media is kept and its font embedded", content.includes("@font-face") && content.includes("data:font/woff2"), true);
+}
+{
+	const content = await captureFontFile("@starting-style{@font-face{font-family:\"T\";src:url(" + FONT_URL + ")}}");
+	check("an @font-face in @starting-style is left as it was", content.includes("@font-face"), true);
 }
 
 await checkPrintMedia("an @media print nested in @supports is removed",
@@ -118,6 +140,15 @@ async function captureFonts(style, usedFonts) {
 		[FONT_URL, { body: new Uint8Array(512).fill(65), contentType: "font/woff2" }]
 	]);
 	return capture(pageResources, { url: PAGE_URL, content: page, removeUnusedFonts: true, usedFonts });
+}
+
+async function captureFontFile(style) {
+	const page = getPage(style);
+	const pageResources = new Map([
+		[PAGE_URL, { body: page, contentType: "text/html" }],
+		[FONT_URL, { body: new Uint8Array(512).fill(65), contentType: "font/woff2" }]
+	]);
+	return capture(pageResources, { url: PAGE_URL, content: page });
 }
 
 async function captureImages(style) {

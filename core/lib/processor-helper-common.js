@@ -175,7 +175,7 @@ class ProcessorHelperCommon {
 		}));
 	}
 
-	async processStylesheet(cssRules, baseURI, options, resources, batchRequest) {
+	async processStylesheet(cssRules, baseURI, options, resources, batchRequest, fontFaceInvalid = false) {
 		const promises = [];
 		const removedRules = [];
 		const processorHelper = this;
@@ -185,9 +185,16 @@ class ProcessorHelperCommon {
 				removedRules.push(cssRule);
 			} else if (ruleData.block && ruleData.block.children) {
 				if (ruleData.type == "Atrule" && decodeName(ruleData.name) == "font-face") {
-					promises.push(processFontFaceRule(ruleData));
+					if (fontFaceInvalid) {
+						removedRules.push(cssRule);
+					} else {
+						promises.push(processFontFaceRule(ruleData));
+					}
+				} else if (ruleData.type == "Rule") {
+					removeFontFaceRules(ruleData.block.children);
+					promises.push(processorHelper.processStyle(ruleData, options, resources, batchRequest));
 				} else if (ruleData.type == "Atrule" && getNestedChildren(ruleData)) {
-					promises.push(processorHelper.processStylesheet(ruleData.block.children, baseURI, options, resources, batchRequest));
+					promises.push(processorHelper.processStylesheet(ruleData.block.children, baseURI, options, resources, batchRequest, fontFaceInvalid || decodeName(ruleData.name) == "scope"));
 				} else {
 					promises.push(processorHelper.processStyle(ruleData, options, resources, batchRequest));
 				}
@@ -683,6 +690,22 @@ function getCharset(stylesheetContent = "") {
 	if (match && match[1]) {
 		return match[1].toLowerCase().trim();
 	}
+}
+
+function removeFontFaceRules(cssRules) {
+	const removedRules = [];
+	for (let cssRule = cssRules.head; cssRule; cssRule = cssRule.next) {
+		const ruleData = cssRule.data;
+		if (ruleData.type == "Atrule" && decodeName(ruleData.name) == "font-face") {
+			removedRules.push(cssRule);
+		} else {
+			const children = getNestedChildren(ruleData);
+			if (children) {
+				removeFontFaceRules(children);
+			}
+		}
+	}
+	removedRules.forEach(cssRule => cssRules.remove(cssRule));
 }
 
 function getUrlFunctions(declarationList) {
