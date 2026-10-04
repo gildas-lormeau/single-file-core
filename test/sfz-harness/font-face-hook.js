@@ -67,6 +67,15 @@ check("the replaced FontFace still looks native",
 	check("descriptors are reported from the face", detail["font-weight"] === "700" && detail["unicode-range"] === "U+41");
 }
 
+// size-adjust was missing from the descriptors the hook reports, so a scripted face lost it and its
+// text was drawn at another size. Measured on 2026-10-04 in Chromium 151, Firefox 153 and WebKit 26.5
+// with css-corpus/tmp-aster/fontface/size-adjust-probe.mjs.
+{
+	new globalThis.FontFace("Adjusted", "url(font.woff2)", { sizeAdjust: "90%" });
+	const detail = await nextDetail(NEW_FONT_FACE_EVENT);
+	check("size-adjust is reported", detail["size-adjust"] === "90%");
+}
+
 {
 	new globalThis.FontFace("Broken", "url(font.woff2)", { weight: "invalid" });
 	const detail = await nextDetail(NEW_FONT_FACE_EVENT);
@@ -124,6 +133,7 @@ function installStubs() {
 			this.ascentOverride = parsed ? "normal" : "";
 			this.descentOverride = parsed ? "normal" : "";
 			this.lineGapOverride = parsed ? "normal" : "";
+			this.sizeAdjust = parsed ? descriptors.sizeAdjust || "100%" : "";
 		}
 	}
 	function StubElement() { }

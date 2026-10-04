@@ -731,8 +731,8 @@ function getProcessorHelperClass(utilInstance) {
 						fontTests.set(source.src, source.valid);
 					}
 				}));
-				const findSourceByFormat = (fontFormat, testValidity) => util.findLast(fontInfo, source => !source.src.match(EMPTY_URL_SOURCE) && source.format == fontFormat && (!testValidity || source.valid));
-				const filterSources = fontSource => fontInfo.filter(source => source == fontSource || source.src.startsWith(LOCAL_SOURCE));
+				const findSourceByFormat = (fontFormat, testValidity) => util.findLast(fontInfo, source => !source.src.match(EMPTY_URL_SOURCE) && !source.tech && source.format == fontFormat && (!testValidity || source.valid));
+				const filterSources = fontSource => fontInfo.filter(source => source == fontSource || source.src.startsWith(LOCAL_SOURCE) || (source.tech && source.valid));
 				stats.fonts.processed += fontInfo.length;
 				stats.fonts.discarded += fontInfo.length;
 				const woffFontFound =

@@ -52,7 +52,9 @@ const REGEXP_DOUBLE_QUOTES_STRING = /^"(.*?)"$/;
 const REGEXP_URL_FUNCTION_WOFF = /^url\(\s*["']?data:font\/(woff2?)/;
 const REGEXP_URL_FUNCTION_WOFF_ALT = /^url\(\s*["']?data:application\/x-font-(woff)/;
 const REGEXP_FONT_FORMAT = /\.([^.?#]+)((\?|#).*?)?$/;
-const REGEXP_FONT_FORMAT_VALUE = /format\((.*?)\)\s*,?$/;
+const REGEXP_FONT_FORMAT_VALUE = /format\(\s*([^)]*?)\s*\)/;
+const REGEXP_FONT_TECH_VALUE = /tech\(\s*([^)]*?)\s*\)/;
+const REGEXP_FONT_FORMAT_SUPPORTS = /^(\S+)\s+supports\s+(.+)$/;
 const REGEXP_FONT_SRC = /(.*?)\s*,?$/;
 const MEDIA_ALL = "all";
 const Blob = globalThis.Blob;
@@ -621,10 +623,19 @@ function processFontDetails(fontsDetails, fontResources) {
 	fontsDetails.fonts.forEach((fontInfo, fontKey) => {
 		fontsDetails.fonts.set(fontKey, fontInfo.map(fontSource => {
 			const fontFormatMatch = fontSource.match(REGEXP_FONT_FORMAT_VALUE);
-			let fontFormat;
+			const fontTechMatch = fontSource.match(REGEXP_FONT_TECH_VALUE);
+			let fontFormat, fontTech;
 			const fontUrl = getURL(fontSource);
 			if (fontFormatMatch && fontFormatMatch[1]) {
 				fontFormat = fontFormatMatch[1].replace(REGEXP_SIMPLE_QUOTES_STRING, "$1").replace(REGEXP_DOUBLE_QUOTES_STRING, "$1").toLowerCase();
+				const fontFormatSupportsMatch = fontFormat.match(REGEXP_FONT_FORMAT_SUPPORTS);
+				if (fontFormatSupportsMatch) {
+					fontFormat = fontFormatSupportsMatch[1];
+					fontTech = fontFormatSupportsMatch[2];
+				}
+			}
+			if (fontTechMatch && fontTechMatch[1]) {
+				fontTech = fontTechMatch[1].toLowerCase();
 			}
 			if (!fontFormat) {
 				const fontFormatMatch = fontSource.match(REGEXP_URL_FUNCTION_WOFF);
@@ -645,9 +656,9 @@ function processFontDetails(fontsDetails, fontResources) {
 			}
 			if (fontResources) {
 				const fontResource = Array.from(fontResources.values()).find(info => info.name == fontUrl);
-				return { src: fontSource.match(REGEXP_FONT_SRC)[1], fontUrl, format: fontFormat, contentType: fontResource && fontResource.contentType };
+				return { src: fontSource.match(REGEXP_FONT_SRC)[1], fontUrl, format: fontFormat, tech: fontTech, contentType: fontResource && fontResource.contentType };
 			} else {
-				return { src: fontSource.match(REGEXP_FONT_SRC)[1], fontUrl, format: fontFormat };
+				return { src: fontSource.match(REGEXP_FONT_SRC)[1], fontUrl, format: fontFormat, tech: fontTech };
 			}
 		}));
 	});
