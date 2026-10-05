@@ -70,6 +70,8 @@ const ZIP_FILENAME_OFFSET = 30;
 const USD_FILENAME_REGEXP = /\.usd[ac]?$/i;
 const CONTENT_TYPES_HTML = ["text/html", "application/xhtml+xml"];
 const EXPECTED_TYPES_MEDIA = ["font", "image", "video", "audio", "model"];
+const EXPECTED_TYPE_IMAGE = "image";
+const EXPECTED_TYPE_DOCUMENT = "document";
 
 const URL = globalThis.URL;
 const DOMParser = globalThis.DOMParser;
@@ -320,7 +322,7 @@ function getInstance(utilOptions) {
 			charset = options.charset;
 		}
 		if (options.asBinary) {
-			if (response.status >= 400 || (EXPECTED_TYPES_MEDIA.includes(options.expectedType) && CONTENT_TYPES_HTML.includes(contentType))) {
+			if ((response.status >= 400 && options.expectedType != EXPECTED_TYPE_IMAGE) || (EXPECTED_TYPES_MEDIA.includes(options.expectedType) && CONTENT_TYPES_HTML.includes(contentType))) {
 				return getFetchResponse(resourceURL, options);
 			}
 			try {
@@ -337,7 +339,7 @@ function getInstance(utilOptions) {
 				return getFetchResponse(resourceURL, options);
 			}
 		} else {
-			if (response.status >= 400) {
+			if (response.status >= 400 && options.expectedType != EXPECTED_TYPE_DOCUMENT) {
 				return getFailedFetchResponse(resourceURL, options);
 			}
 			if (options.validateTextContentType && contentType && !contentType.startsWith(PREFIX_CONTENT_TYPE_TEXT)) {
