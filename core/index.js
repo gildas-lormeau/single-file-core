@@ -661,6 +661,7 @@ class Processor {
 	}
 
 	preProcessPage() {
+		this.doc.querySelectorAll("style[" + util.CUSTOM_STYLESHEET_ATTRIBUTE_NAME + "]").forEach(element => element.removeAttribute(util.CUSTOM_STYLESHEET_ATTRIBUTE_NAME));
 		this.doc.body.querySelectorAll(":not(svg) title, meta, link[href][rel*=\"icon\"]").forEach(element => {
 			if ((this.options.win && element instanceof this.options.win.HTMLElement) || element instanceof globalThis.HTMLElement) {
 				this.doc.head.appendChild(element);

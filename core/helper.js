@@ -69,6 +69,7 @@ const DISABLED_NOSCRIPT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "disable
 const SELECTED_CONTENT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "selected-content";
 const INVALID_ELEMENT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "invalid-element";
 const ASYNC_SCRIPT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "async-script";
+const CUSTOM_STYLESHEET_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "custom-stylesheet";
 const FLOW_ELEMENTS_SELECTOR = "*:not(base):not(link):not(meta):not(noscript):not(script):not(style):not(template):not(title)";
 const KEPT_TAG_NAMES = ["NOSCRIPT", "DISABLED-NOSCRIPT", "META", "LINK", "STYLE", "TITLE", "TEMPLATE", "SOURCE", "OBJECT", "SCRIPT", "HEAD", "BODY"];
 const INVOKABLE_ELEMENTS_SELECTOR = "[popover][id], dialog[id]";
@@ -173,6 +174,7 @@ export {
 	WIN_ID_ATTRIBUTE_NAME,
 	PRESERVED_SPACE_ELEMENT_ATTRIBUTE_NAME,
 	REMOVED_CONTENT_ATTRIBUTE_NAME,
+	CUSTOM_STYLESHEET_ATTRIBUTE_NAME,
 	HIDDEN_CONTENT_ATTRIBUTE_NAME,
 	HIDDEN_FRAME_ATTRIBUTE_NAME,
 	IMAGE_ATTRIBUTE_NAME,
@@ -305,6 +307,9 @@ function preProcessDoc(doc, win, options) {
 		element.textContent = "";
 	});
 	initDoc(doc);
+	if (options.customStylesheet) {
+		insertCustomStylesheet(doc, options.customStylesheet);
+	}
 	if (doc.head) {
 		doc.head.querySelectorAll(FLOW_ELEMENTS_SELECTOR).forEach(element => element.hidden = true);
 	}
@@ -373,6 +378,16 @@ function preProcessDoc(doc, win, options) {
 		scrollPosition: { x: win.scrollX, y: win.scrollY },
 		adoptedStyleSheets: getStylesheetsContent(doc.adoptedStyleSheets)
 	};
+}
+
+function insertCustomStylesheet(doc, content) {
+	const parentElement = doc.body || doc.documentElement;
+	if (parentElement) {
+		const styleElement = doc.createElement("style");
+		styleElement.setAttribute(CUSTOM_STYLESHEET_ATTRIBUTE_NAME, "");
+		styleElement.textContent = content;
+		parentElement.appendChild(styleElement);
+	}
 }
 
 function markInvalidNesting(doc) {
@@ -1093,6 +1108,7 @@ function testHiddenElement(element, computedStyle) {
 
 function postProcessDoc(doc, markedElements, invalidElements) {
 	removeNestingMarkers(doc);
+	doc.querySelectorAll("style[" + CUSTOM_STYLESHEET_ATTRIBUTE_NAME + "]").forEach(element => element.remove());
 	doc.querySelectorAll("[" + DISABLED_NOSCRIPT_ATTRIBUTE_NAME + "]").forEach(element => {
 		element.textContent = element.getAttribute(DISABLED_NOSCRIPT_ATTRIBUTE_NAME);
 		element.removeAttribute(DISABLED_NOSCRIPT_ATTRIBUTE_NAME);
