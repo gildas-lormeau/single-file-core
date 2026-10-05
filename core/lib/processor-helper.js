@@ -331,13 +331,15 @@ function getProcessorHelperClass(utilInstance) {
 				blockMixedContent: options.blockMixedContent,
 				...getStylesheetReferrer(resourceURL, options)
 			});
-			const name = "fonts/" + indexResource + extension;
+			const name = this.testEmptyResource(content) ? util.EMPTY_RESOURCE : "fonts/" + indexResource + extension;
 			if (!isDataURL(resourceURL) && options.saveOriginalURLs) {
 				urlNode.value = "-sf-url-original(" + JSON.stringify(originalResourceURL) + ") " + name;
 			} else {
 				urlNode.value = name;
 			}
-			resources.fonts.set(indexResource, { name, content, extension, contentType, url: resourceURL });
+			if (!this.testEmptyResource(content)) {
+				resources.fonts.set(indexResource, { name, content, extension, contentType, url: resourceURL });
+			}
 		}
 
 		groupDuplicateFonts(stylesheets, fonts) {
@@ -412,13 +414,15 @@ function getProcessorHelperClass(utilInstance) {
 					if ((!testIgnoredPath(resourceURL) && testValidURL(resourceURL)) || testGeneratedDataURI(resourceURL, options)) {
 						let { content, indexResource, contentType, extension } = await batchRequest.addURL(resourceURL,
 							{ asBinary: true, expectedType: "image", ...getStylesheetReferrer(resourceURL, options) });
-						const name = "images/" + indexResource + extension;
+						const name = this.testEmptyResource(content) ? util.EMPTY_RESOURCE : "images/" + indexResource + extension;
 						if (!isDataURL(resourceURL) && options.saveOriginalURLs) {
 							urlNode.value = "-sf-url-original(" + JSON.stringify(originalResourceURL) + ") " + name;
 						} else {
 							urlNode.value = name;
 						}
-						resources.images.set(indexResource, { name, content, extension, contentType, url: resourceURL });
+						if (!this.testEmptyResource(content)) {
+							resources.images.set(indexResource, { name, content, extension, contentType, url: resourceURL });
+						}
 					}
 				} else {
 					urlNode.value = util.EMPTY_RESOURCE;
@@ -505,8 +509,10 @@ function getProcessorHelperClass(utilInstance) {
 
 		async processImageSrcset(resourceURL, srcsetValue, resources, batchRequest, resourceElement) {
 			const { content, indexResource, extension, contentType } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "image", referrerPolicy: getReferrerPolicy(resourceElement) });
-			const name = "images/" + indexResource + extension;
-			resources.images.set(indexResource, { name, content, extension, contentType, url: resourceURL });
+			const name = this.testEmptyResource(content) ? util.EMPTY_RESOURCE : "images/" + indexResource + extension;
+			if (!this.testEmptyResource(content)) {
+				resources.images.set(indexResource, { name, content, extension, contentType, url: resourceURL });
+			}
 			resourceElement.removeAttribute(CROSS_ORIGIN_ATTRIBUTE_NAME);
 			return serializeSrcset([Object.assign({}, srcsetValue, { url: name })]);
 		}

@@ -21,8 +21,8 @@ const PAGE_URL = "https://example.com/fonts.html";
 const FONT_A_URL = "https://example.com/a.woff2";
 const FONT_B_URL = "https://example.com/b.woff2";
 const FONT_CONTENT_TYPE = "font/woff2";
-// nothing serves these, so the harness answers 404 and the capture ends up with a font resource that
-// has a name and no content
+// nothing serves these, so the harness answers 404 and the capture ends up with an emptied url()
+// and no font resource
 const MISSING_FONT_URL = "https://example.com/gone.woff2";
 const OTHER_MISSING_FONT_URL = "https://example.com/also-gone.woff2";
 
@@ -85,8 +85,10 @@ let failed = false;
 // on it with "Cannot read properties of undefined (reading 'length')" after passing every check above.
 {
 	const { resources, content } = await capture(fontFace("Shared", MISSING_FONT_URL) + fontFace("Shared", OTHER_MISSING_FONT_URL), SAME_FONT_BYTES);
-	check("two fonts that never arrived do not crash the capture", resources.fonts.length, 2);
-	check("and neither is treated as a copy of the other", countMatches(content, /@font-face/g), 2);
+	// a font that never arrived is no longer registered: its url() is emptied like the inline helper
+	// does, and removeAlternativeFonts then drops the rules, as it does for the inline capture
+	check("two fonts that never arrived do not crash the capture", resources.fonts.length, 0);
+	check("and neither leaves a rule pointing at a file", countMatches(content, /@font-face/g), 0);
 }
 
 if (failed) {
