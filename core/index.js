@@ -1759,7 +1759,8 @@ class Processor {
 				this.doc.head.appendChild(styleElement);
 			}
 			let stylesheetContent = "";
-			cssVariables.forEach(({ content, url }, indexResource) => {
+			const variables = Array.from(cssVariables.entries()).sort(([firstIndex], [secondIndex]) => firstIndex - secondIndex);
+			variables.forEach(([indexResource, { content, url }]) => {
 				cssVariables.delete(indexResource);
 				if (stylesheetContent) {
 					stylesheetContent += ";";
