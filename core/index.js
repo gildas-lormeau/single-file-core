@@ -207,6 +207,7 @@ class Runner {
 			this.options.shadowRoots = docData.shadowRoots;
 			this.options.referrer = docData.referrer;
 			this.options.adoptedStyleSheets = docData.adoptedStyleSheets;
+			this.options.manifestData = docData.manifestData;
 			this.markedElements = docData.markedElements;
 			this.invalidElements = docData.invalidElements;
 		}
@@ -403,8 +404,12 @@ class BatchRequest {
 					baseURI,
 					blockMixedContent,
 					acceptHeaders: options.acceptHeaders,
-					networkTimeout: options.networkTimeout
+					networkTimeout: options.networkTimeout,
+					manifestEntries: options.manifestEntries
 				});
+				if (content.manifestEntry) {
+					content.manifestEntry.references = resourceRequests.length;
+				}
 				if (!this.cancelled) {
 					const extension = util.getContentTypeExtension(content.contentType) || util.getFilenameExtension(resourceURL, options.filenameReplacedCharacters, options.filenameReplacementCharacter, options.filenameReplacementCharacters);
 					resourceRequests.forEach(callbacks => {
@@ -451,6 +456,10 @@ const UTF8_CHARSET = "utf-8";
 const TAINTED_CANVAS_WARNING_MESSAGE = "SingleFile: canvas elements tainted by a cross-origin resource, dropped from the page:";
 const EMPTY_RESOURCE = "data:,";
 const ORDER_DEPENDENT_RULE = /@(layer|import)\b/i;
+const MANIFEST_TOP_WINDOW_ID = "0";
+const WINDOW_ID_SEPARATOR = ".";
+const MANIFEST_EXCLUDED_OPTION_NAMES = ["rootDocument", "saveFilenameTemplateData", "omitReferrerInTemplateData", "manifest"];
+const MANIFEST_STRING_OPTION_NAMES = ["customStylesheet", "filenameTemplate"];
 
 class Processor {
 	constructor(options, processorHelper, batchRequest) {
@@ -471,7 +480,10 @@ class Processor {
 			frames: new Map()
 		};
 		this.fontTests = options.fontTests;
+		this.frameManifests = [];
+		this.startDate = new Date();
 		options.generatedDataURIs = new Set();
+		options.manifestEntries = options.manifest ? [] : undefined;
 	}
 
 	registerGeneratedDataURI(dataURI) {
@@ -504,7 +516,8 @@ class Processor {
 				resourceReferrer: this.options.resourceReferrer,
 				expectedType: "document",
 				acceptHeaders: this.options.acceptHeaders,
-				networkTimeout: this.options.networkTimeout
+				networkTimeout: this.options.networkTimeout,
+				manifestEntries: this.options.manifestEntries
 			});
 			pageContent = content.data || "";
 		}
@@ -654,10 +667,50 @@ class Processor {
 		if (this.options.addProof) {
 			pageData.hash = await util.digest("SHA-256", content);
 		}
+		if (this.options.manifest) {
+			pageData.manifest = this.getManifest();
+		}
 		if (this.options.retrieveLinks) {
 			pageData.links = Array.from(new Set(Array.from(this.doc.links).map(linkElement => linkElement.href)));
 		}
 		return pageData;
+	}
+
+	getManifest() {
+		const windowId = this.options.windowId || MANIFEST_TOP_WINDOW_ID;
+		const manifestData = this.options.manifestData || {};
+		const frame = {
+			id: windowId,
+			parent: windowId.includes(WINDOW_ID_SEPARATOR) ? windowId.substring(0, windowId.lastIndexOf(WINDOW_ID_SEPARATOR)) : null,
+			url: this.baseURI
+		};
+		if (manifestData.lastModified) {
+			frame.lastModified = manifestData.lastModified;
+		}
+		if (manifestData.navigation) {
+			frame.navigation = manifestData.navigation;
+		}
+		frame.resources = this.options.manifestEntries.map(entry => {
+			const timing = manifestData.timings && (manifestData.timings[entry.finalUrl] || manifestData.timings[entry.url]);
+			return timing ? Object.assign({}, entry, { timing }) : entry;
+		});
+		const frames = [frame, ...this.frameManifests];
+		if (!this.options.rootDocument) {
+			return { frames };
+		}
+		const manifest = {
+			subject: { url: this.options.saveUrl, finalUrl: manifestData.url || this.baseURI, title: this.doc.title },
+			time: { captureStarted: this.startDate.toISOString(), captureEnded: new Date().toISOString() }
+		};
+		if (manifestData.timeOrigin) {
+			manifest.time.loaded = manifestData.timeOrigin;
+		}
+		if (manifestData.environment) {
+			manifest.environment = manifestData.environment;
+		}
+		manifest.options = getManifestOptions(this.options);
+		manifest.frames = frames;
+		return manifest;
 	}
 
 	preProcessPage() {
@@ -1463,6 +1516,7 @@ class Processor {
 			options.scrollPosition = frameData.scrollPosition;
 			options.scrolling = frameData.scrolling;
 			options.adoptedStyleSheets = frameData.adoptedStyleSheets;
+			options.manifestData = frameData.manifestData;
 			frameData.runner = new Runner(options, processorHelper);
 			frameData.frameElement = frameElement;
 			await frameData.runner.loadPage();
@@ -1668,6 +1722,9 @@ class Processor {
 					const { frameElement, pageData, frameWindowId, frameData } = capturedFrame;
 					this.processorHelper.processFrame(frameElement, pageData, this.options, this.resources, frameWindowId, frameData);
 					this.stats.addAll(pageData);
+					if (pageData.manifest) {
+						this.frameManifests.push(...pageData.manifest.frames);
+					}
 				}
 			});
 		}
@@ -1909,6 +1966,18 @@ function nameAssignedElements(hostElement) {
 		}
 	});
 	return splitSlots;
+}
+
+function getManifestOptions(options) {
+	const manifestOptions = {};
+	Object.keys(options).sort().forEach(name => {
+		const value = options[name];
+		const primitive = typeof value == "boolean" || typeof value == "number";
+		if ((primitive && !MANIFEST_EXCLUDED_OPTION_NAMES.includes(name)) || (typeof value == "string" && MANIFEST_STRING_OPTION_NAMES.includes(name))) {
+			manifestOptions[name] = value;
+		}
+	});
+	return manifestOptions;
 }
 
 function removeInsertedParagraphs(doc) {

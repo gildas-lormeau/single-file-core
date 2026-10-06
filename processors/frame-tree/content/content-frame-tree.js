@@ -237,6 +237,7 @@ function initResponse(message) {
 				frameData.scrollPosition = messageFrameData.scrollPosition;
 				frameData.scrolling = messageFrameData.scrolling;
 				frameData.adoptedStyleSheets = messageFrameData.adoptedStyleSheets;
+				frameData.manifestData = messageFrameData.manifestData;
 			}
 		});
 		const remainingFrames = windowData.frames.filter(frameData => !frameData.processed).length;
@@ -459,6 +460,7 @@ function getFrameData(document, win, windowId, options, scrolling) {
 		scrollPosition: docData.scrollPosition,
 		scrolling,
 		adoptedStyleSheets: docData.adoptedStyleSheets,
+		manifestData: docData.manifestData,
 		processed: true
 	};
 }

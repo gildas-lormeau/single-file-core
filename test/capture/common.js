@@ -44,6 +44,7 @@ init(initOptions);
 
 export {
 	capture,
+	capturePageData,
 	captureArchive,
 	createProcessor,
 	frameData,
@@ -53,9 +54,16 @@ export {
 };
 
 async function capture(pageResources, options) {
-	resources = pageResources instanceof Map ? pageResources : new Map(Object.entries(pageResources));
-	const pageData = await getPageData({ ...EMPTY_DOC_DATA, ...options }, initOptions, null, null);
+	const pageData = await capturePageData(pageResources, options);
 	return pageData.content;
+}
+
+// The same run as capture(), returning everything getPageData() produced next to the page: the
+// manifest, the hash of --add-proof, the links. Goes through single-file.js, so what is computed
+// after the processor, such as the output section of the manifest, is there too.
+async function capturePageData(pageResources, options) {
+	resources = pageResources instanceof Map ? pageResources : new Map(Object.entries(pageResources));
+	return getPageData({ ...EMPTY_DOC_DATA, ...options }, initOptions, null, null);
 }
 
 // The archive side of the helper split. core/processor-helper.js picks the helper from

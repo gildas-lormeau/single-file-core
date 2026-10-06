@@ -312,7 +312,8 @@ class ProcessorHelperCommon {
 			blockMixedContent: options.blockMixedContent,
 			expectedType: "stylesheet",
 			acceptHeaders: options.acceptHeaders,
-			networkTimeout: options.networkTimeout
+			networkTimeout: options.networkTimeout,
+			manifestEntries: options.manifestEntries
 		});
 		if (!(matchCharsetEquals(content.data, content.charset) || matchCharsetEquals(content.data, options.charset))) {
 			options = Object.assign({}, options, { charset: getCharset(content.data) });

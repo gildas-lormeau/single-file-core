@@ -376,8 +376,63 @@ function preProcessDoc(doc, win, options) {
 		markedElements: elementsInfo.markedElements,
 		invalidElements,
 		scrollPosition: { x: win.scrollX, y: win.scrollY },
-		adoptedStyleSheets: getStylesheetsContent(doc.adoptedStyleSheets)
+		adoptedStyleSheets: getStylesheetsContent(doc.adoptedStyleSheets),
+		manifestData: options.manifest ? getManifestData(doc, win) : undefined
 	};
+}
+
+function getManifestData(doc, win) {
+	const manifestData = { url: doc.documentURI, timings: {} };
+	try {
+		const lastModified = new Date(doc.lastModified);
+		if (!isNaN(lastModified)) {
+			manifestData.lastModified = lastModified.toISOString();
+		}
+		// eslint-disable-next-line no-unused-vars
+	} catch (error) {
+		// ignored
+	}
+	try {
+		const performance = win.performance;
+		manifestData.timeOrigin = new Date(performance.timeOrigin).toISOString();
+		const [navigation] = performance.getEntriesByType("navigation");
+		if (navigation) {
+			manifestData.navigation = getTimingData(navigation);
+			manifestData.navigation.type = navigation.type;
+			manifestData.navigation.redirectCount = navigation.redirectCount;
+		}
+		performance.getEntriesByType("resource").forEach(entry => manifestData.timings[entry.name] = getTimingData(entry));
+		// eslint-disable-next-line no-unused-vars
+	} catch (error) {
+		// ignored
+	}
+	try {
+		manifestData.environment = {
+			userAgent: win.navigator.userAgent,
+			viewport: { width: win.innerWidth, height: win.innerHeight, devicePixelRatio: win.devicePixelRatio },
+			media: {
+				prefersColorScheme: win.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light",
+				prefersReducedMotion: win.matchMedia("(prefers-reduced-motion: reduce)").matches ? "reduce" : "no-preference"
+			}
+		};
+		// eslint-disable-next-line no-unused-vars
+	} catch (error) {
+		// ignored
+	}
+	return manifestData;
+}
+
+function getTimingData(entry) {
+	const timingData = {
+		transferSize: entry.transferSize,
+		encodedBodySize: entry.encodedBodySize,
+		decodedBodySize: entry.decodedBodySize,
+		nextHopProtocol: entry.nextHopProtocol
+	};
+	if (entry.responseStatus) {
+		timingData.status = entry.responseStatus;
+	}
+	return timingData;
 }
 
 function insertCustomStylesheet(doc, content) {
@@ -1351,7 +1406,7 @@ async function getDataURI(blob) {
 
 async function digest(algo, text) {
 	try {
-		const data = new TextEncoder("utf-8").encode(text);
+		const data = typeof text == "string" ? new TextEncoder("utf-8").encode(text) : text instanceof Uint8Array ? text : new Uint8Array(text);
 		const hash = globalThis.crypto && crypto.subtle ? await crypto.subtle.digest(algo, data) : sha.digest(algo, data);
 		return hex(hash);
 		// eslint-disable-next-line no-unused-vars

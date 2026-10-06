@@ -72,6 +72,15 @@ const CONTENT_TYPES_HTML = ["text/html", "application/xhtml+xml"];
 const EXPECTED_TYPES_MEDIA = ["font", "image", "video", "audio", "model"];
 const EXPECTED_TYPE_IMAGE = "image";
 const EXPECTED_TYPE_DOCUMENT = "document";
+const DATA_URI_PREFIX = "data:";
+const MANIFEST_OUTCOME_EMBEDDED = "embedded";
+const MANIFEST_OUTCOME_FAILED = "failed";
+const MANIFEST_OUTCOME_BLOCKED = "blocked";
+const MANIFEST_OUTCOME_REJECTED = "rejected";
+const MANIFEST_OUTCOME_OVERSIZED = "oversized";
+const MANIFEST_FETCHED_BY_PAGE = "page";
+const MANIFEST_FETCHED_BY_FRAME = "frame";
+const MANIFEST_HEADER_NAMES = ["date", "last-modified", "etag", "content-length", "content-encoding", "cache-control", "age", "expires", "server"];
 
 const URL = globalThis.URL;
 const DOMParser = globalThis.DOMParser;
@@ -246,6 +255,16 @@ function getInstance(utilOptions) {
 	};
 
 	async function getContent(resourceURL, options) {
+		const entry = options.manifestEntries && !resourceURL.startsWith(DATA_URI_PREFIX) ? { url: resourceURL, role: options.expectedType || EXPECTED_TYPE_DOCUMENT, outcome: MANIFEST_OUTCOME_FAILED } : undefined;
+		const content = await fetchContent(resourceURL, options, entry);
+		if (entry) {
+			options.manifestEntries.push(entry);
+			content.manifestEntry = entry;
+		}
+		return content;
+	}
+
+	async function fetchContent(resourceURL, options, entry) {
 		let response, startTime, networkTimeoutId, networkTimeoutPromise, resolveNetworkTimeoutPromise;
 		const fetchResource = utilOptions.fetch;
 		const fetchFrameResource = utilOptions.frameFetch;
@@ -254,6 +273,7 @@ function getInstance(utilOptions) {
 			log("  // STARTED download url =", resourceURL, "asBinary =", options.asBinary);
 		}
 		if (options.blockMixedContent && /^https:/i.test(options.baseURI) && !/^https:/i.test(resourceURL) && !/^blob:https:/i.test(resourceURL)) {
+			setManifestOutcome(entry, MANIFEST_OUTCOME_BLOCKED);
 			return getFetchResponse(resourceURL, options);
 		}
 		if (options.networkTimeout) {
@@ -274,21 +294,24 @@ function getInstance(utilOptions) {
 						fetchFrameResource(resourceURL, { frameId: options.frameId, referrer: options.resourceReferrer, referrerPolicy: options.referrerPolicy || undefined, stylesheetURL: options.stylesheetURL || undefined, stylesheetReferrerPolicy: options.stylesheetReferrerPolicy || undefined, headers: { accept } }),
 						networkTimeoutPromise
 					]);
+					setManifestResponse(entry, response, MANIFEST_FETCHED_BY_FRAME);
 					// eslint-disable-next-line no-unused-vars
 				} catch (error) {
 					response = await Promise.race([
 						fetchResource(resourceURL, { referrer: options.resourceReferrer, referrerPolicy: options.referrerPolicy || undefined, stylesheetURL: options.stylesheetURL || undefined, stylesheetReferrerPolicy: options.stylesheetReferrerPolicy || undefined, headers: { accept } }),
 						networkTimeoutPromise
 					]);
+					setManifestResponse(entry, response, MANIFEST_FETCHED_BY_PAGE);
 				}
 			} else {
 				response = await Promise.race([
 					fetchResource(resourceURL, { referrer: options.resourceReferrer, referrerPolicy: options.referrerPolicy || undefined, stylesheetURL: options.stylesheetURL || undefined, stylesheetReferrerPolicy: options.stylesheetReferrerPolicy || undefined, headers: { accept } }),
 					networkTimeoutPromise
 				]);
+				setManifestResponse(entry, response, MANIFEST_FETCHED_BY_PAGE);
 			}
-			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
+			setManifestError(entry, error);
 			return getFailedFetchResponse(resourceURL, options);
 		} finally {
 			resolveNetworkTimeoutPromise();
@@ -299,10 +322,11 @@ function getInstance(utilOptions) {
 		let buffer;
 		try {
 			buffer = await response.arrayBuffer();
-			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
+			setManifestError(entry, error);
 			return options.inline ? { data: options.asBinary ? helper.EMPTY_RESOURCE : "", resourceURL } : { resourceURL };
 		}
+		await setManifestContent(entry, buffer);
 		resourceURL = response.url || resourceURL;
 		let contentType = "", charset;
 		try {
@@ -322,8 +346,15 @@ function getInstance(utilOptions) {
 		if (!charset && options.charset) {
 			charset = options.charset;
 		}
+		if (entry) {
+			entry.contentType = contentType;
+			if (charset) {
+				entry.charset = charset;
+			}
+		}
 		if (options.asBinary) {
 			if ((response.status >= 400 && options.expectedType != EXPECTED_TYPE_IMAGE) || (EXPECTED_TYPES_MEDIA.includes(options.expectedType) && CONTENT_TYPES_HTML.includes(contentType))) {
+				setManifestOutcome(entry, MANIFEST_OUTCOME_REJECTED);
 				return getFetchResponse(resourceURL, options);
 			}
 			try {
@@ -331,19 +362,23 @@ function getInstance(utilOptions) {
 					log("  // ENDED   download url =", resourceURL, "delay =", Date.now() - startTime);
 				}
 				if (options.maxResourceSizeEnabled && buffer.byteLength > options.maxResourceSize * ONE_MB) {
+					setManifestOutcome(entry, MANIFEST_OUTCOME_OVERSIZED);
 					return getFetchResponse(resourceURL, options);
 				} else {
+					setManifestOutcome(entry, MANIFEST_OUTCOME_EMBEDDED);
 					return getFetchResponse(resourceURL, options, buffer, null, contentType);
 				}
-				// eslint-disable-next-line no-unused-vars
 			} catch (error) {
+				setManifestError(entry, error);
 				return getFetchResponse(resourceURL, options);
 			}
 		} else {
 			if (response.status >= 400 && options.expectedType != EXPECTED_TYPE_DOCUMENT) {
+				setManifestOutcome(entry, MANIFEST_OUTCOME_REJECTED);
 				return getFailedFetchResponse(resourceURL, options);
 			}
 			if (options.validateTextContentType && contentType && !contentType.startsWith(PREFIX_CONTENT_TYPE_TEXT)) {
+				setManifestOutcome(entry, MANIFEST_OUTCOME_REJECTED);
 				return getFetchResponse(resourceURL, options);
 			}
 			if (!charset) {
@@ -353,17 +388,73 @@ function getInstance(utilOptions) {
 				log("  // ENDED   download url =", resourceURL, "delay =", Date.now() - startTime);
 			}
 			if (options.maxResourceSizeEnabled && buffer.byteLength > options.maxResourceSize * ONE_MB) {
+				setManifestOutcome(entry, MANIFEST_OUTCOME_OVERSIZED);
 				return getFetchResponse(resourceURL, options, null, charset);
 			} else {
 				try {
 					const fetchResponse = await getFetchResponse(resourceURL, options, buffer, charset, contentType);
 					fetchResponse.referrerPolicy = (response.headers && response.headers.get("referrer-policy")) || undefined;
+					setManifestOutcome(entry, MANIFEST_OUTCOME_EMBEDDED);
 					return fetchResponse;
-					// eslint-disable-next-line no-unused-vars
 				} catch (error) {
+					setManifestError(entry, error);
 					return getFetchResponse(resourceURL, options, null, charset);
 				}
 			}
+		}
+	}
+}
+
+function setManifestResponse(entry, response, fetchedBy) {
+	if (entry) {
+		entry.fetchedBy = fetchedBy;
+		if (response.url) {
+			entry.finalUrl = response.url;
+		}
+		if (response.status !== undefined) {
+			entry.status = response.status;
+		}
+		const headers = {};
+		MANIFEST_HEADER_NAMES.forEach(name => {
+			const value = getHeaderValue(response.headers, name);
+			if (value) {
+				headers[name] = value;
+			}
+		});
+		if (Object.keys(headers).length) {
+			entry.headers = headers;
+		}
+	}
+}
+
+function getHeaderValue(headers, name) {
+	if (headers) {
+		if (typeof headers.get == "function") {
+			return headers.get(name);
+		}
+		const key = Object.keys(headers).find(key => key.toLowerCase() == name);
+		return key === undefined ? undefined : headers[key];
+	}
+}
+
+async function setManifestContent(entry, buffer) {
+	if (entry) {
+		entry.size = buffer.byteLength;
+		entry.sha256 = await helper.digest("SHA-256", buffer);
+	}
+}
+
+function setManifestOutcome(entry, outcome) {
+	if (entry) {
+		entry.outcome = outcome;
+	}
+}
+
+function setManifestError(entry, error) {
+	if (entry) {
+		entry.outcome = MANIFEST_OUTCOME_FAILED;
+		if (error && error.message) {
+			entry.error = error.message;
 		}
 	}
 }

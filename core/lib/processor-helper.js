@@ -288,7 +288,8 @@ function getProcessorHelperClass(utilInstance) {
 					blockMixedContent: options.blockMixedContent,
 					expectedType: "stylesheet",
 					acceptHeaders: options.acceptHeaders,
-					networkTimeout: options.networkTimeout
+					networkTimeout: options.networkTimeout,
+					manifestEntries: options.manifestEntries
 				});
 				if (content.failed) {
 					const liveContent = this.getLiveStylesheetContent(element, options);
@@ -477,7 +478,8 @@ function getProcessorHelperClass(utilInstance) {
 													resourceReferrer: options.resourceReferrer,
 													referrerPolicy: getReferrerPolicy(resourceElement),
 													acceptHeaders: options.acceptHeaders,
-													networkTimeout: options.networkTimeout
+													networkTimeout: options.networkTimeout,
+													manifestEntries: options.manifestEntries
 												})).data;
 												// eslint-disable-next-line no-unused-vars
 											} catch (error) {

@@ -131,5 +131,14 @@ async function getPageData(options = {}, initOptions, doc, win) {
 		}
 		pageData.content = Array.from(new Uint8Array(arrayBuffer));
 	}
+	if (pageData.manifest) {
+		const content = options.compressContent ? new Uint8Array(pageData.content) : pageData.content;
+		pageData.manifest.output = {
+			filename: pageData.filename,
+			mimeType: pageData.mimeType,
+			size: options.compressContent ? content.length : helper.getContentSize(content),
+			sha256: await helper.digest("SHA-256", content)
+		};
+	}
 	return pageData;
 }
