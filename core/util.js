@@ -489,7 +489,7 @@ async function getFetchResponse(resourceURL, options, data, charset, contentType
 				charset = "utf-8";
 				data = new TextDecoder(charset).decode(data);
 			}
-			data = data.replace(/\ufeff/gi, "");
+			data = data.replace(/^\ufeff/, "");
 		}
 	} else if (options.inline) {
 		data = options.asBinary ? helper.EMPTY_RESOURCE : "";
