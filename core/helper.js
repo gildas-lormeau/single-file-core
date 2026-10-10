@@ -22,6 +22,7 @@
  */
 
 import * as cssUnescape from "./../vendor/css-unescape.js";
+import * as srcsetParser from "./../vendor/html-srcset-parser.js";
 import * as sha from "./lib/sha.js";
 import * as hooksFrames from "./../processors/hooks/content/content-hooks-frames.js";
 import * as infobar from "./infobar.js";
@@ -909,6 +910,9 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 				EMPTY_RESOURCE :
 				(options.loadDeferredContent && element.getAttribute(LAZY_SRC_ATTRIBUTE_NAME)) || element.currentSrc
 		};
+		if (!elementHidden && element.parentElement && element.parentElement.tagName.toUpperCase() == "PICTURE") {
+			imageData.sourceSize = getSourceSize(win, element.parentElement, imageData.currentSrc);
+		}
 		data.images.push(imageData);
 		element.setAttribute(IMAGE_ATTRIBUTE_NAME, data.images.length - 1);
 		data.markedElements.push(element);
@@ -1240,6 +1244,42 @@ function getStylesheetsData(doc, markedElements) {
 		});
 		return contents;
 	}
+}
+
+function getSourceSize(win, pictureElement, currentSrc) {
+	if (currentSrc) {
+		const baseURI = pictureElement.ownerDocument.baseURI;
+		const sourceElement = Array.from(pictureElement.querySelectorAll(":scope > source")).find(sourceElement => {
+			const media = sourceElement.getAttribute("media");
+			return (!media || win.matchMedia(media).matches) && getSrcsetURLs(sourceElement.getAttribute("srcset"), baseURI).includes(currentSrc);
+		});
+		if (sourceElement && (sourceElement.hasAttribute("width") || sourceElement.hasAttribute("height"))) {
+			return {
+				width: sourceElement.getAttribute("width"),
+				height: sourceElement.getAttribute("height")
+			};
+		}
+	}
+}
+
+function getSrcsetURLs(srcset, baseURI) {
+	const urls = [];
+	if (srcset) {
+		try {
+			srcsetParser.process(srcset).forEach(candidate => {
+				try {
+					urls.push(new URL(candidate.url, baseURI).href);
+					// eslint-disable-next-line no-unused-vars
+				} catch (error) {
+					// ignored
+				}
+			});
+			// eslint-disable-next-line no-unused-vars
+		} catch (error) {
+			// ignored
+		}
+	}
+	return urls;
 }
 
 function getSize(win, imageElement, computedStyle) {

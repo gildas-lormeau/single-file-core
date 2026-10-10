@@ -735,6 +735,13 @@ class Processor {
 							if (imageData.currentSrc) {
 								imgElement.dataset.singleFileOriginURL = imgElement.getAttribute("src");
 								imgElement.setAttribute("src", imageData.currentSrc);
+								if (imageData.sourceSize && this.options.removeAlternativeImages) {
+									["width", "height"].forEach(attributeName => {
+										if (imageData.sourceSize[attributeName] != null) {
+											imgElement.setAttribute(attributeName, imageData.sourceSize[attributeName]);
+										}
+									});
+								}
 							}
 							if (this.options.loadDeferredContent) {
 								if ((!imgElement.getAttribute("src") || imgElement.getAttribute("src") == util.EMPTY_RESOURCE) && imgElement.getAttribute("data-src")) {
