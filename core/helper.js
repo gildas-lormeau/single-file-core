@@ -124,7 +124,8 @@ const DEPRECATED_OPTION_NAMES = {
 	loadDeferredImagesBlockStorage: "loadDeferredContentBlockStorage",
 	loadDeferredImagesKeepZoomLevel: "loadDeferredContentKeepZoomLevel",
 	loadDeferredImagesDispatchScrollEvent: "loadDeferredContentDispatchScrollEvent",
-	loadDeferredImagesBeforeFrames: "loadDeferredContentBeforeFrames"
+	loadDeferredImagesBeforeFrames: "loadDeferredContentBeforeFrames",
+	blockAlternativeImages: "removeAlternativeImages"
 };
 const addEventListener = (type, listener, options) => globalThis.addEventListener(type, listener, options);
 const removeEventListener = (type, listener, options) => globalThis.removeEventListener(type, listener, options);
