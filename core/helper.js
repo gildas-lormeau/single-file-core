@@ -45,6 +45,7 @@ const ON_AFTER_CAPTURE_EVENT_NAME = SINGLE_FILE_PREFIX + "on-after-capture";
 const GET_ADOPTED_STYLESHEETS_REQUEST_EVENT = SINGLE_FILE_PREFIX + "request-get-adopted-stylesheets";
 const GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT = SINGLE_FILE_PREFIX + "response-get-adopted-stylesheets";
 const UNREGISTER_GET_ADOPTED_STYLESHEETS_REQUEST_EVENT = SINGLE_FILE_PREFIX + "unregister-request-get-adopted-stylesheets";
+const CLEAR_ADOPTED_STYLESHEETS_CACHE_EVENT = SINGLE_FILE_PREFIX + "clear-adopted-stylesheets-cache";
 const ON_INIT_USERSCRIPT_EVENT = SINGLE_FILE_PREFIX + "user-script-init";
 const REMOVED_CONTENT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "removed-content";
 const HIDDEN_CONTENT_ATTRIBUTE_NAME = "data-" + SINGLE_FILE_PREFIX + "hidden-content";
@@ -326,6 +327,12 @@ function preProcessDoc(doc, win, options) {
 	let elementsInfo;
 	if (win && doc.documentElement) {
 		markInvalidNesting(doc);
+		try {
+			doc.dispatchEvent(new CustomEvent(CLEAR_ADOPTED_STYLESHEETS_CACHE_EVENT));
+			// eslint-disable-next-line no-unused-vars
+		} catch (error) {
+			// ignored
+		}
 		elementsInfo = getElementsInfo(win, doc, doc.documentElement, options);
 		if (options.removeUnusedFonts && doc.defaultView) {
 			getRootElementUsedFonts(win, doc.documentElement, elementsInfo);
@@ -826,7 +833,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 				shadowRootInfo.clonable = shadowRoot.clonable;
 				shadowRootInfo.serializable = shadowRoot.serializable;
 				try {
-					if (shadowRoot.adoptedStyleSheets && shadowRoot.adoptedStyleSheets.length === undefined) {
+					if (shadowRoot.adoptedStyleSheets) {
 						shadowRoot.dispatchEvent(new CustomEvent(UNREGISTER_GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, { bubbles: true }));
 					}
 					// eslint-disable-next-line no-unused-vars

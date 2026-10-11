@@ -38,6 +38,7 @@
 const REQUEST_EVENT = "single-file-request-get-adopted-stylesheets";
 const RESPONSE_EVENT = "single-file-response-get-adopted-stylesheets";
 const UNREGISTER_EVENT = "single-file-unregister-request-get-adopted-stylesheets";
+const CLEAR_EVENT = "single-file-clear-adopted-stylesheets-cache";
 const HOOK_PATH = new URL("../../processors/hooks/content/content-hooks-frames-web.js", import.meta.url);
 
 let failures = 0;
@@ -114,8 +115,8 @@ check("the unregister listener removes itself once it has fired",
 
 // A sheet the page never passed through replaceSync has to be serialised from cssRules, and that
 // used to happen once per adopting root: instrumenting a reddit capture counted 499 roots asking
-// for 643 adoptions of 42 distinct sheets. The serialisation is memoised into the same map the
-// recorded text lives in, so the walk happens once however many roots adopt the sheet.
+// for 643 adoptions of 42 distinct sheets. The serialisation is memoised in a map of its own, next
+// to the recorded text, so the walk happens once however many roots adopt the sheet.
 const sharedSheet = new globalThis.CSSStyleSheet();
 sharedSheet.insertRule(".shared { color: olive }");
 const firstHost = new StubElement();
@@ -142,6 +143,31 @@ check("mutating the sheet makes the next request walk it again",
 	globalThis.CSSStyleSheet.reads - readsBeforeMutation === 1);
 check("and the answer carries the added rule",
 	sameStrings(answerAfterMutation, [".shared { color: olive }\n.added { color: navy }"]));
+
+// A page can also change a sheet through the CSSOM, through a rule's style or a grouping rule's own
+// insertRule, which the hook cannot see. The memo therefore lasts one capture: the capture clears it
+// before it walks the page, so a later save reads what the sheet says then rather than what the
+// first save serialised. Measured in the field as the first save's text served on every later save
+// of the same tab. The text recorded by replaceSync is kept, it is the author's source and no walk
+// reproduces it.
+const clearListener = documentListeners.get(CLEAR_EVENT);
+check("the hook listens for the clear event on the document", Boolean(clearListener));
+sharedSheet.editRule(1, ".added { color: maroon }");
+const readsBeforeEdit = globalThis.CSSStyleSheet.reads;
+check("an edit through the CSSOM is served from the memo within a capture",
+	sameStrings(request(firstHost, firstRoot), [".shared { color: olive }\n.added { color: navy }"]) &&
+	globalThis.CSSStyleSheet.reads - readsBeforeEdit === 0);
+if (clearListener) {
+	clearListener(new globalThis.CustomEvent(CLEAR_EVENT));
+}
+const readsBeforeClear = globalThis.CSSStyleSheet.reads;
+check("clearing the cache makes the next capture walk the sheet again",
+	sameStrings(request(firstHost, firstRoot), [".shared { color: olive }\n.added { color: maroon }"]) &&
+	globalThis.CSSStyleSheet.reads - readsBeforeClear === 1);
+const readsBeforeRecorded = globalThis.CSSStyleSheet.reads;
+check("and the text recorded by replaceSync survives the clear",
+	sameStrings(request(openHost, openRoot), [".open { color: red }"]) &&
+	globalThis.CSSStyleSheet.reads - readsBeforeRecorded === 0);
 
 console.log(failures ? `\n${failures} check(s) FAILED` : "\nall checks passed");
 Deno.exit(failures ? 1 : 0);
@@ -243,6 +269,10 @@ function installStubs() {
 		}
 		insertRule(rule) {
 			sheetRules.set(this, (sheetRules.get(this) || []).concat(rule));
+		}
+		// a CSSOM edit the hook does not patch, such as a rule's style being set
+		editRule(index, cssText) {
+			sheetRules.get(this)[index] = cssText;
 		}
 		get cssRules() {
 			StubCSSStyleSheet.reads++;

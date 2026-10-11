@@ -45,6 +45,7 @@
 	const GET_ADOPTED_STYLESHEETS_REQUEST_EVENT = "single-file-request-get-adopted-stylesheets";
 	const UNREGISTER_GET_ADOPTED_STYLESHEETS_REQUEST_EVENT = "single-file-unregister-request-get-adopted-stylesheets";
 	const GET_ADOPTED_STYLESHEETS_RESPONSE_EVENT = "single-file-response-get-adopted-stylesheets";
+	const CLEAR_ADOPTED_STYLESHEETS_CACHE_EVENT = "single-file-clear-adopted-stylesheets-cache";
 	const NEW_FONT_FACE_EVENT = "single-file-new-font-face";
 	const DELETE_FONT_EVENT = "single-file-delete-font";
 	const CLEAR_FONTS_EVENT = "single-file-clear-fonts";
@@ -97,6 +98,7 @@
 
 	let dispatchScrollEvent;
 	let adoptedStylesheetsData = new WeakMap();
+	let adoptedStylesheetsTexts = new WeakMap();
 	const shadowRootsData = new WeakMap();
 
 	init();
@@ -118,6 +120,7 @@
 		document.addEventListener(FETCH_SUPPORTED_REQUEST_EVENT, onFetchSupportedRequest);
 		document.addEventListener(FETCH_REQUEST_EVENT, onFetchRequest);
 		document.addEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, getAdoptedStylesheetsListener);
+		document.addEventListener(CLEAR_ADOPTED_STYLESHEETS_CACHE_EVENT, clearAdoptedStylesheetsCache);
 		document.addEventListener(BOOTSTRAP_EVENT, onBootstrap);
 	}
 
@@ -553,6 +556,7 @@
 		try {
 			const result = originalInsertRule.apply(this, [rule, arguments[1]]);
 			adoptedStylesheetsData.delete(this);
+			adoptedStylesheetsTexts.delete(this);
 			return result;
 		} catch (error) {
 			error.stack = error.message + "\n" + "    \n" + error.stack.trim().split("\n").slice(-1).join("\n");
@@ -566,6 +570,7 @@
 		try {
 			const result = originalDeleteRule.apply(this, [index]);
 			adoptedStylesheetsData.delete(this);
+			adoptedStylesheetsTexts.delete(this);
 			return result;
 		} catch (error) {
 			error.stack = error.message + "\n" + "    \n" + error.stack.trim().split("\n").slice(-1).join("\n");
@@ -600,9 +605,11 @@
 			const adoptedStyleSheets = Array.from(shadowRoot.adoptedStyleSheets).map(stylesheet => {
 				if (adoptedStylesheetsData.has(stylesheet)) {
 					return adoptedStylesheetsData.get(stylesheet);
+				} else if (adoptedStylesheetsTexts.has(stylesheet)) {
+					return adoptedStylesheetsTexts.get(stylesheet);
 				} else {
 					const text = Array.from(stylesheet.cssRules).map(cssRule => cssRule.cssText).join("\n");
-					adoptedStylesheetsData.set(stylesheet, text);
+					adoptedStylesheetsTexts.set(stylesheet, text);
 					return text;
 				}
 			});
@@ -618,6 +625,10 @@
 	// here because it is part of what identifies the listener to remove
 	function unregisterGetAdoptedStylesheetsListener(event) {
 		event.currentTarget.removeEventListener(GET_ADOPTED_STYLESHEETS_REQUEST_EVENT, getAdoptedStylesheetsListener, { capture: true });
+	}
+
+	function clearAdoptedStylesheetsCache() {
+		adoptedStylesheetsTexts = new WeakMap();
 	}
 
 	async function getDetailObject(fontFace, src) {
