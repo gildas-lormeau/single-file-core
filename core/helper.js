@@ -263,6 +263,13 @@ function onInitUserScript({ detail }) {
 		delete userScriptOptions.taskId;
 		delete userScriptOptions._migratedTemplateFormat;
 		delete userScriptOptions.woleetKey;
+		delete userScriptOptions.password;
+		delete userScriptOptions.webDAVPassword;
+		delete userScriptOptions.githubToken;
+		delete userScriptOptions.mcpAuthToken;
+		delete userScriptOptions.saveToRestFormApiToken;
+		delete userScriptOptions.S3AccessKey;
+		delete userScriptOptions.S3SecretKey;
 		let detailUserScript;
 		try {
 			detailUserScript = detail == "jsonDetail" ? JSON.stringify({ options: userScriptOptions }) : { options: userScriptOptions };

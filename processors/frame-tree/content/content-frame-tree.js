@@ -52,6 +52,26 @@ const INIT_REQUEST_MESSAGE = "singlefile.frameTree.initRequest";
 const ACK_INIT_REQUEST_MESSAGE = "singlefile.frameTree.ackInitRequest";
 const CLEANUP_REQUEST_MESSAGE = "singlefile.frameTree.cleanupRequest";
 const INIT_RESPONSE_MESSAGE = "singlefile.frameTree.initResponse";
+const GET_OPTIONS_MESSAGE = "singlefile.frameTree.getOptions";
+const FRAME_OPTION_NAMES = [
+	"removeHiddenElements",
+	"removeUnusedFonts",
+	"compressHTML",
+	"autoSaveExternalSave",
+	"moveStylesInHead",
+	"blockVideos",
+	"customStylesheet",
+	"manifest",
+	"recreateOnly",
+	"mergeCopies",
+	"loadDeferredContent",
+	"loadDeferredContentMaxIdleTime",
+	"loadDeferredContentKeepZoomLevel",
+	"loadDeferredContentMinZoomFactor",
+	"loadDeferredContentDispatchScrollEvent",
+	"loadDeferredContentBlockCookies",
+	"loadDeferredContentBlockStorage"
+];
 const TARGET_ORIGIN = "*";
 const TIMEOUT_INIT_REQUEST_MESSAGE = 5000;
 const TIMEOUT_INIT_RESPONSE_MESSAGE = 10000;
@@ -60,6 +80,7 @@ const WINDOW_ID_SEPARATOR = ".";
 const TOP_WINDOW = globalThis.window == globalThis.top;
 
 const browser = globalThis.browser;
+const RUNTIME_MESSAGING = Boolean(browser && browser.runtime && browser.runtime.sendMessage);
 const top = globalThis.top;
 const MessageChannel = globalThis.MessageChannel;
 const document = globalThis.document;
@@ -83,6 +104,9 @@ if (TOP_WINDOW) {
 				clearFrameTimeout("requestTimeouts", message.sessionId, message.windowId);
 				createFrameResponseTimeout(message.sessionId, message.windowId);
 				return Promise.resolve({});
+			} else if (message.method == GET_OPTIONS_MESSAGE) {
+				const session = sessions.get(message.sessionId);
+				return Promise.resolve({ options: session && session.options });
 			}
 		});
 	}
@@ -114,10 +138,15 @@ async function onMessage(event) {
 			}
 			if (!TOP_WINDOW) {
 				globalThis.stop();
-				if (message.options.loadDeferredContent) {
-					lazy.process(message.options);
+				if (!message.options && RUNTIME_MESSAGING) {
+					message.options = await getOptions(message.sessionId);
 				}
-				await initRequestAsync(message);
+				if (message.options) {
+					if (message.options.loadDeferredContent) {
+						lazy.process(message.options);
+					}
+					await initRequestAsync(message);
+				}
 			}
 		} else if (message.method == ACK_INIT_REQUEST_MESSAGE) {
 			clearFrameTimeout("requestTimeouts", message.sessionId, message.windowId);
@@ -133,12 +162,13 @@ async function onMessage(event) {
 
 function getAsync(options) {
 	const sessionId = getNewSessionId();
-	options = JSON.parse(JSON.stringify(options));
+	options = getFrameOptions(options);
 	return new Promise(resolve => {
 		sessions.set(sessionId, {
 			frames: [],
 			requestTimeouts: {},
 			responseTimeouts: {},
+			options,
 			resolve: frames => {
 				frames.sessionId = sessionId;
 				resolve(frames);
@@ -150,11 +180,12 @@ function getAsync(options) {
 
 function getSync(options) {
 	const sessionId = getNewSessionId();
-	options = JSON.parse(JSON.stringify(options));
+	options = getFrameOptions(options);
 	sessions.set(sessionId, {
 		frames: [],
 		requestTimeouts: {},
-		responseTimeouts: {}
+		responseTimeouts: {},
+		options
 	});
 	initRequestSync({ windowId, sessionId, options });
 	const frames = sessions.get(sessionId).frames;
@@ -169,6 +200,20 @@ function cleanup(sessionId) {
 
 function getNewSessionId() {
 	return globalThis.crypto.getRandomValues(new Uint32Array(32)).join("");
+}
+
+function getFrameOptions(options) {
+	return JSON.parse(JSON.stringify(options, FRAME_OPTION_NAMES));
+}
+
+async function getOptions(sessionId) {
+	try {
+		const response = await browser.runtime.sendMessage({ method: GET_OPTIONS_MESSAGE, sessionId });
+		return response && response.options;
+		// eslint-disable-next-line no-unused-vars
+	} catch (error) {
+		// ignored
+	}
 }
 
 function initRequestSync(message) {
@@ -282,7 +327,7 @@ function processFramesAsync(doc, frameElements, options, parentWindowId, session
 	frameElements.forEach((frameElement, frameIndex) => {
 		const windowId = parentWindowId + WINDOW_ID_SEPARATOR + frameIndex;
 		try {
-			sendMessage(frameElement.contentWindow, { method: INIT_REQUEST_MESSAGE, windowId, sessionId, options, scrolling: frameElement.scrolling, waitForFrames });
+			sendMessage(frameElement.contentWindow, { method: INIT_REQUEST_MESSAGE, windowId, sessionId, options: RUNTIME_MESSAGING ? undefined : options, scrolling: frameElement.scrolling, waitForFrames });
 			// eslint-disable-next-line no-unused-vars
 		} catch (error) {
 			// ignored
