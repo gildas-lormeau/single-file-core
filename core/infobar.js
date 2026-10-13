@@ -233,6 +233,9 @@ function appendInfobar(doc, options, useShadowRoot) {
 		infoData = infoData || "No info";
 		const parentElement = doc.body.tagName == "BODY" ? doc.body : doc.documentElement;
 		const infobarElement = createElement(doc, INFOBAR_TAGNAME, parentElement);
+		const hostStyleElement = doc.createElement("style");
+		hostStyleElement.textContent = `${INFOBAR_TAGNAME}::before,${INFOBAR_TAGNAME}::after{content:none !important}`;
+		infobarElement.appendChild(hostStyleElement);
 		let infobarContainer;
 		if (useShadowRoot) {
 			infobarContainer = infobarElement.attachShadow({ mode: "open" });
