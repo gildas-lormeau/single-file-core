@@ -119,6 +119,37 @@ const NESTING_SHADOW_ROOT_TRACK_ID_PREFIX = "s";
 const HTML_NAMESPACE = "http://www.w3.org/1999/xhtml";
 const RAW_TEXT_TAG_NAMES = ["SCRIPT", "STYLE", "TEXTAREA", "TITLE", "XMP", "IFRAME", "NOEMBED", "NOFRAMES", "PLAINTEXT", "NOSCRIPT"];
 const COMMENT_NODE_FILTER = 128;
+const PROTECTED_OPTION_NAMES = [
+	"password",
+	"woleetKey",
+	"saveToGDrive",
+	"saveToDropbox",
+	"saveWithCompanion",
+	"forceWebAuthFlow",
+	"saveWithWebDAV",
+	"webDAVURL",
+	"webDAVUser",
+	"webDAVPassword",
+	"saveWithMCP",
+	"mcpServerUrl",
+	"mcpAuthToken",
+	"saveToGitHub",
+	"githubToken",
+	"githubUser",
+	"githubRepository",
+	"githubBranch",
+	"saveToRestFormApi",
+	"saveToRestFormApiUrl",
+	"saveToRestFormApiToken",
+	"saveToRestFormApiFileFieldName",
+	"saveToRestFormApiUrlFieldName",
+	"saveToS3",
+	"S3Domain",
+	"S3Region",
+	"S3Bucket",
+	"S3AccessKey",
+	"S3SecretKey"
+];
 const DEPRECATED_OPTION_NAMES = {
 	loadDeferredImages: "loadDeferredContent",
 	loadDeferredImagesMaxIdleTime: "loadDeferredContentMaxIdleTime",
@@ -262,14 +293,7 @@ function onInitUserScript({ detail }) {
 		delete userScriptOptions.frames;
 		delete userScriptOptions.taskId;
 		delete userScriptOptions._migratedTemplateFormat;
-		delete userScriptOptions.woleetKey;
-		delete userScriptOptions.password;
-		delete userScriptOptions.webDAVPassword;
-		delete userScriptOptions.githubToken;
-		delete userScriptOptions.mcpAuthToken;
-		delete userScriptOptions.saveToRestFormApiToken;
-		delete userScriptOptions.S3AccessKey;
-		delete userScriptOptions.S3SecretKey;
+		PROTECTED_OPTION_NAMES.forEach(name => delete userScriptOptions[name]);
 		let detailUserScript;
 		try {
 			detailUserScript = detail == "jsonDetail" ? JSON.stringify({ options: userScriptOptions }) : { options: userScriptOptions };
@@ -286,6 +310,7 @@ function onInitUserScript({ detail }) {
 				try {
 					const detail = typeof event.detail == "string" ? JSON.parse(event.detail) : event.detail;
 					if (detail.options) {
+						PROTECTED_OPTION_NAMES.forEach(name => delete detail.options[name]);
 						Object.assign(options, detail.options);
 					}
 					// eslint-disable-next-line no-unused-vars
