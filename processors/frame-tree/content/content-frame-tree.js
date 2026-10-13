@@ -62,8 +62,6 @@ const FRAME_OPTION_NAMES = [
 	"blockVideos",
 	"customStylesheet",
 	"manifest",
-	"recreateOnly",
-	"mergeCopies",
 	"loadDeferredContent",
 	"loadDeferredContentMaxIdleTime",
 	"loadDeferredContentKeepZoomLevel",
