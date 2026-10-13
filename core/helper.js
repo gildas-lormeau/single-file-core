@@ -80,6 +80,7 @@ const INVOKERS_SELECTOR = INVOKER_ATTRIBUTE_NAMES.map(attributeName => "[" + att
 const IGNORED_TAG_NAMES = ["SCRIPT", "NOSCRIPT", "META", "LINK", "TEMPLATE"];
 const ROOT_PSEUDO_ELEMENT_NAMES = [":before", ":after"];
 const BLOCK_CONTAINER_DISPLAY_VALUES = ["block", "flow-root", "list-item", "inline-block", "table-cell", "table-caption"];
+const BLOCK_LEVEL_DISPLAY_VALUES = ["block", "flow-root", "list-item", "flex", "grid", "table"];
 const REGEXP_SIMPLE_QUOTES_STRING = /^'(.*?)'$/;
 const REGEXP_DOUBLE_QUOTES_STRING = /^"(.*?)"$/;
 const FONT_WEIGHTS = {
@@ -975,9 +976,11 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 	if (tagName == "VIDEO") {
 		const src = element.currentSrc;
 		if (src && !src.startsWith("blob:") && !src.startsWith("data:")) {
-			const computedStyle = getComputedStyle(win, element.parentNode);
+			const computedStyle = getComputedStyle(win, element);
+			const blockLevel = Boolean(computedStyle) && BLOCK_LEVEL_DISPLAY_VALUES.includes(computedStyle.getPropertyValue("display"));
 			data.videos.push({
-				positionParent: computedStyle && computedStyle.getPropertyValue("position"),
+				blockLevel,
+				linkOffset: getVideoLinkOffset(doc, element, blockLevel),
 				src,
 				size: {
 					pxWidth: element.clientWidth,
@@ -1511,6 +1514,29 @@ function hex(buffer) {
 
 function flatten(array) {
 	return array.flat ? array.flat() : array.reduce((a, b) => a.concat(Array.isArray(b) ? flatten(b) : b), []);
+}
+
+function getVideoLinkOffset(doc, element, blockLevel) {
+	const offset = { top: 0, left: 0 };
+	if (element.parentNode) {
+		const probeElement = doc.createElement("a");
+		probeElement.style.setProperty("position", "absolute", "important");
+		probeElement.style.setProperty("margin", "0", "important");
+		probeElement.style.setProperty("padding", "0", "important");
+		probeElement.style.setProperty("border", "0", "important");
+		probeElement.style.setProperty("width", "0", "important");
+		probeElement.style.setProperty("height", "0", "important");
+		if (blockLevel) {
+			probeElement.style.setProperty("display", "block", "important");
+		}
+		element.insertAdjacentElement("beforebegin", probeElement);
+		const probeRect = probeElement.getBoundingClientRect();
+		const elementRect = element.getBoundingClientRect();
+		offset.top = Math.round(elementRect.top - probeRect.top);
+		offset.left = Math.round(elementRect.left - probeRect.left);
+		probeElement.remove();
+	}
+	return offset;
 }
 
 function getComputedStyle(win, element, pseudoElement) {

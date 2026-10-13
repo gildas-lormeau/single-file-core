@@ -903,15 +903,18 @@ class Processor {
 			if (attributeValue) {
 				const videoData = this.options.videos[Number(attributeValue)];
 				const src = (videoData && videoData.src) || videoElement.src;
-				if (videoElement && src) {
+				if (src) {
 					const linkElement = this.doc.createElement("a");
 					const imgElement = this.doc.createElement("img");
+					const linkOffset = (videoData && videoData.linkOffset) || { top: 0, left: 0 };
 					linkElement.href = src;
 					linkElement.target = "_blank";
 					linkElement.style.setProperty("z-index", 2147483647, "important");
 					linkElement.style.setProperty("position", "absolute", "important");
-					linkElement.style.setProperty("top", "8px", "important");
-					linkElement.style.setProperty("left", "8px", "important");
+					linkElement.style.setProperty("margin", (linkOffset.top + 8) + "px 0 0 " + (linkOffset.left + 8) + "px", "important");
+					if (videoData && videoData.blockLevel) {
+						linkElement.style.setProperty("display", "block", "important");
+					}
 					linkElement.style.setProperty("width", ICON_SIZE, "important");
 					linkElement.style.setProperty("height", ICON_SIZE, "important");
 					linkElement.style.setProperty("min-width", ICON_SIZE, "important");
@@ -926,11 +929,7 @@ class Processor {
 					imgElement.style.setProperty("max-width", ICON_SIZE, "important");
 					imgElement.style.setProperty("max-height", ICON_SIZE, "important");
 					linkElement.appendChild(imgElement);
-					videoElement.insertAdjacentElement("afterend", linkElement);
-					const positionInlineParent = videoElement.parentNode.style.getPropertyValue("position");
-					if ((!videoData.positionParent && (!positionInlineParent || positionInlineParent != "static")) || videoData.positionParent == "static") {
-						videoElement.parentNode.style.setProperty("position", "relative", "important");
-					}
+					videoElement.insertAdjacentElement("beforebegin", linkElement);
 				}
 			}
 		});

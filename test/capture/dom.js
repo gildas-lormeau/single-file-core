@@ -47,6 +47,19 @@ const REFERRER_POLICIES = ["no-referrer", "no-referrer-when-downgrade", "same-or
 	});
 });
 
+// core reads the poster IDL property of a video to decide whether a poster has to be captured,
+// and happy-dom 20 does not reflect it at all, so the attribute is reflected here. A browser
+// would resolve it against the document base; the suites only test for its presence.
+Object.defineProperty(window.HTMLVideoElement.prototype, "poster", {
+	configurable: true,
+	get() {
+		return this.getAttribute("poster") || "";
+	},
+	set(value) {
+		this.setAttribute("poster", value);
+	}
+});
+
 globalThis.MutationObserver = class {
 	observe() { }
 	disconnect() { }
