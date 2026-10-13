@@ -104,7 +104,9 @@ if (TOP_WINDOW) {
 				return Promise.resolve({});
 			} else if (message.method == GET_OPTIONS_MESSAGE) {
 				const session = sessions.get(message.sessionId);
-				return Promise.resolve({ options: session && session.options });
+				if (session) {
+					return Promise.resolve({ options: session.options });
+				}
 			}
 		});
 	}
