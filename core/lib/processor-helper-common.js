@@ -92,6 +92,7 @@ function getProcessorHelperCommonClass(utilInstance, cssTreeInstance) {
 
 class ProcessorHelperCommon {
 	async processPageResources(doc, baseURI, options, resources, styles, batchRequest) {
+		const displayedSrcsetElements = options.removeAlternativeImages && !options.blockImages ? keepDisplayedSrcsets(doc, baseURI, options) : new Set();
 		const processAttributeArgs = [
 			["link[href][rel*=\"icon\"]", "href", true],
 			["object[type=\"image/svg+xml\"], object[type=\"image/svg-xml\"], object[data*=\".svg\"]", "data"],
@@ -108,7 +109,7 @@ class ProcessorHelperCommon {
 		resourcePromises = resourcePromises.concat([
 			this.processXLinks(doc.querySelectorAll("use"), doc, baseURI, options, batchRequest, "xlink:href"),
 			this.processXLinks(doc.querySelectorAll("use"), doc, baseURI, options, batchRequest, "href"),
-			this.processSrcset(doc.querySelectorAll("img[srcset], source[srcset]"), baseURI, options, resources, batchRequest)
+			this.processSrcset(doc.querySelectorAll("img[srcset], source[srcset]"), baseURI, options, resources, batchRequest, displayedSrcsetElements)
 		]);
 		resourcePromises.push(this.processAttribute(doc, doc.querySelectorAll("object[data*=\".pdf\"]"), "data", baseURI, options, null, resources, false, batchRequest, styles));
 		resourcePromises.push(this.processAttribute(doc, doc.querySelectorAll("embed[src*=\".pdf\"]"), "src", baseURI, options, null, resources, false, batchRequest, styles));
@@ -118,6 +119,13 @@ class ProcessorHelperCommon {
 		resourcePromises.push(this.processAttribute(doc, doc.querySelectorAll("model[src], model > source[src]"), "src", baseURI, options, "model", resources, false, batchRequest, styles));
 		resourcePromises.push(this.processAttribute(doc, doc.querySelectorAll("model[environmentmap]"), "environmentmap", baseURI, options, "model", resources, false, batchRequest, styles));
 		await Promise.all(resourcePromises);
+		displayedSrcsetElements.forEach(imgElement => {
+			const src = imgElement.getAttribute("src");
+			const srcset = imgElement.getAttribute("srcset");
+			if (src && srcset && srcset.startsWith(src + " ")) {
+				imgElement.removeAttribute("src");
+			}
+		});
 		if (options.saveFavicon) {
 			this.processShortcutIcons(doc);
 		}
@@ -223,14 +231,14 @@ class ProcessorHelperCommon {
 		}
 	}
 
-	async processSrcset(resourceElements, baseURI, options, resources, batchRequest) {
+	async processSrcset(resourceElements, baseURI, options, resources, batchRequest, displayedSrcsetElements = new Set()) {
 		await Promise.all(Array.from(resourceElements).map(async resourceElement => {
 			const originSrcset = resourceElement.getAttribute("srcset");
 			const srcset = util.parseSrcset(originSrcset);
 			if (options.saveOriginalURLs && !isDataURL(originSrcset)) {
 				resourceElement.setAttribute("data-sf-original-srcset", originSrcset);
 			}
-			if (!options.blockImages && !options.removeAlternativeImages) {
+			if (!options.blockImages && (!options.removeAlternativeImages || displayedSrcsetElements.has(resourceElement))) {
 				const srcsetValues = await Promise.all(srcset.map(async srcsetValue => {
 					let resourceURL = normalizeURL(srcsetValue.url);
 					if (!testIgnoredPath(resourceURL)) {
@@ -678,6 +686,58 @@ function getUpdatedResourceContent(resourceURL, options) {
 	if (options.rootDocument && options.updatedResources[resourceURL]) {
 		options.updatedResources[resourceURL].retrieved = true;
 		return options.updatedResources[resourceURL].content;
+	}
+}
+
+function keepDisplayedSrcsets(doc, baseURI, options) {
+	const imgElements = new Set();
+	if (options.images) {
+		doc.querySelectorAll("img[" + util.IMAGE_ATTRIBUTE_NAME + "]").forEach(imgElement => {
+			const imageData = options.images[Number(imgElement.getAttribute(util.IMAGE_ATTRIBUTE_NAME))];
+			const currentSrc = imageData && imageData.currentSrc;
+			if (currentSrc && !isDataURL(currentSrc) && imgElement.getAttribute("src") != util.EMPTY_RESOURCE) {
+				const ownerElements = [];
+				const parentElement = imgElement.parentElement;
+				if (parentElement && parentElement.tagName.toUpperCase() == "PICTURE") {
+					ownerElements.push(...Array.from(parentElement.querySelectorAll(":scope > source[srcset]")));
+				}
+				if (imgElement.getAttribute("srcset")) {
+					ownerElements.push(imgElement);
+				}
+				let candidate;
+				const ownerElement = ownerElements.find(ownerElement => {
+					candidate = getDisplayedCandidate(ownerElement.getAttribute("srcset"), currentSrc, baseURI);
+					return candidate;
+				});
+				if (candidate && (candidate.w || candidate.d !== undefined)) {
+					imgElement.setAttribute("srcset", serializeSrcset([{ url: currentSrc, w: candidate.w, h: candidate.h, d: candidate.d }]));
+					const sizes = candidate.w && ownerElement.getAttribute("sizes");
+					if (sizes) {
+						imgElement.setAttribute("sizes", sizes);
+					} else {
+						imgElement.removeAttribute("sizes");
+					}
+					imgElements.add(imgElement);
+				}
+			}
+		});
+	}
+	return imgElements;
+}
+
+function getDisplayedCandidate(srcset, currentSrc, baseURI) {
+	try {
+		return util.parseSrcset(srcset).find(candidate => {
+			try {
+				return util.resolveURL(candidate.url, baseURI) == currentSrc;
+				// eslint-disable-next-line no-unused-vars
+			} catch (error) {
+				return false;
+			}
+		});
+		// eslint-disable-next-line no-unused-vars
+	} catch (error) {
+		// ignored
 	}
 }
 

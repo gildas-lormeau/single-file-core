@@ -83,9 +83,7 @@ function getSourceSrcData(sources) {
 function setSrc(srcData, imgElement, pictureElement) {
 	if (srcData.src) {
 		imgElement.setAttribute("src", srcData.src);
-		imgElement.removeAttribute("srcset");
-		imgElement.removeAttribute("sizes");
-	} else {
+	} else if (!imgElement.getAttribute("srcset")) {
 		imgElement.setAttribute("src", EMPTY_RESOURCE);
 		if (srcData.srcset) {
 			imgElement.setAttribute("srcset", srcData.srcset);

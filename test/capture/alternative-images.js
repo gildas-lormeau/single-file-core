@@ -91,6 +91,41 @@ let failed = false;
 	check("the img keeps its own size when the sources are kept", /<img[^>]*width="100" height="50"/.test(kept), true);
 }
 
+// The intrinsic size of an image picked from a srcset is scaled by its descriptor: a `240w`
+// candidate under `sizes="200px"` is 200 CSS pixels wide, a `2x` candidate half its pixels. Writing
+// that candidate as a bare `src` loses the descriptor, so a layout that sizes the image from its
+// intrinsic width drew it larger: measured on sfstandard.com, 200x133 live against 227x151 saved.
+// The displayed candidate is now kept as a one-entry srcset with its descriptor, and the `sizes` of
+// the element it came from, while the other candidates and the sources are still dropped.
+{
+	const images = [{ currentSrc: "https://example.com/large.png" }, { currentSrc: "https://example.com/large.png" }, { currentSrc: "https://example.com/small.png" }, { currentSrc: "https://example.com/large.png" }];
+	const content = html(
+		"<picture><source srcset=\"large.png 240w, huge.png 480w\" sizes=\"200px\" type=\"image/png\"><img src=\"small.png\" srcset=\"medium.png 240w\" sizes=\"100px\" " + IMAGE_ATTRIBUTE_NAME + "=\"0\"></picture>" +
+		"<img id=\"density\" src=\"small.png\" srcset=\"medium.png 1x, large.png 2x\" " + IMAGE_ATTRIBUTE_NAME + "=\"1\">" +
+		"<img id=\"fallback\" src=\"small.png\" srcset=\"medium.png 2x\" sizes=\"100px\" " + IMAGE_ATTRIBUTE_NAME + "=\"2\">" +
+		"<img id=\"bare\" src=\"small.png\" srcset=\"large.png\" sizes=\"100px\" " + IMAGE_ATTRIBUTE_NAME + "=\"3\">");
+	const requested = [];
+	const page = await capture(pageResources(requested), { url: PAGE_URL, content, images, removeAlternativeImages: true });
+	check("the displayed candidate of a source is kept on the img with its width descriptor", /<img[^>]*srcset="data:image\/png;base64,[^"]+ 240w"[^>]*sizes="200px"/.test(page), true);
+	check("the sizes of the source replace the ones of the img", /sizes="100px"[^>]*srcset="data:image\/png;base64,[^"]+ 240w"/.test(page), false);
+	check("the sources are still removed", page.includes("<source"), false);
+	check("the other candidates are not requested", requested.includes("huge.png") || requested.includes("medium.png"), false);
+	check("a density candidate keeps its descriptor without sizes", /<img id="density"[^>]*srcset="data:image\/png;base64,[^"]+ 2x"(?![^>]*sizes=)/.test(page), true);
+	check("an image displaying its fallback src loses its srcset and sizes", /<img id="fallback"(?![^>]*(srcset|sizes)=)/.test(page), true);
+	check("a candidate without descriptor is not kept", /<img id="bare"(?![^>]*(srcset|sizes)=)/.test(page), true);
+	check("the src is dropped when it holds the same resource as the kept candidate", /<img(?![^>]*src=)[^>]*srcset="data:image\/png;base64,[^"]+ 240w"/.test(page) && /<img id="density"(?![^>]*\ssrc=)[^>]*srcset=/.test(page), true);
+	check("the fallback src stays on the images without a kept candidate", /<img id="fallback"[^>]*src="data:image\/png;base64,/.test(page) && /<img id="bare"[^>]*src="data:image\/png;base64,/.test(page), true);
+}
+
+{
+	const images = [{ currentSrc: "https://example.com/large.png", size: { pxWidth: 0, pxHeight: 0 } }];
+	const content = html("<img src=\"small.png\" srcset=\"large.png 2x\" " + IMAGE_ATTRIBUTE_NAME + "=\"0\">");
+	const requested = [];
+	const page = await capture(pageResources(requested), { url: PAGE_URL, content, images, removeAlternativeImages: true, removeHiddenElements: true });
+	check("a hidden image keeps no candidate", /<img(?![^>]*srcset=)[^>]*src="data:,"/.test(page), true);
+	check("the candidate of a hidden image is not requested", requested.includes("large.png"), false);
+}
+
 if (failed) {
 	console.log("FAILED");
 	Deno.exit(1);
