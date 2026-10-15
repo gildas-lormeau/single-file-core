@@ -56,6 +56,7 @@ async function extract(content, { password, prompt = () => { }, zipOptions = { u
 		"heif": "image/heif",
 		"heic": "image/heic",
 		"avif": "image/avif",
+		"jxl": "image/jxl",
 		"apng": "image/apng",
 		"mov": "video/quicktime",
 		"otf": "font/otf",

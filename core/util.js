@@ -39,6 +39,7 @@ const CONTENT_TYPE_EXTENSIONS = {
 	"image/heif": ".heif",
 	"image/heic": ".heic",
 	"image/avif": ".avif",
+	"image/jxl": ".jxl",
 	"image/apng": ".apng",
 	"image/jpeg": ".jpg",
 	"image/webp": ".webp",
