@@ -153,8 +153,16 @@ function process(doc, stylesheets, styles, options) {
 		unusedFonts = fontsInfo.declared.filter(fontInfo => !filteredUsedFonts.has(fontInfo.fontFamily));
 		selectedFonts = getSelectedFonts(fontsInfo.declared, filteredUsedFonts);
 	}
-	const docChars = Array.from(new Set(docContent)).map(char => char.codePointAt(0)).sort((value1, value2) => value1 - value2);
 	const usedFontsCharacters = getUsedFontsCharacters(options);
+	const docCharCodes = new Set(Array.from(docContent).map(char => char.codePointAt(0)));
+	usedFontsCharacters.forEach(buckets => buckets.forEach(bucket => bucket.ranges.forEach(([fromCharCode, toCharCode]) => {
+		for (let charCode = fromCharCode; charCode <= toCharCode; charCode++) {
+			if (!NON_GLYPH_CHAR_CODES.includes(charCode)) {
+				docCharCodes.add(charCode);
+			}
+		}
+	})));
+	const docChars = Array.from(docCharCodes).sort((value1, value2) => value1 - value2);
 	stylesheets.forEach(stylesheetInfo => {
 		if (stylesheetInfo.stylesheet) {
 			const cssRules = stylesheetInfo.stylesheet.children;
