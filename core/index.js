@@ -1318,11 +1318,15 @@ class Processor {
 				const attributeValue = videoElement.getAttribute(util.VIDEO_ATTRIBUTE_NAME);
 				if (attributeValue) {
 					const videoData = this.options.videos[Number(attributeValue)];
-					const src = videoData.src || videoElement.src;
+					const src = videoData && videoData.size && (videoData.src || videoElement.src);
 					if (src) {
 						const blankPosterURI = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='" +
 							(videoData.size.videoWidth || videoData.size.pxWidth) + "' height='" +
 							(videoData.size.videoHeight || videoData.size.pxHeight) + "'%3E%3C/svg%3E";
+						if (!this.options.doc) {
+							videoElement.poster = this.registerGeneratedDataURI(blankPosterURI);
+							return;
+						}
 						const temporaryVideoElement = this.doc.createElement("video");
 						temporaryVideoElement.src = src;
 						temporaryVideoElement.style.setProperty("width", videoData.size.pxWidth + "px", "important");
