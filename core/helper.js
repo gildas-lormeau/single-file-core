@@ -802,7 +802,6 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 					if (options.removeUnusedFonts && doc.defaultView && !headChild) {
 						const elementCharacters = getElementCharacters(win, element);
 						getUsedFont(computedStyle, data.usedFonts, data.usedFontsCharacters, elementCharacters);
-						getUsedFont(getComputedStyle(win, element, ":first-letter"), data.usedFonts, data.usedFontsCharacters, elementCharacters);
 						const beforeStyle = getComputedStyle(win, element, ":before");
 						getUsedFont(beforeStyle, data.usedFonts, data.usedFontsCharacters, getPseudoElementCharacters(beforeStyle));
 						const afterStyle = getComputedStyle(win, element, ":after");
@@ -813,6 +812,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 							getUsedFont(getComputedStyle(win, element, "::marker"), data.usedFonts);
 						}
 						if (BLOCK_CONTAINER_DISPLAY_VALUES.includes(display)) {
+							getUsedFont(getComputedStyle(win, element, ":first-letter"), data.usedFonts, data.usedFontsCharacters, elementCharacters);
 							getUsedFont(getComputedStyle(win, element, "::first-line"), data.usedFonts, data.usedFontsCharacters, elementCharacters);
 						}
 						if ((tagName == "INPUT" || tagName == "TEXTAREA") && element.getAttribute("placeholder")) {
