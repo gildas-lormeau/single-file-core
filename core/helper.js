@@ -958,7 +958,7 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 		data.markedElements.push(element);
 		element.removeAttribute(LAZY_SRC_ATTRIBUTE_NAME);
 		computedStyle = computedStyle || getComputedStyle(win, element);
-		if (computedStyle) {
+		if (computedStyle && element.complete) {
 			imageData.size = getSize(win, element, computedStyle);
 			const boxShadow = computedStyle.getPropertyValue("box-shadow");
 			const backgroundImage = computedStyle.getPropertyValue("background-image");
