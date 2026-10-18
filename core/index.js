@@ -1323,7 +1323,8 @@ class Processor {
 						const blankPosterURI = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='" +
 							(videoData.size.videoWidth || videoData.size.pxWidth) + "' height='" +
 							(videoData.size.videoHeight || videoData.size.pxHeight) + "'%3E%3C/svg%3E";
-						if (!this.options.doc) {
+						const liveDoc = this.options.doc || (this.options.win && this.options.win.document);
+						if (!liveDoc) {
 							videoElement.poster = this.registerGeneratedDataURI(blankPosterURI);
 							return;
 						}
@@ -1335,7 +1336,7 @@ class Processor {
 						temporaryVideoElement.crossOrigin = "anonymous";
 						const canvasElement = this.doc.createElement("canvas");
 						const context = canvasElement.getContext("2d");
-						this.options.doc.body.appendChild(temporaryVideoElement);
+						liveDoc.body.appendChild(temporaryVideoElement);
 						return new Promise(resolve => {
 							temporaryVideoElement.currentTime = videoData.currentTime;
 							temporaryVideoElement.oncanplay = () => {
