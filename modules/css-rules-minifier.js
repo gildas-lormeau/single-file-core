@@ -79,6 +79,8 @@ const SELECTOR_SUPPORTS_PREFIX = "selector(";
 const SELECTOR_SUPPORTS_SUFFIX = ")";
 const VENDOR_PREFIX = "-";
 const CUSTOM_PROPERTY_PREFIX = "--";
+// a custom property name in a value or a prelude, up to what ends a CSS identifier or a var() argument
+const CUSTOM_PROPERTY_NAME_TEST = /--[^\s,;:(){}'"!*+/\\]+/g;
 const LAYER_NAME_SEPARATOR = ".";
 const LAYER_NAME_KEY_SEPARATOR = "\u0000";
 const CONTEXT_KEY_SEPARATOR = "|";
@@ -150,10 +152,10 @@ function getValueValidity(property, value) {
 	return VALIDITY_UNKNOWN;
 }
 
-function process(doc, stylesheets) {
+function process(doc, stylesheets, styles) {
 	const docContext = {
 		doc,
-		stats: { processed: 0, discarded: 0 },
+		stats: { processed: 0, discarded: 0, discardedCustomProperties: 0 },
 		matchedElements: new Set(),
 		revertLayerElements: new Set(),
 		revertLayerRules: new WeakMap(),
@@ -182,6 +184,7 @@ function process(doc, stylesheets) {
 	collectLayerOrder(stylesheets, docContext);
 	minifyRules(stylesheets, docContext);
 	computeCascade(docContext);
+	removeUnusedCustomProperties(stylesheets, styles, docContext);
 	removeEmptyRules(stylesheets, docContext);
 	return docContext.stats;
 }
@@ -1346,6 +1349,98 @@ function compareLayerNames(layersA, layersB, docContext) {
 		}
 	}
 	return layersB.length - layersA.length;
+}
+
+// a custom property nothing reads is dead weight, and a url() in one is a fetch for nothing: linkedin.com
+// declares some 680 icons that way under :root, and the rules reading them were removed as unused above.
+// A name counts as read wherever it appears outside the property position: in the value of another
+// property, in a style attribute, in an at-rule prelude (@container style(), @property), in a stylesheet
+// of a shadow root, and transitively in the value of a custom property that is itself read
+function removeUnusedCustomProperties(stylesheets, styles, docContext) {
+	const usage = { references: new Set(), customValues: new Map(), removableDeclarations: [] };
+	stylesheets.forEach((stylesheetInfo, key) => {
+		if (stylesheetInfo.stylesheet && hasChildNodes(stylesheetInfo.stylesheet)) {
+			collectCustomPropertyUsage(stylesheetInfo.stylesheet.children, !stylesheetInfo.scoped && !key.urlNode, usage);
+		}
+	});
+	if (styles) {
+		styles.forEach(declarationList => {
+			if (hasChildNodes(declarationList)) {
+				collectCustomPropertyUsage(declarationList.children, false, usage);
+			}
+		});
+	}
+	// SVG presentation attributes take CSS values, var() included: linkedin.com switches its logos between
+	// the light and dark variants with display="var(--svgDisplayLight)" on their groups
+	docContext.doc.querySelectorAll("svg, svg *").forEach(element => {
+		for (const attribute of element.attributes) {
+			if (attribute.value.includes(VAR_FUNCTION_NAME + "(")) {
+				collectCustomPropertyNames(attribute.value, name => usage.references.add(name));
+			}
+		}
+	});
+	const pending = [...usage.references];
+	while (pending.length) {
+		const values = usage.customValues.get(pending.pop());
+		if (values) {
+			values.forEach(value => collectCustomPropertyNames(value, name => {
+				if (!usage.references.has(name)) {
+					usage.references.add(name);
+					pending.push(name);
+				}
+			}));
+		}
+	}
+	usage.removableDeclarations.forEach(({ name, item, list }) => {
+		if (!usage.references.has(name)) {
+			list.remove(item);
+			docContext.stats.discardedCustomProperties++;
+		}
+	});
+}
+
+function collectCustomPropertyUsage(nodes, removable, usage) {
+	for (let item = nodes.head; item; item = item.next) {
+		const data = item.data;
+		if (data.type === DECLARATION_TYPE) {
+			const valueText = data.value.type === RAW_TYPE ? data.value.value : cssTree.generate(data.value);
+			if (data.property.startsWith(CUSTOM_PROPERTY_PREFIX)) {
+				const name = decodeIdentifier(data.property);
+				let values = usage.customValues.get(name);
+				if (!values) {
+					values = [];
+					usage.customValues.set(name, values);
+				}
+				values.push(valueText);
+				if (removable) {
+					usage.removableDeclarations.push({ name, item, list: nodes });
+				}
+			} else {
+				collectCustomPropertyNames(valueText, name => usage.references.add(name));
+			}
+		} else if (isImportRule(data)) {
+			collectCustomPropertyUsage(data.prelude.children.head.data.importedChildren, removable, usage);
+		} else if (data.type === RULE_TYPE) {
+			if (hasChildNodes(data.block)) {
+				collectCustomPropertyUsage(data.block.children, removable, usage);
+			}
+		} else if (data.type === AT_RULE_TYPE) {
+			if (data.prelude) {
+				collectCustomPropertyNames(cssTree.generate(data.prelude), name => usage.references.add(name));
+			}
+			if (hasChildNodes(data.block)) {
+				collectCustomPropertyUsage(data.block.children, removable && decodeName(data.name) !== KEYFRAMES_NAME, usage);
+			}
+		}
+	}
+}
+
+function collectCustomPropertyNames(text, callback) {
+	if (text.includes(CUSTOM_PROPERTY_PREFIX)) {
+		for (const match of text.matchAll(CUSTOM_PROPERTY_NAME_TEST)) {
+			callback(decodeIdentifier(match[0]));
+		}
+	}
 }
 
 function removeStylesheetEmptyRules(cssRules, docContext) {

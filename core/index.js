@@ -1657,9 +1657,10 @@ class Processor {
 	}
 
 	removeUnusedStyles() {
-		const stats = util.minifyCSSRules(this.doc, this.stylesheets);
+		const stats = util.minifyCSSRules(this.doc, this.stylesheets, this.styles);
 		this.stats.set("processed", "CSS rules", stats.processed);
 		this.stats.set("discarded", "CSS rules", stats.discarded);
+		this.stats.set("discarded", "custom properties", stats.discardedCustomProperties);
 	}
 
 	removeUnusedFonts() {

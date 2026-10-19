@@ -176,8 +176,8 @@ function getInstance(utilOptions) {
 		minifyHTML(doc, options) {
 			return modules.htmlMinifier.process(doc, options);
 		},
-		minifyCSSRules(doc, stylesheets) {
-			return modules.cssRulesMinifier.process(doc, stylesheets);
+		minifyCSSRules(doc, stylesheets, styles) {
+			return modules.cssRulesMinifier.process(doc, stylesheets, styles);
 		},
 		removeUnusedFonts(doc, stylesheets, styles, options) {
 			return modules.fontsMinifier.process(doc, stylesheets, styles, options);
