@@ -82,6 +82,7 @@ const MANIFEST_OUTCOME_OVERSIZED = "oversized";
 const MANIFEST_FETCHED_BY_PAGE = "page";
 const MANIFEST_FETCHED_BY_FRAME = "frame";
 const MANIFEST_HEADER_NAMES = ["date", "last-modified", "etag", "content-length", "content-encoding", "cache-control", "age", "expires", "server"];
+const MIN_SERVER_ERROR_STATUS = 500;
 
 const URL = globalThis.URL;
 const DOMParser = globalThis.DOMParser;
@@ -95,7 +96,7 @@ export {
 
 function getInstance(utilOptions) {
 	utilOptions = utilOptions || {};
-	utilOptions.fetch = utilOptions.fetch || ((url, options) => globalThis.fetch(url, { ...options, cache: "force-cache", referrerPolicy: "strict-origin-when-cross-origin" }));
+	utilOptions.fetch = utilOptions.fetch || ((url, options) => globalThis.fetch(url, { ...options, cache: options.cache || "force-cache", referrerPolicy: "strict-origin-when-cross-origin" }));
 	utilOptions.frameFetch = utilOptions.frameFetch || utilOptions.fetch;
 	return {
 		getDoctypeString,
@@ -287,28 +288,32 @@ function getInstance(utilOptions) {
 				resolveNetworkTimeoutPromise = resolve;
 			});
 		}
+		const fetchWithRetry = async (fetchFunction, fetchOptions) => {
+			let response = await Promise.race([fetchFunction(resourceURL, fetchOptions), networkTimeoutPromise]);
+			if (response.status >= MIN_SERVER_ERROR_STATUS) {
+				try {
+					response = await Promise.race([fetchFunction(resourceURL, { ...fetchOptions, cache: "reload" }), networkTimeoutPromise]);
+					// eslint-disable-next-line no-unused-vars
+				} catch (error) {
+					// the stored error stands when the network cannot do better
+				}
+			}
+			return response;
+		};
 		try {
-			const accept = (options.acceptHeaders && options.acceptHeaders[options.expectedType]) || "*/*";
+			const accept =(options.acceptHeaders && options.acceptHeaders[options.expectedType]) || "*/*";
+			const fetchOptions = { referrer: options.resourceReferrer, referrerPolicy: options.referrerPolicy || undefined, stylesheetURL: options.stylesheetURL || undefined, stylesheetReferrerPolicy: options.stylesheetReferrerPolicy || undefined, headers: { accept } };
 			if (options.frameId) {
 				try {
-					response = await Promise.race([
-						fetchFrameResource(resourceURL, { frameId: options.frameId, referrer: options.resourceReferrer, referrerPolicy: options.referrerPolicy || undefined, stylesheetURL: options.stylesheetURL || undefined, stylesheetReferrerPolicy: options.stylesheetReferrerPolicy || undefined, headers: { accept } }),
-						networkTimeoutPromise
-					]);
+					response = await fetchWithRetry(fetchFrameResource, { frameId: options.frameId, ...fetchOptions });
 					setManifestResponse(entry, response, MANIFEST_FETCHED_BY_FRAME);
 					// eslint-disable-next-line no-unused-vars
 				} catch (error) {
-					response = await Promise.race([
-						fetchResource(resourceURL, { referrer: options.resourceReferrer, referrerPolicy: options.referrerPolicy || undefined, stylesheetURL: options.stylesheetURL || undefined, stylesheetReferrerPolicy: options.stylesheetReferrerPolicy || undefined, headers: { accept } }),
-						networkTimeoutPromise
-					]);
+					response = await fetchWithRetry(fetchResource, fetchOptions);
 					setManifestResponse(entry, response, MANIFEST_FETCHED_BY_PAGE);
 				}
 			} else {
-				response = await Promise.race([
-					fetchResource(resourceURL, { referrer: options.resourceReferrer, referrerPolicy: options.referrerPolicy || undefined, stylesheetURL: options.stylesheetURL || undefined, stylesheetReferrerPolicy: options.stylesheetReferrerPolicy || undefined, headers: { accept } }),
-					networkTimeoutPromise
-				]);
+				response = await fetchWithRetry(fetchResource, fetchOptions);
 				setManifestResponse(entry, response, MANIFEST_FETCHED_BY_PAGE);
 			}
 		} catch (error) {
