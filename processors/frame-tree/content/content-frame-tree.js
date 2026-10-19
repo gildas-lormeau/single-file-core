@@ -26,6 +26,7 @@ import {
 	ON_BEFORE_CAPTURE_EVENT_NAME,
 	ON_AFTER_CAPTURE_EVENT_NAME,
 	WIN_ID_ATTRIBUTE_NAME,
+	HIDDEN_FRAME_ATTRIBUTE_NAME,
 	WAIT_FOR_USERSCRIPT_PROPERTY_NAME,
 	MESSAGE_PREFIX,
 	preProcessDoc,
@@ -39,6 +40,7 @@ const helper = {
 	ON_BEFORE_CAPTURE_EVENT_NAME,
 	ON_AFTER_CAPTURE_EVENT_NAME,
 	WIN_ID_ATTRIBUTE_NAME,
+	HIDDEN_FRAME_ATTRIBUTE_NAME,
 	WAIT_FOR_USERSCRIPT_PROPERTY_NAME,
 	preProcessDoc,
 	serialize,
@@ -303,6 +305,7 @@ function initResponse(message) {
 }
 function processFrames(doc, options, parentWindowId, sessionId, waitForFrames) {
 	const frameElements = getFrames(doc);
+	markHiddenFrames(frameElements, options);
 	processFramesAsync(doc, frameElements, options, parentWindowId, sessionId, waitForFrames);
 	if (frameElements.length) {
 		processFramesSync(doc, frameElements, options, parentWindowId, sessionId, waitForFrames);
@@ -319,12 +322,18 @@ function processFramesAsync(doc, frameElements, options, parentWindowId, session
 		sessions.set(sessionId, { requestTimeouts });
 	}
 	frameElements.forEach((frameElement, frameIndex) => {
+		if (isHiddenFrame(frameElement)) {
+			return;
+		}
 		const windowId = parentWindowId + WINDOW_ID_SEPARATOR + frameIndex;
 		frameElement.setAttribute(helper.WIN_ID_ATTRIBUTE_NAME, windowId);
 		frames.push({ windowId });
 	});
 	sendInitResponse({ frames, sessionId, requestedFrameId: doc.documentElement.dataset.requestedFrameId && parentWindowId });
 	frameElements.forEach((frameElement, frameIndex) => {
+		if (isHiddenFrame(frameElement)) {
+			return;
+		}
 		const windowId = parentWindowId + WINDOW_ID_SEPARATOR + frameIndex;
 		try {
 			sendMessage(frameElement.contentWindow, { method: INIT_REQUEST_MESSAGE, windowId, sessionId, options: RUNTIME_MESSAGING ? undefined : options, scrolling: frameElement.scrolling, waitForFrames });
@@ -341,6 +350,9 @@ function processFramesAsync(doc, frameElements, options, parentWindowId, session
 function processFramesSync(doc, frameElements, options, parentWindowId, sessionId, waitForFrames) {
 	const frames = [];
 	frameElements.forEach((frameElement, frameIndex) => {
+		if (isHiddenFrame(frameElement)) {
+			return;
+		}
 		const windowId = parentWindowId + WINDOW_ID_SEPARATOR + frameIndex;
 		let frameDoc, frameWindow;
 		try {
@@ -430,6 +442,7 @@ function cleanupFrames(frameElements, parentWindowId, sessionId) {
 	frameElements.forEach((frameElement, frameIndex) => {
 		const windowId = parentWindowId + WINDOW_ID_SEPARATOR + frameIndex;
 		frameElement.removeAttribute(helper.WIN_ID_ATTRIBUTE_NAME);
+		frameElement.removeAttribute(helper.HIDDEN_FRAME_ATTRIBUTE_NAME);
 		try {
 			sendMessage(frameElement.contentWindow, { method: CLEANUP_REQUEST_MESSAGE, windowId, sessionId });
 			// eslint-disable-next-line no-unused-vars
@@ -519,4 +532,39 @@ function getFrames(document) {
 		}
 	});
 	return frames;
+}
+
+// hidden frames are marked and left out of the tree: their content is dropped anyway when hidden
+// elements are removed, and each one would otherwise cost up to the ack timeout; the frames keep
+// their index in the list, which is what the cleanup numbers them by
+function markHiddenFrames(frameElements, options) {
+	frameElements.forEach(frameElement => {
+		if (options.removeHiddenElements && testHiddenFrame(frameElement)) {
+			frameElement.setAttribute(helper.HIDDEN_FRAME_ATTRIBUTE_NAME, "");
+		} else {
+			frameElement.removeAttribute(helper.HIDDEN_FRAME_ATTRIBUTE_NAME);
+		}
+	});
+}
+
+function isHiddenFrame(frameElement) {
+	return frameElement.getAttribute(helper.HIDDEN_FRAME_ATTRIBUTE_NAME) == "";
+}
+
+// a frame is a replaced element: nothing in it can overflow its box, and its document cannot undo
+// the visibility set on the element, so a frame with no box or not painted shows nothing, whatever it
+// holds; an opacity of 0 is left alone, it is how an embed fades in once loaded
+function testHiddenFrame(frameElement) {
+	try {
+		const win = frameElement.ownerDocument.defaultView;
+		const computedStyle = win.getComputedStyle(frameElement);
+		if (computedStyle.getPropertyValue("display") == "none" || computedStyle.getPropertyValue("visibility") == "hidden") {
+			return true;
+		}
+		const boundingRect = frameElement.getBoundingClientRect();
+		return !boundingRect.width && !boundingRect.height;
+		// eslint-disable-next-line no-unused-vars
+	} catch (error) {
+		return false;
+	}
 }

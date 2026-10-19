@@ -1011,12 +1011,6 @@ function getResourcesInfo(win, doc, element, options, data, elementHidden, compu
 			}
 		}
 	}
-	if (tagName == "IFRAME") {
-		if (elementHidden && options.removeHiddenElements) {
-			element.setAttribute(HIDDEN_FRAME_ATTRIBUTE_NAME, "");
-			data.markedElements.push(element);
-		}
-	}
 	if (tagName == "INPUT") {
 		if (element.type != "password") {
 			element.setAttribute(INPUT_VALUE_ATTRIBUTE_NAME, element.value);
@@ -1198,8 +1192,7 @@ function testHiddenElement(element, computedStyle) {
 		const display = computedStyle.getPropertyValue("display");
 		const opacity = computedStyle.getPropertyValue("opacity");
 		const visibility = computedStyle.getPropertyValue("visibility");
-		const tagName = element.tagName && element.tagName.toUpperCase();
-		hidden = display == "none" || (visibility == "hidden" && tagName == "IFRAME");
+		hidden = display == "none";
 		if (!hidden && (opacity == "0" || visibility == "hidden") && element.getBoundingClientRect) {
 			const boundingRect = element.getBoundingClientRect();
 			hidden = !boundingRect.width && !boundingRect.height;

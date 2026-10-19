@@ -1770,6 +1770,8 @@ class Processor {
 							this.stats.add("discarded", "frames", 1);
 						}
 					}
+				} else if (frameElement.getAttribute(util.HIDDEN_FRAME_ATTRIBUTE_NAME) == "") {
+					this.stats.add("discarded", "frames", 1);
 				}
 			}));
 			capturedFrames.forEach(capturedFrame => {
