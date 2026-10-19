@@ -399,6 +399,7 @@ class ProcessorHelperCommon {
 	}
 
 	resolveStylesheetURLs(stylesheet, baseURI, workStylesheet, stylesheetReferrer, stylesheetReferrers) {
+		recoverFontFaceSources(stylesheet);
 		const urls = getUrlFunctions(stylesheet);
 		urls.map(urlNode => {
 			const originalResourceURL = urlNode.value;
@@ -783,6 +784,61 @@ function removeFontFaceRules(cssRules) {
 
 function getUrlFunctions(declarationList) {
 	return cssTree.findAll(declarationList, node => node.type == "Url");
+}
+
+function recoverFontFaceSources(stylesheet) {
+	cssTree.walk(stylesheet, {
+		visit: "Atrule",
+		enter(ruleData) {
+			if (decodeName(ruleData.name) == "font-face" && ruleData.block && ruleData.block.children) {
+				ruleData.block.children.forEach(declaration => {
+					if (declaration.type == "Declaration" && declaration.property == "src" && declaration.value && declaration.value.type == "Raw") {
+						const sources = splitFontSources(declaration.value.value).map(parseFontSource).filter(Boolean);
+						if (sources.length) {
+							const children = new cssTree.List();
+							sources.forEach((source, index) => {
+								if (index) {
+									children.push({ type: "Operator", value: "," });
+								}
+								source.children.forEach(child => children.push(child));
+							});
+							declaration.value = { type: "Value", children };
+						}
+					}
+				});
+			}
+		}
+	});
+}
+
+function splitFontSources(value) {
+	const { Function, LeftParenthesis, LeftSquareBracket, LeftCurlyBracket, RightParenthesis, RightSquareBracket, RightCurlyBracket, Comma } = cssTree.tokenTypes;
+	const sources = [];
+	let depth = 0, start = 0;
+	cssTree.tokenize(value, (type, tokenStart, tokenEnd) => {
+		if (type == Function || type == LeftParenthesis || type == LeftSquareBracket || type == LeftCurlyBracket) {
+			depth++;
+		} else if (type == RightParenthesis || type == RightSquareBracket || type == RightCurlyBracket) {
+			depth = Math.max(0, depth - 1);
+		} else if (type == Comma && !depth) {
+			sources.push(value.substring(start, tokenStart));
+			start = tokenEnd;
+		}
+	});
+	sources.push(value.substring(start));
+	return sources;
+}
+
+function parseFontSource(source) {
+	try {
+		const value = cssTree.parse(source, { context: "value" });
+		if (cssTree.find(value, node => node.type == "Url" || (node.type == "Function" && node.name.toLowerCase() == "local"))) {
+			return value;
+		}
+		// eslint-disable-next-line no-unused-vars
+	} catch (error) {
+		// ignored
+	}
 }
 
 function getImportFunctions(declarationList) {
