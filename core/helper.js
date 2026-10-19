@@ -107,6 +107,27 @@ const TEXT_NODE_TYPE = 3;
 const REGEXP_QUOTED_STRING = /"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'/g;
 const REGEXP_GENERATED_CONTENT_IMAGE = /(url|image-set|-webkit-image-set|linear-gradient|radial-gradient|conic-gradient)\([^)]*\)/g;
 const REGEXP_BACKSLASH = /\\/;
+const REGEXP_TEXT_TRANSFORM_SEPARATOR = /\s+/;
+const MARKER_SUFFIX = ". ";
+const COUNTER_STYLE_CHARACTERS = {
+	"none": "",
+	"disc": "",
+	"circle": "",
+	"square": "",
+	"disclosure-open": "",
+	"disclosure-closed": "",
+	"decimal": "0123456789",
+	"decimal-leading-zero": "0123456789",
+	"lower-alpha": "abcdefghijklmnopqrstuvwxyz",
+	"lower-latin": "abcdefghijklmnopqrstuvwxyz",
+	"upper-alpha": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+	"upper-latin": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+	"lower-roman": "ivxlcdm",
+	"upper-roman": "IVXLCDM",
+	"lower-greek": "αβγδεζηθικλμνξοπρστυφχψω"
+};
+const FULL_WIDTH_OFFSET = 0xFEE0;
+const FULL_WIDTH_SPACE = "　";
 const SINGLE_FILE_UI_ELEMENT_CLASS = "single-file-ui-element";
 const INFOBAR_TAGNAME = infobar.INFOBAR_TAGNAME;
 const EMPTY_RESOURCE = "data:,";
@@ -179,6 +200,9 @@ const FileReader = globalThis.FileReader;
 
 export {
 	initUserScriptHandler,
+	getElementCharacters,
+	getPseudoElementCharacters,
+	getMarkerCharacters,
 	initDoc,
 	preProcessDoc,
 	postProcessDoc,
@@ -800,16 +824,17 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 						}
 					}
 					if (options.removeUnusedFonts && doc.defaultView && !headChild) {
-						const elementCharacters = getElementCharacters(win, element);
+						const elementCharacters = getElementCharacters(win, element, computedStyle);
 						getUsedFont(computedStyle, data.usedFonts, data.usedFontsCharacters, elementCharacters);
 						const beforeStyle = getComputedStyle(win, element, ":before");
-						getUsedFont(beforeStyle, data.usedFonts, data.usedFontsCharacters, getPseudoElementCharacters(beforeStyle));
+						getUsedFont(beforeStyle, data.usedFonts, data.usedFontsCharacters, getPseudoElementCharacters(beforeStyle, element));
 						const afterStyle = getComputedStyle(win, element, ":after");
-						getUsedFont(afterStyle, data.usedFonts, data.usedFontsCharacters, getPseudoElementCharacters(afterStyle));
+						getUsedFont(afterStyle, data.usedFonts, data.usedFontsCharacters, getPseudoElementCharacters(afterStyle, element));
 						const display = computedStyle ? computedStyle.getPropertyValue("display") : "";
 						const tagName = element.tagName.toUpperCase();
 						if (display == "list-item") {
-							getUsedFont(getComputedStyle(win, element, "::marker"), data.usedFonts);
+							const markerStyle = getComputedStyle(win, element, "::marker");
+							getUsedFont(markerStyle, data.usedFonts, data.usedFontsCharacters, getMarkerCharacters(markerStyle, computedStyle, element));
 						}
 						if (BLOCK_CONTAINER_DISPLAY_VALUES.includes(display)) {
 							getUsedFont(getComputedStyle(win, element, ":first-letter"), data.usedFonts, data.usedFontsCharacters, elementCharacters);
@@ -1076,7 +1101,7 @@ function addUsedFontCharacters(usedFontsCharacters, fontFamilyName, fontStyle, d
 	}
 }
 
-function getElementCharacters(win, element) {
+function getElementCharacters(win, element, computedStyle) {
 	let characters = "";
 	const tagName = element.tagName && element.tagName.toUpperCase();
 	if (tagName == "INPUT" || tagName == "TEXTAREA" || tagName == "BUTTON") {
@@ -1093,7 +1118,72 @@ function getElementCharacters(win, element) {
 			}
 		});
 	}
-	return { characters };
+	return transformCharacters({ characters }, computedStyle, element);
+}
+
+function getMarkerCharacters(markerStyle, computedStyle, element) {
+	const content = markerStyle && markerStyle.getPropertyValue("content");
+	if (content == "none") {
+		return { characters: "" };
+	}
+	if (content && content != "normal") {
+		return getPseudoElementCharacters(markerStyle, element);
+	}
+	const listStyleType = computedStyle ? computedStyle.getPropertyValue("list-style-type").trim() : "";
+	if (Object.prototype.hasOwnProperty.call(COUNTER_STYLE_CHARACTERS, listStyleType)) {
+		const characters = COUNTER_STYLE_CHARACTERS[listStyleType];
+		return transformCharacters({ characters: characters ? characters + MARKER_SUFFIX : "" }, markerStyle || computedStyle, element);
+	}
+	REGEXP_QUOTED_STRING.lastIndex = 0;
+	const match = REGEXP_QUOTED_STRING.exec(listStyleType);
+	if (match && match[0] == listStyleType) {
+		const characters = match[1] === undefined ? match[2] : match[1];
+		return transformCharacters({ characters, unknown: REGEXP_BACKSLASH.test(characters) }, markerStyle || computedStyle, element);
+	}
+	return { characters: "", unknown: true };
+}
+
+function transformCharacters(drawnCharacters, computedStyle, element) {
+	const textTransform = computedStyle && computedStyle.getPropertyValue("text-transform");
+	if (!textTransform || textTransform == "none" || !drawnCharacters.characters) {
+		return drawnCharacters;
+	}
+	const sourceCharacters = drawnCharacters.characters;
+	let characters = sourceCharacters, unknown = drawnCharacters.unknown;
+	const langElement = element && element.closest && element.closest("[lang]");
+	const lang = langElement && langElement.getAttribute("lang");
+	textTransform.trim().split(REGEXP_TEXT_TRANSFORM_SEPARATOR).forEach(value => {
+		try {
+			if (value == "uppercase" || value == "capitalize") {
+				characters += sourceCharacters.toUpperCase() + (lang ? sourceCharacters.toLocaleUpperCase(lang) : "");
+			} else if (value == "lowercase") {
+				characters += sourceCharacters.toLowerCase() + (lang ? sourceCharacters.toLocaleLowerCase(lang) : "");
+			} else if (value == "full-width") {
+				characters += getFullWidthCharacters(sourceCharacters);
+			} else {
+				unknown = true;
+			}
+			// eslint-disable-next-line no-unused-vars
+		} catch (error) {
+			unknown = true;
+		}
+	});
+	return { characters, unknown };
+}
+
+function getFullWidthCharacters(characters) {
+	let result = "";
+	for (const character of characters) {
+		const codePoint = character.codePointAt(0);
+		if (codePoint == 0x20) {
+			result += FULL_WIDTH_SPACE;
+		} else if (codePoint > 0x20 && codePoint < 0x7F) {
+			result += String.fromCodePoint(codePoint + FULL_WIDTH_OFFSET);
+		} else {
+			result += character;
+		}
+	}
+	return result;
 }
 
 // getElementsInfo iterates the children of the element it is given, so the root is never visited.
@@ -1105,14 +1195,14 @@ function getElementCharacters(win, element) {
 function getRootElementUsedFonts(win, element, data) {
 	ROOT_PSEUDO_ELEMENT_NAMES.forEach(pseudoElementName => {
 		const computedStyle = getComputedStyle(win, element, pseudoElementName);
-		const drawnCharacters = getPseudoElementCharacters(computedStyle);
+		const drawnCharacters = getPseudoElementCharacters(computedStyle, element);
 		if (drawnCharacters.characters || drawnCharacters.unknown) {
 			getUsedFont(computedStyle, data.usedFonts, data.usedFontsCharacters, drawnCharacters);
 		}
 	});
 }
 
-function getPseudoElementCharacters(computedStyle) {
+function getPseudoElementCharacters(computedStyle, element) {
 	const content = computedStyle && computedStyle.getPropertyValue("content");
 	if (!content || content == "none" || content == "normal") {
 		return { characters: "" };
@@ -1128,7 +1218,7 @@ function getPseudoElementCharacters(computedStyle) {
 		.replace(REGEXP_QUOTED_STRING, "")
 		.replace(REGEXP_GENERATED_CONTENT_IMAGE, "")
 		.trim();
-	return { characters, unknown: Boolean(remainder) || REGEXP_BACKSLASH.test(characters) };
+	return transformCharacters({ characters, unknown: Boolean(remainder) || REGEXP_BACKSLASH.test(characters) }, computedStyle, element);
 }
 
 function serializeUsedFontsCharacters(usedFontsCharacters) {
