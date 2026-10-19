@@ -342,6 +342,41 @@ class Runner {
 // ------------
 // BatchRequest
 // ------------
+// what browsers allow per host over HTTP/1.1: HTTP/2 and HTTP/3 let a batch leave at once, and a rate
+// limiter in front of the site counts requests (linkedin.com answered 429 to 244 of 800 icons)
+const DEFAULT_MAX_PARALLEL_REQUESTS_PER_HOST = 6;
+
+// resolves with the function that frees the slot; a data: URL has no host and never waits
+function acquireHostSlot(hostSlots, resourceURL, maxParallelRequests) {
+	let host;
+	try {
+		host = maxParallelRequests > 0 && new URL(resourceURL).host;
+	} catch {
+		// an unparsable URL fails in the fetch, not here
+	}
+	if (!host) {
+		return Promise.resolve(() => { });
+	}
+	let slot = hostSlots.get(host);
+	if (!slot) {
+		slot = { active: 0, waiting: [] };
+		hostSlots.set(host, slot);
+	}
+	const release = () => {
+		const next = slot.waiting.shift();
+		if (next) {
+			next(release);
+		} else {
+			slot.active--;
+		}
+	};
+	if (slot.active < maxParallelRequests) {
+		slot.active++;
+		return Promise.resolve(release);
+	}
+	return new Promise(resolve => slot.waiting.push(resolve));
+}
+
 class BatchRequest {
 	constructor() {
 		this.requests = new Map();
@@ -383,30 +418,38 @@ class BatchRequest {
 		this.running = true;
 		const resourceURLs = [...this.requests.keys()];
 		let indexResource = 0;
+		const hostSlots = new Map();
+		const maxParallelRequests = options.maxParallelRequestsPerHost === undefined ? DEFAULT_MAX_PARALLEL_REQUESTS_PER_HOST : options.maxParallelRequestsPerHost;
 		return Promise.all(resourceURLs.map(async requestKey => {
 			const [resourceURL, asBinary, expectedType, baseURI, blockMixedContent, contentType, referrerPolicy, stylesheetURL, stylesheetReferrerPolicy] = JSON.parse(requestKey);
 			const resourceRequests = this.requests.get(requestKey);
 			try {
 				const currentIndexResource = indexResource;
 				indexResource = indexResource + 1;
-				const content = await util.getContent(resourceURL, {
-					asBinary,
-					inline: !options.compressContent,
-					expectedType,
-					contentType,
-					maxResourceSize: options.maxResourceSize,
-					maxResourceSizeEnabled: options.maxResourceSizeEnabled,
-					frameId: options.windowId,
-					resourceReferrer: options.resourceReferrer,
-					referrerPolicy,
-					stylesheetURL,
-					stylesheetReferrerPolicy,
-					baseURI,
-					blockMixedContent,
-					acceptHeaders: options.acceptHeaders,
-					networkTimeout: options.networkTimeout,
-					manifestEntries: options.manifestEntries
-				});
+				const release = await acquireHostSlot(hostSlots, resourceURL, maxParallelRequests);
+				let content;
+				try {
+					content = await util.getContent(resourceURL, {
+						asBinary,
+						inline: !options.compressContent,
+						expectedType,
+						contentType,
+						maxResourceSize: options.maxResourceSize,
+						maxResourceSizeEnabled: options.maxResourceSizeEnabled,
+						frameId: options.windowId,
+						resourceReferrer: options.resourceReferrer,
+						referrerPolicy,
+						stylesheetURL,
+						stylesheetReferrerPolicy,
+						baseURI,
+						blockMixedContent,
+						acceptHeaders: options.acceptHeaders,
+						networkTimeout: options.networkTimeout,
+						manifestEntries: options.manifestEntries
+					});
+				} finally {
+					release();
+				}
 				if (content.manifestEntry) {
 					content.manifestEntry.references = resourceRequests.length;
 				}
