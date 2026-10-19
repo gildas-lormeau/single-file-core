@@ -126,6 +126,8 @@ const COUNTER_STYLE_CHARACTERS = {
 	"upper-roman": "IVXLCDM",
 	"lower-greek": "αβγδεζηθικλμνξοπρστυφχψω"
 };
+const REGEXP_INFINITE_FEATURE_VALUE = /(\(\s*[a-z-]+\s*(?::|<=?|>=?|=)\s*)(-?)infinity\s*\*\s*1([a-z%]+)/gi;
+const MAX_FINITE_FEATURE_VALUE = "3.40282e38";
 const FULL_WIDTH_OFFSET = 0xFEE0;
 const FULL_WIDTH_SPACE = "　";
 const SINGLE_FILE_UI_ELEMENT_CLASS = "single-file-ui-element";
@@ -203,6 +205,7 @@ export {
 	getElementCharacters,
 	getPseudoElementCharacters,
 	getMarkerCharacters,
+	normalizeSerializedCSSText,
 	initDoc,
 	preProcessDoc,
 	postProcessDoc,
@@ -926,7 +929,7 @@ function getStylesheetsContent(styleSheets, adoptedStyleSheetsCache = new Map())
 				let cssText = "";
 				if (styleSheet && styleSheet.cssRules) {
 					for (const cssRule of styleSheet.cssRules) {
-						cssText += cssRule.cssText + "\n";
+						cssText += getSerializedCSSText(cssRule) + "\n";
 					}
 				}
 				adoptedStyleSheetsCache.set(styleSheet, cssText);
@@ -1343,6 +1346,14 @@ function markLinkStylesheets(doc, markedElements) {
 	return linkElements;
 }
 
+function getSerializedCSSText(cssRule) {
+	return normalizeSerializedCSSText(cssRule.cssText);
+}
+
+function normalizeSerializedCSSText(cssText) {
+	return cssText.replace(REGEXP_INFINITE_FEATURE_VALUE, "$1$2" + MAX_FINITE_FEATURE_VALUE + "$3");
+}
+
 function getStylesheetsData(doc, markedElements) {
 	if (doc) {
 		const contents = [];
@@ -1359,7 +1370,7 @@ function getStylesheetsData(doc, markedElements) {
 					if (!stylesheet || textContentStylesheet != sheetStylesheet) {
 						styleElement.setAttribute(STYLESHEET_ATTRIBUTE_NAME, styleIndex);
 						markedElements.push(styleElement);
-						contents[styleIndex] = Array.from(styleElement.sheet.cssRules).map(cssRule => cssRule.cssText).join("\n");
+						contents[styleIndex] = Array.from(styleElement.sheet.cssRules).map(getSerializedCSSText).join("\n");
 					}
 				}
 				// eslint-disable-next-line no-unused-vars
