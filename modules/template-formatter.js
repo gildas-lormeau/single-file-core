@@ -16877,6 +16877,7 @@ async function formatFilename(content, doc, options) {
 	}
 	const { filenameReplacementCharacter, filenameReplacedCharacters, filenameReplacementCharacters } = options;
 	filename = getValidFilename(filename, filenameReplacedCharacters, filenameReplacementCharacter, filenameReplacementCharacters);
+	filename = filename.replace(/\s+/g, " ");
 	if (!options.backgroundSave) {
 		filename = filename.replace(/\//g, filenameReplacementCharacter);
 	}
