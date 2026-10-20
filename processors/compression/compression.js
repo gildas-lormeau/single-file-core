@@ -49,6 +49,8 @@ const COMPRESSIBLE_CONTENT_TYPES = ["application/javascript", "application/x-jav
 const TEXT_CONTENT_TYPE_PREFIX = "text/";
 const NO_COMPRESSION_EXTENSIONS = [".jpg", ".jpeg", ".png", ".apng", ".gif", ".webp", ".avif", ".heif", ".heic", ".jxl", ".pdf", ".woff", ".woff2", ".mp4", ".webm", ".avi", ".mpeg", ".mov", ".ts", ".ogv", ".mp3", ".ogg", ".oga", ".weba", ".m4a", ".aac", ".opus", ".flac"];
 const SCRIPT_PATH = "/lib/single-file-zip.min.js";
+const DEFAULT_ZIP_WORKER_URI = "/lib/single-file-z-worker.js";
+const ZIP_WORKER_STARTUP_TIMEOUT = 2000;
 const EXTRA_DATA_TAGS = [
 	["<script type=sfz-data>", "</script>"],
 	["<style type=sfz-data>", "</style>"],
@@ -128,25 +130,32 @@ const PROCESS_OPTION_NAMES = [
 	"preventAppendedData",
 	"selfExtractingArchive",
 	"url",
-	"zipScript"
+	"zipScript",
+	"zipWorkerURI"
 ];
 
 export {
 	process,
 	createArchive,
+	configureZipWorker,
 	escapeHTML,
 	PROCESS_OPTION_NAMES,
-	DEFAULT_MAX_APPENDED_DATA_LENGTH
+	DEFAULT_MAX_APPENDED_DATA_LENGTH,
+	DEFAULT_ZIP_WORKER_URI
 };
+
+function configureZipWorker(options) {
+	const configuration = browser && browser.runtime && browser.runtime.getURL
+		? { workerURI: options.zipWorkerURI || DEFAULT_ZIP_WORKER_URI, workerStartupTimeout: ZIP_WORKER_STARTUP_TIMEOUT }
+		: { useWebWorkers: false };
+	configure(configuration);
+	return configuration;
+}
 
 async function process(pageData, options, lastModDate = new Date()) {
 	let script;
 	const extensionContext = Boolean(browser && browser.runtime && browser.runtime.getURL);
-	if (extensionContext) {
-		configure({ workerURI: "/lib/single-file-z-worker.js" });
-	} else {
-		configure({ useWebWorkers: false });
-	}
+	configureZipWorker(options);
 	if (options.zipScript) {
 		script = options.zipScript;
 	} else if (extensionContext) {
