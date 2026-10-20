@@ -38,12 +38,12 @@ function getValidFilename(filename, replacedCharacters = DEFAULT_REPLACED_CHARAC
 		if (indexReplacementCharacter && replacedCharacters[index] !== undefined && indexReplacementCharacter != replacedCharacters[index]) {
 			// no "+" here, unlike the fallback below: a lookalike replaces its character one for
 			// one, so collapsing a run would drop characters the name needs ("C++" -> "C＋")
-			filename = filename.replace(new RegExp("[" + getCharacterClassContent(replacedCharacters[index]) + "]", "g"), indexReplacementCharacter);
+			filename = filename.replace(getCharacterClassRegExp(replacedCharacters[index], ""), indexReplacementCharacter);
 		}
 	});
 	replacedCharacters.forEach((replacedCharacter, index) => {
 		if (!replacementCharacters[index]) {
-			filename = filename.replace(new RegExp("[" + getCharacterClassContent(replacedCharacter) + "]+", "g"), replacementCharacter);
+			filename = filename.replace(getCharacterClassRegExp(replacedCharacter, "+"), replacementCharacter);
 		}
 	});
 	filename = filename
@@ -55,6 +55,15 @@ function getValidFilename(filename, replacedCharacters = DEFAULT_REPLACED_CHARAC
 		.replace(/\.\//g, "." + replacementCharacter)
 		.replace(/\/\./g, "/" + replacementCharacter);
 	return filename;
+}
+
+function getCharacterClassRegExp(characters, quantifier) {
+	const pattern = "[" + getCharacterClassContent(characters) + "]" + quantifier;
+	try {
+		return new RegExp(pattern, "gu");
+	} catch {
+		return new RegExp(pattern, "g");
+	}
 }
 
 function getCharacterClassContent(characters) {
