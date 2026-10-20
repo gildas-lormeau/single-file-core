@@ -17010,6 +17010,7 @@ async function evalTemplate(template = "", options, content, doc, context = {}) 
 		"lowercase": value => value.toLowerCase(),
 		"uppercase": value => value.toUpperCase(),
 		"capitalize": value => value.charAt(0).toUpperCase() + value.slice(1),
+		"titlecase": value => value.replace(/(^|[^\p{L}\p{N}'’])(\p{L})/gu, (match, separator, letter) => separator + letter.toUpperCase()),
 		"replace": (value, searchValue, replaceValue) => searchValue && replaceValue ? replaceAll(value, searchValue, replaceValue) : value,
 		"trim": value => value.trim(),
 		"trim-left": value => value.trimLeft(),
