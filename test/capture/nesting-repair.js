@@ -142,6 +142,24 @@ let failed = false;
 	check("and no copy is left", doc.querySelectorAll("#outer").length, 1);
 }
 
+// Text between displaced siblings goes back with them. Lingualeo builds a sentence as `<div>` blocks
+// inside a `<p>`, one per word, separated by space text nodes (SingleFile#1935). The parser closes
+// the paragraph at the first block and leaves the words and their spaces as siblings after it; the
+// repair used to put only the elements back, so the spaces stayed outside and the saved page read
+// "SometimesIeatpizzaforlunch.". A space is moved only when the next element is a displaced sibling
+// of the same paragraph: text after the last word belongs to whatever follows and stays where it is.
+{
+	const words = `<p id="para" ${TRACK}="1.1"></p><div id="w1" ${TRACK}="1.1.1">Sometimes</div> <div id="w2" ${TRACK}="1.1.2">I</div> ` +
+		`<span id="w3" ${TRACK}="1.1.3">eat</span> <div id="w4" ${TRACK}="1.1.4">pizza</div> after`;
+	const repaired = `<p id="para" ${TRACK}="1.1"><div id="w1" ${TRACK}="1.1.1">Sometimes</div> <div id="w2" ${TRACK}="1.1.2">I</div> ` +
+		`<span id="w3" ${TRACK}="1.1.3">eat</span> <div id="w4" ${TRACK}="1.1.4">pizza</div></p> after`;
+	const content = await captureBody(words + INVENTED);
+	check("the spaces between the words are saved inside the paragraph", bodyContent(content), repaired);
+	const para = loadSavedPage(words).querySelector("#para");
+	check("and the load-time script puts them back with the words", para.textContent, "Sometimes I eat pizza");
+	check("leaving the text after the last word where it was", para.nextSibling && para.nextSibling.data, " after");
+}
+
 // An element the parser DROPS instead of moving: the inner `<form>` of a form in a form (the form
 // element pointer ignores its start tag), or a `<td>` outside a table. No track id can bring it back,
 // so the capture wraps its content in two comments carrying its tag and attributes. The fixture is

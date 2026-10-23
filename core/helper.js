@@ -777,11 +777,24 @@ function fixInvalidNesting(document, NESTING_TRACK_ID_ATTRIBUTE_NAME, preventCle
 					const parentId = idParts.slice(0, -1).join(".");
 					const expectedParent = trackIds[parentId];
 					if (expectedParent && element.parentElement !== expectedParent && !element.contains(expectedParent)) {
+						const followingNodes = [];
+						let sibling = element.nextSibling;
+						while (sibling && sibling.nodeType != 1) {
+							followingNodes.push(sibling);
+							sibling = sibling.nextSibling;
+						}
 						expectedParent.appendChild(element);
+						if (sibling && trackIds[sibling.getAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME)] === sibling && getParentTrackId(sibling) == parentId) {
+							expectedParent.append(...followingNodes);
+						}
 					}
 				}
 			}
 		});
+
+		function getParentTrackId(element) {
+			return element.getAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME).split(".").slice(0, -1).join(".");
+		}
 
 		function buildTrackIdMap(element) {
 			const id = element.getAttribute(NESTING_TRACK_ID_ATTRIBUTE_NAME);
