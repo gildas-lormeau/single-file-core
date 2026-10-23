@@ -226,8 +226,8 @@ function initRequestSync(message) {
 	}
 	processFrames(document, message.options, windowId, sessionId, false);
 	if (!TOP_WINDOW) {
-		sendInitResponse({ frames: [getFrameData(document, globalThis, windowId, message.options, message.scrolling)], sessionId, requestedFrameId: document.documentElement.dataset.requestedFrameId && windowId });
-		delete document.documentElement.dataset.requestedFrameId;
+		sendInitResponse({ frames: [getFrameData(document, globalThis, windowId, message.options, message.scrolling)], sessionId, requestedFrameId: getRequestedFrameId(document) && windowId });
+		clearRequestedFrameId(document);
 	}
 }
 
@@ -239,8 +239,8 @@ async function initRequestAsync(message) {
 	}
 	processFrames(document, message.options, windowId, sessionId, message.waitForFrames !== false);
 	if (!TOP_WINDOW) {
-		sendInitResponse({ frames: [getFrameData(document, globalThis, windowId, message.options, message.scrolling)], sessionId, requestedFrameId: document.documentElement.dataset.requestedFrameId && windowId });
-		delete document.documentElement.dataset.requestedFrameId;
+		sendInitResponse({ frames: [getFrameData(document, globalThis, windowId, message.options, message.scrolling)], sessionId, requestedFrameId: getRequestedFrameId(document) && windowId });
+		clearRequestedFrameId(document);
 	}
 }
 
@@ -329,7 +329,7 @@ function processFramesAsync(doc, frameElements, options, parentWindowId, session
 		frameElement.setAttribute(helper.WIN_ID_ATTRIBUTE_NAME, windowId);
 		frames.push({ windowId });
 	});
-	sendInitResponse({ frames, sessionId, requestedFrameId: doc.documentElement.dataset.requestedFrameId && parentWindowId });
+	sendInitResponse({ frames, sessionId, requestedFrameId: getRequestedFrameId(doc) && parentWindowId });
 	frameElements.forEach((frameElement, frameIndex) => {
 		if (isHiddenFrame(frameElement)) {
 			return;
@@ -344,7 +344,7 @@ function processFramesAsync(doc, frameElements, options, parentWindowId, session
 		setFrameFallback(sessionId, windowId, () => getSrcdocFrameData(frameElement, windowId, options, sessionId));
 		requestTimeouts[windowId] = globalThis.setTimeout(() => sendInitResponse({ frames: [getFrameFallback(sessionId, windowId) || { windowId, processed: true }], sessionId }), TIMEOUT_INIT_REQUEST_MESSAGE);
 	});
-	delete doc.documentElement.dataset.requestedFrameId;
+	clearRequestedFrameId(doc);
 }
 
 function processFramesSync(doc, frameElements, options, parentWindowId, sessionId, waitForFrames) {
@@ -384,8 +384,20 @@ function processFramesSync(doc, frameElements, options, parentWindowId, sessionI
 			}
 		}
 	});
-	sendInitResponse({ frames, sessionId, requestedFrameId: doc.documentElement.dataset.requestedFrameId && parentWindowId });
-	delete doc.documentElement.dataset.requestedFrameId;
+	sendInitResponse({ frames, sessionId, requestedFrameId: getRequestedFrameId(doc) && parentWindowId });
+	clearRequestedFrameId(doc);
+}
+
+function getRequestedFrameId(doc) {
+	const dataset = doc.documentElement.dataset;
+	return dataset && dataset.requestedFrameId;
+}
+
+function clearRequestedFrameId(doc) {
+	const dataset = doc.documentElement.dataset;
+	if (dataset) {
+		delete dataset.requestedFrameId;
+	}
 }
 
 function clearFrameTimeout(type, sessionId, windowId) {
