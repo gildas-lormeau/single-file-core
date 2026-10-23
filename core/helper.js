@@ -814,9 +814,9 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 		const elements = Array.from(element.childNodes).filter(node => (node instanceof win.HTMLElement) || (node instanceof win.SVGElement) || (node instanceof globalThis.HTMLElement) || (node instanceof globalThis.SVGElement));
 		elements.forEach(element => {
 			let elementHidden, elementKept, computedStyle, headChild;
-			if (!options.autoSaveExternalSave && (options.removeHiddenElements || options.removeUnusedFonts || options.compressHTML)) {
+			if (!options.autoSaveExternalSave && (options.removeHiddenElements || options.removeUnusedFonts || options.removeUnusedGlyphs || options.compressHTML)) {
 				computedStyle = getComputedStyle(win, element);
-				if (options.removeHiddenElements || options.removeUnusedFonts) {
+				if (options.removeHiddenElements || options.removeUnusedFonts || options.removeUnusedGlyphs) {
 					headChild = Boolean(element.closest("html > head"));
 				}
 				if ((element instanceof win.HTMLElement) || (element instanceof globalThis.HTMLElement)) {
@@ -839,7 +839,7 @@ function getElementsInfo(win, doc, element, options, data = { usedFonts: new Map
 							data.markedElements.push(element);
 						}
 					}
-					if (options.removeUnusedFonts && doc.defaultView && !headChild) {
+					if ((options.removeUnusedFonts || options.removeUnusedGlyphs) && doc.defaultView && !headChild) {
 						const elementCharacters = getElementCharacters(win, element, computedStyle);
 						getUsedFont(computedStyle, data.usedFonts, data.usedFontsCharacters, elementCharacters);
 						const beforeStyle = getComputedStyle(win, element, ":before");

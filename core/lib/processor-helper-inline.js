@@ -23,8 +23,10 @@
 
 import * as cssTree from "./../../vendor/css-tree.js";
 import { serialize as serializeSrcset } from "./../../vendor/html-srcset-parser.js";
+import * as fontGlyphsMinifier from "./../../modules/font-glyphs-minifier.js";
 
 const JSON = globalThis.JSON;
+const atob = globalThis.atob;
 const FontFace = globalThis.FontFace;
 const Set = globalThis.Set;
 const setTimeout = globalThis.setTimeout;
@@ -45,6 +47,7 @@ const PREFIXES_FORBIDDEN_DATA_URI = ["data:text/"];
 const SCRIPT_TAG_FOUND = /<script/gi;
 const NOSCRIPT_TAG_FOUND = /<noscript/gi;
 const CANVAS_TAG_FOUND = /<canvas/gi;
+const REGEXP_BASE64_DATA_URI = /^(.* )?data:([^;,]*);base64,(.*)$/;
 const SINGLE_FILE_VARIABLE_NAME_PREFIX = "--sf-img-";
 const SINGLE_FILE_VARIABLE_MAX_SIZE = 512 * 1024;
 const EMPTY_URL_SOURCE = /^url\(["']?data:[^,]*,?["']?\)/;
@@ -579,6 +582,28 @@ function getProcessorHelperClass(utilInstance) {
 
 		removeUnusedStylesheets(doc) {
 			doc.querySelectorAll("link[rel*=stylesheet][rel*=alternate][title]").forEach(element => element.remove());
+		}
+
+		async removeUnusedGlyphs(stylesheets, fonts, options) {
+			await Promise.all(this.getFontFacesGlyphRanges(stylesheets, options).map(async ({ urlNodes, ranges }) => {
+				if (ranges) {
+					await Promise.all(urlNodes.map(async urlNode => {
+						const match = urlNode.value.match(REGEXP_BASE64_DATA_URI);
+						if (match) {
+							const [, prefix = "", contentType, data] = match;
+							const binaryString = atob(data);
+							const content = new Uint8Array(binaryString.length);
+							for (let index = 0; index < content.length; index++) {
+								content[index] = binaryString.charCodeAt(index);
+							}
+							const result = await fontGlyphsMinifier.process(content, ranges);
+							if (result) {
+								urlNode.value = prefix + await toDataURI(result, contentType);
+							}
+						}
+					}));
+				}
+			}));
 		}
 
 		groupDuplicateFonts(stylesheets, fonts, options) {

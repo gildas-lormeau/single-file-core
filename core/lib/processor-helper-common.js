@@ -588,6 +588,30 @@ class ProcessorHelperCommon {
 		};
 	}
 
+	getFontFacesGlyphRanges(stylesheets, options) {
+		const familiesRanges = new Map();
+		(options.usedFontsCharacters || []).forEach(([fontFamily, , ranges, unknown]) => {
+			let familyRanges = familiesRanges.get(fontFamily);
+			if (!familyRanges) {
+				familyRanges = { ranges: [], unknown: false };
+				familiesRanges.set(fontFamily, familyRanges);
+			}
+			familyRanges.ranges.push(...(ranges || []));
+			familyRanges.unknown = familyRanges.unknown || Boolean(unknown);
+		});
+		const fontFaces = [];
+		stylesheets.forEach(stylesheetInfo => {
+			if (stylesheetInfo.stylesheet && stylesheetInfo.stylesheet.children) {
+				forEachFontFaceRule(stylesheetInfo.stylesheet.children, ruleData => {
+					const fontFamily = normalizeFontFamily(this.getPropertyValue(ruleData, "font-family"));
+					const familyRanges = fontFamily && familiesRanges.get(fontFamily);
+					fontFaces.push({ urlNodes: getUrlFunctions(ruleData), ranges: familyRanges && !familyRanges.unknown ? familyRanges.ranges : null });
+				});
+			}
+		});
+		return fontFaces;
+	}
+
 	getFontKey(ruleData) {
 		return JSON.stringify([
 			normalizeFontFamily(this.getPropertyValue(ruleData, "font-family")),
@@ -784,6 +808,20 @@ function removeFontFaceRules(cssRules) {
 
 function getUrlFunctions(declarationList) {
 	return cssTree.findAll(declarationList, node => node.type == "Url");
+}
+
+function forEachFontFaceRule(cssRules, callback) {
+	cssRules.forEach(ruleData => {
+		if (ruleData.type == "Atrule" && ruleData.name == "import" && ruleData.prelude && ruleData.prelude.children && ruleData.prelude.children.head.data.importedChildren) {
+			forEachFontFaceRule(ruleData.prelude.children.head.data.importedChildren, callback);
+		} else if (ruleData.type == "Atrule" && decodeName(ruleData.name) == "font-face") {
+			if (ruleData.block && ruleData.block.children) {
+				callback(ruleData);
+			}
+		} else if (ruleData.type == "Atrule" && ruleData.block && ruleData.block.children) {
+			forEachFontFaceRule(ruleData.block.children, callback);
+		}
+	});
 }
 
 function recoverFontFaceSources(stylesheet) {

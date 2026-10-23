@@ -98,8 +98,9 @@ class ProgressEvent {
 const RESOLVE_URLS_STAGE = 0;
 const REPLACE_DATA_STAGE = 1;
 const REPLACE_DOCS_STAGE = 2;
-const POST_PROCESS_STAGE = 3;
-const FINALIZE_STAGE = 4;
+const REMOVE_GLYPHS_STAGE = 3;
+const POST_PROCESS_STAGE = 4;
+const FINALIZE_STAGE = 5;
 const STAGES = [{
 	sequential: [
 		{ action: "preProcessPage" },
@@ -152,6 +153,11 @@ const STAGES = [{
 	parallel: [
 		{ option: "removeAlternativeFonts", action: "removeAlternativeFonts" },
 		{ option: "!removeFrames", action: "processFrames" }
+	]
+}, {
+	sequential: [],
+	parallel: [
+		{ option: "removeUnusedGlyphs", action: "removeUnusedGlyphs" }
 	]
 }, {
 	sequential: [
@@ -267,6 +273,7 @@ class Runner {
 		this.options.doc = null;
 		this.options.win = null;
 		await this.executeStage(REPLACE_DOCS_STAGE);
+		await this.executeStage(REMOVE_GLYPHS_STAGE);
 		await this.executeStage(POST_PROCESS_STAGE);
 		await this.executeStage(FINALIZE_STAGE);
 		this.processor.finalize();
@@ -1736,6 +1743,10 @@ class Processor {
 
 	removeAlternativeImages() {
 		util.removeAlternativeImages(this.doc);
+	}
+
+	async removeUnusedGlyphs() {
+		await this.processorHelper.removeUnusedGlyphs(this.stylesheets, this.resources.fonts, this.options);
 	}
 
 	groupDuplicateFonts() {

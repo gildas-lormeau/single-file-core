@@ -23,6 +23,7 @@
 
 import * as cssTree from "./../../vendor/css-tree.js";
 import { serialize as serializeSrcset } from "./../../vendor/html-srcset-parser.js";
+import * as fontGlyphsMinifier from "./../../modules/font-glyphs-minifier.js";
 
 const JSON = globalThis.JSON;
 const FontFace = globalThis.FontFace;
@@ -341,6 +342,25 @@ function getProcessorHelperClass(utilInstance) {
 			if (!this.testEmptyResource(content)) {
 				resources.fonts.set(indexResource, { name, content, extension, contentType, url: resourceURL });
 			}
+		}
+
+		async removeUnusedGlyphs(stylesheets, fonts, options) {
+			const rangesByName = new Map();
+			this.getFontFacesGlyphRanges(stylesheets, options).forEach(({ urlNodes, ranges }) => urlNodes.forEach(urlNode => {
+				const name = getResourceName(urlNode.value);
+				if (!rangesByName.has(name) || rangesByName.get(name)) {
+					rangesByName.set(name, ranges ? (rangesByName.get(name) || []).concat(ranges) : null);
+				}
+			}));
+			await Promise.all(Array.from(fonts.values()).map(async resource => {
+				const ranges = rangesByName.get(resource.name);
+				if (ranges && resource.content) {
+					const content = await fontGlyphsMinifier.process(resource.content, ranges);
+					if (content) {
+						resource.content = content;
+					}
+				}
+			}));
 		}
 
 		groupDuplicateFonts(stylesheets, fonts) {
@@ -749,6 +769,11 @@ function testSameContent(content, otherContent) {
 		}
 	}
 	return true;
+}
+
+function getResourceName(value) {
+	const index = value.lastIndexOf(" ");
+	return index == -1 ? value : value.substring(index + 1);
 }
 
 function replaceResourceName(urlNode, canonicalNames) {
