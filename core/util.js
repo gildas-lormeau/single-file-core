@@ -100,6 +100,7 @@ function getInstance(utilOptions) {
 	utilOptions.frameFetch = utilOptions.frameFetch || utilOptions.fetch;
 	return {
 		getDoctypeString,
+		brotli: utilOptions.brotli,
 		getFilenameExtension(resourceURL, replacedCharacters, replacementCharacter, replacementCharacters) {
 			let matchExtension;
 			try {

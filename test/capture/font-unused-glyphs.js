@@ -14,15 +14,18 @@
 // The same font is checked in Chromium by hand (scratchpad glyphs/verify.mjs, 2026-10-23): a hollowed
 // Arial, Georgia and Tahoma load, the kept text measures the same width as with the original, and a
 // dropped letter measures as the fallback font.
-/* global atob, Blob, DecompressionStream */
+/* global atob, Blob, CompressionStream, DecompressionStream */
 import { capture, html } from "./common.js";
 import { process } from "../../modules/font-glyphs-minifier.js";
 
 const PAGE_URL = "https://example.com/glyphs.html";
 const FONT_URL = "https://example.com/font.ttf";
-const A = 1, B = 2, C = 3, LIGATURE = 5;
-const GLYPH_COUNT = 6;
+const A = 1, B = 2, C = 3, LIGATURE = 5, VARIANT_1 = 6, VARIANT_2 = 7, RING_A = 8, LEFT_PAREN = 9, RIGHT_PAREN = 10, E = 11, DOT_E = 12, DOT_CIRCUMFLEX_E = 13, GA = 14;
+const GLYPH_COUNT = 15;
 const CHAR_A = 65, CHAR_B = 66, CHAR_C = 67, CHAR_D = 68;
+const CHAR_RING_A = 0xC5, CHAR_RING = 0x30A, CHAR_LEFT_PAREN = 0x28, CHAR_RIGHT_PAREN = 0x29, SELECTOR_1 = 0xFE00, SELECTOR_2 = 0xFE01;
+const CHAR_E = 0x65, CHAR_DOT_BELOW = 0x323, CHAR_CIRCUMFLEX = 0x302, CHAR_DOT_E = 0x1EB9, CHAR_DOT_CIRCUMFLEX_E = 0x1EC7, CHAR_GA = 0xAC00, CHAR_KIYEOK = 0x1100, CHAR_A_JAMO = 0x1161;
+const ALL_CHARS = [[CHAR_LEFT_PAREN, CHAR_RIGHT_PAREN], [CHAR_A, CHAR_D], [CHAR_E, CHAR_E], [CHAR_RING_A, CHAR_RING_A], [CHAR_DOT_E, CHAR_DOT_E], [CHAR_DOT_CIRCUMFLEX_E, CHAR_DOT_CIRCUMFLEX_E], [CHAR_GA, CHAR_GA]];
 const FSTYPE_NO_SUBSETTING = 0x0100;
 
 let failed = false;
@@ -37,7 +40,7 @@ const woff = buildWoff(font);
 	const result = await process(font, [[CHAR_A, CHAR_A], [CHAR_C, CHAR_C]]);
 	check("a TrueType font is hollowed", result !== null, true);
 	const info = readFont(result);
-	check("the drawn glyphs keep their outlines", JSON.stringify(outlinedGlyphs(info)), JSON.stringify([A, C]));
+	check("the drawn glyphs keep their outlines", JSON.stringify(outlinedGlyphs(info)), JSON.stringify([A, C, VARIANT_1, VARIANT_2]));
 	check("cmap maps the drawn characters only", JSON.stringify([...info.cmap]), JSON.stringify([[CHAR_A, A], [CHAR_C, C]]));
 	check("GSUB is byte-identical", sameBytes(info.tables.get("GSUB"), readFont(font).tables.get("GSUB")), true);
 	check("the glyph count is unchanged", info.glyphCount, GLYPH_COUNT);
@@ -49,7 +52,7 @@ const woff = buildWoff(font);
 // to it since no character selects it directly.
 {
 	const info = readFont(await process(font, [[CHAR_A, CHAR_B]]));
-	check("a ligature of drawn glyphs is kept", JSON.stringify(outlinedGlyphs(info)), JSON.stringify([A, B, LIGATURE]));
+	check("a ligature of drawn glyphs is kept", JSON.stringify(outlinedGlyphs(info)), JSON.stringify([A, B, LIGATURE, VARIANT_1, VARIANT_2]));
 	check("and cmap maps its components only", JSON.stringify([...info.cmap]), JSON.stringify([[CHAR_A, A], [CHAR_B, B]]));
 }
 
@@ -62,7 +65,32 @@ const woff = buildWoff(font);
 
 // Nothing to remove: every character is drawn, so the font is returned as is.
 {
-	check("a font whose glyphs are all drawn is left alone", await process(font, [[CHAR_A, CHAR_D]]), null);
+	check("a font whose glyphs are all drawn is left alone", await process(font, ALL_CHARS), null);
+}
+
+// What the shaper reaches beyond the characters of the text: both variation sequences of a drawn
+// base character keep their glyphs, a combining sequence keeps the precomposed character the
+// shaper composes it into, a precomposed character keeps the pieces it decomposes into, and a
+// bracket keeps its mirror for right-to-left runs.
+{
+	check("every variation glyph of a drawn character is kept", JSON.stringify(outlinedGlyphs(readFont(await process(font, [[CHAR_A, CHAR_A]])))), JSON.stringify([A, VARIANT_1, VARIANT_2]));
+	const composed = readFont(await process(font, [[CHAR_A, CHAR_A], [CHAR_RING, CHAR_RING]]));
+	check("a base and a combining mark keep their composition", outlinedGlyphs(composed).includes(RING_A) && composed.cmap.get(CHAR_RING_A), RING_A);
+	const decomposed = readFont(await process(font, [[CHAR_RING_A, CHAR_RING_A]]));
+	check("a precomposed character keeps its base", outlinedGlyphs(decomposed).includes(A) && decomposed.cmap.get(CHAR_A), A);
+	const mirrored = readFont(await process(font, [[CHAR_LEFT_PAREN, CHAR_LEFT_PAREN]]));
+	check("a bracket keeps its mirror", outlinedGlyphs(mirrored).includes(RIGHT_PAREN) && mirrored.cmap.get(CHAR_RIGHT_PAREN), RIGHT_PAREN);
+	const chained = readFont(await process(font, [[CHAR_E, CHAR_E], [CHAR_CIRCUMFLEX, CHAR_CIRCUMFLEX], [CHAR_DOT_BELOW, CHAR_DOT_BELOW]]));
+	check("a base and two marks keep the composition of their composition", JSON.stringify([chained.cmap.get(CHAR_DOT_E), chained.cmap.get(CHAR_DOT_CIRCUMFLEX_E)]), JSON.stringify([DOT_E, DOT_CIRCUMFLEX_E]));
+	const hangul = readFont(await process(font, [[CHAR_KIYEOK, CHAR_KIYEOK], [CHAR_A_JAMO, CHAR_A_JAMO]]));
+	check("hangul jamo keep their syllable", outlinedGlyphs(hangul).includes(GA) && hangul.cmap.get(CHAR_GA), GA);
+	check("and a syllable keeps nothing it does not decompose into", JSON.stringify(outlinedGlyphs(readFont(await process(font, [[CHAR_GA, CHAR_GA]])))), JSON.stringify([GA]));
+}
+
+// A font with a MATH table is left alone: its stretched operators reference glyphs the pass
+// does not follow.
+{
+	check("a font with a MATH table is left alone", await process(buildSfnt(new Map([...readFont(font).tables, ["MATH", new Uint8Array(10)]])), [[CHAR_A, CHAR_A]]), null);
 }
 
 // A font that forbids subsetting in its OS/2 fsType is left alone.
@@ -75,8 +103,33 @@ const woff = buildWoff(font);
 	const result = await process(woff, [[CHAR_A, CHAR_A], [CHAR_C, CHAR_C]]);
 	check("a WOFF font is hollowed", result !== null && tag(result, 0) == "wOFF", true);
 	const info = readFont(await unpackWoff(result));
-	check("with the same glyphs kept", JSON.stringify(outlinedGlyphs(info)), JSON.stringify([A, C]));
+	check("with the same glyphs kept", JSON.stringify(outlinedGlyphs(info)), JSON.stringify([A, C, VARIANT_1, VARIANT_2]));
 	check("and the same cmap", JSON.stringify([...info.cmap]), JSON.stringify([[CHAR_A, A], [CHAR_C, C]]));
+}
+
+// A WOFF2 font is read through Brotli, hollowed and written back as WOFF2 with the glyf and loca
+// transform of the format, decoded here by a reader written from the spec: glyph records that were
+// stored with the null transform come back with the same outlines, bounding boxes and components.
+{
+	const woff2 = await buildWoff2(font);
+	const result = await process(woff2, [[CHAR_A, CHAR_A], [CHAR_C, CHAR_C]]);
+	check("a WOFF2 font is hollowed", result !== null && tag(result, 0) == "wOF2", true);
+	const unpacked = await unpackWoff2(result);
+	const info = readFont(unpacked);
+	check("with the same glyphs kept", JSON.stringify(outlinedGlyphs(info)), JSON.stringify([A, C, VARIANT_1, VARIANT_2]));
+	check("and the same cmap", JSON.stringify([...info.cmap]), JSON.stringify([[CHAR_A, A], [CHAR_C, C]]));
+	const original = readFont(font);
+	check("the kept simple glyph is rebuilt as drawn", sameBytes(glyphRecord(info, A), glyphRecord(original, A)), true);
+	check("the kept composite glyph is rebuilt as drawn", sameBytes(glyphRecord(info, C), glyphRecord(original, C)), true);
+	check("the head table flags the lossless transform", (readUint16(info.tables.get("head"), 16) & 0x0800) != 0, true);
+	check("and the file is padded to 4 bytes", result.length % 4, 0);
+}
+
+// A WOFF2 font whose hmtx table was stored transformed gets its side bearings back from the glyph
+// bounding boxes before the pass runs, so the output hmtx is the original one.
+{
+	const result = await process(await buildWoff2(font, true), [[CHAR_A, CHAR_A]]);
+	check("a transformed hmtx table is rebuilt", sameBytes(readFont(await unpackWoff2(result)).tables.get("hmtx"), readFont(font).tables.get("hmtx")), true);
 }
 
 // Through a capture: the saved page carries the hollowed font, and the pass needs the drawn
@@ -84,10 +137,12 @@ const woff = buildWoff(font);
 {
 	const drawn = [["s", "normal", [[CHAR_A, CHAR_A], [CHAR_C, CHAR_C]], 0]];
 	const info = readFont(await captureFont({ removeUnusedGlyphs: true, usedFontsCharacters: drawn }));
-	check("a captured page carries the hollowed font", JSON.stringify(outlinedGlyphs(info)), JSON.stringify([A, C]));
+	check("a captured page carries the hollowed font", JSON.stringify(outlinedGlyphs(info)), JSON.stringify([A, C, VARIANT_1, VARIANT_2]));
 	check("the option off keeps the font", sameBytes(await captureFont({ usedFontsCharacters: drawn }), font), true);
 	check("an unknown character set keeps the font", sameBytes(await captureFont({ removeUnusedGlyphs: true, usedFontsCharacters: [["s", "normal", [[CHAR_A, CHAR_A]], 1]] }), font), true);
 	check("a family the page never draws keeps the font", sameBytes(await captureFont({ removeUnusedGlyphs: true, usedFontsCharacters: [["t", "normal", [[CHAR_A, CHAR_A]], 0]] }), font), true);
+	const woff2Info = readFont(await unpackWoff2(await captureFont({ removeUnusedGlyphs: true, usedFontsCharacters: drawn }, await buildWoff2(font), "font/woff2")));
+	check("a captured page carries a hollowed WOFF2 font", JSON.stringify(outlinedGlyphs(woff2Info)), JSON.stringify([A, C, VARIANT_1, VARIANT_2]));
 }
 
 if (failed) {
@@ -96,12 +151,20 @@ if (failed) {
 }
 console.log("OK");
 
-async function captureFont(options) {
-	const page = html("<p>AC</p>", `<style>@font-face{font-family:"S";src:url(${FONT_URL}) format("truetype")}p{font-family:"S"}</style>`);
-	const resources = new Map([[PAGE_URL, { body: page, contentType: "text/html" }], [FONT_URL, { body: font, contentType: "font/ttf" }]]);
+async function captureFont(options, fontData = font, contentType = "font/ttf") {
+	const page = html("<p>AC</p>", `<style>@font-face{font-family:"S";src:url(${FONT_URL}) format("${contentType == "font/ttf" ? "truetype" : "woff2"}")}p{font-family:"S"}</style>`);
+	const resources = new Map([[PAGE_URL, { body: page, contentType: "text/html" }], [FONT_URL, { body: fontData, contentType }]]);
 	const content = await capture(resources, { url: PAGE_URL, content: page, removeUnusedFonts: false, usedFonts: [["s", "400", "normal", "normal", "100%"]], ...options });
-	const match = content.match(/data:font\/ttf;base64,([^"')]+)/);
+	const match = content.match(new RegExp("data:" + contentType.replace("/", "\\/") + ";base64,([^\"')]+)"));
 	return match ? Uint8Array.from(atob(match[1]), character => character.charCodeAt(0)) : null;
+}
+
+function glyphRecord(info, glyphId) {
+	const loca = info.tables.get("loca");
+	const longLoca = readUint16(info.tables.get("head"), 50) == 1;
+	const offset = longLoca ? readUint32(loca, glyphId * 4) : readUint16(loca, glyphId * 2) * 2;
+	const end = longLoca ? readUint32(loca, (glyphId + 1) * 4) : readUint16(loca, (glyphId + 1) * 2) * 2;
+	return info.tables.get("glyf").subarray(offset, end);
 }
 
 function check(label, actual, expected) {
@@ -120,7 +183,8 @@ function sameBytes(bytes, otherBytes) {
 
 function buildFont(fsType = 0) {
 	const triangle = simpleGlyph([[0, 0], [100, 0], [50, 100]]);
-	const glyphs = [new Uint8Array(0), triangle, triangle, compositeGlyph(A), triangle, triangle];
+	const polygon = simpleGlyph(Array.from({ length: 48 }, (_, index) => [(index * 37) % 1000, (index * 91) % 1000]));
+	const glyphs = [new Uint8Array(0), triangle, polygon, compositeGlyph(A), polygon, polygon, triangle, triangle, triangle, triangle, triangle, triangle, triangle, triangle, triangle];
 	const loca = new Uint8Array((GLYPH_COUNT + 1) * 4);
 	let offset = 0;
 	glyphs.forEach((glyph, glyphId) => {
@@ -201,26 +265,47 @@ function compositeGlyph(componentGlyphId) {
 	return glyph;
 }
 
+// A format 4 subtable of delta-mapped segments, and a format 14 subtable giving A two variation
+// selectors, each with its own glyph.
 function buildCmap() {
-	const subtable = new Uint8Array(32);
+	const segments = [[CHAR_LEFT_PAREN, CHAR_RIGHT_PAREN, LEFT_PAREN], [CHAR_A, CHAR_D, A], [CHAR_E, CHAR_E, E], [CHAR_RING_A, CHAR_RING_A, RING_A], [CHAR_DOT_E, CHAR_DOT_E, DOT_E], [CHAR_DOT_CIRCUMFLEX_E, CHAR_DOT_CIRCUMFLEX_E, DOT_CIRCUMFLEX_E], [CHAR_GA, CHAR_GA, GA], [0xFFFF, 0xFFFF, 0]];
+	const segmentCount = segments.length;
+	const subtable = new Uint8Array(16 + segmentCount * 8);
 	writeUint16(subtable, 0, 4);
-	writeUint16(subtable, 2, 32);
-	writeUint16(subtable, 6, 4);
+	writeUint16(subtable, 2, subtable.length);
+	writeUint16(subtable, 6, segmentCount * 2);
 	writeUint16(subtable, 8, 4);
 	writeUint16(subtable, 10, 1);
-	writeUint16(subtable, 12, 0);
-	writeUint16(subtable, 14, CHAR_D);
-	writeUint16(subtable, 16, 0xFFFF);
-	writeUint16(subtable, 20, CHAR_A);
-	writeUint16(subtable, 22, 0xFFFF);
-	writeUint16(subtable, 24, (A - CHAR_A) & 0xFFFF);
-	writeUint16(subtable, 26, 1);
-	const cmap = new Uint8Array(12 + 32);
-	writeUint16(cmap, 2, 1);
-	writeUint16(cmap, 4, 3);
-	writeUint16(cmap, 6, 1);
-	writeUint32(cmap, 8, 12);
-	cmap.set(subtable, 12);
+	writeUint16(subtable, 12, segmentCount * 2 - 4);
+	segments.forEach(([startCode, endCode, glyphId], index) => {
+		writeUint16(subtable, 14 + index * 2, endCode);
+		writeUint16(subtable, 16 + segmentCount * 2 + index * 2, startCode);
+		writeUint16(subtable, 16 + segmentCount * 4 + index * 2, (glyphId - startCode) & 0xFFFF);
+	});
+	const variations = new Uint8Array(50);
+	writeUint16(variations, 0, 14);
+	writeUint32(variations, 2, 50);
+	writeUint32(variations, 6, 2);
+	[[SELECTOR_1, VARIANT_1], [SELECTOR_2, VARIANT_2]].forEach(([selector, glyphId], index) => {
+		const recordOffset = 10 + index * 11;
+		variations[recordOffset + 1] = (selector >> 8) & 0xFF;
+		variations[recordOffset + 2] = selector & 0xFF;
+		const mappingsOffset = 32 + index * 9;
+		writeUint32(variations, recordOffset + 7, mappingsOffset);
+		writeUint32(variations, mappingsOffset, 1);
+		variations[mappingsOffset + 6] = CHAR_A;
+		writeUint16(variations, mappingsOffset + 7, glyphId);
+	});
+	const cmap = new Uint8Array(4 + 2 * 8 + subtable.length + variations.length);
+	writeUint16(cmap, 2, 2);
+	writeUint16(cmap, 4, 0);
+	writeUint16(cmap, 6, 3);
+	writeUint32(cmap, 8, 20);
+	writeUint16(cmap, 12, 0);
+	writeUint16(cmap, 14, 5);
+	writeUint32(cmap, 16, 20 + subtable.length);
+	cmap.set(subtable, 20);
+	cmap.set(variations, 20 + subtable.length);
 	return cmap;
 }
 
@@ -313,6 +398,222 @@ function buildWoff(sfnt) {
 	return data;
 }
 
+// The tables are stored with the null transform (version 3 for glyf and loca), or with the hmtx
+// transform that drops the side bearings when every one equals its glyph's xMin, which holds here.
+async function buildWoff2(sfnt, transformHmtx = false) {
+	const KNOWN_TAGS = ["cmap", "head", "hhea", "hmtx", "maxp", "name", "OS/2", "post", "cvt ", "fpgm", "glyf", "loca"];
+	const { tables, entries } = readFont(sfnt);
+	const directory = [];
+	const payload = [];
+	entries.forEach(entry => {
+		let table = tables.get(entry.tag);
+		let transformVersion = entry.tag == "glyf" || entry.tag == "loca" ? 3 : 0;
+		if (entry.tag == "hmtx" && transformHmtx) {
+			transformVersion = 1;
+			const transformed = new Uint8Array(1 + GLYPH_COUNT * 2);
+			transformed[0] = 1;
+			for (let glyphId = 0; glyphId < GLYPH_COUNT; glyphId++) {
+				writeUint16(transformed, 1 + glyphId * 2, readUint16(table, glyphId * 4));
+			}
+			table = transformed;
+		}
+		const knownTag = KNOWN_TAGS.indexOf(entry.tag);
+		directory.push((knownTag < 0 ? 63 : knownTag) | (transformVersion << 6));
+		if (knownTag < 0) {
+			directory.push(...entry.tag.split("").map(character => character.charCodeAt(0)));
+		}
+		directory.push(...base128(entry.length));
+		if (transformVersion == 1) {
+			directory.push(...base128(table.length));
+		}
+		payload.push(...table);
+	});
+	const compressed = new Uint8Array(await new Response(new Blob([new Uint8Array(payload)]).stream().pipeThrough(new CompressionStream("brotli"))).arrayBuffer());
+	const data = new Uint8Array((48 + directory.length + compressed.length + 3) & ~3);
+	data.set([0x77, 0x4F, 0x46, 0x32], 0);
+	writeUint32(data, 4, 0x00010000);
+	writeUint32(data, 8, data.length);
+	writeUint16(data, 12, entries.length);
+	writeUint32(data, 16, sfnt.length);
+	writeUint32(data, 20, compressed.length);
+	data.set(directory, 48);
+	data.set(compressed, 48 + directory.length);
+	return data;
+
+	function base128(value) {
+		const bytes = [];
+		do {
+			bytes.unshift(value & 0x7F);
+			value = Math.floor(value / 128);
+		} while (value > 0);
+		return bytes.map((byte, index) => index < bytes.length - 1 ? byte | 0x80 : byte);
+	}
+}
+
+// A reader of the format written from the spec: the directory, the Brotli block and, for a glyf
+// table stored with transform 0, the glyph records rebuilt from the seven streams.
+async function unpackWoff2(data) {
+	const KNOWN_TAGS = ["cmap", "head", "hhea", "hmtx", "maxp", "name", "OS/2", "post", "cvt ", "fpgm", "glyf", "loca", "prep", "CFF ", "VORG", "EBDT", "EBLC", "gasp", "hdmx", "kern", "LTSH", "PCLT", "VDMX", "vhea", "vmtx", "BASE", "GDEF", "GPOS", "GSUB"];
+	const tableCount = readUint16(data, 12);
+	const compressedLength = readUint32(data, 20);
+	const entries = [];
+	let offset = 48;
+	for (let index = 0; index < tableCount; index++) {
+		const flags = data[offset++];
+		let name;
+		if ((flags & 63) == 63) {
+			name = tag(data, offset);
+			offset += 4;
+		} else {
+			name = KNOWN_TAGS[flags & 63];
+		}
+		const transformVersion = flags >> 6;
+		const transformed = (name == "glyf" || name == "loca") ? transformVersion == 0 : name == "hmtx" && transformVersion == 1;
+		let length = base128();
+		if (transformed) {
+			length = base128();
+		}
+		entries.push({ name, length, transformed });
+	}
+	const decompressed = new Uint8Array(await new Response(new Blob([data.subarray(offset, offset + compressedLength)]).stream().pipeThrough(new DecompressionStream("brotli"))).arrayBuffer());
+	const tables = new Map();
+	let tableOffset = 0;
+	entries.forEach(entry => {
+		const table = decompressed.subarray(tableOffset, tableOffset + entry.length);
+		tableOffset += entry.length;
+		if (entry.transformed && entry.name == "glyf") {
+			const { glyf, loca } = decodeGlyf(table);
+			tables.set("glyf", glyf);
+			tables.set("loca", loca);
+		} else if (!entry.transformed) {
+			tables.set(entry.name, table);
+		}
+	});
+	return buildSfnt(tables);
+
+	function base128() {
+		let value = 0;
+		let byte;
+		do {
+			byte = data[offset++];
+			value = value * 128 + (byte & 0x7F);
+		} while (byte & 0x80);
+		return value;
+	}
+
+	function decodeGlyf(table) {
+		const glyphCount = readUint16(table, 4);
+		const sizes = [0, 1, 2, 3, 4, 5, 6].map(index => readUint32(table, 8 + index * 4));
+		const streams = [];
+		let streamOffset = 36;
+		sizes.forEach(size => {
+			streams.push(table.subarray(streamOffset, streamOffset + size));
+			streamOffset += size;
+		});
+		const [contours, pointCounts, flags, glyphStream, composites, bboxes, instructions] = streams;
+		const bitmapLength = 4 * Math.floor((glyphCount + 31) / 32);
+		const cursor = { pointCounts: 0, flags: 0, glyph: 0, composites: 0, bboxes: bitmapLength, instructions: 0 };
+		const records = [];
+		for (let glyphId = 0; glyphId < glyphCount; glyphId++) {
+			const contourCount = readUint16(contours, glyphId * 2);
+			const explicitBbox = Boolean(bboxes[glyphId >> 3] & (0x80 >> (glyphId & 7)));
+			const record = [];
+			if (contourCount == 0) {
+				records.push(new Uint8Array(0));
+				continue;
+			}
+			if (contourCount == 0xFFFF) {
+				record.push(0xFF, 0xFF, ...bboxes.subarray(cursor.bboxes, cursor.bboxes + 8));
+				cursor.bboxes += 8;
+				let componentFlags, hasInstructions = false;
+				do {
+					componentFlags = readUint16(composites, cursor.composites);
+					let length = componentFlags & 1 ? 8 : 6;
+					length += componentFlags & 8 ? 2 : componentFlags & 0x40 ? 4 : componentFlags & 0x80 ? 8 : 0;
+					record.push(...composites.subarray(cursor.composites, cursor.composites + length));
+					cursor.composites += length;
+					hasInstructions ||= Boolean(componentFlags & 0x100);
+				} while (componentFlags & 0x20);
+				if (hasInstructions) {
+					const length = read255();
+					record.push(length >> 8, length & 0xFF, ...instructions.subarray(cursor.instructions, cursor.instructions + length));
+					cursor.instructions += length;
+				}
+				records.push(new Uint8Array(record));
+				continue;
+			}
+			const endPoints = [];
+			let pointCount = 0;
+			for (let indexContour = 0; indexContour < contourCount; indexContour++) {
+				pointCount += read255(pointCounts, "pointCounts");
+				endPoints.push(pointCount - 1);
+			}
+			const points = [];
+			let x = 0, y = 0;
+			for (let indexPoint = 0; indexPoint < pointCount; indexPoint++) {
+				const flag = flags[cursor.flags++];
+				const [dx, dy] = triplet(flag & 0x7F);
+				x += dx;
+				y += dy;
+				points.push({ dx, dy, x, y, onCurve: !(flag & 0x80) });
+			}
+			const instructionLength = read255();
+			const bbox = explicitBbox ? [0, 2, 4, 6].map(index => readInt16(bboxes, cursor.bboxes + index)) : [Math.min(...points.map(point => point.x)), Math.min(...points.map(point => point.y)), Math.max(...points.map(point => point.x)), Math.max(...points.map(point => point.y))];
+			if (explicitBbox) {
+				cursor.bboxes += 8;
+			}
+			record.push(contourCount >> 8, contourCount & 0xFF, ...bbox.flatMap(value => [(value >> 8) & 0xFF, value & 0xFF]), ...endPoints.flatMap(value => [value >> 8, value & 0xFF]), instructionLength >> 8, instructionLength & 0xFF, ...instructions.subarray(cursor.instructions, cursor.instructions + instructionLength));
+			cursor.instructions += instructionLength;
+			points.forEach(point => record.push(point.onCurve ? 1 : 0));
+			points.forEach(point => record.push((point.dx >> 8) & 0xFF, point.dx & 0xFF));
+			points.forEach(point => record.push((point.dy >> 8) & 0xFF, point.dy & 0xFF));
+			records.push(new Uint8Array(record));
+		}
+		const loca = new Uint8Array((glyphCount + 1) * 4);
+		let glyfOffset = 0;
+		records.forEach((record, glyphId) => {
+			writeUint32(loca, glyphId * 4, glyfOffset);
+			glyfOffset += record.length;
+		});
+		writeUint32(loca, glyphCount * 4, glyfOffset);
+		const glyf = new Uint8Array(glyfOffset);
+		records.forEach((record, glyphId) => glyf.set(record, readUint32(loca, glyphId * 4)));
+		return { glyf, loca };
+
+		function read255(stream = glyphStream, name = "glyph") {
+			const code = stream[cursor[name]++];
+			if (code == 253) {
+				const value = readUint16(stream, cursor[name]);
+				cursor[name] += 2;
+				return value;
+			}
+			return code == 255 ? stream[cursor[name]++] + 253 : code == 254 ? stream[cursor[name]++] + 506 : code;
+		}
+
+		function triplet(flag) {
+			const sign = (bit, value) => bit & 1 ? value : -value;
+			const byte = () => glyphStream[cursor.glyph++];
+			if (flag < 10) {
+				return [0, sign(flag, ((flag & 14) << 7) + byte())];
+			} else if (flag < 20) {
+				return [sign(flag, (((flag - 10) & 14) << 7) + byte()), 0];
+			} else if (flag < 84) {
+				const b0 = flag - 20, b1 = byte();
+				return [sign(flag, 1 + (b0 & 0x30) + (b1 >> 4)), sign(flag >> 1, 1 + ((b0 & 0x0C) << 2) + (b1 & 0x0F))];
+			} else if (flag < 120) {
+				const b0 = flag - 84;
+				return [sign(flag, 1 + (Math.floor(b0 / 12) << 8) + byte()), sign(flag >> 1, 1 + (((b0 % 12) >> 2) << 8) + byte())];
+			} else if (flag < 124) {
+				const b0 = byte(), b1 = byte(), b2 = byte();
+				return [sign(flag, (b0 << 4) + (b1 >> 4)), sign(flag >> 1, ((b1 & 0x0F) << 8) + b2)];
+			} else {
+				const b0 = byte(), b1 = byte(), b2 = byte(), b3 = byte();
+				return [sign(flag, (b0 << 8) + b1), sign(flag >> 1, (b2 << 8) + b3)];
+			}
+		}
+	}
+}
+
 async function unpackWoff(data) {
 	const tableCount = readUint16(data, 12);
 	const tables = new Map();
@@ -388,6 +689,11 @@ function tag(data, offset) {
 
 function readUint16(data, offset) {
 	return (data[offset] << 8) | data[offset + 1];
+}
+
+function readInt16(data, offset) {
+	const value = readUint16(data, offset);
+	return value & 0x8000 ? value - 0x10000 : value;
 }
 
 function readUint32(data, offset) {

@@ -355,7 +355,7 @@ function getProcessorHelperClass(utilInstance) {
 			await Promise.all(Array.from(fonts.values()).map(async resource => {
 				const ranges = rangesByName.get(resource.name);
 				if (ranges && resource.content) {
-					const content = await fontGlyphsMinifier.process(resource.content, ranges);
+					const content = await fontGlyphsMinifier.process(resource.content, ranges, { brotli: util.brotli });
 					if (content) {
 						resource.content = content;
 					}

@@ -596,7 +596,7 @@ function getProcessorHelperClass(utilInstance) {
 							for (let index = 0; index < content.length; index++) {
 								content[index] = binaryString.charCodeAt(index);
 							}
-							const result = await fontGlyphsMinifier.process(content, ranges);
+							const result = await fontGlyphsMinifier.process(content, ranges, { brotli: util.brotli });
 							if (result) {
 								urlNode.value = prefix + await toDataURI(result, contentType);
 							}
