@@ -154,7 +154,10 @@ function process(doc, stylesheets, styles, options) {
 		selectedFonts = getSelectedFonts(fontsInfo.declared, filteredUsedFonts);
 	}
 	const usedFontsCharacters = getUsedFontsCharacters(options);
-	const docCharCodes = new Set(Array.from(docContent).map(char => char.codePointAt(0)));
+	const docCharCodes = new Set();
+	for (const char of docContent) {
+		docCharCodes.add(char.codePointAt(0));
+	}
 	usedFontsCharacters.forEach(buckets => buckets.forEach(bucket => bucket.ranges.forEach(([fromCharCode, toCharCode]) => {
 		for (let charCode = fromCharCode; charCode <= toCharCode; charCode++) {
 			if (!NON_GLYPH_CHAR_CODES.includes(charCode)) {
