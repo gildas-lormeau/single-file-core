@@ -2,10 +2,10 @@
 
 [`../vendor/css-tree.js`](../vendor/css-tree.js) is a custom build of
 [@eslint/css-tree](https://www.npmjs.com/package/@eslint/css-tree), the ESLint
-fork of [css-tree](https://www.npmjs.com/package/css-tree), with three patches
+fork of [css-tree](https://www.npmjs.com/package/css-tree), with four patches
 applied to the npm sources. The fork is installed under the `css-tree` alias in
 `package.json`. It is maintained where upstream is not, and it parses nested
-rules that upstream 3.2.1 kept as raw text, but it still carries the three
+rules that upstream 3.2.1 kept as raw text, but it still carries the four
 defects below.
 
 `lib/tokenizer/TokenStream.js`: the token offset field is widened from 24 to
@@ -41,6 +41,14 @@ SingleFile then fetched as a relative URL and replaced with an empty
 resource. The patch stops the trim at an escaped whitespace, an odd number
 of backslashes before it, and appends in the special case instead of
 replacing. Reported upstream as https://github.com/csstree/csstree/issues/380.
+
+`lib/utils/url.js`, fourth patch: encoding and decoding append whole unescaped
+runs, rather than concatenating every character. A long embedded font/image URL
+otherwise creates a rope node per byte. Decoded URLs stay in the AST, and font
+processing may serialize them repeatedly, multiplying the live heap and garbage
+collection cost. CSS escapes, control characters, and hex separators retain their
+existing behavior. The optimization also covers a long safe run after an escaped
+prefix, not just entirely safe URLs.
 
 This directory rebuilds the file deterministically. All dependencies are
 pinned to exact versions by `package.json` and `package-lock.json`:
