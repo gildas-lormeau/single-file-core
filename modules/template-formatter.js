@@ -17226,7 +17226,7 @@ async function getValue(valueGetter, dontReplaceSlash, replacementCharacter, len
 	if (maxLength) {
 		value = await truncateText(value, maxLength);
 	} else if (maxCharLength) {
-		value = value.substring(0, maxCharLength);
+		value = Array.from(value).slice(0, maxCharLength).join("");
 	}
 	return value;
 }
@@ -17235,7 +17235,7 @@ function extractMaxLength(lengthData) {
 	if (lengthData) {
 		const { unit, length } = lengthData;
 		let maxLength, maxCharLength;
-		if (unit == "char") {
+		if (unit == "ch") {
 			maxCharLength = length;
 		} else {
 			maxLength = length;

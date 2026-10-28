@@ -87,6 +87,27 @@ for (const [extension, formatOptions] of FORMATS) {
 // a template that does not end with the extension of the chosen format falls back to the regex
 check("a custom extension is kept", (await format(LONG_TITLE + ".htm", "bytes", 192, { compressContent: true })).endsWith("….htm"), true);
 
+// #2037: the grammar names the unit "ch" and the formatter tested for "char", so "[Nch]" counted
+// bytes like "[N]". A character is a code point, so a 4-byte letter counts as one, not two
+const ASTRAL_TITLE = "\u{1D400}".repeat(200);
+async function formatTitle(template, title) {
+	return (await formatFilename("", null, {
+		url: "https://example.com/page",
+		title,
+		filenameTemplate: template,
+		filenameReplacementCharacter: "_",
+		filenameReplacedCharacters: [],
+		filenameReplacementCharacters: [],
+		backgroundSave: true,
+		filenameMaxLengthUnit: "chars",
+		filenameMaxLength: 1024
+	})).replace(/\.html$/, "");
+}
+check("[147] keeps 147 bytes of a 4-byte title", new Blob([await formatTitle("{page-title}[147].{filename-extension}", ASTRAL_TITLE)]).size, 144);
+check("[147ch] keeps 147 characters of a 4-byte title", [...await formatTitle("{page-title}[147ch].{filename-extension}", ASTRAL_TITLE)].length, 147);
+check("[10ch] keeps 10 characters of an ascii title", await formatTitle("{page-title}[10ch].{filename-extension}", LONG_TITLE), "a".repeat(10));
+check("[10ch] on a function call", await formatTitle("%uppercase<{page-title}>[10ch].{filename-extension}", LONG_TITLE), "A".repeat(10));
+
 if (failed) {
 	console.log("FAILED");
 	Deno.exit(1);
