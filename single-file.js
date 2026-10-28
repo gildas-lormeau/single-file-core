@@ -130,6 +130,9 @@ async function getPageData(options = {}, initOptions, doc, win) {
 			arrayBuffer = await blob.arrayBuffer();
 		}
 		pageData.content = Array.from(new Uint8Array(arrayBuffer));
+		if (options.addProof) {
+			pageData.hash = await helper.digest("SHA-256", new Uint8Array(arrayBuffer));
+		}
 	}
 	if (pageData.manifest) {
 		const content = options.compressContent ? new Uint8Array(pageData.content) : pageData.content;
