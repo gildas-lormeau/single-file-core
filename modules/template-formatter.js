@@ -33,6 +33,23 @@ const URLSearchParams = globalThis.URLSearchParams;
 const navigator = globalThis.navigator;
 
 const REGEXP_ESCAPE = /([{}()^$&.*?/+|[\\\\]|\]|-)/g;
+const REGEXP_ENTITY = /&(#\d+|#[xX][\da-fA-F]+|[a-zA-Z][a-zA-Z\d]*);/g;
+const NAMED_ENTITIES = {
+	amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'", nbsp: " ",
+	copy: "©", reg: "®", trade: "™", deg: "°",
+	ndash: "–", mdash: "—", hellip: "…", middot: "·", bull: "•",
+	lsquo: "‘", rsquo: "’", ldquo: "“", rdquo: "”", laquo: "«", raquo: "»",
+	euro: "€", pound: "£", yen: "¥", cent: "¢", sect: "§", para: "¶",
+	times: "×", divide: "÷", plusmn: "±", frac12: "½", frac14: "¼", frac34: "¾",
+	agrave: "à", aacute: "á", acirc: "â", atilde: "ã", auml: "ä", aring: "å", aelig: "æ", ccedil: "ç",
+	egrave: "è", eacute: "é", ecirc: "ê", euml: "ë", igrave: "ì", iacute: "í", icirc: "î", iuml: "ï",
+	ntilde: "ñ", ograve: "ò", oacute: "ó", ocirc: "ô", otilde: "õ", ouml: "ö", oslash: "ø",
+	ugrave: "ù", uacute: "ú", ucirc: "û", uuml: "ü", yacute: "ý", yuml: "ÿ", szlig: "ß",
+	Agrave: "À", Aacute: "Á", Acirc: "Â", Atilde: "Ã", Auml: "Ä", Aring: "Å", AElig: "Æ", Ccedil: "Ç",
+	Egrave: "È", Eacute: "É", Ecirc: "Ê", Euml: "Ë", Igrave: "Ì", Iacute: "Í", Icirc: "Î", Iuml: "Ï",
+	Ntilde: "Ñ", Ograve: "Ò", Oacute: "Ó", Ocirc: "Ô", Otilde: "Õ", Ouml: "Ö", Oslash: "Ø",
+	Ugrave: "Ù", Uacute: "Ú", Ucirc: "Û", Uuml: "Ü", Yacute: "Ý"
+};
 
 const EMOJI_NAMES = {
 	"😀": "grinning-face",
@@ -16930,13 +16947,13 @@ async function evalTemplate(template = "", options, content, doc, context = {}) 
 	}
 	const variables = {
 		"navigator-language": { getter: () => navigator.language },
-		"page-title": { getter: () => options.title },
-		"page-heading": { getter: () => options.info.heading },
+		"page-title": { getter: () => decodeEntities(options.title) },
+		"page-heading": { getter: () => decodeEntities(options.info.heading) },
 		"page-language": { getter: () => options.info.lang },
-		"page-description": { getter: () => options.info.description },
-		"page-author": { getter: () => options.info.author },
-		"page-creator": { getter: () => options.info.creator },
-		"page-publisher": { getter: () => options.info.publisher },
+		"page-description": { getter: () => decodeEntities(options.info.description) },
+		"page-author": { getter: () => decodeEntities(options.info.author) },
+		"page-creator": { getter: () => decodeEntities(options.info.creator) },
+		"page-publisher": { getter: () => decodeEntities(options.info.publisher) },
 		"url-hash": { getter: () => url.hash.substring(1) },
 		"url-host": { getter: () => url.host.replace(/\/$/, "") },
 		"url-hostname": { getter: () => url.hostname.replace(/\/$/, "") },
@@ -17253,6 +17270,28 @@ function decode(value) {
 	} catch (error) {
 		return value;
 	}
+}
+
+function decodeEntities(value) {
+	if (!value || !REGEXP_ENTITY.test(value)) {
+		return value;
+	}
+	if (globalThis.DOMParser) {
+		const doc = new globalThis.DOMParser().parseFromString("<textarea>" + value.replace(/<\/textarea/gi, "&lt;/textarea") + "</textarea>", "text/html");
+		const textarea = doc.querySelector("textarea");
+		if (textarea) {
+			return textarea.textContent;
+		}
+	}
+	return value.replace(REGEXP_ENTITY, (match, name) => {
+		if (name.startsWith("#x") || name.startsWith("#X")) {
+			return String.fromCodePoint(parseInt(name.substring(2), 16));
+		} else if (name.startsWith("#")) {
+			return String.fromCodePoint(parseInt(name.substring(1), 10));
+		} else {
+			return Object.hasOwn(NAMED_ENTITIES, name) ? NAMED_ENTITIES[name] : match;
+		}
+	});
 }
 
 function getLastSegment(url, replacementCharacter) {
