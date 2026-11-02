@@ -395,9 +395,6 @@ function getProcessorHelperClass(utilInstance) {
 										} catch (error) {
 											// ignored
 										}
-										// currentSrc may only be the absolute form of src. Retrying that
-										// same failed URL repeats every browser/referrer/background fetch;
-										// only a different original source offers another image to preserve.
 										if (originURL != resourceURL) {
 											try {
 												resourceURL = originURL;
