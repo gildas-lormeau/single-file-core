@@ -388,14 +388,14 @@ function getProcessorHelperClass(utilInstance) {
 									let { content, indexResource, duplicate } = await batchRequest.addURL(
 										resourceURL,
 										{ asBinary: true, expectedType, contentType: declaredContentType, groupDuplicates, referrerPolicy: getReferrerPolicy(resourceElement) });
-									if (originURL) {
-										if (this.testEmptyResource(content)) {
-											try {
-												originURL = util.resolveURL(originURL, baseURI);
-												// eslint-disable-next-line no-unused-vars
-											} catch (error) {
-												// ignored
-											}
+									if (originURL && this.testEmptyResource(content)) {
+										try {
+											originURL = util.resolveURL(originURL, baseURI);
+											// eslint-disable-next-line no-unused-vars
+										} catch (error) {
+											// ignored
+										}
+										if (originURL != resourceURL) {
 											try {
 												resourceURL = originURL;
 												content = (await util.getContent(resourceURL, {
