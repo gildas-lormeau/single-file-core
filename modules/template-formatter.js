@@ -16890,11 +16890,12 @@ async function formatFilename(content, doc, options) {
 	let filename = (await evalTemplate(options.filenameTemplate, options, content, doc)) || "";
 	filename = filename.trim();
 	if (options.replaceEmojisInFilename) {
-		EMOJIS.forEach(emoji => (filename = replaceAll(filename, emoji, " _" + EMOJI_NAMES[emoji] + "_ ")));
+		EMOJIS.forEach(emoji => (filename = filename.replace(new RegExp("\\s*" + emoji.replace(REGEXP_ESCAPE, "\\$1") + "\\s*", "gu"), (match, offset, string) =>
+			(testWordCharacter(string[offset - 1]) ? " " : "") + "_" + EMOJI_NAMES[emoji] + "_" + (testWordCharacter(string[offset + match.length]) ? " " : ""))));
 	}
 	const { filenameReplacementCharacter, filenameReplacedCharacters, filenameReplacementCharacters } = options;
 	filename = getValidFilename(filename, filenameReplacedCharacters, filenameReplacementCharacter, filenameReplacementCharacters);
-	filename = filename.replace(/\s+/g, " ");
+	filename = filename.replace(/\s/g, " ");
 	if (!options.backgroundSave) {
 		filename = filename.replace(/\//g, filenameReplacementCharacter);
 	}
@@ -17232,6 +17233,10 @@ function replaceAll(string, search, replacement) {
 		const searchRegExp = new RegExp(search.replace(REGEXP_ESCAPE, "\\$1"), "g");
 		return string.replace(searchRegExp, replacement);
 	}
+}
+
+function testWordCharacter(character) {
+	return character !== undefined && !/[\s./]/.test(character);
 }
 
 async function getValue(valueGetter, dontReplaceSlash, replacementCharacter, lengthData) {

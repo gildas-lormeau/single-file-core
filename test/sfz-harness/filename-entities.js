@@ -34,7 +34,7 @@ async function format(filenameTemplate, info = {}) {
 	})).replace(/\.html$/, "");
 }
 
-check("page-title decodes named, numeric and hex references", await format("{page-title}.{filename-extension}"), "Tom & Jerry ’s <best> \"hits\" \u{1F600} end &unknown; & plain");
+check("page-title decodes named, numeric and hex references", await format("{page-title}.{filename-extension}"), "Tom & Jerry ’s <best> \"hits\" \u{1F600}  end &unknown; & plain");
 check("page-heading", await format("{page-heading}.{filename-extension}"), "Fish & Chips");
 check("page-description", await format("{page-description}.{filename-extension}"), "Rock & Roll");
 check("page-author", await format("{page-author}.{filename-extension}"), "A & B");

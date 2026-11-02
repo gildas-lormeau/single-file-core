@@ -38,31 +38,51 @@ function getValidFilename(filename, replacedCharacters = DEFAULT_REPLACED_CHARAC
 		if (indexReplacementCharacter && replacedCharacters[index] !== undefined && indexReplacementCharacter != replacedCharacters[index]) {
 			// no "+" here, unlike the fallback below: a lookalike replaces its character one for
 			// one, so collapsing a run would drop characters the name needs ("C++" -> "C＋")
-			filename = filename.replace(getCharacterClassRegExp(replacedCharacters[index], ""), indexReplacementCharacter);
+			const regExp = getCharacterClassRegExp(replacedCharacters[index], "");
+			if (regExp) {
+				filename = filename.replace(regExp, indexReplacementCharacter);
+			}
 		}
 	});
 	replacedCharacters.forEach((replacedCharacter, index) => {
 		if (!replacementCharacters[index]) {
-			filename = filename.replace(getCharacterClassRegExp(replacedCharacter, "+"), replacementCharacter);
+			if (replacementCharacter) {
+				const regExp = getCharacterClassRegExp(replacedCharacter, "+");
+				if (regExp) {
+					filename = filename.replace(regExp, replacementCharacter);
+				}
+			} else {
+				const regExp = getCharacterClassRegExp(replacedCharacter, "+", "\\s*");
+				if (regExp) {
+					filename = filename.replace(regExp, (match, offset, string) => /\s/.test(match) && testWordCharacter(string[offset - 1]) && testWordCharacter(string[offset + match.length]) ? " " : "");
+				}
+			}
 		}
 	});
 	filename = filename
-		.replace(/\.\.\//g, "")
+		.replace(/(^|\/)\.\.(?=\/|$)/g, "$1")
+		.replace(/[.\s]+(?=\/|$)/g, "")
 		.replace(/^\/+/, "")
 		.replace(/\/+/g, "/")
 		.replace(/\/$/, "")
-		.replace(/\.$/, "")
-		.replace(/\.\//g, "." + replacementCharacter)
 		.replace(/\/\./g, "/" + replacementCharacter);
 	return filename;
 }
 
-function getCharacterClassRegExp(characters, quantifier) {
-	const pattern = "[" + getCharacterClassContent(characters) + "]" + quantifier;
+function testWordCharacter(character) {
+	return character !== undefined && !/[\s./]/.test(character);
+}
+
+function getCharacterClassRegExp(characters, quantifier, context = "") {
+	const pattern = context + "[" + getCharacterClassContent(characters) + "]" + quantifier + context;
 	try {
 		return new RegExp(pattern, "gu");
 	} catch {
-		return new RegExp(pattern, "g");
+		try {
+			return new RegExp(pattern, "g");
+		} catch {
+			return null;
+		}
 	}
 }
 
