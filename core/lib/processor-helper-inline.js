@@ -146,11 +146,15 @@ function getProcessorHelperClass(utilInstance) {
 					});
 				}
 			});
+			const originIndexes = new Map();
+			if (options.groupDuplicateStylesheets) {
+				new Set(options.inlineStylesheetsRefs.values()).forEach(stylesheetRefIndex => originIndexes.set(options.inlineStylesheets.get(stylesheetRefIndex).styleElement, stylesheetRefIndex));
+			}
 			styleElements.forEach(element => {
 				const stylesheetInfo = stylesheets.get(element);
 				if (stylesheetInfo) {
 					stylesheets.delete(element);
-					const stylesheetRefIndex = options.inlineStylesheetsRefs.get(element);
+					const stylesheetRefIndex = options.inlineStylesheetsRefs.has(element) ? options.inlineStylesheetsRefs.get(element) : originIndexes.get(element);
 					if (stylesheetRefIndex !== undefined) {
 						if (options.groupDuplicateStylesheets) {
 							if (!doc.querySelector("style[" + DUPLICATE_STYLESHEET_ATTRIBUTE_NAME + "=\"" + stylesheetRefIndex + "\"]")) {
