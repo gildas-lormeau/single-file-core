@@ -166,7 +166,8 @@ const STAGES = [{
 		{ action: "insertVariables" },
 		{ action: "removeEmptyMediaAutoplay" },
 		{ option: "compressHTML", action: "compressHTML" },
-		{ action: "cleanupPage" }
+		{ action: "cleanupPage" },
+		{ option: "embeddedScript", action: "insertEmbeddedScript" }
 	],
 	parallel: [
 		{ option: "readMaffMetadata", action: "readMAFFMetaData" },
@@ -509,7 +510,7 @@ const ORDER_DEPENDENT_RULE = /@(layer|import)\b/i;
 const MANIFEST_TOP_WINDOW_ID = "0";
 const WINDOW_ID_SEPARATOR = ".";
 const MANIFEST_EXCLUDED_OPTION_NAMES = ["rootDocument", "saveFilenameTemplateData", "omitReferrerInTemplateData", "manifest"];
-const MANIFEST_STRING_OPTION_NAMES = ["customStylesheet", "filenameTemplate"];
+const MANIFEST_STRING_OPTION_NAMES = ["customStylesheet", "embeddedScript", "filenameTemplate"];
 
 class Processor {
 	constructor(options, processorHelper, batchRequest) {
@@ -1557,6 +1558,7 @@ class Processor {
 			options.saveFavicon = false;
 			options.includeInfobar = false;
 			options.saveFilenameTemplateData = false;
+			options.embeddedScript = null;
 			options.selected = false;
 			options.embeddedImage = null;
 			options.embeddedPdf = null;
@@ -1863,6 +1865,12 @@ class Processor {
 				this.doc.head.querySelector("meta[charset]").remove();
 			}
 		}
+	}
+
+	insertEmbeddedScript() {
+		const scriptElement = this.doc.createElement("script");
+		scriptElement.textContent = this.options.embeddedScript;
+		(this.doc.body || this.doc.documentElement).appendChild(scriptElement);
 	}
 
 	resetZoomLevel() {

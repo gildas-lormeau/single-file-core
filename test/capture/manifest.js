@@ -45,6 +45,7 @@ let failed = false;
 		blockScripts: false,
 		removeUnusedStyles: false,
 		customStylesheet: "p{margin:0}",
+		embeddedScript: "console.log(1);",
 		manifest: true
 	});
 	const manifest = pageData.manifest;
@@ -53,6 +54,7 @@ let failed = false;
 	check("time: capture start and end are ISO dates", [manifest.time.captureStarted, manifest.time.captureEnded].every(isIsoDate), true);
 	check("options: booleans are recorded", manifest.options.blockScripts, false);
 	check("options: the custom stylesheet is recorded", manifest.options.customStylesheet, "p{margin:0}");
+	check("options: the embedded script is recorded", manifest.options.embeddedScript, "console.log(1);");
 	check("options: the option itself is not", "manifest" in manifest.options, false);
 	check("options: no non-primitive leaks", Object.values(manifest.options).every(value => ["boolean", "number", "string"].includes(typeof value)), true);
 	check("frames: the top document first, then the frame", manifest.frames.map(frame => frame.id), ["0", "0.1"]);
