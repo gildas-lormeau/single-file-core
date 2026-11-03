@@ -8,8 +8,8 @@
 // glyphs a GSUB lookup produces from kept glyphs keep their outlines, to a fixed point, as do the
 // components of a kept composite glyph, so ligatures and accented letters built from parts still draw.
 //
-// The font below is built here, glyph by glyph: .notdef, A, B, C as a composite of A, D, and the
-// ligature AB that a GSUB lookup produces. happy-dom carries no font engine, so the checks read the
+// The font below is built here, glyph by glyph: .notdef, A, B, C as a composite of A, D, the
+// ligature AB that a GSUB lookup produces, and X and x, which every pass keeps. happy-dom carries no font engine, so the checks read the
 // saved font back: which glyphs still hold an outline, what cmap maps, and that GSUB is byte-identical.
 // The same font is checked in Chromium by hand (scratchpad glyphs/verify.mjs, 2026-10-23): a hollowed
 // Arial, Georgia and Tahoma load, the kept text measures the same width as with the original, and a
@@ -20,12 +20,12 @@ import { process } from "../../modules/font-glyphs-minifier.js";
 
 const PAGE_URL = "https://example.com/glyphs.html";
 const FONT_URL = "https://example.com/font.ttf";
-const A = 1, B = 2, C = 3, LIGATURE = 5, VARIANT_1 = 6, VARIANT_2 = 7, RING_A = 8, LEFT_PAREN = 9, RIGHT_PAREN = 10, E = 11, DOT_E = 12, DOT_CIRCUMFLEX_E = 13, GA = 14;
-const GLYPH_COUNT = 15;
-const CHAR_A = 65, CHAR_B = 66, CHAR_C = 67, CHAR_D = 68;
+const A = 1, B = 2, C = 3, LIGATURE = 5, VARIANT_1 = 6, VARIANT_2 = 7, RING_A = 8, LEFT_PAREN = 9, RIGHT_PAREN = 10, E = 11, DOT_E = 12, DOT_CIRCUMFLEX_E = 13, GA = 14, X = 15, LOWER_X = 16;
+const GLYPH_COUNT = 17;
+const CHAR_A = 65, CHAR_B = 66, CHAR_C = 67, CHAR_D = 68, CHAR_X = 0x58, CHAR_LOWER_X = 0x78;
 const CHAR_RING_A = 0xC5, CHAR_RING = 0x30A, CHAR_LEFT_PAREN = 0x28, CHAR_RIGHT_PAREN = 0x29, SELECTOR_1 = 0xFE00, SELECTOR_2 = 0xFE01;
 const CHAR_E = 0x65, CHAR_DOT_BELOW = 0x323, CHAR_CIRCUMFLEX = 0x302, CHAR_DOT_E = 0x1EB9, CHAR_DOT_CIRCUMFLEX_E = 0x1EC7, CHAR_GA = 0xAC00, CHAR_KIYEOK = 0x1100, CHAR_A_JAMO = 0x1161;
-const ALL_CHARS = [[CHAR_LEFT_PAREN, CHAR_RIGHT_PAREN], [CHAR_A, CHAR_D], [CHAR_E, CHAR_E], [CHAR_RING_A, CHAR_RING_A], [CHAR_DOT_E, CHAR_DOT_E], [CHAR_DOT_CIRCUMFLEX_E, CHAR_DOT_CIRCUMFLEX_E], [CHAR_GA, CHAR_GA]];
+const ALL_CHARS = [[CHAR_LEFT_PAREN, CHAR_RIGHT_PAREN], [CHAR_A, CHAR_D], [CHAR_X, CHAR_X], [CHAR_E, CHAR_E], [CHAR_LOWER_X, CHAR_LOWER_X], [CHAR_RING_A, CHAR_RING_A], [CHAR_DOT_E, CHAR_DOT_E], [CHAR_DOT_CIRCUMFLEX_E, CHAR_DOT_CIRCUMFLEX_E], [CHAR_GA, CHAR_GA]];
 const FSTYPE_NO_SUBSETTING = 0x0100;
 
 let failed = false;
@@ -35,13 +35,15 @@ const woff = buildWoff(font);
 
 // The case this exists for: the page draws A and C, so B, D and the ligature AB, which needs B, lose
 // their outlines, B and D lose their cmap entries, while A, C and A as C's component stay, and GSUB
-// is untouched.
+// is untouched. X and x stay whatever the page draws: CoreText takes the cap-height and x-height
+// zones it aligns small text on from those two outlines, and a face missing either one renders
+// every glyph a third of a pixel lower and lighter on a 1x screen (Le Monde's Marr Sans, 2026-11-03).
 {
 	const result = await process(font, [[CHAR_A, CHAR_A], [CHAR_C, CHAR_C]]);
 	check("a TrueType font is hollowed", result !== null, true);
 	const info = readFont(result);
-	check("the drawn glyphs keep their outlines", JSON.stringify(outlinedGlyphs(info)), JSON.stringify([A, C, VARIANT_1, VARIANT_2]));
-	check("cmap maps the drawn characters only", JSON.stringify([...info.cmap]), JSON.stringify([[CHAR_A, A], [CHAR_C, C]]));
+	check("the drawn glyphs keep their outlines, and X and x with them", JSON.stringify(outlinedGlyphs(info)), JSON.stringify([A, C, VARIANT_1, VARIANT_2, X, LOWER_X]));
+	check("cmap maps the drawn characters, X and x", JSON.stringify([...info.cmap]), JSON.stringify([[CHAR_A, A], [CHAR_C, C], [CHAR_X, X], [CHAR_LOWER_X, LOWER_X]]));
 	check("GSUB is byte-identical", sameBytes(info.tables.get("GSUB"), readFont(font).tables.get("GSUB")), true);
 	check("the glyph count is unchanged", info.glyphCount, GLYPH_COUNT);
 	check("the font checksum is valid", info.checksumValid, true);
@@ -52,14 +54,14 @@ const woff = buildWoff(font);
 // to it since no character selects it directly.
 {
 	const info = readFont(await process(font, [[CHAR_A, CHAR_B]]));
-	check("a ligature of drawn glyphs is kept", JSON.stringify(outlinedGlyphs(info)), JSON.stringify([A, B, LIGATURE, VARIANT_1, VARIANT_2]));
-	check("and cmap maps its components only", JSON.stringify([...info.cmap]), JSON.stringify([[CHAR_A, A], [CHAR_B, B]]));
+	check("a ligature of drawn glyphs is kept", JSON.stringify(outlinedGlyphs(info)), JSON.stringify([A, B, LIGATURE, VARIANT_1, VARIANT_2, X, LOWER_X]));
+	check("and cmap maps its components only", JSON.stringify([...info.cmap]), JSON.stringify([[CHAR_A, A], [CHAR_B, B], [CHAR_X, X], [CHAR_LOWER_X, LOWER_X]]));
 }
 
 // A composite glyph keeps its components: drawing C alone keeps A's outline too.
 {
 	const info = readFont(await process(font, [[CHAR_C, CHAR_C]]));
-	check("the component of a composite glyph is kept", JSON.stringify(outlinedGlyphs(info)), JSON.stringify([A, C]));
+	check("the component of a composite glyph is kept", JSON.stringify(outlinedGlyphs(info)), JSON.stringify([A, C, X, LOWER_X]));
 	check("without mapping its character", info.cmap.has(CHAR_A), false);
 }
 
@@ -73,7 +75,7 @@ const woff = buildWoff(font);
 // shaper composes it into, a precomposed character keeps the pieces it decomposes into, and a
 // bracket keeps its mirror for right-to-left runs.
 {
-	check("every variation glyph of a drawn character is kept", JSON.stringify(outlinedGlyphs(readFont(await process(font, [[CHAR_A, CHAR_A]])))), JSON.stringify([A, VARIANT_1, VARIANT_2]));
+	check("every variation glyph of a drawn character is kept", JSON.stringify(outlinedGlyphs(readFont(await process(font, [[CHAR_A, CHAR_A]])))), JSON.stringify([A, VARIANT_1, VARIANT_2, X, LOWER_X]));
 	const composed = readFont(await process(font, [[CHAR_A, CHAR_A], [CHAR_RING, CHAR_RING]]));
 	check("a base and a combining mark keep their composition", outlinedGlyphs(composed).includes(RING_A) && composed.cmap.get(CHAR_RING_A), RING_A);
 	const decomposed = readFont(await process(font, [[CHAR_RING_A, CHAR_RING_A]]));
@@ -84,7 +86,7 @@ const woff = buildWoff(font);
 	check("a base and two marks keep the composition of their composition", JSON.stringify([chained.cmap.get(CHAR_DOT_E), chained.cmap.get(CHAR_DOT_CIRCUMFLEX_E)]), JSON.stringify([DOT_E, DOT_CIRCUMFLEX_E]));
 	const hangul = readFont(await process(font, [[CHAR_KIYEOK, CHAR_KIYEOK], [CHAR_A_JAMO, CHAR_A_JAMO]]));
 	check("hangul jamo keep their syllable", outlinedGlyphs(hangul).includes(GA) && hangul.cmap.get(CHAR_GA), GA);
-	check("and a syllable keeps nothing it does not decompose into", JSON.stringify(outlinedGlyphs(readFont(await process(font, [[CHAR_GA, CHAR_GA]])))), JSON.stringify([GA]));
+	check("and a syllable keeps nothing it does not decompose into", JSON.stringify(outlinedGlyphs(readFont(await process(font, [[CHAR_GA, CHAR_GA]])))), JSON.stringify([GA, X, LOWER_X]));
 }
 
 // A font with a MATH table is left alone: its stretched operators reference glyphs the pass
@@ -103,8 +105,8 @@ const woff = buildWoff(font);
 	const result = await process(woff, [[CHAR_A, CHAR_A], [CHAR_C, CHAR_C]]);
 	check("a WOFF font is hollowed", result !== null && tag(result, 0) == "wOFF", true);
 	const info = readFont(await unpackWoff(result));
-	check("with the same glyphs kept", JSON.stringify(outlinedGlyphs(info)), JSON.stringify([A, C, VARIANT_1, VARIANT_2]));
-	check("and the same cmap", JSON.stringify([...info.cmap]), JSON.stringify([[CHAR_A, A], [CHAR_C, C]]));
+	check("with the same glyphs kept", JSON.stringify(outlinedGlyphs(info)), JSON.stringify([A, C, VARIANT_1, VARIANT_2, X, LOWER_X]));
+	check("and the same cmap", JSON.stringify([...info.cmap]), JSON.stringify([[CHAR_A, A], [CHAR_C, C], [CHAR_X, X], [CHAR_LOWER_X, LOWER_X]]));
 }
 
 // A WOFF2 font is read through Brotli, hollowed and written back as WOFF2 with the glyf and loca
@@ -116,8 +118,8 @@ const woff = buildWoff(font);
 	check("a WOFF2 font is hollowed", result !== null && tag(result, 0) == "wOF2", true);
 	const unpacked = await unpackWoff2(result);
 	const info = readFont(unpacked);
-	check("with the same glyphs kept", JSON.stringify(outlinedGlyphs(info)), JSON.stringify([A, C, VARIANT_1, VARIANT_2]));
-	check("and the same cmap", JSON.stringify([...info.cmap]), JSON.stringify([[CHAR_A, A], [CHAR_C, C]]));
+	check("with the same glyphs kept", JSON.stringify(outlinedGlyphs(info)), JSON.stringify([A, C, VARIANT_1, VARIANT_2, X, LOWER_X]));
+	check("and the same cmap", JSON.stringify([...info.cmap]), JSON.stringify([[CHAR_A, A], [CHAR_C, C], [CHAR_X, X], [CHAR_LOWER_X, LOWER_X]]));
 	const original = readFont(font);
 	check("the kept simple glyph is rebuilt as drawn", sameBytes(glyphRecord(info, A), glyphRecord(original, A)), true);
 	check("the kept composite glyph is rebuilt as drawn", sameBytes(glyphRecord(info, C), glyphRecord(original, C)), true);
@@ -137,12 +139,12 @@ const woff = buildWoff(font);
 {
 	const drawn = [["s", "normal", [[CHAR_A, CHAR_A], [CHAR_C, CHAR_C]], 0]];
 	const info = readFont(await captureFont({ removeUnusedGlyphs: true, usedFontsCharacters: drawn }));
-	check("a captured page carries the hollowed font", JSON.stringify(outlinedGlyphs(info)), JSON.stringify([A, C, VARIANT_1, VARIANT_2]));
+	check("a captured page carries the hollowed font", JSON.stringify(outlinedGlyphs(info)), JSON.stringify([A, C, VARIANT_1, VARIANT_2, X, LOWER_X]));
 	check("the option off keeps the font", sameBytes(await captureFont({ usedFontsCharacters: drawn }), font), true);
 	check("an unknown character set keeps the font", sameBytes(await captureFont({ removeUnusedGlyphs: true, usedFontsCharacters: [["s", "normal", [[CHAR_A, CHAR_A]], 1]] }), font), true);
 	check("a family the page never draws keeps the font", sameBytes(await captureFont({ removeUnusedGlyphs: true, usedFontsCharacters: [["t", "normal", [[CHAR_A, CHAR_A]], 0]] }), font), true);
 	const woff2Info = readFont(await unpackWoff2(await captureFont({ removeUnusedGlyphs: true, usedFontsCharacters: drawn }, await buildWoff2(font), "font/woff2")));
-	check("a captured page carries a hollowed WOFF2 font", JSON.stringify(outlinedGlyphs(woff2Info)), JSON.stringify([A, C, VARIANT_1, VARIANT_2]));
+	check("a captured page carries a hollowed WOFF2 font", JSON.stringify(outlinedGlyphs(woff2Info)), JSON.stringify([A, C, VARIANT_1, VARIANT_2, X, LOWER_X]));
 }
 
 if (failed) {
@@ -184,7 +186,7 @@ function sameBytes(bytes, otherBytes) {
 function buildFont(fsType = 0) {
 	const triangle = simpleGlyph([[0, 0], [100, 0], [50, 100]]);
 	const polygon = simpleGlyph(Array.from({ length: 48 }, (_, index) => [(index * 37) % 1000, (index * 91) % 1000]));
-	const glyphs = [new Uint8Array(0), triangle, polygon, compositeGlyph(A), polygon, polygon, triangle, triangle, triangle, triangle, triangle, triangle, triangle, triangle, triangle];
+	const glyphs = [new Uint8Array(0), triangle, polygon, compositeGlyph(A), polygon, polygon, triangle, triangle, triangle, triangle, triangle, triangle, triangle, triangle, triangle, triangle, triangle];
 	const loca = new Uint8Array((GLYPH_COUNT + 1) * 4);
 	let offset = 0;
 	glyphs.forEach((glyph, glyphId) => {
@@ -268,7 +270,7 @@ function compositeGlyph(componentGlyphId) {
 // A format 4 subtable of delta-mapped segments, and a format 14 subtable giving A two variation
 // selectors, each with its own glyph.
 function buildCmap() {
-	const segments = [[CHAR_LEFT_PAREN, CHAR_RIGHT_PAREN, LEFT_PAREN], [CHAR_A, CHAR_D, A], [CHAR_E, CHAR_E, E], [CHAR_RING_A, CHAR_RING_A, RING_A], [CHAR_DOT_E, CHAR_DOT_E, DOT_E], [CHAR_DOT_CIRCUMFLEX_E, CHAR_DOT_CIRCUMFLEX_E, DOT_CIRCUMFLEX_E], [CHAR_GA, CHAR_GA, GA], [0xFFFF, 0xFFFF, 0]];
+	const segments = [[CHAR_LEFT_PAREN, CHAR_RIGHT_PAREN, LEFT_PAREN], [CHAR_A, CHAR_D, A], [CHAR_X, CHAR_X, X], [CHAR_E, CHAR_E, E], [CHAR_LOWER_X, CHAR_LOWER_X, LOWER_X], [CHAR_RING_A, CHAR_RING_A, RING_A], [CHAR_DOT_E, CHAR_DOT_E, DOT_E], [CHAR_DOT_CIRCUMFLEX_E, CHAR_DOT_CIRCUMFLEX_E, DOT_CIRCUMFLEX_E], [CHAR_GA, CHAR_GA, GA], [0xFFFF, 0xFFFF, 0]];
 	const segmentCount = segments.length;
 	const subtable = new Uint8Array(16 + segmentCount * 8);
 	writeUint16(subtable, 0, 4);
