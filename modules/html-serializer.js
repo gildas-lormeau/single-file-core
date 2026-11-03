@@ -25,6 +25,8 @@ const VOID_TAG_NAMES = ["AREA", "BASE", "BASEFONT", "BGSOUND", "BR", "COL", "COM
 
 const Node_ELEMENT_NODE = 1;
 const Node_TEXT_NODE = 3;
+const Node_CDATA_SECTION_NODE = 4;
+const Node_PROCESSING_INSTRUCTION_NODE = 7;
 const Node_COMMENT_NODE = 8;
 
 // see https://www.w3.org/TR/html5/syntax.html#optional-tags
@@ -78,12 +80,16 @@ function process(doc, compressHTML, omittedEndTagElements) {
 }
 
 function serialize(node, compressHTML, omittedEndTagElements) {
-	if (node.nodeType == Node_TEXT_NODE) {
+	if (node.nodeType == Node_TEXT_NODE || node.nodeType == Node_CDATA_SECTION_NODE) {
 		return serializeTextNode(node);
 	} else if (node.nodeType == Node_COMMENT_NODE) {
 		return serializeCommentNode(node);
+	} else if (node.nodeType == Node_PROCESSING_INSTRUCTION_NODE) {
+		return serializeProcessingInstructionNode(node);
 	} else if (node.nodeType == Node_ELEMENT_NODE) {
 		return serializeElement(node, compressHTML, omittedEndTagElements);
+	} else {
+		return "";
 	}
 }
 
@@ -105,6 +111,11 @@ function serializeTextNode(textNode) {
 
 function serializeCommentNode(commentNode) {
 	return "<!--" + commentNode.textContent + "-->";
+}
+
+function serializeProcessingInstructionNode(processingInstructionNode) {
+	const data = processingInstructionNode.data;
+	return "<?" + processingInstructionNode.target + (data ? " " + data : "") + "?>";
 }
 
 function serializeElement(element, compressHTML, omittedEndTagElements) {
