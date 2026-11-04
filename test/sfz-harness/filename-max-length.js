@@ -63,6 +63,15 @@ for (const maxLength of [192, 255]) {
 check("limit shorter than the extension keeps only the suffix", await getFilename(LONG_TITLE, "bytes", 4), "….html");
 check("limit shorter than the extension, chars", await getFilename(LONG_TITLE, "char", 3), "….html");
 
+const ASTRAL_TITLE = "\u{1D400}".repeat(200);
+
+// the "chars" unit counts UTF-16 units, and a limit landing in the middle of an astral character
+// left its high surrogate alone before the ellipsis, a filename the downloads API refuses
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+check("an odd chars limit does not split an astral character", await getFilename(ASTRAL_TITLE.slice(0, 100), "char", 11), "\u{1D400}\u{1D400}….html");
+check("and leaves no lone surrogate", LONE_SURROGATE.test(await getFilename(ASTRAL_TITLE.slice(0, 100), "char", 13)), false);
+check("an even chars limit keeps the whole characters", await getFilename(ASTRAL_TITLE.slice(0, 100), "char", 12), "\u{1D400}\u{1D400}\u{1D400}….html");
+
 // nothing above the limit is truncated at all, ellipsis included
 check("a filename at the limit is left alone", await getFilename("a".repeat(187), "bytes", 192), "a".repeat(187) + ".html");
 
@@ -89,7 +98,6 @@ check("a custom extension is kept", (await format(LONG_TITLE + ".htm", "bytes", 
 
 // #2037: the grammar names the unit "ch" and the formatter tested for "char", so "[Nch]" counted
 // bytes like "[N]". A character is a code point, so a 4-byte letter counts as one, not two
-const ASTRAL_TITLE = "\u{1D400}".repeat(200);
 async function formatTitle(template, title) {
 	return (await formatFilename("", null, {
 		url: "https://example.com/page",

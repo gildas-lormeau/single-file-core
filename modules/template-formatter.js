@@ -16910,7 +16910,7 @@ async function formatFilename(content, doc, options) {
 		}
 		const suffix = "…" + extension;
 		const maxLength = Math.max(options.filenameMaxLength - (options.filenameMaxLengthUnit == "bytes" ? getContentSize(suffix) : suffix.length), 0);
-		filename = options.filenameMaxLengthUnit == "bytes" ? await truncateText(filename, maxLength) : filename.substring(0, maxLength);
+		filename = options.filenameMaxLengthUnit == "bytes" ? await truncateText(filename, maxLength) : truncateCharacters(filename, maxLength);
 		filename = filename + suffix;
 	}
 	if (!filename) {
@@ -17319,6 +17319,11 @@ function getLastSegment(url, replacementCharacter) {
 	}
 	lastSegment = lastSegment.replace(/\/$/, "").replace(/^\//, "");
 	return lastSegment;
+}
+
+function truncateCharacters(content, maxLength) {
+	const truncatedContent = content.substring(0, maxLength);
+	return /[\uD800-\uDBFF]$/.test(truncatedContent) ? truncatedContent.slice(0, -1) : truncatedContent;
 }
 
 async function truncateText(content, maxSize) {
