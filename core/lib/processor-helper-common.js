@@ -65,6 +65,7 @@ const Image = globalThis.Image;
 const OffscreenCanvas = globalThis.OffscreenCanvas;
 const DEFAULT_IMAGE_QUALITY = 0.8;
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+const XMLNS_NAMESPACE = "http://www.w3.org/2000/xmlns/";
 
 let util, cssTree;
 
@@ -952,7 +953,7 @@ function getSVGFragmentContent(svgContent, hash) {
 		}
 		if (fragmentElement) {
 			if (!fragmentElement.hasAttribute("xmlns")) {
-				fragmentElement.setAttribute("xmlns", SVG_NAMESPACE);
+				fragmentElement.setAttributeNS(XMLNS_NAMESPACE, "xmlns", SVG_NAMESPACE);
 			}
 			return fragmentElement.outerHTML;
 		}
