@@ -11,6 +11,7 @@
 // and an id that names nothing usable falls back to the whole sprite with the hash appended, which
 // browsers honour on a data: URL and on a file name alike. A hash on a non-SVG resource is dropped
 // as before, and url(#id) inside the page is left alone.
+/* global atob */
 import { capture, captureArchive, html } from "./common.js";
 
 const PAGE_URL = "https://example.com/icons.html";
