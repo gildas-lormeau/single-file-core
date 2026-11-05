@@ -377,6 +377,7 @@ function getProcessorHelperClass(utilInstance) {
 			await Promise.all(Array.from(resourceElements).map(async resourceElement => {
 				let resourceURL = resourceElement.getAttribute(attributeName);
 				if (resourceURL != null) {
+					const hash = getURLHash(resourceURL);
 					resourceURL = normalizeURL(resourceURL);
 					let originURL = resourceElement.dataset.singleFileOriginURL;
 					if (options.saveOriginalURLs && !isDataURL(resourceURL)) {
@@ -453,6 +454,9 @@ function getProcessorHelperClass(utilInstance) {
 											}
 											if (!forbiddenPrefixFound) {
 												const isSVG = content.startsWith(PREFIX_DATA_URI_IMAGE_SVG);
+												if (isSVG && hash) {
+													content = await getSVGFragmentDataURI(content, hash);
+												}
 												const maxSizeDuplicateImages = options.maxSizeDuplicateImages || SINGLE_FILE_VARIABLE_MAX_SIZE;
 												if (processDuplicates && duplicate && !isSVG && util.getContentSize(content) < maxSizeDuplicateImages) {
 													if (this.replaceImageSource(resourceElement, SINGLE_FILE_VARIABLE_NAME_PREFIX + indexResource, options)) {

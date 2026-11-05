@@ -124,8 +124,34 @@ let failed = false;
 	check("and the fallback name carries the hash after the comment", content.includes("/* original URL: " + SPRITE_URL + "#missing */url(images/0.svg#missing)"), true);
 }
 
+// The attribute side: <img src="sprite.svg#id"> and the other attributes processPageResources
+// fills go through the same extraction, in both modes.
+{
+	const body = "<img id=\"img-bookmark\" src=\"" + SPRITE_URL + "#bookmark\"><img id=\"img-missing\" src=\"" + SPRITE_URL + "#missing\">";
+	const head = "<link rel=\"icon\" href=\"" + SPRITE_URL + "#star\">";
+	const page = html(body, head);
+	const content = await capture(pageResources(page), { url: PAGE_URL, content: page, saveFavicon: true });
+	const bookmarkSrc = attribute(content, "img-bookmark", "src");
+	check("an img naming a view gets the tile", [decode(bookmarkSrc).includes("bookmark-path"), decode(bookmarkSrc).includes("share-path")], [true, false]);
+	check("an img naming an unknown id keeps the sprite with its hash", /^data:image\/svg\+xml;base64,[^#]+#missing$/.test(attribute(content, "img-missing", "src")), true);
+	check("a link icon naming a symbol gets the wrapped symbol", decode(content.match(/<link rel="?icon"? href="?([^" >]+)/)[1]).includes("star-path"), true);
+	const pageData = await captureArchive(pageResources(page), { url: PAGE_URL, content: page, saveFavicon: true });
+	check("the archive img names the tile file", attribute(pageData.content, "img-bookmark", "src"), "images/0-bookmark.svg");
+	check("and the unknown id names the sprite file with its hash", attribute(pageData.content, "img-missing", "src"), "images/0.svg#missing");
+	check("the archive holds the tile, the symbol and the sprite", pageData.resources.images.map(resource => resource.name).sort(), ["images/0-bookmark.svg", "images/0-star.svg", "images/0.svg"]);
+}
+
 if (failed) {
 	Deno.exit(1);
+}
+
+function attribute(content, id, name) {
+	const match = content.match(new RegExp("<[a-z]+ id=\"?" + id + "\"? " + name + "=\"?([^\" >]+)"));
+	return match && match[1];
+}
+
+function decode(dataURI) {
+	return svgDataURIs(dataURI)[0] || "";
 }
 
 async function captureInline(css, options = {}) {

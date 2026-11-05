@@ -441,27 +441,14 @@ function getProcessorHelperClass(utilInstance) {
 						let { content, indexResource, contentType, extension } = await batchRequest.addURL(resourceURL,
 							{ asBinary: true, expectedType: "image", ...getStylesheetReferrer(resourceURL, options) });
 						const emptyResource = this.testEmptyResource(content);
-						let name = emptyResource ? util.EMPTY_RESOURCE : "images/" + indexResource + extension;
-						let resourceKey = indexResource;
-						let urlValue = name;
-						const hash = getURLHash(originalResourceURL);
-						if (hash && !emptyResource && extension == SVG_EXTENSION) {
-							const fragmentContent = getSVGFragmentContent(new TextDecoder().decode(content), hash);
-							if (fragmentContent) {
-								content = new TextEncoder().encode(fragmentContent);
-								resourceKey = indexResource + hash;
-								name = urlValue = "images/" + indexResource + "-" + hash.substring(1).replace(/[^\w-]/g, "_") + extension;
-							} else {
-								urlValue = name + hash;
-							}
-						}
+						const imageResource = emptyResource ? { urlValue: util.EMPTY_RESOURCE } : getImageResource(content, indexResource, extension, getURLHash(originalResourceURL));
 						if (!isDataURL(resourceURL) && options.saveOriginalURLs) {
-							urlNode.value = "-sf-url-original(" + JSON.stringify(originalResourceURL) + ") " + urlValue;
+							urlNode.value = "-sf-url-original(" + JSON.stringify(originalResourceURL) + ") " + imageResource.urlValue;
 						} else {
-							urlNode.value = urlValue;
+							urlNode.value = imageResource.urlValue;
 						}
 						if (!emptyResource) {
-							resources.images.set(resourceKey, { name, content, extension, contentType, url: resourceURL });
+							resources.images.set(imageResource.key, { name: imageResource.name, content: imageResource.content, extension, contentType, url: resourceURL });
 						}
 					}
 				} else {
@@ -474,6 +461,7 @@ function getProcessorHelperClass(utilInstance) {
 			await Promise.all(Array.from(resourceElements).map(async resourceElement => {
 				let resourceURL = resourceElement.getAttribute(attributeName);
 				if (resourceURL != null) {
+					const hash = getURLHash(resourceURL);
 					resourceURL = normalizeURL(resourceURL);
 					let originURL = resourceElement.dataset.singleFileOriginURL;
 					if (options.saveOriginalURLs && !isDataURL(resourceURL)) {
@@ -533,10 +521,10 @@ function getProcessorHelperClass(utilInstance) {
 									if (removeElementIfMissing && this.testEmptyResource(content)) {
 										resourceElement.remove();
 									} else if (!this.testEmptyResource(content)) {
-										const name = "images/" + indexResource + extension;
-										resourceElement.setAttribute(attributeName, name);
+										const imageResource = getImageResource(content, indexResource, extension, hash);
+										resourceElement.setAttribute(attributeName, imageResource.urlValue);
 										removeCrossOriginAttribute(resourceElement);
-										resources.images.set(indexResource, { name, content, extension, contentType, url: resourceURL });
+										resources.images.set(imageResource.key, { name: imageResource.name, content: imageResource.content, extension, contentType, url: resourceURL });
 									}
 								}
 							}
@@ -805,6 +793,20 @@ function replaceResourceName(urlNode, canonicalNames) {
 			urlNode.value = value.substring(0, value.length - name.length) + canonicalName + hash;
 		}
 	});
+}
+
+function getImageResource(content, indexResource, extension, hash) {
+	const name = "images/" + indexResource + extension;
+	if (hash && extension == SVG_EXTENSION) {
+		const fragmentContent = getSVGFragmentContent(new TextDecoder().decode(content), hash);
+		if (fragmentContent) {
+			const fragmentName = "images/" + indexResource + "-" + hash.substring(1).replace(/[^\w-]/g, "_") + extension;
+			return { content: new TextEncoder().encode(fragmentContent), key: indexResource + hash, name: fragmentName, urlValue: fragmentName };
+		} else {
+			return { content, key: indexResource, name, urlValue: name + hash };
+		}
+	}
+	return { content, key: indexResource, name, urlValue: name };
 }
 
 function compareResourceKeys(resourceKey, otherResourceKey) {
