@@ -28,6 +28,8 @@ import * as fontGlyphsMinifier from "./../../modules/font-glyphs-minifier.js";
 const JSON = globalThis.JSON;
 const FontFace = globalThis.FontFace;
 const Blob = globalThis.Blob;
+const TextDecoder = globalThis.TextDecoder;
+const TextEncoder = globalThis.TextEncoder;
 
 const ABOUT_BLANK_URI = "about:blank";
 const UTF8_CHARSET = "utf-8";
@@ -38,6 +40,7 @@ const EMPTY_URL_SOURCE = /^url\(["']?data:[^,]*,?["']?\)/;
 const LOCAL_SOURCE = "local(";
 const FONT_MAX_LOAD_DELAY = 5000;
 const SCRIPT_EXTENSION = ".js";
+const SVG_EXTENSION = ".svg";
 const LINK_OWN_ATTRIBUTE_NAMES = ["rel", "type", "href", "media"];
 const CROSS_ORIGIN_ATTRIBUTE_NAME = "crossorigin";
 const SOURCE_TAG_NAME = "SOURCE";
@@ -64,7 +67,9 @@ import {
 	getReferrerPolicy,
 	getStylesheetReferrer,
 	resizeImage,
-	toDataURI
+	toDataURI,
+	getURLHash,
+	getSVGFragmentContent
 } from "./processor-helper-common.js";
 
 export {
@@ -389,7 +394,7 @@ function getProcessorHelperClass(utilInstance) {
 			const resourcesBySize = new Map();
 			[...images]
 				.filter(([, resource]) => resource.content && resource.content.length)
-				.sort(([indexResource], [otherIndexResource]) => indexResource - otherIndexResource)
+				.sort(([indexResource], [otherIndexResource]) => compareResourceKeys(indexResource, otherIndexResource))
 				.forEach(([indexResource, resource]) => {
 					const sameSizeResources = resourcesBySize.get(resource.content.length) || [];
 					const original = sameSizeResources.find(previousResource => testSameContent(previousResource.content, resource.content));
@@ -435,14 +440,28 @@ function getProcessorHelperClass(utilInstance) {
 					if ((!testIgnoredPath(resourceURL) && testValidURL(resourceURL)) || testGeneratedDataURI(resourceURL, options)) {
 						let { content, indexResource, contentType, extension } = await batchRequest.addURL(resourceURL,
 							{ asBinary: true, expectedType: "image", ...getStylesheetReferrer(resourceURL, options) });
-						const name = this.testEmptyResource(content) ? util.EMPTY_RESOURCE : "images/" + indexResource + extension;
-						if (!isDataURL(resourceURL) && options.saveOriginalURLs) {
-							urlNode.value = "-sf-url-original(" + JSON.stringify(originalResourceURL) + ") " + name;
-						} else {
-							urlNode.value = name;
+						const emptyResource = this.testEmptyResource(content);
+						let name = emptyResource ? util.EMPTY_RESOURCE : "images/" + indexResource + extension;
+						let resourceKey = indexResource;
+						let urlValue = name;
+						const hash = getURLHash(originalResourceURL);
+						if (hash && !emptyResource && extension == SVG_EXTENSION) {
+							const fragmentContent = getSVGFragmentContent(new TextDecoder().decode(content), hash);
+							if (fragmentContent) {
+								content = new TextEncoder().encode(fragmentContent);
+								resourceKey = indexResource + hash;
+								name = urlValue = "images/" + indexResource + "-" + hash.substring(1).replace(/[^\w-]/g, "_") + extension;
+							} else {
+								urlValue = name + hash;
+							}
 						}
-						if (!this.testEmptyResource(content)) {
-							resources.images.set(indexResource, { name, content, extension, contentType, url: resourceURL });
+						if (!isDataURL(resourceURL) && options.saveOriginalURLs) {
+							urlNode.value = "-sf-url-original(" + JSON.stringify(originalResourceURL) + ") " + urlValue;
+						} else {
+							urlNode.value = urlValue;
+						}
+						if (!emptyResource) {
+							resources.images.set(resourceKey, { name, content, extension, contentType, url: resourceURL });
 						}
 					}
 				} else {
@@ -777,11 +796,19 @@ function getResourceName(value) {
 }
 
 function replaceResourceName(urlNode, canonicalNames) {
+	const hash = getURLHash(urlNode.value.substring(urlNode.value.lastIndexOf(" ") + 1));
+	const value = hash ? urlNode.value.substring(0, urlNode.value.length - hash.length) : urlNode.value;
 	canonicalNames.forEach((canonicalName, name) => {
-		if (urlNode.value == name) {
-			urlNode.value = canonicalName;
-		} else if (urlNode.value.endsWith(" " + name)) {
-			urlNode.value = urlNode.value.substring(0, urlNode.value.length - name.length) + canonicalName;
+		if (value == name) {
+			urlNode.value = canonicalName + hash;
+		} else if (value.endsWith(" " + name)) {
+			urlNode.value = value.substring(0, value.length - name.length) + canonicalName + hash;
 		}
 	});
+}
+
+function compareResourceKeys(resourceKey, otherResourceKey) {
+	const index = parseInt(resourceKey, 10);
+	const otherIndex = parseInt(otherResourceKey, 10);
+	return index == otherIndex ? String(resourceKey).localeCompare(String(otherResourceKey)) : index - otherIndex;
 }

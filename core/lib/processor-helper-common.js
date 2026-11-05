@@ -58,6 +58,9 @@ const REGEXP_FONT_FORMAT_SUPPORTS = /^(\S+)\s+supports\s+(.+)$/;
 const REGEXP_FONT_SRC = /(.*?)\s*,?$/;
 const MEDIA_ALL = "all";
 const Blob = globalThis.Blob;
+const atob = globalThis.atob;
+const TextDecoder = globalThis.TextDecoder;
+const Uint8Array = globalThis.Uint8Array;
 const Image = globalThis.Image;
 const OffscreenCanvas = globalThis.OffscreenCanvas;
 const DEFAULT_IMAGE_QUALITY = 0.8;
@@ -81,7 +84,10 @@ export {
 	resizeImage,
 	toDataURI,
 	getReferrerPolicy,
-	getStylesheetReferrer
+	getStylesheetReferrer,
+	getURLHash,
+	getSVGFragmentContent,
+	getSVGFragmentDataURI
 };
 
 function getProcessorHelperCommonClass(utilInstance, cssTreeInstance) {
@@ -159,16 +165,7 @@ class ProcessorHelperCommon {
 							const response = await batchRequest.addURL(resourceURL, { expectedType: "image" });
 							const svgDoc = util.parseSVGContent(response.content);
 							if (hashMatch && hashMatch[0]) {
-								const symbolId = hashMatch[0].substring(1);
-								let symbolElement = svgDoc.getElementById(symbolId);
-								if (!symbolElement) {
-									try {
-										symbolElement = svgDoc.getElementById(decodeURIComponent(symbolId));
-										// eslint-disable-next-line no-unused-vars
-									} catch (error) {
-										// ignored
-									}
-								}
+								const symbolElement = getFragmentElement(svgDoc, hashMatch[0]);
 								if (symbolElement) {
 									resourceElement.setAttribute(attributeName, hashMatch[0]);
 									resourceElement.parentElement.insertBefore(symbolElement, resourceElement.parentElement.firstChild);
@@ -421,7 +418,7 @@ class ProcessorHelperCommon {
 							}
 						}
 						if (testValidURL(resolvedURL)) {
-							urlNode.value = resolvedURL;
+							urlNode.value = resolvedURL + getURLHash(originalResourceURL);
 							if (stylesheetReferrer && stylesheetReferrers && !stylesheetReferrers.has(normalizeURL(resolvedURL))) {
 								stylesheetReferrers.set(normalizeURL(resolvedURL), stylesheetReferrer);
 							}
@@ -904,6 +901,93 @@ function getReferrerPolicy(element) {
 
 function isDataURL(url) {
 	return url && (url.startsWith(DATA_URI_PREFIX) || url.startsWith(BLOB_URI_PREFIX));
+}
+
+function getURLHash(url) {
+	const hashMatch = url && !isDataURL(url) && url.match(REGEXP_URL_HASH);
+	return hashMatch ? hashMatch[0] : "";
+}
+
+function getFragmentElement(svgDoc, hash) {
+	const fragmentId = hash.substring(1);
+	let element = svgDoc.getElementById(fragmentId);
+	if (!element) {
+		try {
+			element = svgDoc.getElementById(decodeURIComponent(fragmentId));
+		} catch {
+			// ignored
+		}
+	}
+	return element;
+}
+
+function getSVGFragmentContent(svgContent, hash) {
+	const svgDoc = util.parseSVGContent(svgContent);
+	const rootElement = svgDoc.documentElement && svgDoc.documentElement.localName == "svg" ? svgDoc.documentElement : svgDoc.querySelector("svg");
+	const element = rootElement && getFragmentElement(svgDoc, hash);
+	if (element) {
+		let fragmentElement;
+		if (element.localName == "view") {
+			const viewBox = parseViewBox(element.getAttribute("viewBox"));
+			if (viewBox) {
+				const tileElement = Array.from(rootElement.querySelectorAll("svg")).find(svgElement => testViewBoxMatch(svgElement, viewBox));
+				if (tileElement) {
+					fragmentElement = getStandaloneSVG(tileElement);
+				} else {
+					fragmentElement = rootElement.cloneNode(true);
+					fragmentElement.setAttribute("viewBox", viewBox.join(" "));
+				}
+			}
+		} else if (element.localName == "symbol") {
+			fragmentElement = svgDoc.createElementNS(SVG_NAMESPACE, "svg");
+			["viewBox", "preserveAspectRatio"].forEach(attributeName => {
+				if (element.hasAttribute(attributeName)) {
+					fragmentElement.setAttribute(attributeName, element.getAttribute(attributeName));
+				}
+			});
+			Array.from(rootElement.children).filter(child => child.localName == "defs").forEach(defsElement => fragmentElement.appendChild(defsElement.cloneNode(true)));
+			Array.from(element.childNodes).forEach(childNode => fragmentElement.appendChild(childNode.cloneNode(true)));
+		} else if (element.localName == "svg" && element != rootElement) {
+			fragmentElement = getStandaloneSVG(element);
+		}
+		if (fragmentElement) {
+			if (!fragmentElement.hasAttribute("xmlns")) {
+				fragmentElement.setAttribute("xmlns", SVG_NAMESPACE);
+			}
+			return fragmentElement.outerHTML;
+		}
+	}
+}
+
+async function getSVGFragmentDataURI(dataURI, hash) {
+	const base64Index = dataURI.indexOf(";base64,");
+	if (base64Index != -1) {
+		const bytes = Uint8Array.from(atob(dataURI.substring(base64Index + 8)), character => character.charCodeAt(0));
+		const fragmentContent = getSVGFragmentContent(new TextDecoder().decode(bytes), hash);
+		if (fragmentContent) {
+			return getDataURI(new Blob([fragmentContent], { type: "image/svg+xml" }));
+		}
+	}
+	return dataURI + hash;
+}
+
+function getStandaloneSVG(svgElement) {
+	const standaloneElement = svgElement.cloneNode(true);
+	standaloneElement.removeAttribute("x");
+	standaloneElement.removeAttribute("y");
+	return standaloneElement;
+}
+
+function parseViewBox(value) {
+	const viewBox = value ? value.trim().split(/[\s,]+/).map(Number) : [];
+	if (viewBox.length == 4 && viewBox.every(number => !Number.isNaN(number))) {
+		return viewBox;
+	}
+}
+
+function testViewBoxMatch(svgElement, viewBox) {
+	const [x, y, width, height] = ["x", "y", "width", "height"].map(attributeName => Number(svgElement.getAttribute(attributeName) || (attributeName == "x" || attributeName == "y" ? 0 : NaN)));
+	return x == viewBox[0] && y == viewBox[1] && width == viewBox[2] && height == viewBox[3];
 }
 
 function replaceOriginalURLs(stylesheetContent) {

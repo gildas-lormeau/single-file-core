@@ -77,7 +77,9 @@ import {
 	getReferrerPolicy,
 	getStylesheetReferrer,
 	resizeImage,
-	toDataURI
+	toDataURI,
+	getURLHash,
+	getSVGFragmentDataURI
 } from "./processor-helper-common.js";
 import { getFontWeight } from "./../helper.js";
 
@@ -344,8 +346,13 @@ function getProcessorHelperClass(utilInstance) {
 					if (!testIgnoredPath(resourceURL) && testValidURL(resourceURL)) {
 						let { content, indexResource, duplicate } = await batchRequest.addURL(resourceURL, { asBinary: true, expectedType: "image", groupDuplicates: options.groupDuplicateImages, ...getStylesheetReferrer(resourceURL, options) });
 						if (!originalResourceURL.startsWith("#")) {
+							const hash = getURLHash(originalResourceURL);
+							const svgFragment = Boolean(hash) && content.startsWith(PREFIX_DATA_URI_IMAGE_SVG);
+							if (svgFragment) {
+								content = await getSVGFragmentDataURI(content, hash);
+							}
 							const maxSizeDuplicateImages = options.maxSizeDuplicateImages || SINGLE_FILE_VARIABLE_MAX_SIZE;
-							if (duplicate && options.groupDuplicateImages && util.getContentSize(content) < maxSizeDuplicateImages) {
+							if (!svgFragment && duplicate && options.groupDuplicateImages && util.getContentSize(content) < maxSizeDuplicateImages) {
 								const varNode = cssTree.parse("var(" + SINGLE_FILE_VARIABLE_NAME_PREFIX + indexResource + ")", { context: "value" });
 								for (let keyName of Object.keys(varNode.children.head.data)) {
 									urlNode[keyName] = varNode.children.head.data[keyName];
