@@ -29,7 +29,7 @@
 	},
 	"homepage": "https://github.com/gildas-lormeau/single-file-core#readme",
 	"devDependencies": {
-		"@eslint/js": "^9.39.5",
+		"@eslint/js": "^10.0.1",
 		"eslint": "^10.9.1",
 		"happy-dom": "^20.14.5"
 	}

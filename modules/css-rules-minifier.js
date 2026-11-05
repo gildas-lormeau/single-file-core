@@ -473,7 +473,7 @@ function buildScopeContext(parsedPrelude, processingContext, docContext) {
 	const excludeSelectors = parsedPrelude && parsedPrelude.exclude ? parsedPrelude.exclude : [];
 	const includeAnalysis = analyzeScopeSelectors(includeSelectors, processingContext.hasDefaultNamespace);
 	const excludeAnalysis = analyzeScopeSelectors(excludeSelectors, processingContext.hasDefaultNamespace);
-	let rootElements = [];
+	let rootElements;
 	if (includeSelectors.length) {
 		rootElements = collectScopeRootElements(includeSelectors, scopeStack, docContext);
 		if (!rootElements.length && includeAnalysis.hasNestedUnqueryablePseudoClass) {
@@ -673,7 +673,6 @@ function compareSpecificities(specificityA, specificityB) {
 function analyzeSelector(selector, defaultNamespace) {
 	let hasUnqueryableSelector = Boolean(defaultNamespace);
 	let hasNestedUnqueryablePseudoClass = false;
-	let startsWithCombinator = false;
 	let functionalPseudoClassDepth = 0;
 	cssTree.walk(selector, {
 		enter(node) {
@@ -711,7 +710,7 @@ function analyzeSelector(selector, defaultNamespace) {
 		}
 	});
 	const firstChild = selector.children.head.data;
-	startsWithCombinator = firstChild && firstChild.type === COMBINATOR_NAME;
+	const startsWithCombinator = firstChild && firstChild.type === COMBINATOR_NAME;
 	return { hasUnqueryableSelector, hasNestedUnqueryablePseudoClass, startsWithCombinator };
 }
 

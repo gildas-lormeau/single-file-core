@@ -649,10 +649,10 @@ function guessMIMEType(expectedType, buffer) {
 	}
 
 	function compareBytes(mask, pattern) {
-		let patternMatch = true, index = 0;
+		let patternMatch = true;
 		if (buffer.byteLength >= pattern.length) {
 			const value = new Uint8Array(buffer, 0, mask.length);
-			for (index = 0; index < mask.length && patternMatch; index++) {
+			for (let index = 0; index < mask.length && patternMatch; index++) {
 				patternMatch = patternMatch && ((value[index] & mask[index]) == pattern[index]);
 			}
 			return patternMatch;
