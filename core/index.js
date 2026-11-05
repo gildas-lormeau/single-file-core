@@ -105,6 +105,7 @@ const STAGES = [{
 	sequential: [
 		{ action: "preProcessPage" },
 		{ option: "loadDeferredContentKeepZoomLevel", action: "resetZoomLevel" },
+		{ option: "loadDeferredContentKeepEmulatedScreenSize", action: "resetZoomLevel" },
 		{ action: "replaceStyleContents" },
 		{ action: "replaceInvalidElements" },
 		{ action: "resetCharsetMeta" },

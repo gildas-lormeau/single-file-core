@@ -70,7 +70,8 @@ const FRAME_OPTION_NAMES = [
 	"loadDeferredContentMinZoomFactor",
 	"loadDeferredContentDispatchScrollEvent",
 	"loadDeferredContentBlockCookies",
-	"loadDeferredContentBlockStorage"
+	"loadDeferredContentBlockStorage",
+	"loadDeferredContentKeepEmulatedScreenSize"
 ];
 const TARGET_ORIGIN = "*";
 const TIMEOUT_INIT_REQUEST_MESSAGE = 2000;

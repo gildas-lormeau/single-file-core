@@ -109,7 +109,7 @@
 		document.addEventListener(LOAD_DEFERRED_CONTENT_KEEP_ZOOM_LEVEL_START_EVENT, onLoadDeferredContentKeepZoomLevelStart);
 		document.addEventListener(LOAD_DEFERRED_CONTENT_END_EVENT, onLoadDeferredContentEnd);
 		document.addEventListener(LOAD_DEFERRED_CONTENT_KEEP_ZOOM_LEVEL_END_EVENT, onLoadDeferredContentKeepZoomLevelEnd);
-		document.addEventListener(LOAD_DEFERRED_CONTENT_RESET_EVENT, resetScreenSize);
+		document.addEventListener(LOAD_DEFERRED_CONTENT_RESET_EVENT, onLoadDeferredContentReset);
 		document.addEventListener(LOAD_DEFERRED_CONTENT_RESET_ZOOM_LEVEL_EVENT, onLoadDeferredContentResetZoomLevel);
 		document.addEventListener(DISPATCH_SCROLL_START_EVENT, onDispatchScrollStart);
 		document.addEventListener(DISPATCH_SCROLL_END_EVENT, onDispatchScrollEnd);
@@ -125,11 +125,11 @@
 	}
 
 	function onLoadDeferredContentStart(event) {
-		loadDeferredContentStart(false, getMinZoomFactor(event));
+		loadDeferredContentStart(false, getMinZoomFactor(event), getKeepEmulatedScreenSize(event));
 	}
 
 	function onLoadDeferredContentKeepZoomLevelStart(event) {
-		loadDeferredContentStart(true, getMinZoomFactor(event));
+		loadDeferredContentStart(true, getMinZoomFactor(event), getKeepEmulatedScreenSize(event));
 	}
 
 	function getMinZoomFactor(event) {
@@ -142,12 +142,37 @@
 		}
 	}
 
-	function onLoadDeferredContentEnd() {
-		loadDeferredContentEnd();
+	function getKeepEmulatedScreenSize(event) {
+		try {
+			const { keepEmulatedScreenSize } = JSON.parse(event.detail);
+			return Boolean(keepEmulatedScreenSize);
+			// eslint-disable-next-line no-unused-vars
+		} catch (error) {
+			return false;
+		}
 	}
 
-	function onLoadDeferredContentKeepZoomLevelEnd() {
-		loadDeferredContentEnd(true);
+	function onLoadDeferredContentEnd(event) {
+		loadDeferredContentEnd(false, getKeepEmulatedScreenSize(event));
+	}
+
+	function onLoadDeferredContentKeepZoomLevelEnd(event) {
+		loadDeferredContentEnd(true, getKeepEmulatedScreenSize(event));
+	}
+
+	function onLoadDeferredContentReset(event) {
+		if (getKeepEmulatedScreenSize(event)) {
+			const minHeight = document.documentElement.style.getPropertyValue("-sf-min-height");
+			const minHeightPriority = document.documentElement.style.getPropertyPriority("-sf-min-height");
+			document.documentElement.style.setProperty("min-height", minHeight, minHeightPriority);
+			document.documentElement.style.removeProperty("-sf-transform");
+			document.documentElement.style.removeProperty("-sf-transform-origin");
+			document.documentElement.style.removeProperty("-sf-min-height");
+			resetScreenSize();
+			dispatchResizeEvent();
+		} else {
+			resetScreenSize();
+		}
 	}
 
 	function onLoadDeferredContentResetZoomLevel() {
@@ -238,7 +263,7 @@
 		}
 	}
 
-	function loadDeferredContentStart(keepZoomLevel, minZoomFactor) {
+	function loadDeferredContentStart(keepZoomLevel, minZoomFactor, keepEmulatedScreenSize) {
 		const scrollingElement = document.scrollingElement || document.documentElement;
 		const clientHeight = scrollingElement.clientHeight;
 		const clientWidth = scrollingElement.clientWidth;
@@ -327,14 +352,17 @@
 			document.documentElement.style.setProperty("transform", translation + "scale3d(" + zoomFactor + ", " + zoomFactor + ", 1)", "important");
 			document.documentElement.style.setProperty("min-height", (100 / zoomFactor) + "vh", "important");
 			dispatchResizeEvent();
-			if (keepZoomLevel) {
+			if (keepZoomLevel || keepEmulatedScreenSize) {
 				document.documentElement.style.setProperty("-sf-transform", transform, transformPriority);
 				document.documentElement.style.setProperty("-sf-transform-origin", transformOrigin, transformOriginPriority);
 				document.documentElement.style.setProperty("-sf-min-height", minHeight, minHeightPriority);
-			} else {
+			}
+			if (!keepZoomLevel) {
 				document.documentElement.style.setProperty("transform", transform, transformPriority);
 				document.documentElement.style.setProperty("transform-origin", transformOrigin, transformOriginPriority);
-				document.documentElement.style.setProperty("min-height", minHeight, minHeightPriority);
+				if (!keepEmulatedScreenSize) {
+					document.documentElement.style.setProperty("min-height", minHeight, minHeightPriority);
+				}
 			}
 		}
 		if (!keepZoomLevel) {
@@ -363,7 +391,7 @@
 		}
 	}
 
-	function loadDeferredContentEnd(keepZoomLevel) {
+	function loadDeferredContentEnd(keepZoomLevel, keepEmulatedScreenSize) {
 		document.querySelectorAll("[" + LAZY_LOAD_ATTRIBUTE + "]").forEach(element => {
 			element.loading = "lazy";
 			element.removeAttribute(LAZY_LOAD_ATTRIBUTE);
@@ -380,7 +408,9 @@
 			delete globalThis._singleFileImage;
 		}
 		if (!keepZoomLevel) {
-			resetScreenSize();
+			if (!keepEmulatedScreenSize) {
+				resetScreenSize();
+			}
 			dispatchResizeEvent();
 		}
 	}

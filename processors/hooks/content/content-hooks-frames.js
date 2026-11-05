@@ -123,7 +123,7 @@ function loadDeferredContentStart(options) {
 	if (options.loadDeferredContentDispatchScrollEvent) {
 		document.dispatchEvent(new CustomEvent(DISPATCH_SCROLL_START_EVENT));
 	}
-	const detail = JSON.stringify({ minZoomFactor: options.loadDeferredContentMinZoomFactor });
+	const detail = JSON.stringify({ minZoomFactor: options.loadDeferredContentMinZoomFactor, keepEmulatedScreenSize: Boolean(options.loadDeferredContentKeepEmulatedScreenSize) });
 	if (options.loadDeferredContentKeepZoomLevel) {
 		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_CONTENT_KEEP_ZOOM_LEVEL_START_EVENT, { detail }));
 	} else {
@@ -141,17 +141,23 @@ function loadDeferredContentEnd(options) {
 	if (options.loadDeferredContentDispatchScrollEvent) {
 		document.dispatchEvent(new CustomEvent(DISPATCH_SCROLL_END_EVENT));
 	}
+	const detail = getScreenSizeDetail(options);
 	if (options.loadDeferredContentKeepZoomLevel) {
-		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_CONTENT_KEEP_ZOOM_LEVEL_END_EVENT));
+		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_CONTENT_KEEP_ZOOM_LEVEL_END_EVENT, { detail }));
 	} else {
-		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_CONTENT_END_EVENT));
+		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_CONTENT_END_EVENT, { detail }));
 	}
 }
 
 function loadDeferredContentResetZoomLevel(options) {
+	const detail = getScreenSizeDetail(options);
 	if (options.loadDeferredContentKeepZoomLevel) {
-		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_CONTENT_RESET_ZOOM_LEVEL_EVENT));
+		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_CONTENT_RESET_ZOOM_LEVEL_EVENT, { detail }));
 	} else {
-		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_CONTENT_RESET_EVENT));
+		document.dispatchEvent(new CustomEvent(LOAD_DEFERRED_CONTENT_RESET_EVENT, { detail }));
 	}
+}
+
+function getScreenSizeDetail(options) {
+	return JSON.stringify({ keepEmulatedScreenSize: Boolean(options.loadDeferredContentKeepEmulatedScreenSize) });
 }
