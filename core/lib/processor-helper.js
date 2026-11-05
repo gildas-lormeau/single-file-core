@@ -319,7 +319,7 @@ function getProcessorHelperClass(utilInstance) {
 			const name = "frames/" + resources.frames.size + "/";
 			let sandbox = "allow-popups allow-top-navigation-by-user-activation allow-scripts";
 			if (pageData.content.match(NOSCRIPT_TAG_FOUND) || pageData.content.match(CANVAS_TAG_FOUND) || pageData.content.match(SCRIPT_TAG_FOUND) || options.saveRawPage) {
-				sandbox += " allow-modals allow-popups allow-downloads allow-pointer-lock allow-presentation";
+				sandbox += " allow-modals allow-downloads allow-pointer-lock";
 			}
 			frameElement.setAttribute("sandbox", sandbox);
 			if (frameElement.tagName.toUpperCase() == "OBJECT") {

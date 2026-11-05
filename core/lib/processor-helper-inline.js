@@ -302,7 +302,7 @@ function getProcessorHelperClass(utilInstance) {
 		async processFrame(frameElement, pageData, options) {
 			let sandbox = "allow-popups allow-top-navigation-by-user-activation";
 			if (pageData.content.match(NOSCRIPT_TAG_FOUND) || pageData.content.match(CANVAS_TAG_FOUND) || pageData.content.match(SCRIPT_TAG_FOUND) || options.saveRawPage) {
-				sandbox += " allow-scripts allow-modals allow-popups allow-downloads allow-pointer-lock allow-presentation";
+				sandbox += " allow-scripts allow-modals allow-downloads allow-pointer-lock";
 			}
 			frameElement.setAttribute("sandbox", sandbox);
 			if (frameElement.tagName.toUpperCase() == "OBJECT") {
