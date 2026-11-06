@@ -117,6 +117,7 @@ const STAGES = [{
 		{ action: "setInputValues" },
 		{ option: "moveStylesInHead", action: "moveStylesInHead" },
 		{ option: "blockScripts", action: "removeEmbedScripts" },
+		{ option: "selectedElementsSelector", action: "selectElements" },
 		{ option: "selected", action: "removeUnselectedElements" },
 		{ option: "blockVideos", action: "insertVideoPosters" },
 		{ option: "blockVideos", action: "insertVideoLinks" },
@@ -893,7 +894,33 @@ class Processor {
 		}
 	}
 
+	selectElements() {
+		let selectedElements = [];
+		try {
+			selectedElements = Array.from(this.doc.body.querySelectorAll(this.options.selectedElementsSelector));
+		} catch {
+			// ignored
+		}
+		if (selectedElements.length) {
+			selectedElements.forEach(element => {
+				markElement(element);
+				element.querySelectorAll("*").forEach(markElement);
+				let parentElement = element.parentElement;
+				while (parentElement) {
+					markElement(parentElement);
+					parentElement = parentElement.parentElement;
+				}
+			});
+			this.removeUnselectedElements();
+		}
+
+		function markElement(element) {
+			element.setAttribute(util.SELECTED_CONTENT_ATTRIBUTE_NAME, "");
+		}
+	}
+
 	removeUnselectedElements() {
+		this.doc.documentElement.removeAttribute(util.SELECTED_CONTENT_ATTRIBUTE_NAME);
 		removeUnmarkedElements(this.doc.body);
 		this.doc.body.removeAttribute(util.SELECTED_CONTENT_ATTRIBUTE_NAME);
 
@@ -1586,6 +1613,7 @@ class Processor {
 			options.saveFilenameTemplateData = false;
 			options.embeddedScript = null;
 			options.selected = false;
+			options.selectedElementsSelector = null;
 			options.embeddedImage = null;
 			options.embeddedPdf = null;
 			options.url = frameData.baseURI;
