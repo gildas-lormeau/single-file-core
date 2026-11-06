@@ -126,6 +126,7 @@ const STAGES = [{
 		{ option: "removeHiddenElements", action: "removeHiddenElements" },
 		{ action: "saveScrollPosition" },
 		{ action: "resolveHrefs" },
+		{ option: "removeLinkQueryStrings", action: "removeLinkQueryStrings" },
 		{ action: "resolveStyleAttributeURLs" }
 	],
 	parallel: [
@@ -1469,6 +1470,16 @@ class Processor {
 		}));
 	}
 
+	removeLinkQueryStrings() {
+		this.doc.querySelectorAll("a[href*=\"?\"], area[href*=\"?\"]").forEach(element => {
+			const href = element.getAttribute("href").trim();
+			const scheme = href.match(/^([a-z][a-z0-9+.-]*):/i);
+			if (!scheme || HTTP_SCHEMES.includes(scheme[1].toLowerCase())) {
+				element.setAttribute("href", href.replace(/\?[^#]*/, ""));
+			}
+		});
+	}
+
 	resolveStyleAttributeURLs() {
 		this.doc.querySelectorAll("[style]").forEach(element => {
 			if (this.options.blockStylesheets) {
@@ -1992,6 +2003,7 @@ class Processor {
 // ----
 const DATA_URI_PREFIX = "data:";
 const ABOUT_BLANK_URI = "about:blank";
+const HTTP_SCHEMES = ["http", "https"];
 const BLOB_URI_PREFIX = "blob:";
 const HTTP_URI_PREFIX = /^https?:\/\//;
 const FILE_URI_PREFIX = /^file:\/\//;
