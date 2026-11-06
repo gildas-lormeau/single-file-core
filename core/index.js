@@ -507,6 +507,20 @@ const SVG_NAMESPACE_URI = "http://www.w3.org/2000/svg";
 const UTF8_CHARSET = "utf-8";
 const TAINTED_CANVAS_WARNING_MESSAGE = "SingleFile: canvas elements tainted by a cross-origin resource, dropped from the page:";
 const EMPTY_RESOURCE = "data:,";
+const HIDDEN_NODE_STYLE = [
+	["visibility", "hidden"],
+	["width", "0"],
+	["height", "0"],
+	["min-width", "0"],
+	["min-height", "0"],
+	["padding", "0"],
+	["margin", "0"],
+	["border", "0"],
+	["overflow", "hidden"],
+	["flex", "0 0 0px"],
+	["font-size", "0"],
+	["line-height", "0"]
+];
 const ORDER_DEPENDENT_RULE = /@(layer|import)\b/i;
 const MANIFEST_TOP_WINDOW_ID = "0";
 const WINDOW_ID_SEPARATOR = ".";
@@ -911,11 +925,22 @@ class Processor {
 
 		function hideNode(node) {
 			if (canHideNode(node)) {
-				node.style.setProperty("display", "none", "important");
+				const tagName = node.tagName.toUpperCase();
+				if (tagName == "BR" || tagName == "WBR") {
+					node.style.setProperty("display", "none", "important");
+				} else {
+					HIDDEN_NODE_STYLE.forEach(([propertyName, value]) => node.style.setProperty(propertyName, value, "important"));
+				}
 				node.removeAttribute("src");
 				node.removeAttribute("srcset");
 				node.removeAttribute("srcdoc");
-				Array.from(node.childNodes).forEach(removeNode);
+				Array.from(node.childNodes).forEach(childNode => {
+					if (childNode.nodeType == 1) {
+						removeNode(childNode);
+					} else {
+						childNode.remove();
+					}
+				});
 			}
 		}
 
