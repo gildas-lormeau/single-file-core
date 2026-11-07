@@ -92,6 +92,7 @@
 	const MutationObserver = globalThis.MutationObserver;
 	const URL = globalThis.URL;
 	const CSSStyleSheet = globalThis.CSSStyleSheet;
+	const DOMRect = globalThis.DOMRect;
 
 	const observers = new Map();
 	const observedElements = new Map();
@@ -188,6 +189,10 @@
 		document.documentElement.style.removeProperty("-sf-transform");
 		document.documentElement.style.removeProperty("-sf-transform-origin");
 		document.documentElement.style.removeProperty("-sf-min-height");
+		if (globalThis._singleFile_getBoundingClientRect) {
+			Element.prototype.getBoundingClientRect = globalThis._singleFile_getBoundingClientRect;
+			delete globalThis._singleFile_getBoundingClientRect;
+		}
 		resetScreenSize();
 	}
 
@@ -351,6 +356,20 @@
 			document.documentElement.style.setProperty("transform-origin", horizontalOrigin + " 0 0", "important");
 			document.documentElement.style.setProperty("transform", translation + "scale3d(" + zoomFactor + ", " + zoomFactor + ", 1)", "important");
 			document.documentElement.style.setProperty("min-height", (100 / zoomFactor) + "vh", "important");
+			if (keepZoomLevel && !globalThis._singleFile_getBoundingClientRect) {
+				const originX = horizontalOrigin == "0" ? 0 : document.documentElement.offsetWidth / 2;
+				const translationX = horizontalOrigin == "0" ? scrollPosition.x : 0;
+				const translationY = scrollPosition.y;
+				globalThis._singleFile_getBoundingClientRect = Element.prototype.getBoundingClientRect;
+				Element.prototype.getBoundingClientRect = function () {
+					const boundingRect = globalThis._singleFile_getBoundingClientRect.call(this);
+					const x = originX + (boundingRect.x + globalThis.scrollX - originX - translationX) / zoomFactor - globalThis.scrollX;
+					const y = (boundingRect.y + globalThis.scrollY - translationY) / zoomFactor - globalThis.scrollY;
+					return new DOMRect(x, y, boundingRect.width / zoomFactor, boundingRect.height / zoomFactor);
+				};
+				Element.prototype.getBoundingClientRect.toString = function () { return "function getBoundingClientRect() { [native code] }"; };
+				setFunctionName(Element.prototype.getBoundingClientRect, "getBoundingClientRect");
+			}
 			dispatchResizeEvent();
 			if (keepZoomLevel || keepEmulatedScreenSize) {
 				document.documentElement.style.setProperty("-sf-transform", transform, transformPriority);
