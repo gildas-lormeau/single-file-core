@@ -568,6 +568,8 @@ class ProcessorHelperCommon {
 				this.getFontsDetails(doc, ruleData.block.children, sheetIndex, fontsDetails, sourceLists);
 			} else if (ruleData.type == "Atrule" && ruleData.name == "font-face" && ruleData.block && ruleData.block.children) {
 				const src = this.getPropertyValue(ruleData, "src");
+				// Reuse the source list for this exact src text; otherwise split its url()/local()
+				// entries once, so repeated faces do not reparse the same embedded font payload.
 				let fontInfo = sourceLists.get(src);
 				if (!fontInfo) {
 					fontInfo = [];
@@ -576,6 +578,8 @@ class ProcessorHelperCommon {
 						if (fontSources) {
 							fontSources.forEach(fontSource => {
 								const source = fontSource.match(REGEXP_FONT_SRC)[1];
+								// Keep the last occurrence of each source, in reverse CSS order,
+								// matching the later selector's backwards scan and final reversal.
 								if (fontInfo.includes(source)) {
 									fontInfo.splice(fontInfo.indexOf(source), 1);
 								}
