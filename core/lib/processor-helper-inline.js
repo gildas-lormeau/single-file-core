@@ -729,50 +729,92 @@ function getProcessorHelperClass(utilInstance) {
 			removedNodes.forEach(node => ruleData.block.children.remove(node));
 			const srcDeclaration = ruleData.block.children.filter(node => node.property == "src").tail;
 			if (srcDeclaration) {
-				await Promise.all(fontInfo.map(async source => {
+				const tested = new Set();
+				const validateSource = async source => {
+					if (tested.has(source)) {
+						return;
+					}
+					tested.add(source);
+					// Cache primary outcomes only; original-URL fallback belongs to this rule.
+					let outcome;
 					if (fontTests.has(source.src)) {
-						source.valid = fontTests.get(source.src);
-					} else {
-						if (FontFace && source.fontUrl) {
-							const fontFace = new FontFace("test-font", source.src);
-							try {
-								let timeout;
-								await Promise.race([
-									fontFace.load().then(() => fontFace.loaded).then(() => { source.valid = true; globalThis.clearTimeout(timeout); }),
-									new Promise(resolve => timeout = globalThis.setTimeout(() => { source.valid = true; resolve(); }, FONT_MAX_LOAD_DELAY))
-								]);
-							} catch (error) {
-								if (error.name == "NetworkError") {
+						outcome = fontTests.get(source.src);
+					} else if (FontFace && source.fontUrl) {
+						const fontFace = new FontFace("test-font", source.src);
+						let timeout;
+						try {
+							await Promise.race([
+								fontFace.load().then(() => fontFace.loaded).then(() => {
+									outcome = "loaded";
 									source.valid = true;
-								} else {
-									const urlNodes = cssTree.findAll(srcDeclaration.data, node => node.type == "Url");
-									const declarationFontURLs = Array.from(fontDeclarations).find(([node]) => urlNodes.includes(node) && node.value == source.fontUrl);
-									if (declarationFontURLs && declarationFontURLs[1].length) {
-										const fontURL = declarationFontURLs[1][0];
-										if (fontURL) {
-											const fontFace = new FontFace("test-font", "url(" + fontURL + ")");
-											try {
-												let timeout;
-												await Promise.race([
-													fontFace.load().then(() => fontFace.loaded).then(() => { source.valid = true; globalThis.clearTimeout(timeout); }),
-													new Promise(resolve => timeout = globalThis.setTimeout(() => { source.valid = true; resolve(); }, FONT_MAX_LOAD_DELAY))
-												]);
-												// eslint-disable-next-line no-unused-vars
-											} catch (error) {
-												// ignored
-											}
-										}
-									} else {
-										source.valid = true;
-									}
+									globalThis.clearTimeout(timeout);
+								}),
+								new Promise(resolve => timeout = globalThis.setTimeout(() => {
+									outcome = "timeout-policy";
+									source.valid = true;
+									resolve();
+								}, FONT_MAX_LOAD_DELAY))
+							]);
+						} catch (error) {
+							globalThis.clearTimeout(timeout);
+							outcome = error.name == "NetworkError" ? "network-policy" : "other-rejection";
+						}
+						fontTests.set(source.src, outcome);
+					} else {
+						outcome = "no-load-policy";
+						fontTests.set(source.src, outcome);
+					}
+					if (outcome != "other-rejection") {
+						source.valid = true;
+					} else {
+						const urlNodes = cssTree.findAll(srcDeclaration.data, node => node.type == "Url");
+						const declarationFontURLs = Array.from(fontDeclarations).find(([node]) => urlNodes.includes(node) && node.value == source.fontUrl);
+						if (declarationFontURLs && declarationFontURLs[1].length) {
+							const fontURL = declarationFontURLs[1][0];
+							if (fontURL) {
+								const fontFace = new FontFace("test-font", "url(" + fontURL + ")");
+								let timeout;
+								try {
+									await Promise.race([
+										fontFace.load().then(() => fontFace.loaded).then(() => {
+											source.valid = true;
+											globalThis.clearTimeout(timeout);
+										}),
+										new Promise(resolve => timeout = globalThis.setTimeout(() => {
+											source.valid = true;
+											resolve();
+										}, FONT_MAX_LOAD_DELAY))
+									]);
+								} catch {
+									globalThis.clearTimeout(timeout);
 								}
 							}
 						} else {
 							source.valid = true;
 						}
-						fontTests.set(source.src, source.valid);
 					}
-				}));
+				};
+				let winner;
+				for (const format of ["woff2-variations", "woff2", "woff", "truetype-variations", "truetype"]) {
+					for (let index = fontInfo.length - 1; index >= 0; index--) {
+						const source = fontInfo[index];
+						if (!source.src.match(EMPTY_URL_SOURCE) && !source.tech && source.format == format) {
+							await validateSource(source);
+							if (source.valid) {
+								winner = source;
+								break;
+							}
+						}
+					}
+					if (winner) {
+						break;
+					}
+				}
+				await Promise.all(fontInfo.filter(source => source.tech).map(validateSource));
+				if (!winner && !fontInfo.some(source => !source.src.match(EMPTY_URL_SOURCE) && !source.tech && ["opentype", "embedded-opentype"].includes(source.format))) {
+					await Promise.all(fontInfo.map(validateSource));
+				}
+
 				const findSourceByFormat = (fontFormat, testValidity) => util.findLast(fontInfo, source => !source.src.match(EMPTY_URL_SOURCE) && !source.tech && source.format == fontFormat && (!testValidity || source.valid));
 				const filterSources = fontSource => fontInfo.filter(source => source == fontSource || source.src.startsWith(LOCAL_SOURCE) || (source.tech && source.valid));
 				stats.fonts.processed += fontInfo.length;
