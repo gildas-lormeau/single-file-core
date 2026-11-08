@@ -434,6 +434,7 @@ class ProcessorHelperCommon {
 
 	async removeAlternativeFonts(doc, stylesheets, fonts, fontTests) {
 		const fontsDetails = this.createFontsDetailsInfo();
+		// Share parsing across sheets, but release embedded payloads when this pass finishes.
 		const sourceLists = new Map();
 		const stats = { rules: { processed: 0, discarded: 0 }, fonts: { processed: 0, discarded: 0 } };
 		const ruleScopes = new Map();
@@ -482,12 +483,14 @@ class ProcessorHelperCommon {
 			if (scope && !scopeIds.has(scope)) {
 				scopeIds.set(scope, scopeIds.size + 1);
 			}
+			// Keep large source strings out of compound keys without weakening exact-source equality.
 			const ruleKey = (scope ? scopeIds.get(scope) : 0) + " " + this.getFontKey(ruleData);
 			let sourceRules = lastRules.get(ruleKey);
 			if (!sourceRules) {
 				sourceRules = new Map();
 				lastRules.set(ruleKey, sourceRules);
 			}
+			// Preserve the old concatenated key's coercion, including an absent src.
 			const sourceKey = String(this.getPropertyValue(ruleData, "src"));
 			const previousRuleData = sourceRules.get(sourceKey);
 			if (previousRuleData) {
@@ -582,6 +585,7 @@ class ProcessorHelperCommon {
 					}
 					sourceLists.set(src, fontInfo);
 				}
+				// Selection reverses and edits these lists; rules must not mutate the cached list.
 				mediaFontsDetails.fonts.set(ruleData, fontInfo.slice());
 			}
 		});
@@ -645,11 +649,13 @@ class ProcessorHelperCommon {
 			ruleData.block.children.forEach(node => {
 				if (node.property == propertyName) {
 					try {
+						// Reuse the IE-hack check's serialization: src can contain megabytes of font data.
 						const generated = cssTree.generate(node.value);
 						if (!generated.match(/\\9$/)) {
 							value = generated;
 						}
 					} catch {
+						// A broken last declaration still overrides earlier ones, as before.
 						value = undefined;
 					}
 				}
@@ -659,9 +665,11 @@ class ProcessorHelperCommon {
 	}
 }
 
+// Resource metadata belongs to this capture; cached records never carry a rule's mutable valid flag.
 function processFontDetails(fontsDetails, fontResources, sourceDetails = new Map()) {
 	fontsDetails.fonts.forEach((fontInfo, fontKey) => {
 		fontsDetails.fonts.set(fontKey, fontInfo.map(fontSource => {
+			// Clone on both paths so one rule's fallback result cannot affect another rule.
 			if (sourceDetails.has(fontSource)) {
 				return { ...sourceDetails.get(fontSource) };
 			}

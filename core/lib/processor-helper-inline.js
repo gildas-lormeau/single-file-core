@@ -729,13 +729,15 @@ function getProcessorHelperClass(utilInstance) {
 			removedNodes.forEach(node => ruleData.block.children.remove(node));
 			const srcDeclaration = ruleData.block.children.filter(node => node.property == "src").tail;
 			if (srcDeclaration) {
+				// Generic fallback can revisit priority/tech candidates; do not load them twice.
 				const tested = new Set();
 				const validateSource = async source => {
 					if (tested.has(source)) {
 						return;
 					}
 					tested.add(source);
-					// Cache primary outcomes only; original-URL fallback belongs to this rule.
+					// Identical embedded bytes can have different original URLs in different rules.
+					// Share only the primary outcome, never the rule-specific fallback result.
 					let outcome;
 					if (fontTests.has(source.src)) {
 						outcome = fontTests.get(source.src);
@@ -756,6 +758,7 @@ function getProcessorHelperClass(utilInstance) {
 								}, FONT_MAX_LOAD_DELAY))
 							]);
 						} catch (error) {
+							// Promise.race does not cancel the timer; it must not revive a rejected source.
 							globalThis.clearTimeout(timeout);
 							outcome = error.name == "NetworkError" ? "network-policy" : "other-rejection";
 						}
@@ -767,6 +770,7 @@ function getProcessorHelperClass(utilInstance) {
 					if (outcome != "other-rejection") {
 						source.valid = true;
 					} else {
+						// Match node identity as well as bytes to find this rule's original URL.
 						const urlNodes = cssTree.findAll(srcDeclaration.data, node => node.type == "Url");
 						const declarationFontURLs = Array.from(fontDeclarations).find(([node]) => urlNodes.includes(node) && node.value == source.fontUrl);
 						if (declarationFontURLs && declarationFontURLs[1].length) {
@@ -786,6 +790,7 @@ function getProcessorHelperClass(utilInstance) {
 										}, FONT_MAX_LOAD_DELAY))
 									]);
 								} catch {
+									// The fallback timer can otherwise revive the source too.
 									globalThis.clearTimeout(timeout);
 								}
 							}
@@ -794,6 +799,8 @@ function getProcessorHelperClass(utilInstance) {
 						}
 					}
 				};
+				// Mirror the selector below: metadata is reversed, so walk backwards to keep its
+				// findLast tie order. Once a preferred source works, lower formats cannot win.
 				let winner;
 				for (const format of ["woff2-variations", "woff2", "woff", "truetype-variations", "truetype"]) {
 					for (let index = fontInfo.length - 1; index >= 0; index--) {
@@ -810,6 +817,8 @@ function getProcessorHelperClass(utilInstance) {
 						break;
 					}
 				}
+				// Tech sources survive beside the winner. OpenType is kept without a load test;
+				// only the generic fallback needs outcomes for every remaining candidate.
 				await Promise.all(fontInfo.filter(source => source.tech).map(validateSource));
 				if (!winner && !fontInfo.some(source => !source.src.match(EMPTY_URL_SOURCE) && !source.tech && ["opentype", "embedded-opentype"].includes(source.format))) {
 					await Promise.all(fontInfo.map(validateSource));
