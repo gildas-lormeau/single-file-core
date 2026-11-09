@@ -729,101 +729,50 @@ function getProcessorHelperClass(utilInstance) {
 			removedNodes.forEach(node => ruleData.block.children.remove(node));
 			const srcDeclaration = ruleData.block.children.filter(node => node.property == "src").tail;
 			if (srcDeclaration) {
-				// Generic fallback can revisit priority/tech candidates; do not load them twice.
-				const tested = new Set();
-				const validateSource = async source => {
-					if (tested.has(source)) {
-						return;
-					}
-					tested.add(source);
-					// Identical embedded bytes can have different original URLs in different rules.
-					// Share only the primary outcome, never the rule-specific fallback result.
-					let outcome;
+				await Promise.all(fontInfo.map(async source => {
 					if (fontTests.has(source.src)) {
-						outcome = fontTests.get(source.src);
-					} else if (FontFace && source.fontUrl) {
-						const fontFace = new FontFace("test-font", source.src);
-						let timeout;
-						try {
-							await Promise.race([
-								fontFace.load().then(() => fontFace.loaded).then(() => {
-									outcome = "loaded";
-									source.valid = true;
-									globalThis.clearTimeout(timeout);
-								}),
-								new Promise(resolve => timeout = globalThis.setTimeout(() => {
-									outcome = "timeout-policy";
-									source.valid = true;
-									resolve();
-								}, FONT_MAX_LOAD_DELAY))
-							]);
-						} catch (error) {
-							// Promise.race does not cancel the timer; it must not revive a rejected source.
-							globalThis.clearTimeout(timeout);
-							outcome = error.name == "NetworkError" ? "network-policy" : "other-rejection";
-						}
-						fontTests.set(source.src, outcome);
+						source.valid = fontTests.get(source.src);
 					} else {
-						outcome = "no-load-policy";
-						fontTests.set(source.src, outcome);
-					}
-					if (outcome != "other-rejection") {
-						source.valid = true;
-					} else {
-						// Match node identity as well as bytes to find this rule's original URL.
-						const urlNodes = cssTree.findAll(srcDeclaration.data, node => node.type == "Url");
-						const declarationFontURLs = Array.from(fontDeclarations).find(([node]) => urlNodes.includes(node) && node.value == source.fontUrl);
-						if (declarationFontURLs && declarationFontURLs[1].length) {
-							const fontURL = declarationFontURLs[1][0];
-							if (fontURL) {
-								const fontFace = new FontFace("test-font", "url(" + fontURL + ")");
+						if (FontFace && source.fontUrl) {
+							const fontFace = new FontFace("test-font", source.src);
+							try {
 								let timeout;
-								try {
-									await Promise.race([
-										fontFace.load().then(() => fontFace.loaded).then(() => {
-											source.valid = true;
-											globalThis.clearTimeout(timeout);
-										}),
-										new Promise(resolve => timeout = globalThis.setTimeout(() => {
-											source.valid = true;
-											resolve();
-										}, FONT_MAX_LOAD_DELAY))
-									]);
-								} catch {
-									// The fallback timer can otherwise revive the source too.
-									globalThis.clearTimeout(timeout);
+								await Promise.race([
+									fontFace.load().then(() => fontFace.loaded).then(() => { source.valid = true; globalThis.clearTimeout(timeout); }),
+									new Promise(resolve => timeout = globalThis.setTimeout(() => { source.valid = true; resolve(); }, FONT_MAX_LOAD_DELAY))
+								]);
+							} catch (error) {
+								if (error.name == "NetworkError") {
+									source.valid = true;
+								} else {
+									const urlNodes = cssTree.findAll(srcDeclaration.data, node => node.type == "Url");
+									const declarationFontURLs = Array.from(fontDeclarations).find(([node]) => urlNodes.includes(node) && node.value == source.fontUrl);
+									if (declarationFontURLs && declarationFontURLs[1].length) {
+										const fontURL = declarationFontURLs[1][0];
+										if (fontURL) {
+											const fontFace = new FontFace("test-font", "url(" + fontURL + ")");
+											try {
+												let timeout;
+												await Promise.race([
+													fontFace.load().then(() => fontFace.loaded).then(() => { source.valid = true; globalThis.clearTimeout(timeout); }),
+													new Promise(resolve => timeout = globalThis.setTimeout(() => { source.valid = true; resolve(); }, FONT_MAX_LOAD_DELAY))
+												]);
+												// eslint-disable-next-line no-unused-vars
+											} catch (error) {
+												// ignored
+											}
+										}
+									} else {
+										source.valid = true;
+									}
 								}
 							}
 						} else {
 							source.valid = true;
 						}
+						fontTests.set(source.src, source.valid);
 					}
-				};
-				// Mirror the selector below: metadata is reversed, so walk backwards to keep its
-				// findLast tie order. Once a preferred source works, lower formats cannot win.
-				let winner;
-				for (const format of ["woff2-variations", "woff2", "woff", "truetype-variations", "truetype"]) {
-					for (let index = fontInfo.length - 1; index >= 0; index--) {
-						const source = fontInfo[index];
-						if (!source.src.match(EMPTY_URL_SOURCE) && !source.tech && source.format == format) {
-							await validateSource(source);
-							if (source.valid) {
-								winner = source;
-								break;
-							}
-						}
-					}
-					if (winner) {
-						break;
-					}
-				}
-				// Tech sources survive beside the winner. OpenType is kept without a load test;
-				// only the generic fallback needs outcomes for every remaining candidate.
-				await Promise.all(fontInfo.filter(source => source.tech).map(validateSource));
-				if (!winner && !fontInfo.some(source => !source.src.match(EMPTY_URL_SOURCE) && !source.tech && ["opentype", "embedded-opentype"].includes(source.format))) {
-					await Promise.all(fontInfo.map(validateSource));
-				}
-
+				}));
 				const findSourceByFormat = (fontFormat, testValidity) => util.findLast(fontInfo, source => !source.src.match(EMPTY_URL_SOURCE) && !source.tech && source.format == fontFormat && (!testValidity || source.valid));
 				const filterSources = fontSource => fontInfo.filter(source => source == fontSource || source.src.startsWith(LOCAL_SOURCE) || (source.tech && source.valid));
 				stats.fonts.processed += fontInfo.length;

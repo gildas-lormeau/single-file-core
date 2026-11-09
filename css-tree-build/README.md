@@ -2,34 +2,26 @@
 
 [`../vendor/css-tree.js`](../vendor/css-tree.js) is a custom build of
 [@eslint/css-tree](https://www.npmjs.com/package/@eslint/css-tree), the ESLint
-fork of [css-tree](https://www.npmjs.com/package/css-tree), with four patches
-applied to the npm sources. The fork is installed under the `css-tree` alias in
-`package.json`. It is maintained where upstream is not, and it parses nested
-rules that upstream 3.2.1 kept as raw text, but it still carries the four
-defects below.
+fork of [css-tree](https://www.npmjs.com/package/css-tree), with a token-stream
+overlay and URL patches applied to the npm sources. The fork is installed under
+the `css-tree` alias in `package.json` and supports nested rules.
 
-`lib/tokenizer/TokenStream.js`: the token offset field is widened from 24 to
-27 bits (`OFFSET_MASK`/`TYPE_SHIFT`, with unsigned shifts for the token type).
-Upstream css-tree packs each token as `type << 24 | offset`, so any stylesheet
-larger than 16MB (2^24 bytes) silently corrupts the token stream and parsing
-never terminates. Real pages ship such stylesheets (see
-https://github.com/gildas-lormeau/SingleFile/issues/1962, a 23.5MB stylesheet
-on brookings.edu). With 27 bits the limit becomes 128MB. Reported upstream as
-https://github.com/csstree/csstree/issues/372.
+`TokenStream.js` replaces the dependency's token stream at build time. Packed
+27-bit offsets wrap at 128 MiB, corrupting token types and offsets in large
+stylesheets containing embedded resources. The overlay keeps a full 32-bit
+offset and token type in an exact Float64 integer, and grows token and balance
+buffers by token count rather than source length. Large URLs and comments then
+need storage for their tokens, not every character. The root balance sentinel
+is handled explicitly so reused buffers cannot introduce stale bracket state.
+The dependency source hash is checked before applying the overlay; review it
+when upgrading. Its MIT notice is preserved in `TokenStream.LICENSE`.
 
-`lib/tokenizer/TokenStream.js`, second patch: `setSource()` clears only the
-part of its `balance` buffer it is about to use, `balance.fill(0, 0,
-sourceLength + 1)` instead of `balance.fill(0)`. `adoptBuffer` grows that
-buffer to fit the largest source ever parsed and never shrinks it, so once a
-23.5MB stylesheet has gone through, every later parse zero-fills 94MB whatever
-its own size. Measured on the same brookings.edu page: a 60-character selector
-took 0.0038ms in a fresh process and 0.96ms after that stylesheet, 255 times
-slower, and the unused-styles pass parses one selector at a time — 163,881 of
-them on that page. The used range is `[0, sourceLength]`, since there is at
-most one token per character and `sourceLength` is the initial balance
-sentinel, so the bounded fill covers exactly what the tokenizer reads. The
-pass went from 180s to 12s on that page with byte-identical output. Reported upstream as
-https://github.com/csstree/csstree/issues/379.
+Token storage uses 12 rather than 8 bytes per allocated slot, a 50% premium
+for dense input at equal capacity. Buffers grow geometrically and retain their
+capacity for reuse. This trades dense-token memory for correct large offsets
+and much smaller allocations on sparse, resource-heavy stylesheets. Regression
+suites cover the 128 MiB boundary, dense input, malformed brackets and reuse.
+Font loading, timeout and fallback behavior remain unchanged.
 
 `lib/utils/url.js`: `decode()` trims the whitespace at the end of an unquoted
 `url()` before decoding the escapes, so a value ending in an escaped space,
