@@ -17024,6 +17024,11 @@ async function evalTemplate(template = "", options, content, doc, context = {}) 
 		"if-not-equals": (value, otherValue, trueValue, falseValue) => value != otherValue ? trueValue : falseValue,
 		"if-contains": (value, otherValue, trueValue, falseValue) => otherValue && value.includes(otherValue) ? trueValue : falseValue,
 		"if-not-contains": (value, otherValue, trueValue, falseValue) => otherValue && !value.includes(otherValue) ? trueValue : falseValue,
+		"switch": (value, ...cases) => {
+			const defaultValue = cases.length % 2 ? cases.pop() : undefined;
+			const index = cases.findIndex((caseValue, caseIndex) => caseIndex % 2 == 0 && caseValue == value);
+			return index == -1 ? defaultValue : cases[index + 1];
+		},
 		"substring": (value, start, end) => value.substring(start, end),
 		"lowercase": value => value.toLowerCase(),
 		"uppercase": value => value.toUpperCase(),
