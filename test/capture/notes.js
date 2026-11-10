@@ -48,16 +48,17 @@ if (!doc.elementsFromPoint) {
 	const secondElement = controller.addNote({ color: "note-pink" });
 	check("the second note gets id 2", secondElement.dataset.noteId, "2");
 	check("refs accumulate on the anchor", doc.documentElement.getAttribute(NOTE_REFS), "1 2");
-	check("adding a note selects it", secondElement.shadowRoot.querySelector(".note").classList.contains("note-selected"), true);
+	check("adding a note selects it and unselects the previous one", noteElement.classList.contains("note-selected") + ":" + secondElement.shadowRoot.querySelector(".note").classList.contains("note-selected"), "false:true");
 
 	secondElement.shadowRoot.querySelector(".note-remove").onclick(new win.Event("click"));
 	check("the remove button drops the note", doc.querySelectorAll(notes.NOTE_TAGNAME).length, 1);
 	check("the remove button drops its ref", doc.documentElement.getAttribute(NOTE_REFS), "1");
+	check("removing a note reports an update", updates.length, 3);
 
 	noteElement.querySelector(".note-anchor").onclick(new win.Event("click"));
 	check("the anchor button toggles the anchored state", noteElement.classList.contains("note-anchored"), false);
 	check("an unanchored note stays referenced from the root", doc.documentElement.getAttribute(NOTE_REFS), "1");
-	check("toggling the anchor reports an update", updates.length, 3);
+	check("toggling the anchor reports an update", updates.length, 4);
 
 	// a note anchored to a paragraph and moved into it by the editor goes back to the root when the
 	// paragraph is cut out of the page

@@ -426,8 +426,7 @@ function init(doc, { editable = false, onUpdate = () => { } } = {}) {
 		addNoteRef(doc.documentElement, noteId);
 		attachNoteListeners(containerElement, true);
 		doc.documentElement.insertBefore(containerElement, maskPageElement.getRootNode().host);
-		noteElement.classList.add(NOTE_SELECTED_CLASS);
-		selectedNote = noteElement;
+		selectNote(noteElement);
 		saveNoteOffset(containerElement);
 		onUpdate(false);
 		return containerElement;
@@ -508,6 +507,10 @@ function init(doc, { editable = false, onUpdate = () => { } } = {}) {
 			event.preventDefault();
 			deleteNoteRef(containerElement, noteId);
 			containerElement.remove();
+			if (selectedNote == noteElement) {
+				selectedNote = null;
+			}
+			onUpdate(false);
 		};
 		noteElement.onmousedown = () => {
 			selectNote(noteElement);
@@ -583,7 +586,7 @@ function init(doc, { editable = false, onUpdate = () => { } } = {}) {
 			let element = target, matchedParent, parents = [];
 			do {
 				const boundingRect = element.getBoundingClientRect();
-				if (element.parentElement && !element.parentElement.tagName.toLowerCase() != NOTE_TAGNAME && !element.classList.contains(MASK_CLASS)) {
+				if (element.parentElement && element.parentElement.tagName.toLowerCase() != NOTE_TAGNAME && !element.classList.contains(MASK_CLASS)) {
 					const parentBoundingRect = element.parentElement.getBoundingClientRect();
 					matchedParent = Math.abs(parentBoundingRect[property] - boundingRect[property]) <= SELECT_PX_THRESHOLD;
 					if (matchedParent) {
