@@ -28,6 +28,7 @@ import { getInstance } from "./core/util.js";
 import * as zip from "./vendor/zip/zip.js";
 import { extract } from "./processors/compression/compression-extract.js";
 import { display } from "./processors/compression/compression-display.js";
+import * as notes from "./core/notes.js";
 
 const util = getInstance();
 const helper = {
@@ -56,6 +57,7 @@ const helper = {
 	extract,
 	display,
 	formatFilename,
+	notes,
 	INFOBAR_TAGNAME: infobar.INFOBAR_TAGNAME,
 	NESTING_TRACK_ID_ATTRIBUTE_NAME: util.NESTING_TRACK_ID_ATTRIBUTE_NAME
 };
