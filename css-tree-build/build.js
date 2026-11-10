@@ -1,6 +1,4 @@
 import { readFileSync } from "node:fs";
-import { createHash } from "node:crypto";
-import { URL } from "node:url";
 import { createRequire } from "node:module";
 import { build } from "esbuild";
 
@@ -24,6 +22,22 @@ const PATCHES = [
 				"export function encode(str) {\n    let wsBeforeHexIsNeeded = false;\n\n    // Keep ordinary runs together instead of allocating a concatenation node\n    // per character. Embedded font/image URLs can be several megabytes long,\n    // including after a prefix that needs escaping, so a whole-string fast\n    // path alone would still leave large allocations for those URLs.\n    const encoded = str.replace(/[^\\x00-\\x20\\x7f\"'()\\\\]+|[\\s\\S]/g, part => {\n        const code = part.charCodeAt(0);\n\n        if (code === 0x0000) {\n            return '\\uFFFD';\n        }\n\n        if (code <= 0x001f || code === 0x007F) {\n            wsBeforeHexIsNeeded = true;\n            return '\\\\' + code.toString(16);\n        }\n\n        if (code === SPACE ||\n            code === REVERSE_SOLIDUS ||\n            code === QUOTATION_MARK ||\n            code === APOSTROPHE ||\n            code === LEFTPARENTHESIS ||\n            code === RIGHTPARENTHESIS) {\n            wsBeforeHexIsNeeded = false;\n            return '\\\\' + part;\n        }\n\n        const prefix = wsBeforeHexIsNeeded && isHexDigit(code) ? ' ' : '';\n        wsBeforeHexIsNeeded = false;\n        return prefix + part;\n    });\n\n    return 'url(' + encoded + ')';\n}\n",
 				1
 			]
+		]
+	},
+	{
+		name: "16MB token offset",
+		file: /[/\\]css-tree[/\\].*[/\\]tokenizer[/\\]TokenStream\.js$/,
+		replacements: [
+			["const OFFSET_MASK = 0x00FFFFFF;", "const OFFSET_MASK = 0x07FFFFFF;", 1],
+			["const TYPE_SHIFT = 24;", "const TYPE_SHIFT = 27;", 1],
+			[">> TYPE_SHIFT", ">>> TYPE_SHIFT", 9]
+		]
+	},
+	{
+		name: "balance buffer cleared beyond the source",
+		file: /[/\\]css-tree[/\\].*[/\\]tokenizer[/\\]TokenStream\.js$/,
+		replacements: [
+			["balance.fill(0);", "balance.fill(0, 0, sourceLength + 1);", 1]
 		]
 	},
 	{
@@ -54,27 +68,6 @@ function applyPatch(patch, source) {
 const patchPlugin = {
 	name: "patch-css-tree",
 	setup(build) {
-		// Keep the large-source TokenStream implementation readable and reviewable.
-		// This overlay replaces only the tokenizer storage, not CSS grammar or URL handling.
-		let tokenStreamLoaded = false;
-		build.onLoad({ filter: /[/\\]css-tree[/\\].*[/\\]tokenizer[/\\]TokenStream\.js$/ }, args => {
-			const original = readFileSync(args.path);
-			const digest = createHash("sha256").update(original).digest("hex");
-			if (digest !== "9d1b0b5e157a984b2700b75a2a44b63dae4ab426186f4d94d3aff2436967d0ec") {
-				throw new Error("css-tree TokenStream source changed; review the large-source overlay");
-			}
-			tokenStreamLoaded = true;
-			return {
-				contents: readFileSync(new URL("./TokenStream.js", import.meta.url), "utf8"),
-				loader: "js",
-				resolveDir: args.path.replace(/[/\\][^/\\]+$/, "")
-			};
-		});
-		build.onEnd(() => {
-			if (!tokenStreamLoaded) {
-				throw new Error("css-tree TokenStream was not loaded; large-source overlay was not applied");
-			}
-		});
 		const applied = new Set();
 		const patchesByFile = new Map();
 		for (const patch of PATCHES) {
@@ -102,7 +95,10 @@ const patchPlugin = {
 
 const banner = [
 	`// ${name} ${version} (https://github.com/eslint/csstree), bundled by css-tree-build/build.js`,
-	"// with exact 32-bit token offsets and buffers grown by token count,",
+	"// with the token offset field widened from 24 to 27 bits so stylesheets larger",
+	"// than 16MB do not corrupt the token stream (parsing never terminated on them),",
+	"// with the tokenizer clearing only the part of its balance buffer it uses (the",
+	"// buffer never shrinks, so every later parse was paying for the largest source),",
 	"// and with url() decoding keeping an escaped whitespace at the end of the value",
 	"// (the decoder trimmed it and lost everything before the escape), and with",
 	"// URL encoding/decoding preserving whole runs to avoid per-character ropes",
