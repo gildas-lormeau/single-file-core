@@ -434,6 +434,8 @@ class ProcessorHelperCommon {
 
 	async removeAlternativeFonts(doc, stylesheets, fonts, fontTests) {
 		const fontsDetails = this.createFontsDetailsInfo();
+		// Share parsing across sheets, but release embedded payloads when this pass finishes.
+		const sourceLists = new Map();
 		const stats = { rules: { processed: 0, discarded: 0 }, fonts: { processed: 0, discarded: 0 } };
 		const ruleScopes = new Map();
 		getStylesheetsInCascadeOrder(stylesheets).forEach(({ stylesheetInfo, index: sheetIndex }) => {
@@ -448,9 +450,9 @@ class ProcessorHelperCommon {
 					if (stylesheetInfo.mediaText && stylesheetInfo.mediaText != MEDIA_ALL) {
 						const mediaFontsDetails = this.createFontsDetailsInfo();
 						fontsDetails.medias.set("media-" + sheetIndex + "-" + stylesheetInfo.mediaText, mediaFontsDetails);
-						this.getFontsDetails(doc, cssRules, sheetIndex, mediaFontsDetails);
+						this.getFontsDetails(doc, cssRules, sheetIndex, mediaFontsDetails, sourceLists);
 					} else {
-						this.getFontsDetails(doc, cssRules, sheetIndex, fontsDetails);
+						this.getFontsDetails(doc, cssRules, sheetIndex, fontsDetails, sourceLists);
 					}
 				}
 			}
@@ -481,12 +483,20 @@ class ProcessorHelperCommon {
 			if (scope && !scopeIds.has(scope)) {
 				scopeIds.set(scope, scopeIds.size + 1);
 			}
-			const ruleKey = (scope ? scopeIds.get(scope) : 0) + " " + this.getFontKey(ruleData) + " " + this.getPropertyValue(ruleData, "src");
-			const previousRuleData = lastRules.get(ruleKey);
+			// Keep large source strings out of compound keys without weakening exact-source equality.
+			const ruleKey = (scope ? scopeIds.get(scope) : 0) + " " + this.getFontKey(ruleData);
+			let sourceRules = lastRules.get(ruleKey);
+			if (!sourceRules) {
+				sourceRules = new Map();
+				lastRules.set(ruleKey, sourceRules);
+			}
+			// Preserve the old concatenated key's coercion, including an absent src.
+			const sourceKey = String(this.getPropertyValue(ruleData, "src"));
+			const previousRuleData = sourceRules.get(sourceKey);
 			if (previousRuleData) {
 				fontsDetails.repeatedFonts.add(previousRuleData);
 			}
-			lastRules.set(ruleKey, ruleData);
+			sourceRules.set(sourceKey, ruleData);
 		});
 		fontsDetails.medias.forEach(mediaFontsDetails => this.markRepeatedFontFaceRules(mediaFontsDetails, ruleScopes, scopeIds));
 		fontsDetails.supports.forEach(supportsFontsDetails => this.markRepeatedFontFaceRules(supportsFontsDetails, ruleScopes, scopeIds));
@@ -535,7 +545,7 @@ class ProcessorHelperCommon {
 	groupDuplicateImages() {
 	}
 
-	getFontsDetails(doc, cssRules, sheetIndex, mediaFontsDetails) {
+	getFontsDetails(doc, cssRules, sheetIndex, mediaFontsDetails, sourceLists = new Map()) {
 		let mediaIndex = 0, supportsIndex = 0, layerIndex = 0;
 		cssRules.forEach(ruleData => {
 			if (ruleData.type == "Atrule" && ruleData.name == "media" && ruleData.block && ruleData.block.children && ruleData.prelude) {
@@ -543,35 +553,44 @@ class ProcessorHelperCommon {
 				const fontsDetails = this.createFontsDetailsInfo();
 				mediaFontsDetails.medias.set("media-" + sheetIndex + "-" + mediaIndex + "-" + mediaText, fontsDetails);
 				mediaIndex++;
-				this.getFontsDetails(doc, ruleData.block.children, sheetIndex, fontsDetails);
+				this.getFontsDetails(doc, ruleData.block.children, sheetIndex, fontsDetails, sourceLists);
 			} else if (ruleData.type == "Atrule" && ruleData.name == "supports" && ruleData.block && ruleData.block.children && ruleData.prelude) {
 				const supportsText = cssTree.generate(ruleData.prelude);
 				const fontsDetails = this.createFontsDetailsInfo();
 				mediaFontsDetails.supports.set("supports-" + sheetIndex + "-" + supportsIndex + "-" + supportsText, fontsDetails);
 				supportsIndex++;
-				this.getFontsDetails(doc, ruleData.block.children, sheetIndex, fontsDetails);
+				this.getFontsDetails(doc, ruleData.block.children, sheetIndex, fontsDetails, sourceLists);
 			} else if (ruleData.type == "Atrule" && ruleData.name == "layer" && ruleData.block && ruleData.block.children && ruleData.prelude) {
 				const layerText = cssTree.generate(ruleData.prelude);
 				const fontsDetails = this.createFontsDetailsInfo();
 				mediaFontsDetails.layers.set("layer-" + sheetIndex + "-" + layerIndex + "-" + layerText, fontsDetails);
 				layerIndex++;
-				this.getFontsDetails(doc, ruleData.block.children, sheetIndex, fontsDetails);
+				this.getFontsDetails(doc, ruleData.block.children, sheetIndex, fontsDetails, sourceLists);
 			} else if (ruleData.type == "Atrule" && ruleData.name == "font-face" && ruleData.block && ruleData.block.children) {
-				const fontInfo = [];
-				mediaFontsDetails.fonts.set(ruleData, fontInfo);
 				const src = this.getPropertyValue(ruleData, "src");
-				if (src) {
-					const fontSources = src.match(REGEXP_URL_FUNCTION);
-					if (fontSources) {
-						fontSources.forEach(fontSource => {
-							const source = fontSource.match(REGEXP_FONT_SRC)[1];
-							if (fontInfo.includes(source)) {
-								fontInfo.splice(fontInfo.indexOf(source), 1);
-							}
-							fontInfo.unshift(source);
-						});
+				// Reuse the source list for this exact src text; otherwise split its url()/local()
+				// entries once, so repeated faces do not reparse the same embedded font payload.
+				let fontInfo = sourceLists.get(src);
+				if (!fontInfo) {
+					fontInfo = [];
+					if (src) {
+						const fontSources = src.match(REGEXP_URL_FUNCTION);
+						if (fontSources) {
+							fontSources.forEach(fontSource => {
+								const source = fontSource.match(REGEXP_FONT_SRC)[1];
+								// Keep the last occurrence of each source, in reverse CSS order,
+								// matching the later selector's backwards scan and final reversal.
+								if (fontInfo.includes(source)) {
+									fontInfo.splice(fontInfo.indexOf(source), 1);
+								}
+								fontInfo.unshift(source);
+							});
+						}
 					}
+					sourceLists.set(src, fontInfo);
 				}
+				// Selection reverses and edits these lists; rules must not mutate the cached list.
+				mediaFontsDetails.fonts.set(ruleData, fontInfo.slice());
 			}
 		});
 	}
@@ -629,31 +648,35 @@ class ProcessorHelperCommon {
 	}
 
 	getPropertyValue(ruleData, propertyName) {
-		let property;
+		let value;
 		if (ruleData.block.children) {
-			property = ruleData.block.children.filter(node => {
-				try {
-					return node.property == propertyName && !cssTree.generate(node.value).match(/\\9$/);
-					// eslint-disable-next-line no-unused-vars
-				} catch (error) {
-					return node.property == propertyName;
+			ruleData.block.children.forEach(node => {
+				if (node.property == propertyName) {
+					try {
+						// Reuse the IE-hack check's serialization: src can contain megabytes of font data.
+						const generated = cssTree.generate(node.value);
+						if (!generated.match(/\\9$/)) {
+							value = generated;
+						}
+					} catch {
+						// A broken last declaration still overrides earlier ones, as before.
+						value = undefined;
+					}
 				}
-			}).tail;
+			});
 		}
-		if (property) {
-			try {
-				return cssTree.generate(property.data.value);
-				// eslint-disable-next-line no-unused-vars
-			} catch (error) {
-				// ignored
-			}
-		}
+		return value;
 	}
 }
 
-function processFontDetails(fontsDetails, fontResources) {
+// Resource metadata belongs to this capture; cached records never carry a rule's mutable valid flag.
+function processFontDetails(fontsDetails, fontResources, sourceDetails = new Map()) {
 	fontsDetails.fonts.forEach((fontInfo, fontKey) => {
 		fontsDetails.fonts.set(fontKey, fontInfo.map(fontSource => {
+			// Clone on both paths so one rule's fallback result cannot affect another rule.
+			if (sourceDetails.has(fontSource)) {
+				return { ...sourceDetails.get(fontSource) };
+			}
 			const fontFormatMatch = fontSource.match(REGEXP_FONT_FORMAT_VALUE);
 			const fontTechMatch = fontSource.match(REGEXP_FONT_TECH_VALUE);
 			let fontFormat, fontTech;
@@ -686,22 +709,25 @@ function processFontDetails(fontsDetails, fontResources) {
 					fontFormat = fontFormatMatch[1];
 				}
 			}
+			let sourceInfo;
 			if (fontResources) {
 				const fontResource = Array.from(fontResources.values()).find(info => info.name == fontUrl);
-				return { src: fontSource.match(REGEXP_FONT_SRC)[1], fontUrl, format: fontFormat, tech: fontTech, contentType: fontResource && fontResource.contentType };
+				sourceInfo = { src: fontSource.match(REGEXP_FONT_SRC)[1], fontUrl, format: fontFormat, tech: fontTech, contentType: fontResource && fontResource.contentType };
 			} else {
-				return { src: fontSource.match(REGEXP_FONT_SRC)[1], fontUrl, format: fontFormat, tech: fontTech };
+				sourceInfo = { src: fontSource.match(REGEXP_FONT_SRC)[1], fontUrl, format: fontFormat, tech: fontTech };
 			}
+			sourceDetails.set(fontSource, sourceInfo);
+			return { ...sourceInfo };
 		}));
 	});
 	if (fontResources) {
-		fontsDetails.medias.forEach(mediaFontsDetails => processFontDetails(mediaFontsDetails, fontResources));
-		fontsDetails.supports.forEach(supportsFontsDetails => processFontDetails(supportsFontsDetails, fontResources));
-		fontsDetails.layers.forEach(layerFontsDetails => processFontDetails(layerFontsDetails, fontResources));
+		fontsDetails.medias.forEach(mediaFontsDetails => processFontDetails(mediaFontsDetails, fontResources, sourceDetails));
+		fontsDetails.supports.forEach(supportsFontsDetails => processFontDetails(supportsFontsDetails, fontResources, sourceDetails));
+		fontsDetails.layers.forEach(layerFontsDetails => processFontDetails(layerFontsDetails, fontResources, sourceDetails));
 	} else {
-		fontsDetails.medias.forEach(mediaFontsDetails => processFontDetails(mediaFontsDetails));
-		fontsDetails.supports.forEach(supportsFontsDetails => processFontDetails(supportsFontsDetails));
-		fontsDetails.layers.forEach(layerFontsDetails => processFontDetails(layerFontsDetails));
+		fontsDetails.medias.forEach(mediaFontsDetails => processFontDetails(mediaFontsDetails, undefined, sourceDetails));
+		fontsDetails.supports.forEach(supportsFontsDetails => processFontDetails(supportsFontsDetails, undefined, sourceDetails));
+		fontsDetails.layers.forEach(layerFontsDetails => processFontDetails(layerFontsDetails, undefined, sourceDetails));
 	}
 }
 
