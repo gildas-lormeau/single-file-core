@@ -1,3 +1,6 @@
+// Adapted from @eslint/css-tree 4.1.1, lib/tokenizer/TokenStream.js.
+// Original: eslint/csstree@15634490fc7a514f908b7d2733301e15e308c61c.
+// MIT license: TokenStream.LICENSE. Provenance and changes: README.md.
 import { cmpStr } from "./utils.js";
 import tokenNames from "./names.js";
 import {

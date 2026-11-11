@@ -1,85 +1,60 @@
-# Rebuilding `vendor/css-tree.js`
+# CSS-tree build and TokenStream changes
 
-[`../vendor/css-tree.js`](../vendor/css-tree.js) is a custom build of
-[@eslint/css-tree](https://www.npmjs.com/package/@eslint/css-tree), the ESLint
-fork of [css-tree](https://www.npmjs.com/package/css-tree), with four patches
-applied to the npm sources. The fork is installed under the `css-tree` alias in
-`package.json`. It is maintained where upstream is not, and it parses nested
-rules that upstream 3.2.1 kept as raw text, but it still carries the four
-defects below.
+This directory builds SingleFile's existing `vendor/css-tree.js` from
+`@eslint/css-tree` **4.1.1**, using the dependency versions in `package-lock.json`.
+It adds one copied dependency source file: `TokenStream.js`.
 
-`lib/tokenizer/TokenStream.js`: the token offset field is widened from 24 to
-27 bits (`OFFSET_MASK`/`TYPE_SHIFT`, with unsigned shifts for the token type).
-Upstream css-tree packs each token as `type << 24 | offset`, so any stylesheet
-larger than 16MB (2^24 bytes) silently corrupts the token stream and parsing
-never terminates. Real pages ship such stylesheets (see
-https://github.com/gildas-lormeau/SingleFile/issues/1962, a 23.5MB stylesheet
-on brookings.edu). With 27 bits the limit becomes 128MB. Reported upstream as
-https://github.com/csstree/csstree/issues/372.
+## Copied source and unchanged code
 
-`lib/tokenizer/TokenStream.js`, second patch: `setSource()` clears only the
-part of its `balance` buffer it is about to use, `balance.fill(0, 0,
-sourceLength + 1)` instead of `balance.fill(0)`. `adoptBuffer` grows that
-buffer to fit the largest source ever parsed and never shrinks it, so once a
-23.5MB stylesheet has gone through, every later parse zero-fills 94MB whatever
-its own size. Measured on the same brookings.edu page: a 60-character selector
-took 0.0038ms in a fresh process and 0.96ms after that stylesheet, 255 times
-slower, and the unused-styles pass parses one selector at a time — 163,881 of
-them on that page. The used range is `[0, sourceLength]`, since there is at
-most one token per character and `sourceLength` is the initial balance
-sentinel, so the bounded fill covers exactly what the tokenizer reads. The
-pass went from 180s to 12s on that page with byte-identical output. Reported upstream as
-https://github.com/csstree/csstree/issues/379.
+`TokenStream.js` is based on
+[`lib/tokenizer/TokenStream.js` at CSS-tree commit 15634490](https://github.com/eslint/csstree/blob/15634490fc7a514f908b7d2733301e15e308c61c/lib/tokenizer/TokenStream.js)
+(the `css-tree-v4.1.1` tag). `TokenStream.LICENSE` retains its MIT license.
+Indentation and quotes follow this repository's ESLint configuration; two unused
+variable initializers were removed for lint compatibility.
 
-`lib/utils/url.js`: `decode()` trims the whitespace at the end of an unquoted
-`url()` before decoding the escapes, so a value ending in an escaped space,
-`url(data:x\ )`, is trimmed onto its backslash and a special case for a
-backslash in last position then replaced everything decoded so far with what
-follows the backslash: the value came out as `" )"`. GitHub's Primer ships
-such a value (`--brand-Prose-unorderedList-imageUrl`, an SVG bullet), which
-SingleFile then fetched as a relative URL and replaced with an empty
-resource. The patch stops the trim at an escaped whitespace, an odd number
-of backslashes before it, and appends in the special case instead of
-replacing. Reported upstream as https://github.com/csstree/csstree/issues/380.
+The changes below concern token storage and the reads of that storage. The
+original token-stream traversal and lookup algorithms otherwise remain in place.
+`cmpStr`, token names/types, the tokenizer, parser, grammar, lexer and generator
+still come from the installed CSS-tree package. They are not copied or changed
+by this fix.
 
-`lib/utils/url.js`, fourth patch: encoding and decoding append whole unescaped
-runs, rather than concatenating every character. A long embedded font/image URL
-otherwise creates a rope node per byte. Decoded URLs stay in the AST, and font
-processing may serialize them repeatedly, multiplying the live heap and garbage
-collection cost. CSS escapes, control characters, and hex separators retain their
-existing behavior. The optimization also covers a long safe run after an escaped
-prefix, not just entirely safe URLs.
+`vendor/css-tree.js` is the generated browser bundle already used by SingleFile,
+not a second newly introduced dependency. The manual regression files are new
+tests, not copied library code.
 
-This directory rebuilds the file deterministically. All dependencies are
-pinned to exact versions by `package.json` and `package-lock.json`:
+## Changes to TokenStream
 
-```sh
-cd css-tree-build
-npm ci
-npm run build
-git diff --exit-code ../vendor/css-tree.js
-```
+1. Store `type * 2**32 + endOffset` in a `Float64Array`, with arithmetic reads of
+   the type and offset. This replaces the original 24-bit offsets and the
+   previous build-time widening to 27 bits. The combined integer fits exactly
+   in Float64, preserving full 32-bit offsets.
+2. Grow the token and balance buffers by token count, including an EOF slot,
+   instead of allocating from the number of source characters. A large comment
+   or embedded data URL can occupy one token without proportional token storage.
+3. Initialize used balance entries during tokenization instead of clearing the
+   entire retained buffer. When unwinding to the root sentinel, set its closing
+   type to zero rather than reading a stale token from a reused buffer.
 
-An empty diff means the checked-in file matches what the sources produce. The
-GitHub Actions workflow `.github/workflows/vendor.yml` runs the same steps on
-every push.
+The readable file replaces the existing `16MB token offset` and
+`balance buffer cleared beyond the source` string-replacement patches in
+`build.js`. It is substituted only during the bundle build; installed package
+files are not rewritten.
 
-The patches are applied to the readable npm sources by an esbuild plugin in
-`build.js`, each guarded by exact occurrence counts: if a css-tree update
-changes a patched file, the build fails loudly instead of silently dropping
-the patch. The plugin registers one `onLoad` per patched FILE and applies
-every patch for that file in it, because esbuild stops at the first `onLoad`
-whose filter matches: two handlers on one file would silently drop the second
-patch. The same guard catches that too, and did when the second
-`TokenStream.js` patch was added.
+The pre-existing patches for large URL string allocations and escaped trailing
+whitespace in `url()` remain unchanged. They modify `lib/utils/url.js` during
+bundling and are separate from this TokenStream fix.
 
-## Updating css-tree
+## Why carry this change here?
 
-1. Bump the version in the `css-tree` alias in `package.json`
-   (`npm:@eslint/css-tree@<version>`) and run `npm install`.
-2. Run `npm run build`. If the build fails because a patched file changed,
-   review that patch in `build.js` against the new sources (or drop it once
-   upstream has the fix: wider token offsets, the bounded balance fill, or
-   the `url()` decoding).
-3. Commit the regenerated `../vendor/css-tree.js` together with the changes in
-   this directory.
+Large font/image data URLs can make a stylesheet exceed the current 128 MiB
+offset limit. The existing representation then wraps token positions; sizing
+buffers by source length also amplifies memory use for sparse input. This fix
+allows SingleFile to process those stylesheets while the dependency issue is
+being resolved in [CSS-tree #174](https://github.com/eslint/csstree/issues/174).
+Once a CSS-tree release provides the needed behavior, update the dependency and
+remove the copied implementation and build substitution.
+
+Dense input has a cost: 12 bytes per capacity entry instead of 8, plus temporary
+old/new allocations during growth. This is not a universal memory reduction.
+See [the regression instructions](../test/manual/token-stream-large-css.md) for
+offset, parse/generate, API compatibility and buffer-reuse checks.
