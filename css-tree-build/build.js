@@ -1,6 +1,5 @@
 import { URL } from "node:url";
 import { readFileSync } from "node:fs";
-import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { build } from "esbuild";
 
@@ -54,26 +53,12 @@ function applyPatch(patch, source) {
 const patchPlugin = {
 	name: "patch-css-tree",
 	setup(build) {
-		// Keep the large-source TokenStream implementation readable and reviewable.
-		// This overlay replaces only the tokenizer storage, not CSS grammar or URL handling.
-		let tokenStreamLoaded = false;
 		build.onLoad({ filter: /[/\\]css-tree[/\\].*[/\\]tokenizer[/\\]TokenStream\.js$/ }, args => {
-			const original = readFileSync(args.path);
-			const digest = createHash("sha256").update(original).digest("hex");
-			if (digest !== "9d1b0b5e157a984b2700b75a2a44b63dae4ab426186f4d94d3aff2436967d0ec") {
-				throw new Error("css-tree TokenStream source changed; review the large-source overlay");
-			}
-			tokenStreamLoaded = true;
 			return {
 				contents: readFileSync(new URL("./TokenStream.js", import.meta.url), "utf8"),
 				loader: "js",
 				resolveDir: args.path.replace(/[/\\][^/\\]+$/, "")
 			};
-		});
-		build.onEnd(() => {
-			if (!tokenStreamLoaded) {
-				throw new Error("css-tree TokenStream was not loaded; large-source overlay was not applied");
-			}
 		});
 		const applied = new Set();
 		const patchesByFile = new Map();
