@@ -1,3 +1,4 @@
+import { URL } from "node:url";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
