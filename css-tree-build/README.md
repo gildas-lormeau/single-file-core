@@ -55,6 +55,4 @@ Once a CSS-tree release provides the needed behavior, update the dependency and
 remove the copied implementation and build substitution.
 
 Dense input has a cost: 12 bytes per capacity entry instead of 8, plus temporary
-old/new allocations during growth. This is not a universal memory reduction.
-See [the regression instructions](../test/manual/token-stream-large-css.md) for
-offset, parse/generate, API compatibility and buffer-reuse checks.
+old/new allocations during growth.
