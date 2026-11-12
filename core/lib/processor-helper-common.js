@@ -40,7 +40,6 @@ const HTTP_URI_PREFIX = /^https?:\/\//;
 const FILE_URI_PREFIX = /^file:\/\//;
 const EMPTY_URL = /^https?:\/\/+\s*$/;
 const NOT_EMPTY_URL = /^(https?:\/\/|file:\/\/|blob:).+/;
-const PREFIX_DATA_URI_IMAGE_SVG = "data:image/svg+xml";
 const REFERRER_POLICY_ELEMENTS = ["IMG", "LINK", "SCRIPT"];
 const UTF8_CHARSET = "utf-8";
 const REGEXP_URL_FUNCTION = /(url|local|-sf-url-original)\(.*?\)\s*(,|$)/g;
@@ -66,6 +65,7 @@ const OffscreenCanvas = globalThis.OffscreenCanvas;
 const DEFAULT_IMAGE_QUALITY = 0.8;
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const XMLNS_NAMESPACE = "http://www.w3.org/2000/xmlns/";
+const SVG_ROOT_ID_PREFIX = "sf-svg-";
 
 let util, cssTree;
 
@@ -166,13 +166,19 @@ class ProcessorHelperCommon {
 							const response = await batchRequest.addURL(resourceURL, { expectedType: "image" });
 							const svgDoc = util.parseSVGContent(response.content);
 							if (hashMatch && hashMatch[0]) {
-								const symbolElement = getFragmentElement(svgDoc, hashMatch[0]);
-								if (symbolElement) {
+								const fragmentElement = getFragmentElement(svgDoc, hashMatch[0]);
+								if (fragmentElement) {
 									resourceElement.setAttribute(attributeName, hashMatch[0]);
-									resourceElement.parentElement.insertBefore(symbolElement, resourceElement.parentElement.firstChild);
+									insertReferencedElement(doc, resourceElement, fragmentElement);
 								}
 							} else {
-								resourceElement.setAttribute(attributeName, PREFIX_DATA_URI_IMAGE_SVG + "," + response.content);
+								const rootElement = svgDoc.documentElement;
+								if (rootElement && rootElement.localName == "svg") {
+									const id = getUnusedId(doc, svgDoc);
+									rootElement.setAttribute("id", id);
+									resourceElement.setAttribute(attributeName, "#" + id);
+									insertReferencedElement(doc, resourceElement, rootElement);
+								}
 							}
 						}
 					}
@@ -933,6 +939,24 @@ function isDataURL(url) {
 function getURLHash(url) {
 	const hashMatch = url && !isDataURL(url) && url.match(REGEXP_URL_HASH);
 	return hashMatch ? hashMatch[0] : "";
+}
+
+function insertReferencedElement(doc, resourceElement, element) {
+	const parentElement = resourceElement.parentElement;
+	if (element.localName != "symbol") {
+		const defsElement = doc.createElementNS(SVG_NAMESPACE, "defs");
+		defsElement.appendChild(element);
+		element = defsElement;
+	}
+	parentElement.insertBefore(element, parentElement.firstChild);
+}
+
+function getUnusedId(doc, svgDoc) {
+	let index = 0;
+	while (doc.getElementById(SVG_ROOT_ID_PREFIX + index) || svgDoc.getElementById(SVG_ROOT_ID_PREFIX + index)) {
+		index++;
+	}
+	return SVG_ROOT_ID_PREFIX + index;
 }
 
 function getFragmentElement(svgDoc, hash) {
