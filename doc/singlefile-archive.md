@@ -90,7 +90,8 @@ Three consequences shape everything below:
      add prepended and appended bytes, which cost two measured readers: `ditto`, which
      requires a local header at offset 0, and `java.util.zip`, which rejects undeclared
      trailing bytes. A writer can fix the second case by declaring those bytes as the
-     archive comment (§4.2).
+     archive comment (§4.2). A third reader, 7-Zip, is lost only when more than 8 MiB
+     precede the archive, which takes a large PNG face (§8.1).
   2. **The HTML face** rests mostly on *normative* behavior: HTML's tokenizer states
      and error recovery are specified, and the blank-page backstop of §4.1 is ordinary
      CSS. It is exposed on two other counts: it depends on the ZIP face beneath it, and
@@ -602,6 +603,10 @@ Both chunks MUST carry correct CRCs — decoders are entitled to verify them, an
 second chunk's CRC can only be computed once the archive bytes are final (§6). The
 `pixel-data chunks` region is copied bit-identically from the source image, so the
 decoded image is exactly that image.
+
+That region sits before the ZIP region, so a large image moves the archive away from
+the start of the file. One measured ZIP reader, 7-Zip, gives up when the first local
+file header starts past 8 MiB (§8.1).
 
 ### 4.5 The universal-mode extractor
 
@@ -1790,7 +1795,7 @@ and is class C.
 |---|---|---|---|---|
 | Info-ZIP `unzip`, `zipinfo` | ✔ | ✔ | ✔ | Lists and extracts every variant. AES entries are skipped — `need PK compat. v5.1 (can do v4.5)` — a limitation of the tool, not of the file; `page.pdf` still extracts because it is never encrypted |
 | Python `zipfile` | ✔ | ✔ | ✔ | Lists and extracts every variant |
-| 7-Zip (`7zz`) | ✔ | ✔ | ✔ | Lists and extracts every variant, AES included |
+| 7-Zip (`7zz`) | ✔ | ✔ | ✔ | Lists and extracts every variant, AES included, while the first local file header starts at offset 8388608 or lower. Past that offset it answers `Cannot open the file as archive`. Only a PNG face with more than about 8 MiB of pixel data gets there, and the ✔ holds for files below it |
 | libarchive `bsdtar`, seekable input | ✔ | ✔ | ✔ | Lists and extracts every variant. Its EOCD scan is the narrowest measured, so a class-C file whose appended run pushes the record past 16383 bytes from the end is rejected with `Unrecognized archive format`; §5.2's default budget is sized to this window, and the ✔ holds for files that respect it |
 | libarchive `bsdtar`, piped input | ✔ | ✘ | ✘ | `Unrecognized archive format` — the forward-only case of §1.2, measured |
 | Java `java.util.zip` (`jar tf`) | ✔ | ✔ | ✘ | `zip END header not found` whenever bytes follow the EOCD undeclared. Declaring them as the archive comment makes the same file open, measured on every class-C variant (§4.2) |
@@ -1804,6 +1809,19 @@ Python `zipfile` 65557, zip.js 65536, Info-ZIP `unzip` 68000, and 7-Zip beyond 1
 which scans the whole file. libarchive binds, and its window less the 22-byte record
 is the 16361-byte default budget of §5.2. macOS `ditto` is not on this axis at all: it
 requires a local file header at offset 0 whatever the tail looks like.
+
+7-Zip has a limit at the other end of the file. It looks for the start of the archive
+in the first 8 MiB and does not fall back to the EOCD record. This was measured by
+moving a working archive behind a longer and longer prefix. 7-Zip opens the file while
+the first local file header starts at offset 8388608 or lower. From 8388609 on it fails
+with `Cannot open the file as archive`. The size of the archive, the content of the
+prefix, the file name and the `-tzip` switch do not change the result. In this format
+only the PNG face can put that much before the first local header, because the
+`pixel-data chunks` precede the ZIP region (§3.1). With 9 MiB of pixel data the `png`,
+`zip-png` and `zip-png-pdf` variants are refused, while Info-ZIP `unzip` reads the same
+files. The `png-pdf` variant still opens, because its `page.pdf` local header sits in
+the HTML head, at offset 91 in the file measured. The reference writer does not work
+around the limit.
 
 The cost of the declared form was measured on the same tools: it is a display cost, not
 a compatibility one. An archive whose trailing bytes are declared as the comment has
@@ -1841,7 +1859,8 @@ Two of these results bear on §1.1's customary tolerances. The EOCD backward sca
 the tolerance of undeclared trailing bytes are near-universal but not unanimous: Java
 is the measured exception, and not a niche one, since `java.util.zip` is what
 Android and most JVM tooling use. Prepended data is tolerated by every ZIP reader
-measured except Apple's `ditto`.
+measured except Apple's `ditto`. 7-Zip tolerates it while the first local file header
+starts within 8 MiB, and the `page.pdf` header counts.
 
 ### 8.2 Anatomy of a small archive
 
