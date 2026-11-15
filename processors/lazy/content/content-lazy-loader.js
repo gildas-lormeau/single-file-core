@@ -35,6 +35,8 @@ const MAX_IDLE_TIMEOUT_CALLS = 10;
 const ATTRIBUTES_MUTATION_TYPE = "attributes";
 const CHILD_LIST_MUTATION_TYPE = "childList";
 const STYLESHEET_TAG_NAMES = ["STYLE", "LINK"];
+const SCROLLABLE_OVERFLOW_VALUES = ["auto", "scroll", "overlay"];
+const SCROLLABLE_ELEMENT_MIN_SIZE_RATIO = 1 / 3;
 
 const browser = globalThis.browser;
 const document = globalThis.document;
@@ -76,8 +78,36 @@ async function process(options) {
 			if (globalThis.scrollY < maxScrollY || globalThis.scrollX < maxScrollX) {
 				return triggerLazyLoading(options);
 			}
+		} else if (findScrollableElement()) {
+			return triggerLazyLoading(options);
 		}
 	}
+}
+
+function findScrollableElement() {
+	const minHeight = globalThis.innerHeight * SCROLLABLE_ELEMENT_MIN_SIZE_RATIO;
+	const minWidth = globalThis.innerWidth * SCROLLABLE_ELEMENT_MIN_SIZE_RATIO;
+	let elements = [document.documentElement];
+	while (elements.length) {
+		const descendants = [];
+		for (const element of elements) {
+			for (const child of element.children) {
+				if (child.clientHeight >= minHeight && child.clientWidth >= minWidth) {
+					if (isScrollable(child)) {
+						return child;
+					}
+					descendants.push(child);
+				}
+			}
+		}
+		elements = descendants;
+	}
+}
+
+function isScrollable(element) {
+	const style = globalThis.getComputedStyle(element);
+	return (SCROLLABLE_OVERFLOW_VALUES.includes(style.overflowY) && element.scrollHeight > element.clientHeight) ||
+		(SCROLLABLE_OVERFLOW_VALUES.includes(style.overflowX) && element.scrollWidth > element.clientWidth);
 }
 
 function resetZoomLevel(options) {
