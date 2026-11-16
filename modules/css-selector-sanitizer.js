@@ -99,7 +99,7 @@ function normalizeSelectorNode(selector) {
 		} else if (childNode.type === "PseudoClassSelector") {
 			if (matchUnqueryablePseudoClass(childNode)) {
 				removeNode(selector.children, current);
-			} else if (childNode.children && MATCHING_FUNCTIONAL_PSEUDO_CLASSES.includes(childNode.name.toLowerCase())) {
+			} else if (childNode.children && childNode.children.head && MATCHING_FUNCTIONAL_PSEUDO_CLASSES.includes(childNode.name.toLowerCase())) {
 				normalizeSelectorNode(childNode.children.head.data);
 			}
 		} else if (childNode.type === "AttributeSelector") {
