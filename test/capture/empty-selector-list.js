@@ -8,9 +8,9 @@ const PAGE_URL = "https://example.com/page.html";
 // (reading 'data')". The stylesheet of github.com carries four rules written `:is(){…}`, two of
 // them under `@media (pointer:coarse)`, which is how it was found (SingleFile #2058).
 //
-// A browser answering false to CSS.supports("selector(:is())") never reached that code, which is
-// why a current Chromium saved the page and Chrome 109 did not. The DOM of these tests has no such
-// answer to give, so the rule reaches the pass here as it did there.
+// A browser answering false to CSS.supports("selector(:is())") never reaches that code: Chrome 157
+// does, and saved the page, where the failure was reported from Chrome 109. The DOM of these tests
+// has no such answer to give, so the rule reaches the pass here.
 const cases = [
 	{
 		label: "an empty :is() does not fail the save",
