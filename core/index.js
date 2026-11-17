@@ -495,6 +495,7 @@ class BatchRequest {
 // Processor
 // ---------
 const SHADOWROOT_ATTRIBUTE_NAME = "shadowrootmode";
+const STYLESHEET_GROUP_KEY_SEPARATOR = "\u0000";
 const SHADOWROOT_DELEGATES_FOCUS = "shadowrootdelegatesfocus";
 const SHADOWROOT_CLONABLE = "shadowrootclonable";
 const SHADOWROOT_SERIALIZABLE = "shadowrootserializable";
@@ -1500,14 +1501,18 @@ class Processor {
 		this.doc.querySelectorAll("style").forEach(styleElement => {
 			const content = styleElement.textContent;
 			if (content) {
-				if (!styleElementGroups.has(content)) {
-					styleElementGroups.set(content, []);
+				const shadowRootElement = styleElement.closest("[" + SHADOWROOT_ATTRIBUTE_NAME + "]");
+				const hostElement = shadowRootElement && shadowRootElement.parentElement;
+				const groupKey = (hostElement ? hostElement.localName : "") + STYLESHEET_GROUP_KEY_SEPARATOR + content;
+				if (!styleElementGroups.has(groupKey)) {
+					styleElementGroups.set(groupKey, []);
 				}
-				styleElementGroups.get(content).push(styleElement);
+				styleElementGroups.get(groupKey).push(styleElement);
 			}
 		});
 		let indexContent = 0;
-		styleElementGroups.forEach((styleElements, content) => {
+		styleElementGroups.forEach(styleElements => {
+			const content = styleElements[0].textContent;
 			const masterIndex = ORDER_DEPENDENT_RULE.test(content) ? 0 : styleElements.length - 1;
 			this.options.inlineStylesheets.set(indexContent, {
 				styleElement: styleElements[masterIndex],

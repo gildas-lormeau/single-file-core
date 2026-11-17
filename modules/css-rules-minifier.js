@@ -94,6 +94,29 @@ const UNSCOPED_PROXIMITY = Infinity;
 const BLOCK_OPEN = "{";
 const BLOCK_CLOSE = "}";
 const EMPTY_STRING = "";
+const STYLE_TAG_NAME = "style";
+const SHADOW_ROOT_SELECTOR = "template[shadowrootmode]";
+const UNIVERSAL_SELECTOR = "*";
+const NOT_PSEUDO_CLASS_NAME = "not";
+const HAS_PSEUDO_CLASS_NAME = "has";
+const SHADOW_ROOT_CONDITIONAL_AT_RULE_NAMES = new Set([MEDIA_AT_RULE_NAME, SUPPORTS_AT_RULE_NAME, "container", LAYER_NAME]);
+const SHADOW_ROOT_REMOVABLE_AT_RULE_NAMES = new Set([MEDIA_AT_RULE_NAME, SUPPORTS_AT_RULE_NAME, "container"]);
+const SHADOW_HOST_PSEUDO_CLASS_NAMES = new Set(["host", "host-context", SCOPE_PSEUDO_CLASS_NAME]);
+const SHADOW_PSEUDO_ELEMENT_NAMES = new Set(["slotted", "part"]);
+const SIBLING_COMBINATOR_NAMES = new Set(["+", "~"]);
+const SIBLING_DEPENDENT_PSEUDO_CLASS_NAMES = new Set([
+	"empty",
+	"first-child",
+	"last-child",
+	"only-child",
+	"first-of-type",
+	"last-of-type",
+	"only-of-type",
+	"nth-child",
+	"nth-last-child",
+	"nth-of-type",
+	"nth-last-of-type"
+]);
 const CSS_IMPORTANCE_NOT_IMPORTANT = 0;
 const CSS_IMPORTANCE_IMPORTANT = 1;
 const INVALID_CSS_ESCAPE_TEST = /\\(?![0-9a-fA-F]{1,6}\s|[^0-9a-zA-Z])/;
@@ -174,6 +197,8 @@ function process(doc, stylesheets, styles) {
 		nestingParentTexts: new Map(),
 		nestingParentNodes: new Map(),
 		scopedSelectorTexts: new Map(),
+		shadowRootSelectorTexts: new Map(),
+		shadowRootMatches: new Map(),
 		supportedSelectors: new Map(),
 		valueValidities: new Map(),
 		baselineValues: new Map(),
@@ -186,7 +211,180 @@ function process(doc, stylesheets, styles) {
 	computeCascade(docContext);
 	removeUnusedCustomProperties(stylesheets, styles, docContext);
 	removeEmptyRules(stylesheets, docContext);
+	minifyShadowRootStylesheets(getShadowRootStylesheets(stylesheets), docContext);
 	return docContext.stats;
+}
+
+function getShadowRootStylesheets(stylesheets) {
+	const groups = new Map();
+	stylesheets.forEach((stylesheetInfo, key) => {
+		const ownerElement = getStylesheetOwnerElement(key);
+		if (!key.urlNode && ownerElement && ownerElement.localName === STYLE_TAG_NAME && stylesheetInfo.scoped && stylesheetInfo.scope) {
+			const hostElement = stylesheetInfo.scope.parentElement;
+			const groupKey = (hostElement ? hostElement.localName : EMPTY_STRING) + LAYER_NAME_KEY_SEPARATOR + ownerElement.textContent;
+			let group = groups.get(groupKey);
+			if (!group) {
+				group = { roots: new Set(), stylesheets: [] };
+				groups.set(groupKey, group);
+			}
+			group.roots.add(stylesheetInfo.scope);
+			if (stylesheetInfo.stylesheet) {
+				group.stylesheets.push(stylesheetInfo.stylesheet);
+			}
+		}
+	});
+	const shadowRootStylesheets = [];
+	groups.forEach(group => {
+		if (group.stylesheets.length === 1) {
+			shadowRootStylesheets.push({ stylesheet: group.stylesheets[0], roots: group.roots });
+		}
+	});
+	return shadowRootStylesheets;
+}
+
+function minifyShadowRootStylesheets(shadowRootStylesheets, docContext) {
+	shadowRootStylesheets.forEach(({ stylesheet, roots }) => {
+		if (hasChildNodes(stylesheet) && !hasDefaultNamespace(stylesheet.children)) {
+			removeUnmatchedShadowRootRules(stylesheet.children, roots, docContext);
+		}
+	});
+}
+
+function removeUnmatchedShadowRootRules(cssRules, roots, docContext) {
+	for (let cssRule = cssRules.head; cssRule;) {
+		const nextCssRule = cssRule.next;
+		const ruleData = cssRule.data;
+		let removed = false;
+		if (ruleData.type === RULE_TYPE) {
+			docContext.stats.processed++;
+			removed = isShadowRootRuleUnmatched(ruleData, roots, docContext);
+		} else if (ruleData.type === AT_RULE_TYPE && hasChildNodes(ruleData.block)) {
+			const atRuleName = decodeName(ruleData.name).toLowerCase();
+			if (SHADOW_ROOT_CONDITIONAL_AT_RULE_NAMES.has(atRuleName)) {
+				removeUnmatchedShadowRootRules(ruleData.block.children, roots, docContext);
+				removed = SHADOW_ROOT_REMOVABLE_AT_RULE_NAMES.has(atRuleName) && !hasChildNodes(ruleData.block);
+			}
+		}
+		if (removed) {
+			cssRules.remove(cssRule);
+			docContext.stats.discarded++;
+		}
+		cssRule = nextCssRule;
+	}
+}
+
+function isShadowRootRuleUnmatched(ruleData, roots, docContext) {
+	if (!hasChildNodes(ruleData.prelude) || !isPreludeSupported(ruleData.prelude, docContext)) {
+		return false;
+	}
+	for (let selector = ruleData.prelude.children.head; selector; selector = selector.next) {
+		if (!hasChildNodes(selector.data) || !isShadowRootSelectorQueryable(selector.data)) {
+			return false;
+		}
+		const matchedRoots = getMatchedShadowRoots(getShadowRootSelectorText(sanitizeSelector(selector, docContext), docContext), docContext);
+		if (!matchedRoots) {
+			return false;
+		}
+		for (const root of matchedRoots) {
+			if (roots.has(root)) {
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+function isShadowRootSelectorQueryable(selector) {
+	let queryable = true;
+	let functionalPseudoClassDepth = 0;
+	let notPseudoClassDepth = 0;
+	cssTree.walk(selector, {
+		enter(node) {
+			if (node.type === PSEUDO_ELEMENT_SELECTOR_TYPE) {
+				if (SHADOW_PSEUDO_ELEMENT_NAMES.has(decodeName(node.name).toLowerCase())) {
+					queryable = false;
+				}
+			} else if (node.type === PSEUDO_CLASS_SELECTOR_TYPE) {
+				const name = decodeName(node.name).toLowerCase();
+				if (SHADOW_HOST_PSEUDO_CLASS_NAMES.has(name) ||
+					(functionalPseudoClassDepth && SIBLING_DEPENDENT_PSEUDO_CLASS_NAMES.has(name)) ||
+					(notPseudoClassDepth && name === HAS_PSEUDO_CLASS_NAME)) {
+					queryable = false;
+				}
+				if (node.children) {
+					functionalPseudoClassDepth++;
+					if (name === NOT_PSEUDO_CLASS_NAME) {
+						notPseudoClassDepth++;
+					}
+				}
+			} else if (node.type === NESTING_SELECTOR_TYPE) {
+				queryable = false;
+			} else if (node.type === COMBINATOR_NAME && functionalPseudoClassDepth && SIBLING_COMBINATOR_NAMES.has(node.name)) {
+				queryable = false;
+			}
+		},
+		leave(node) {
+			if (node.type === PSEUDO_CLASS_SELECTOR_TYPE && node.children) {
+				functionalPseudoClassDepth--;
+				if (decodeName(node.name).toLowerCase() === NOT_PSEUDO_CLASS_NAME) {
+					notPseudoClassDepth--;
+				}
+			}
+		}
+	});
+	return queryable;
+}
+
+function getShadowRootSelectorText(selectorText, docContext) {
+	if (!docContext.shadowRootSelectorTexts.has(selectorText)) {
+		const selector = parseCss(selectorText);
+		let changed = false;
+		if (hasChildNodes(selector)) {
+			let lastSiblingCombinator;
+			for (let node = selector.children.head; node; node = node.next) {
+				if (node.data.type === COMBINATOR_NAME && SIBLING_COMBINATOR_NAMES.has(node.data.name)) {
+					lastSiblingCombinator = node;
+				}
+			}
+			if (lastSiblingCombinator) {
+				while (selector.children.head !== lastSiblingCombinator) {
+					selector.children.remove(selector.children.head);
+				}
+				selector.children.remove(lastSiblingCombinator);
+				changed = true;
+			}
+			for (let node = selector.children.head; node;) {
+				const nextNode = node.next;
+				if (node.data.type === PSEUDO_CLASS_SELECTOR_TYPE && SIBLING_DEPENDENT_PSEUDO_CLASS_NAMES.has(decodeName(node.data.name).toLowerCase())) {
+					const startsCompound = !node.prev || node.prev.data.type === COMBINATOR_NAME;
+					const endsCompound = !node.next || node.next.data.type === COMBINATOR_NAME;
+					if (startsCompound && endsCompound) {
+						selector.children.replace(node, parseCss(UNIVERSAL_SELECTOR).children.head);
+					} else {
+						selector.children.remove(node);
+					}
+					changed = true;
+				}
+				node = nextNode;
+			}
+		}
+		docContext.shadowRootSelectorTexts.set(selectorText, changed ? cssTree.generate(selector) : selectorText);
+	}
+	return docContext.shadowRootSelectorTexts.get(selectorText);
+}
+
+function getMatchedShadowRoots(selectorText, docContext) {
+	if (!docContext.shadowRootMatches.has(selectorText)) {
+		let matchedRoots;
+		try {
+			matchedRoots = new Set();
+			docContext.doc.querySelectorAll(selectorText).forEach(element => matchedRoots.add(element.closest(SHADOW_ROOT_SELECTOR)));
+		} catch {
+			matchedRoots = null;
+		}
+		docContext.shadowRootMatches.set(selectorText, matchedRoots);
+	}
+	return docContext.shadowRootMatches.get(selectorText);
 }
 
 function collectLayerOrder(stylesheets, docContext) {
