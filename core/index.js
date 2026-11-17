@@ -1717,13 +1717,6 @@ class Processor {
 						if (shadowRootData.serializable) {
 							templateElement.setAttribute(SHADOWROOT_SERIALIZABLE, shadowRootData.serializable);
 						}
-						if (shadowRootData.adoptedStyleSheets && shadowRootData.adoptedStyleSheets.length) {
-							shadowRootData.adoptedStyleSheets.forEach(stylesheetContent => {
-								const styleElement = doc.createElement("style");
-								styleElement.textContent = stylesheetContent;
-								templateElement.appendChild(styleElement);
-							});
-						}
 						const shadowDoc = util.parseDocContent(shadowRootData.content);
 						if (shadowDoc.head) {
 							const metaCharset = shadowDoc.head.querySelector("meta[charset]");
@@ -1756,6 +1749,13 @@ class Processor {
 								} else {
 									slotElement.setAttribute("name", SLOT_NAME_PREFIX + indexSlot);
 								}
+							});
+						}
+						if (shadowRootData.adoptedStyleSheets && shadowRootData.adoptedStyleSheets.length) {
+							shadowRootData.adoptedStyleSheets.forEach(stylesheetContent => {
+								const styleElement = doc.createElement("style");
+								styleElement.textContent = stylesheetContent;
+								templateElement.appendChild(styleElement);
 							});
 						}
 						processElement(templateElement);
