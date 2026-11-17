@@ -928,17 +928,51 @@ class Processor {
 
 		function removeUnmarkedElements(element) {
 			let selectedElementFound = false;
+			const childElements = Array.from(element.childNodes).filter(node => node.nodeType == 1);
+			const shadowRootElement = childElements.find(node => isUnmarkedShadowRoot(node));
+			const partiallySelected = childElements.some(node => node != shadowRootElement && !isMarked(node));
+			if (shadowRootElement && partiallySelected) {
+				markAssignedSlots(element, shadowRootElement, childElements);
+			}
 			Array.from(element.childNodes).forEach(node => {
 				if (node.nodeType == 1) {
-					const isSelectedElement = node.getAttribute(util.SELECTED_CONTENT_ATTRIBUTE_NAME) == "";
+					const isSelectedElement = isMarked(node);
 					selectedElementFound = selectedElementFound || isSelectedElement;
-					if (isSelectedElement) {
+					if (node == shadowRootElement) {
+						if (partiallySelected) {
+							removeUnmarkedElements(node);
+						}
+					} else if (isSelectedElement) {
 						node.removeAttribute(util.SELECTED_CONTENT_ATTRIBUTE_NAME);
 						removeUnmarkedElements(node);
 					} else if (selectedElementFound) {
 						removeNode(node);
 					} else {
 						hideNode(node);
+					}
+				}
+			});
+		}
+
+		function isMarked(element) {
+			return element.getAttribute(util.SELECTED_CONTENT_ATTRIBUTE_NAME) == "";
+		}
+
+		function isUnmarkedShadowRoot(element) {
+			return element.tagName.toUpperCase() == "TEMPLATE" && element.hasAttribute(SHADOWROOT_ATTRIBUTE_NAME) && !isMarked(element);
+		}
+
+		function markAssignedSlots(hostElement, shadowRootElement, childElements) {
+			const slotNames = new Set(childElements.filter(isMarked).map(childElement => childElement.getAttribute("slot") || ""));
+			if (Array.from(hostElement.childNodes).some(node => node.nodeType == 3 && node.textContent.trim())) {
+				slotNames.add("");
+			}
+			shadowRootElement.querySelectorAll("slot").forEach(slotElement => {
+				if (slotElement.closest("[" + SHADOWROOT_ATTRIBUTE_NAME + "]") == shadowRootElement && slotNames.has(slotElement.getAttribute("name") || "")) {
+					let element = slotElement;
+					while (element && element != shadowRootElement) {
+						element.setAttribute(util.SELECTED_CONTENT_ATTRIBUTE_NAME, "");
+						element = element.parentElement;
 					}
 				}
 			});
