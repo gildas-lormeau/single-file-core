@@ -1,7 +1,8 @@
 import { capture, html } from "./common.js";
+import * as cssTree from "../../vendor/css-tree.js";
 
 // The other suites test the stylesheets somebody thought of. This one tests stylesheets nobody wrote:
-// it generates them from a small grammar of everything a rule can be made of, and checks two things
+// it generates them from a small grammar of everything a rule can be made of, and checks three things
 // that must hold whatever the stylesheet is.
 //
 //   1. A save never fails because of a stylesheet. The page of SingleFile #2058 could not be saved
@@ -14,6 +15,14 @@ import { capture, html } from "./common.js";
 //      stylesheets in 100 lose something more on the second save (an emptied rule, a declaration
 //      overridden in the same rule, a selector of a list, spaces). It is counted and printed, and
 //      becomes a check with CSS_STRICT_REPEAT=1, to work on the passes one at a time.
+//   3. An imported stylesheet ends where its file ends. A browser closes whatever a stylesheet leaves
+//      open at its last character (a block, a parenthesis, a string, a selector with no block), and
+//      the rules after the `@import` are read as written. In the saved page the imported text and
+//      these rules are one stylesheet, so what was left open went on into them: a file cut in the
+//      middle of `url("x"` or of `span[title="x` took the next rules of the page with it. Each
+//      generated stylesheet is cut at a random place, imported, and the rule written after the
+//      import must come out as the last rule of the saved stylesheet, as written. CSS_IMPORT_DUMP
+//      writes the saved stylesheets to a file, to ask a browser the same question.
 //
 // The stylesheets are drawn from a seeded generator, so a run is reproducible and a failure prints
 // the seed and the stylesheet that caused it. A share of them is then damaged (characters removed,
@@ -26,6 +35,11 @@ import { capture, html } from "./common.js";
 // When this fails, the stylesheet printed is a new case for the suite of the pass that failed.
 
 const PAGE_URL = "https://example.com/page.html";
+const IMPORTED_URL = "https://example.com/imported.css";
+const SENTINEL_BODY = "<b id=\"sentinel\">after</b>";
+const SENTINEL_SELECTOR = "#sentinel";
+const SENTINEL_BLOCK = "{color:green}";
+const IMPORT_PRELUDES = ["", "", "", " screen", " layer(base)", " supports(display: grid)"];
 const DEFAULT_SEED = 20261117;
 const DEFAULT_CASES = 400;
 const MAX_DEPTH = 3;
@@ -64,8 +78,11 @@ const seed = Number(Deno.env.get("CSS_SEED")) || DEFAULT_SEED;
 const casesCount = Number(Deno.env.get("CSS_CASES")) || DEFAULT_CASES;
 const damagedShare = Deno.env.get("CSS_DAMAGED") === undefined ? DEFAULT_DAMAGED_SHARE : Number(Deno.env.get("CSS_DAMAGED"));
 const random = getRandom(seed);
+// its own sequence, so that the stylesheets of the two first checks are the ones they always were
+const importRandom = getRandom(seed ^ 0x5F5F5F5F);
+const importedStylesheets = [];
 let failed = false;
-let saveFailures = 0, repeatFailures = 0, reportsCount = 0;
+let saveFailures = 0, repeatFailures = 0, importFailures = 0, reportsCount = 0;
 
 for (let indexCase = 0; indexCase < casesCount; indexCase++) {
 	let css = getStylesheet();
@@ -96,6 +113,22 @@ for (let indexCase = 0; indexCase < casesCount; indexCase++) {
 			reportRepeat("saving the saved page changed its stylesheet", indexCase, options, css, "first save:  " + savedCss.join("\n") + "\nsecond save: " + repeatedCss.join("\n"));
 		}
 	}
+	const importedCss = css.substring(0, Math.floor(importRandom() * (css.length + 1)));
+	const importPrelude = IMPORT_PRELUDES[Math.floor(importRandom() * IMPORT_PRELUDES.length)];
+	let importingCss;
+	try {
+		importingCss = getStyleTexts(await saveImport(importedCss, importPrelude, options)).join("\n");
+	} catch (error) {
+		saveFailures++;
+		report("the save failed with the stylesheet imported", indexCase, options, importedCss, error.stack || error.message);
+	}
+	if (importingCss !== undefined) {
+		importedStylesheets.push(importingCss);
+		if (!endsWithSentinel(importingCss)) {
+			importFailures++;
+			report("the imported stylesheet changed the rule after the import (@import url()" + importPrelude + ")", indexCase, options, importedCss, "saved: " + importingCss);
+		}
+	}
 }
 
 check("no stylesheet makes the save fail (" + casesCount + " generated, seed " + seed + ")", saveFailures, 0);
@@ -103,6 +136,10 @@ if (Deno.env.get("CSS_STRICT_REPEAT")) {
 	check("saving a saved page leaves its stylesheet unchanged", repeatFailures, 0);
 } else {
 	console.log("INFO saving a saved page changed its stylesheet in " + repeatFailures + " cases of " + casesCount + " (not a check yet, see the header)");
+}
+check("an imported stylesheet cut anywhere leaves the rule after the import as written", importFailures, 0);
+if (Deno.env.get("CSS_IMPORT_DUMP")) {
+	Deno.writeTextFileSync(Deno.env.get("CSS_IMPORT_DUMP"), JSON.stringify(importedStylesheets));
 }
 {
 	let errorMessage;
@@ -123,6 +160,23 @@ console.log("OK");
 function save(css, options) {
 	const page = html(BODY, "<style>" + css.replace(/<\/style/gi, "<\\/style") + "</style>");
 	return capture({ [PAGE_URL]: { body: page } }, { url: PAGE_URL, content: page, ...options });
+}
+
+function saveImport(importedCss, importPrelude, options) {
+	const page = html(BODY + SENTINEL_BODY, "<style>@import url(imported.css)" + importPrelude + ";\n" + SENTINEL_SELECTOR + SENTINEL_BLOCK + "</style>");
+	return capture({ [PAGE_URL]: { body: page }, [IMPORTED_URL]: { body: importedCss, contentType: "text/css" } }, { url: PAGE_URL, content: page, ...options });
+}
+
+// The last rule of the stylesheet, at its top level, is the sentinel as it was written. This asks
+// css-tree, which is not a browser: see CSS_IMPORT_DUMP in the header.
+function endsWithSentinel(css) {
+	let rule;
+	try {
+		rule = cssTree.parse(css, { context: "stylesheet" }).children.last;
+	} catch {
+		return false;
+	}
+	return Boolean(rule && rule.type == "Rule" && cssTree.generate(rule.prelude) == SENTINEL_SELECTOR && cssTree.generate(rule.block) == SENTINEL_BLOCK);
 }
 
 function getStyleTexts(content) {

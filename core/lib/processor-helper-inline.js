@@ -69,6 +69,7 @@ import {
 	getCharset,
 	getUrlFunctions,
 	getImportFunctions,
+	closeStylesheetContent,
 	isDataURL,
 	replaceOriginalURLs,
 	testIgnoredPath,
@@ -230,14 +231,15 @@ function getProcessorHelperClass(utilInstance) {
 								content.data = "";
 							}
 							const importedLayerName = getImportedLayerName(node);
+							const mediaQueryListNode = cssTree.find(node, node => node.type == "MediaQueryList");
+							const importedSupportsCondition = getImportedSupportsCondition(node);
+							content.data = closeStylesheetContent(content.data || "", Boolean(importedLayerName !== null || mediaQueryListNode || importedSupportsCondition));
 							if (importedLayerName !== null) {
 								content.data = this.wrapLayer(content.data, importedLayerName);
 							}
-							const mediaQueryListNode = cssTree.find(node, node => node.type == "MediaQueryList");
 							if (mediaQueryListNode) {
 								content.data = this.wrapMediaQuery(content.data, cssTree.generate(mediaQueryListNode));
 							}
-							const importedSupportsCondition = getImportedSupportsCondition(node);
 							if (importedSupportsCondition) {
 								content.data = "@supports " + importedSupportsCondition + " { " + content.data + " }";
 							}

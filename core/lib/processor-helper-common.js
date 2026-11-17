@@ -66,6 +66,14 @@ const DEFAULT_IMAGE_QUALITY = 0.8;
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const XMLNS_NAMESPACE = "http://www.w3.org/2000/xmlns/";
 const SVG_ROOT_ID_PREFIX = "sf-svg-";
+const CSS_ESCAPE_CHARACTER = "\\";
+const CSS_COMMENT_END = "*/";
+const CSS_URL_END = ")";
+const CSS_COMMENT_MIN_LENGTH = 4;
+const CSS_BLOCK_END = "}";
+const CSS_STATEMENT_END = ";";
+const CSS_EMPTY_BLOCK = "{}";
+const CSS_UNMATCHED_BLOCK_END = "]";
 
 let util, cssTree;
 
@@ -77,6 +85,7 @@ export {
 	getCharset,
 	getUrlFunctions,
 	getImportFunctions,
+	closeStylesheetContent,
 	isDataURL,
 	replaceOriginalURLs,
 	testIgnoredPath,
@@ -911,6 +920,85 @@ function parseFontSource(source) {
 
 function getImportFunctions(declarationList) {
 	return cssTree.findAll(declarationList, node => node.type == "Atrule" && node.name == "import");
+}
+
+function closeStylesheetContent(content, nested) {
+	const tokenTypes = cssTree.tokenTypes;
+	const blockEnds = new Map([
+		[tokenTypes.Function, ")"],
+		[tokenTypes.LeftParenthesis, ")"],
+		[tokenTypes.LeftSquareBracket, "]"],
+		[tokenTypes.LeftCurlyBracket, CSS_BLOCK_END]
+	]);
+	const blockEndTypes = new Map([
+		[tokenTypes.RightParenthesis, ")"],
+		[tokenTypes.RightSquareBracket, "]"],
+		[tokenTypes.RightCurlyBracket, CSS_BLOCK_END]
+	]);
+	const ignoredTokenTypes = new Set([tokenTypes.WhiteSpace, tokenTypes.Comment, tokenTypes.CDO, tokenTypes.CDC]);
+	const openBlockEnds = [];
+	const unmatchedBlockEnds = [];
+	let lastTokenType, lastTokenStart = 0, openRule = false, openAtRule = false;
+	cssTree.tokenize(content, (tokenType, tokenStart) => {
+		lastTokenType = tokenType;
+		lastTokenStart = tokenStart;
+		if (!openBlockEnds.length && !ignoredTokenTypes.has(tokenType)) {
+			if (openRule && openAtRule && tokenType == tokenTypes.Semicolon) {
+				openRule = false;
+			} else if (!openRule) {
+				openRule = true;
+				openAtRule = tokenType == tokenTypes.AtKeyword;
+			}
+		}
+		if (blockEnds.has(tokenType)) {
+			openBlockEnds.push(blockEnds.get(tokenType));
+		} else if (blockEndTypes.has(tokenType) && openBlockEnds[openBlockEnds.length - 1] == blockEndTypes.get(tokenType)) {
+			openBlockEnds.pop();
+			if (!openBlockEnds.length && tokenType == tokenTypes.RightCurlyBracket) {
+				openRule = false;
+			}
+		} else if (!openBlockEnds.length && tokenType == tokenTypes.RightCurlyBracket) {
+			unmatchedBlockEnds.push(tokenStart);
+		}
+	});
+	if (nested) {
+		unmatchedBlockEnds.forEach(tokenStart => content = content.substring(0, tokenStart) + CSS_UNMATCHED_BLOCK_END + content.substring(tokenStart + 1));
+	}
+	const lastToken = content.substring(lastTokenStart);
+	let tokenEnd = "";
+	if (lastTokenType == tokenTypes.Comment) {
+		if (lastToken.length < CSS_COMMENT_MIN_LENGTH || !lastToken.endsWith(CSS_COMMENT_END)) {
+			tokenEnd = CSS_COMMENT_END;
+		}
+	} else if (lastTokenType !== undefined) {
+		const endsWithEscapeCharacter = isEscapedEnd(content);
+		if (endsWithEscapeCharacter) {
+			content = content.substring(0, content.length - 1);
+		}
+		if (lastTokenType == tokenTypes.String) {
+			const quote = lastToken[0];
+			if (endsWithEscapeCharacter || lastToken.length < 2 || !lastToken.endsWith(quote) || isEscapedEnd(lastToken.substring(0, lastToken.length - 1))) {
+				tokenEnd = quote;
+			}
+		} else if (lastTokenType == tokenTypes.Url || lastTokenType == tokenTypes.BadUrl) {
+			if (endsWithEscapeCharacter || !lastToken.endsWith(CSS_URL_END) || isEscapedEnd(lastToken.substring(0, lastToken.length - 1))) {
+				tokenEnd = CSS_URL_END;
+			}
+		}
+	}
+	let ruleEnd = "";
+	if (openRule && openBlockEnds[0] != CSS_BLOCK_END) {
+		ruleEnd = openAtRule ? CSS_STATEMENT_END : CSS_EMPTY_BLOCK;
+	}
+	return content + tokenEnd + openBlockEnds.reverse().join("") + ruleEnd;
+}
+
+function isEscapedEnd(content) {
+	let escapeCharactersCount = 0;
+	while (content[content.length - 1 - escapeCharactersCount] == CSS_ESCAPE_CHARACTER) {
+		escapeCharactersCount++;
+	}
+	return escapeCharactersCount % 2 == 1;
 }
 
 function findShortcutIcon(shortcutIcons) {
