@@ -931,15 +931,16 @@ class Processor {
 			const childElements = Array.from(element.childNodes).filter(node => node.nodeType == 1);
 			const shadowRootElement = childElements.find(node => isUnmarkedShadowRoot(node));
 			const partiallySelected = childElements.some(node => node != shadowRootElement && !isMarked(node));
-			if (shadowRootElement && partiallySelected) {
-				markAssignedSlots(element, shadowRootElement, childElements);
+			const shadowRootSelected = Boolean(shadowRootElement && shadowRootElement.querySelector("[" + util.SELECTED_CONTENT_ATTRIBUTE_NAME + "]"));
+			if (shadowRootElement && (partiallySelected || shadowRootSelected)) {
+				markAssignedSlots(element, shadowRootElement, childElements, shadowRootSelected);
 			}
 			Array.from(element.childNodes).forEach(node => {
 				if (node.nodeType == 1) {
 					const isSelectedElement = isMarked(node);
 					selectedElementFound = selectedElementFound || isSelectedElement;
 					if (node == shadowRootElement) {
-						if (partiallySelected) {
+						if (partiallySelected || shadowRootSelected) {
 							removeUnmarkedElements(node);
 						}
 					} else if (isSelectedElement) {
@@ -962,9 +963,9 @@ class Processor {
 			return element.tagName.toUpperCase() == "TEMPLATE" && element.hasAttribute(SHADOWROOT_ATTRIBUTE_NAME) && !isMarked(element);
 		}
 
-		function markAssignedSlots(hostElement, shadowRootElement, childElements) {
+		function markAssignedSlots(hostElement, shadowRootElement, childElements, shadowRootSelected) {
 			const slotNames = new Set(childElements.filter(isMarked).map(childElement => childElement.getAttribute("slot") || ""));
-			if (Array.from(hostElement.childNodes).some(node => node.nodeType == 3 && node.textContent.trim())) {
+			if (!shadowRootSelected && Array.from(hostElement.childNodes).some(node => node.nodeType == 3 && node.textContent.trim())) {
 				slotNames.add("");
 			}
 			shadowRootElement.querySelectorAll("slot").forEach(slotElement => {
