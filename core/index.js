@@ -594,6 +594,9 @@ class Processor {
 		util.fixInvalidNesting(this.doc, true, { recreateOnly: true });
 		removeInsertedParagraphs(this.doc);
 		util.fixInvalidNesting(this.doc, true, { mergeCopies: true });
+		if (this.options.selected) {
+			removeUnselectedTexts(this.doc);
+		}
 		if (this.options.saveRawPage) {
 			let charset;
 			this.doc.querySelectorAll("meta[charset]").forEach(element => {
@@ -1731,6 +1734,9 @@ class Processor {
 						util.fixInvalidNesting(doc, true, { rootElement: templateElement, recreateOnly: true });
 						removeInsertedParagraphs(templateElement);
 						util.fixInvalidNesting(doc, true, { rootElement: templateElement, mergeCopies: true });
+						if (options.selected) {
+							removeUnselectedTexts(templateElement);
+						}
 						if (templateElement.querySelector(`[${util.NESTING_TRACK_ID_ATTRIBUTE_NAME}]`)) {
 							templateElement.setAttribute(SHADOWROOT_ATTRIBUTE_NAME, "open");
 						}
@@ -2161,6 +2167,29 @@ function getManifestOptions(options) {
 		}
 	});
 	return manifestOptions;
+}
+
+function removeUnselectedTexts(rootNode) {
+	rootNode.querySelectorAll("[" + util.SELECTED_TEXT_ATTRIBUTE_NAME + "]").forEach(element => {
+		const selectedTextIndexes = element.getAttribute(util.SELECTED_TEXT_ATTRIBUTE_NAME).split(" ");
+		element.removeAttribute(util.SELECTED_TEXT_ATTRIBUTE_NAME);
+		let textIndex = 0, textNodes = [], textFound = false;
+		Array.from(element.childNodes).concat([null]).forEach(node => {
+			if (node && node.nodeType == 3) {
+				textNodes.push(node);
+				textFound = textFound || /\S/.test(node.textContent);
+			} else {
+				if (textFound) {
+					if (!selectedTextIndexes.includes(String(textIndex))) {
+						textNodes.forEach(textNode => textNode.remove());
+					}
+					textIndex++;
+				}
+				textNodes = [];
+				textFound = false;
+			}
+		});
+	});
 }
 
 function removeInsertedParagraphs(doc) {
