@@ -44,6 +44,9 @@ const helper = {
 	extractInfobarData(doc) {
 		return infobar.extractInfobarData(doc);
 	},
+	updateInfobarContent(doc, infobarContent) {
+		return infobar.updateInfobarContent(doc, infobarContent);
+	},
 	displayIcon(doc, useShadowRoot, options = {}) {
 		return infobar.displayIcon(doc, useShadowRoot, options);
 	},

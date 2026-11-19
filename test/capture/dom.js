@@ -26,6 +26,31 @@ globalThis.window = globalThis;
 // by the DOMParser above, not to this window, and happy-dom answers for it all the same.
 globalThis.getComputedStyle = element => window.getComputedStyle(element);
 
+// core/infobar.js finds the comment SingleFile writes at the top of a saved page with
+// document.evaluate("//comment()", …, FIRST_ORDERED_NODE_TYPE), which gives the first comment of the
+// document in document order, whether it is a child of the document or of an element. happy-dom
+// has no XPath at all. Only that expression is answered here, any other one throws so that a new
+// use in core is noticed. The method goes on the prototype of a parsed document: the documents
+// of the DOMParser do not inherit from window.Document.prototype.
+globalThis.Node = window.Node;
+globalThis.XPathResult = { FIRST_ORDERED_NODE_TYPE: 9 };
+Object.getPrototypeOf(new window.DOMParser().parseFromString("", "text/html")).evaluate = function (expression, contextNode, resolver, type) {
+	if (expression != "//comment()" || type != globalThis.XPathResult.FIRST_ORDERED_NODE_TYPE) {
+		throw new Error("document.evaluate is not shimmed for " + expression);
+	}
+	return { singleNodeValue: findFirstComment(contextNode) };
+};
+
+function findFirstComment(node) {
+	for (const childNode of node.childNodes) {
+		const comment = childNode.nodeType == window.Node.COMMENT_NODE ? childNode : findFirstComment(childNode);
+		if (comment) {
+			return comment;
+		}
+	}
+	return null;
+}
+
 // happy-dom has a real MutationObserver, and that is the reason not to use it: the hook above
 // observes the document and re-runs init() on every mutation a capture makes. It has nothing to do
 // here, and the stub keeps it from being called once per mutation for the length of a capture.

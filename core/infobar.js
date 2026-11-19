@@ -220,7 +220,7 @@ const INFOBAR_ANIMATIONS_STYLES = `
 }
 `;
 
-export { displayIcon, appendInfobar, refreshInfobarInfo, extractInfobarData, INFOBAR_TAGNAME };
+export { displayIcon, appendInfobar, refreshInfobarInfo, extractInfobarData, updateInfobarContent, INFOBAR_TAGNAME };
 
 function appendInfobar(doc, options, useShadowRoot) {
 	if (!doc.querySelector(INFOBAR_TAGNAME)) {
@@ -344,6 +344,22 @@ function extractInfobarData(doc, signature = SINGLE_FILE_SIGNATURE) {
 			return { saveUrl, infobarContent, saveDate };
 		}
 	}
+}
+
+function updateInfobarContent(doc, infobarContent, signature = SINGLE_FILE_SIGNATURE) {
+	const result = doc.evaluate("//comment()", doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+	const singleFileComment = result && result.singleNodeValue;
+	if (singleFileComment && singleFileComment.nodeType == Node.COMMENT_NODE && singleFileComment.textContent.includes(signature)) {
+		const info = singleFileComment.textContent.split("\n");
+		const headerLength = info[3] !== undefined && info[3].startsWith(" saved date: ") ? 4 : 3;
+		if (info.length > headerLength) {
+			const content = (infobarContent || "").split("\n").map(line => line.trim()).join("\n").trim();
+			const commentText = info.slice(0, headerLength).join("\n").trimEnd() + (content ? " \n info: " + content : "") + "\n";
+			singleFileComment.textContent = commentText.replace(/--(!?)>/g, "--$1 >");
+			return true;
+		}
+	}
+	return false;
 }
 
 function refreshInfobarInfo(doc, { saveUrl, infobarContent, saveDate }) {
