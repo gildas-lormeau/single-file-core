@@ -89,7 +89,7 @@ async function extract(content, { password, prompt = () => { }, zipOptions = { u
 		zipReader = new zip.ZipReader(reader, zipOptions);
 		entries = await zipReader.getEntries();
 	}
-	entries = entries.filter(entry => entry.filename != "page.pdf");
+	entries = entries.filter(entry => entry.filename != "page.pdf" && !entry.directory);
 	if (aliases) {
 		const allEntries = entries;
 		entries = entries.map(entry => {

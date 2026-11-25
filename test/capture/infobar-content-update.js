@@ -16,6 +16,9 @@ let failed = false;
 	const doc = await captureDocument({ infobarTemplate: "first message" });
 	const savedData = extractInfobarData(doc);
 	check("the saved page carries the first message", savedData.infobarContent, "first message");
+	// the line of the URL ends with a space in the comment, which is not part of the URL: the editor
+	// saves pages under the URL read here (#2062)
+	check("the URL is read without the space ending its line", savedData.saveUrl, PAGE_URL);
 	check("the update is reported as done", updateInfobarContent(doc, "second message"), true);
 	const data = extractInfobarData(doc);
 	check("the message is replaced", data.infobarContent, "second message");
@@ -52,7 +55,7 @@ let failed = false;
 	updateInfobarContent(doc, "message without date");
 	const data = extractInfobarData(doc);
 	check("the message is added when the date is absent", data.infobarContent, "message without date");
-	check("the URL is still read", data.saveUrl.trim(), PAGE_URL);
+	check("the URL is still read", data.saveUrl, PAGE_URL);
 	check("no date appeared", data.saveDate, undefined);
 }
 

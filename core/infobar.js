@@ -324,7 +324,7 @@ function extractInfobarData(doc, signature = SINGLE_FILE_SIGNATURE) {
 	if (singleFileComment && singleFileComment.nodeType == Node.COMMENT_NODE && singleFileComment.textContent.includes(signature)) {
 		const info = singleFileComment.textContent.split("\n");
 		const [, , urlData, ...optionalData] = info;
-		const urlMatch = urlData.match(/^ url: (.*) ?$/);
+		const urlMatch = urlData.match(/^ url: (.*?) *$/);
 		const saveUrl = urlMatch && urlMatch[1];
 		if (saveUrl) {
 			let infobarContent, saveDate;
