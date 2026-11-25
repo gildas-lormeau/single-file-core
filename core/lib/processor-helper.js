@@ -64,6 +64,7 @@ import {
 	testIgnoredPath,
 	testValidPath,
 	testValidURL,
+	parseStylesheet,
 	getLinkedImageURL,
 	isLinkedImageURL,
 	getLinkedImagesCSPSources,
@@ -104,7 +105,7 @@ function getProcessorHelperClass(utilInstance) {
 					if (element.tagName.toUpperCase() == "LINK") {
 						await this.resolveLinkStylesheetURLs(stylesheetInfo, element, element.href, baseURI, options, workStyleElement, resources, stylesheets);
 					} else {
-						stylesheetInfo.stylesheet = cssTree.parse(element.textContent, { context: "stylesheet", parseCustomProperty: true });
+						stylesheetInfo.stylesheet = parseStylesheet(element.textContent);
 						await this.resolveImportURLs(stylesheetInfo, baseURI, options, workStyleElement, resources, stylesheets);
 					}
 				}
@@ -128,7 +129,7 @@ function getProcessorHelperClass(utilInstance) {
 				const sharedEntry = entries.find(([key]) => key.element == styleElement);
 				const stylesheet = sharedEntry
 					? sharedEntry[1].stylesheet
-					: cssTree.parse(content, { context: "stylesheet", parseCustomProperty: true });
+					: parseStylesheet(content);
 				if (isEmptyStylesheet(stylesheet)) {
 					emptyStylesheetRefIndexes.add(stylesheetRefIndex);
 				} else {
@@ -267,7 +268,7 @@ function getProcessorHelperClass(utilInstance) {
 							const content = await this.getStylesheetContent(resourceURL, options, stylesheetReferrer);
 							stylesheetInfo.url = resourceURL = content.resourceURL;
 							content.data = getUpdatedResourceContent(resourceURL, options) || content.data;
-							stylesheetInfo.stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
+							stylesheetInfo.stylesheet = parseStylesheet(content.data);
 							const ancestorStyleSheets = new Set(importedStyleSheets);
 							ancestorStyleSheets.add(requestedURL);
 							ancestorStyleSheets.add(resourceURL);
@@ -312,7 +313,7 @@ function getProcessorHelperClass(utilInstance) {
 				} else {
 					resourceURL = content.resourceURL;
 					content.data = getUpdatedResourceContent(content.resourceURL, options) || content.data;
-					stylesheetInfo.stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
+					stylesheetInfo.stylesheet = parseStylesheet(content.data);
 					await this.resolveImportURLs(stylesheetInfo, resourceURL, options, workStylesheet, resources, stylesheets, undefined, { stylesheetURL: resourceURL, stylesheetReferrerPolicy: content.referrerPolicy });
 				}
 			}

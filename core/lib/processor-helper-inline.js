@@ -75,6 +75,7 @@ import {
 	testIgnoredPath,
 	testValidPath,
 	testValidURL,
+	parseStylesheet,
 	getLinkedImageURL,
 	isLinkedImageURL,
 	getLinkedImagesCSPSources,
@@ -112,10 +113,10 @@ function getProcessorHelperClass(utilInstance) {
 					if (element.tagName.toUpperCase() == "LINK") {
 						stylesheet = await this.resolveLinkStylesheetURLs(element, element.href, baseURI, options, workStyleElement);
 					} else {
-						stylesheet = cssTree.parse(element.textContent, { context: "stylesheet", parseCustomProperty: true });
+						stylesheet = parseStylesheet(element.textContent);
 						const importFound = await this.resolveImportURLs(stylesheet, baseURI, options, workStyleElement);
 						if (importFound) {
-							stylesheet = cssTree.parse(cssTree.generate(stylesheet), { context: "stylesheet", parseCustomProperty: true });
+							stylesheet = parseStylesheet(cssTree.generate(stylesheet));
 						}
 					}
 				}
@@ -246,7 +247,7 @@ function getProcessorHelperClass(utilInstance) {
 							if (importedSupportsCondition) {
 								content.data = "@supports " + importedSupportsCondition + " { " + content.data + " }";
 							}
-							const importedStylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
+							const importedStylesheet = parseStylesheet(content.data);
 							const ancestorStyleSheets = new Set(importedStyleSheets);
 							ancestorStyleSheets.add(resourceURL);
 							await this.resolveImportURLs(importedStylesheet, resourceURL, options, workStylesheet, ancestorStyleSheets, { stylesheetURL: resourceURL, stylesheetReferrerPolicy: content.referrerPolicy });
@@ -295,10 +296,10 @@ function getProcessorHelperClass(utilInstance) {
 				if (content.data && content.data.match(/^<!doctype /i)) {
 					content.data = "";
 				}
-				let stylesheet = cssTree.parse(content.data, { context: "stylesheet", parseCustomProperty: true });
+				let stylesheet = parseStylesheet(content.data);
 				const importFound = await this.resolveImportURLs(stylesheet, resourceURL, options, workStylesheet, undefined, { stylesheetURL: resourceURL, stylesheetReferrerPolicy: content.referrerPolicy });
 				if (importFound) {
-					stylesheet = cssTree.parse(cssTree.generate(stylesheet), { context: "stylesheet", parseCustomProperty: true });
+					stylesheet = parseStylesheet(cssTree.generate(stylesheet));
 				}
 				return stylesheet;
 			}

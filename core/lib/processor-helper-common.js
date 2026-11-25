@@ -108,6 +108,7 @@ export {
 	testIgnoredPath,
 	testValidPath,
 	testValidURL,
+	parseStylesheet,
 	getLinkedImageURL,
 	isLinkedImageURL,
 	getLinkedImagesCSPSources,
@@ -1167,6 +1168,15 @@ function replaceOriginalURLs(stylesheetContent) {
 
 function testIgnoredPath(resourceURL) {
 	return resourceURL && (resourceURL.startsWith(DATA_URI_PREFIX) || resourceURL == ABOUT_BLANK_URI);
+}
+
+function parseStylesheet(content) {
+	try {
+		return cssTree.parse(content, { context: "stylesheet", parseCustomProperty: true });
+		// eslint-disable-next-line no-unused-vars
+	} catch (error) {
+		return cssTree.parse("", { context: "stylesheet", parseCustomProperty: true });
+	}
 }
 
 function getLinkedImageURL(resourceElement, resourceURL, baseURI, options) {
