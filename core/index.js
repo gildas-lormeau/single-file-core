@@ -503,6 +503,22 @@ const SLOT_NAME_PREFIX = "single-file-slot-";
 const UNASSIGNED_SLOT_NAME = SLOT_NAME_PREFIX + "unassigned";
 const SLOT_NAME_SEPARATOR = "-";
 const SCRIPT_OPTIONS = "data-single-file-options";
+const PAGE_FILENAME_OPTION_NAMES = [
+	"saveUrl",
+	"saveDate",
+	"visitDate",
+	"filenameTemplate",
+	"filenameReplacedCharacters",
+	"filenameReplacementCharacter",
+	"filenameReplacementCharacters",
+	"filenameMaxLengthUnit",
+	"filenameMaxLength",
+	"replaceEmojisInFilename",
+	"referrer",
+	"title",
+	"info"
+];
+const PAGE_FORMAT_OPTION_NAMES = ["compressContent", "selfExtractingArchive", "disableCompression", "extractDataFromPage"];
 const JAVASCRIPT_URI_PROTOCOL = "javascript:";
 const DISABLED_SCRIPT_URI = "javascript:void(0)";
 const SCRIPT_URI_ATTRIBUTE_NAMES = ["href", "src", "action", "formaction", "data"];
@@ -840,16 +856,24 @@ class Processor {
 	loadOptionsFromPage() {
 		const optionsElement = this.doc.body.querySelector("script[type=\"application/json\"][" + SCRIPT_OPTIONS + "]");
 		if (optionsElement) {
-			const options = JSON.parse(optionsElement.textContent);
-			Object.keys(options).forEach(option => this.options[option] = options[option]);
-			this.options.saveDate = new Date(this.options.saveDate);
-			this.options.visitDate = new Date(this.options.visitDate);
+			const options = parsePageOptions(optionsElement);
+			if (options) {
+				PAGE_FILENAME_OPTION_NAMES.filter(name => name in options).forEach(name => this.options[name] = options[name]);
+				this.options.saveDate = new Date(this.options.saveDate);
+				this.options.visitDate = new Date(this.options.visitDate);
+			}
 		}
 	}
 
 	saveFilenameTemplateData() {
 		const optionsElement = this.doc.querySelector("script[" + SCRIPT_OPTIONS + "][type=\"application/json\"]");
-		if (!optionsElement) {
+		if (optionsElement) {
+			const options = parsePageOptions(optionsElement);
+			if (options) {
+				PAGE_FORMAT_OPTION_NAMES.forEach(name => options[name] = this.options[name]);
+				optionsElement.textContent = JSON.stringify(options);
+			}
+		} else {
 			const optionsElement = this.doc.createElement("script");
 			optionsElement.type = "application/json";
 			optionsElement.setAttribute(SCRIPT_OPTIONS, "");
@@ -2251,6 +2275,18 @@ function getExpectedParagraphTrackId(trackedElements, trackId) {
 
 function getParentTrackId(trackId) {
 	return trackId.split(".").slice(0, -1).join(".");
+}
+
+function parsePageOptions(optionsElement) {
+	try {
+		const options = JSON.parse(optionsElement.textContent);
+		if (options && typeof options == "object" && !Array.isArray(options)) {
+			return options;
+		}
+		// eslint-disable-next-line no-unused-vars
+	} catch (error) {
+		// ignored
+	}
 }
 
 function testValidPath(resourceURL) {
