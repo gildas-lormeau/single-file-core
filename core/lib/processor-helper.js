@@ -64,6 +64,9 @@ import {
 	testIgnoredPath,
 	testValidPath,
 	testValidURL,
+	getLinkedImageURL,
+	isLinkedImageURL,
+	getLinkedImagesCSPSources,
 	getReferrerPolicy,
 	getStylesheetReferrer,
 	resizeImage,
@@ -451,7 +454,7 @@ function getProcessorHelperClass(utilInstance) {
 							resources.images.set(imageResource.key, { name: imageResource.name, content: imageResource.content, extension, contentType, url: resourceURL });
 						}
 					}
-				} else {
+				} else if (!isLinkedImageURL(normalizeURL(originalResourceURL), options)) {
 					urlNode.value = util.EMPTY_RESOURCE;
 				}
 			}));
@@ -530,7 +533,12 @@ function getProcessorHelperClass(utilInstance) {
 							}
 						}
 					} else {
-						this.setAttributeEmpty(resourceElement, attributeName, expectedType);
+						const linkedImageURL = expectedType == "image" && getLinkedImageURL(resourceElement, resourceURL, baseURI, options);
+						if (linkedImageURL) {
+							resourceElement.setAttribute(attributeName, linkedImageURL + hash);
+						} else {
+							this.setAttributeEmpty(resourceElement, attributeName, expectedType);
+						}
 					}
 				}
 			}));
@@ -631,8 +639,8 @@ function getProcessorHelperClass(utilInstance) {
 			resources.worklets.set(indexResource, { name, workletOptions, content, extension, contentType, url: resourceURL });
 		}
 
-		setMetaCSP(metaElement) {
-			metaElement.content = "default-src 'none'; connect-src 'self' data: blob:; font-src 'self' data: blob:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' data: blob:; frame-src 'self' data: blob:; media-src 'self' data: blob:; script-src 'self' 'unsafe-inline' data: blob:; object-src 'self' data: blob:; form-action 'none'; base-uri 'none';";
+		setMetaCSP(metaElement, options) {
+			metaElement.content = "default-src 'none'; connect-src 'self' data: blob:; font-src 'self' data: blob:; img-src 'self' data: blob:" + getLinkedImagesCSPSources(options) + "; style-src 'self' 'unsafe-inline' data: blob:; frame-src 'self' data: blob:; media-src 'self' data: blob:; script-src 'self' 'unsafe-inline' data: blob:; object-src 'self' data: blob:; form-action 'none'; base-uri 'none';";
 		}
 
 		removeUnusedStylesheets() {

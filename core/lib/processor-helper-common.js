@@ -64,6 +64,8 @@ const Uint8Array = globalThis.Uint8Array;
 const Image = globalThis.Image;
 const OffscreenCanvas = globalThis.OffscreenCanvas;
 const DEFAULT_IMAGE_QUALITY = 0.8;
+const UNLINKED_IMAGE_TAG_NAMES = ["OBJECT", "EMBED"];
+const LINKED_IMAGES_CSP_SOURCES = " http: https:";
 const BASE64_DATA_URI_MARKER = ";base64,";
 const PNG_CONTENT_TYPE = "image/png";
 const JPEG_CONTENT_TYPE = "image/jpeg";
@@ -106,6 +108,9 @@ export {
 	testIgnoredPath,
 	testValidPath,
 	testValidURL,
+	getLinkedImageURL,
+	isLinkedImageURL,
+	getLinkedImagesCSPSources,
 	resizeImage,
 	toDataURI,
 	getReferrerPolicy,
@@ -266,7 +271,19 @@ class ProcessorHelperCommon {
 			if (options.saveOriginalURLs && !isDataURL(originSrcset)) {
 				resourceElement.setAttribute("data-sf-original-srcset", originSrcset);
 			}
-			if (!options.blockImages && (!options.removeAlternativeImages || displayedSrcsetElements.has(resourceElement))) {
+			if (options.blockImages && options.linkBlockedImages) {
+				const newSrcset = srcset
+					.map(srcsetValue => Object.assign({}, srcsetValue, { url: getLinkedImageURL(resourceElement, normalizeURL(srcsetValue.url), baseURI, options) }))
+					.filter(srcsetValue => srcsetValue.url)
+					.map(srcsetValue => serializeSrcset([srcsetValue]))
+					.join(", ");
+				if (newSrcset) {
+					resourceElement.setAttribute("srcset", newSrcset);
+				} else {
+					resourceElement.removeAttribute("srcset");
+					resourceElement.removeAttribute("sizes");
+				}
+			} else if (!options.blockImages && (!options.removeAlternativeImages || displayedSrcsetElements.has(resourceElement))) {
 				const srcsetValues = await Promise.all(srcset.map(async srcsetValue => {
 					let resourceURL = normalizeURL(srcsetValue.url);
 					if (!testIgnoredPath(resourceURL)) {
@@ -1150,6 +1167,29 @@ function replaceOriginalURLs(stylesheetContent) {
 
 function testIgnoredPath(resourceURL) {
 	return resourceURL && (resourceURL.startsWith(DATA_URI_PREFIX) || resourceURL == ABOUT_BLANK_URI);
+}
+
+function getLinkedImageURL(resourceElement, resourceURL, baseURI, options) {
+	if (options.blockImages && options.linkBlockedImages && !UNLINKED_IMAGE_TAG_NAMES.includes(resourceElement.tagName.toUpperCase()) && testValidPath(resourceURL) && !testIgnoredPath(resourceURL)) {
+		let linkedImageURL;
+		try {
+			linkedImageURL = util.resolveURL(resourceURL, baseURI);
+			// eslint-disable-next-line no-unused-vars
+		} catch (error) {
+			// ignored
+		}
+		if (isLinkedImageURL(linkedImageURL, options)) {
+			return linkedImageURL;
+		}
+	}
+}
+
+function isLinkedImageURL(resourceURL, options) {
+	return Boolean(options.blockImages && options.linkBlockedImages && resourceURL && resourceURL.match(HTTP_URI_PREFIX) && testValidURL(resourceURL));
+}
+
+function getLinkedImagesCSPSources(options) {
+	return options.blockImages && options.linkBlockedImages ? LINKED_IMAGES_CSP_SOURCES : "";
 }
 
 function testValidPath(resourceURL) {

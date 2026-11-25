@@ -75,6 +75,9 @@ import {
 	testIgnoredPath,
 	testValidPath,
 	testValidURL,
+	getLinkedImageURL,
+	isLinkedImageURL,
+	getLinkedImagesCSPSources,
 	getReferrerPolicy,
 	getStylesheetReferrer,
 	resizeImage,
@@ -369,7 +372,7 @@ function getProcessorHelperClass(utilInstance) {
 							}
 						}
 					}
-				} else {
+				} else if (!isLinkedImageURL(normalizeURL(originalResourceURL), options)) {
 					urlNode.value = util.EMPTY_RESOURCE;
 				}
 			}));
@@ -480,7 +483,12 @@ function getProcessorHelperClass(utilInstance) {
 							}
 						}
 					} else {
-						this.setAttributeEmpty(resourceElement, attributeName, expectedType);
+						const linkedImageURL = expectedType == "image" && getLinkedImageURL(resourceElement, resourceURL, baseURI, options);
+						if (linkedImageURL) {
+							resourceElement.setAttribute(attributeName, linkedImageURL + hash);
+						} else {
+							this.setAttributeEmpty(resourceElement, attributeName, expectedType);
+						}
 					}
 				}
 			}));
@@ -593,8 +601,8 @@ function getProcessorHelperClass(utilInstance) {
 			}
 		}
 
-		setMetaCSP(metaElement) {
-			metaElement.content = "default-src 'none'; font-src 'self' data:; img-src 'self' data:; style-src 'unsafe-inline'; media-src 'self' data:; script-src 'unsafe-inline' data:; object-src 'self' data:; frame-src 'self' data:; form-action 'none'; base-uri 'none';";
+		setMetaCSP(metaElement, options) {
+			metaElement.content = "default-src 'none'; font-src 'self' data:; img-src 'self' data:" + getLinkedImagesCSPSources(options) + "; style-src 'unsafe-inline'; media-src 'self' data:; script-src 'unsafe-inline' data:; object-src 'self' data:; frame-src 'self' data:; form-action 'none'; base-uri 'none';";
 		}
 
 		removeUnusedStylesheets(doc) {

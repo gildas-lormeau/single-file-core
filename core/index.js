@@ -700,7 +700,7 @@ class Processor {
 		if (this.options.insertMetaCSP) {
 			const metaElement = this.doc.createElement("meta");
 			metaElement.httpEquiv = "content-security-policy";
-			this.processorHelper.setMetaCSP(metaElement);
+			this.processorHelper.setMetaCSP(metaElement, this.options);
 			this.doc.head.appendChild(metaElement);
 		}
 		if (this.options.insertMetaNoIndex) {
