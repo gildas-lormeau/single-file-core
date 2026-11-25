@@ -64,6 +64,20 @@ const Uint8Array = globalThis.Uint8Array;
 const Image = globalThis.Image;
 const OffscreenCanvas = globalThis.OffscreenCanvas;
 const DEFAULT_IMAGE_QUALITY = 0.8;
+const BASE64_DATA_URI_MARKER = ";base64,";
+const PNG_CONTENT_TYPE = "image/png";
+const JPEG_CONTENT_TYPE = "image/jpeg";
+const WEBP_CONTENT_TYPE = "image/webp";
+const PNG_SIGNATURE_LENGTH = 8;
+const PNG_CHUNK_HEADER_LENGTH = 8;
+const PNG_CHUNK_CRC_LENGTH = 4;
+const PNG_ANIMATION_CHUNK_TYPE = "acTL";
+const PNG_IMAGE_DATA_CHUNK_TYPE = "IDAT";
+const WEBP_FIRST_CHUNK_OFFSET = 12;
+const WEBP_EXTENDED_CHUNK_TYPE = "VP8X";
+const WEBP_FLAGS_OFFSET = 20;
+const WEBP_ANIMATION_FLAG = 2;
+const WEBP_HEADER_BASE64_LENGTH = 28;
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const XMLNS_NAMESPACE = "http://www.w3.org/2000/xmlns/";
 const SVG_ROOT_ID_PREFIX = "sf-svg-";
@@ -1157,9 +1171,9 @@ function getURL(urlFunction) {
 async function resizeImage(doc, dataURI, { imageReductionFactor, imageQuality }, element) {
 	if (dataURI) {
 		const contentType = dataURI.substring(5, dataURI.indexOf(";"));
-		if (contentType == "image/jpeg" ||
-			contentType == "image/png" ||
-			contentType == "image/webp") {
+		if ((contentType == JPEG_CONTENT_TYPE ||
+			contentType == PNG_CONTENT_TYPE ||
+			contentType == WEBP_CONTENT_TYPE) && !isAnimatedImage(dataURI, contentType)) {
 			try {
 				const image = new Image();
 				image.src = dataURI;
@@ -1206,6 +1220,44 @@ async function resizeImage(doc, dataURI, { imageReductionFactor, imageQuality },
 		}
 	}
 	return dataURI;
+}
+
+function isAnimatedImage(dataURI, contentType) {
+	const dataIndex = dataURI.indexOf(BASE64_DATA_URI_MARKER);
+	if (dataIndex == -1) {
+		return false;
+	}
+	const dataOffset = dataIndex + BASE64_DATA_URI_MARKER.length;
+	try {
+		if (contentType == PNG_CONTENT_TYPE) {
+			return isAnimatedPNG(atob(dataURI.substring(dataOffset)));
+		} else if (contentType == WEBP_CONTENT_TYPE) {
+			return isAnimatedWebP(atob(dataURI.substring(dataOffset, dataOffset + WEBP_HEADER_BASE64_LENGTH)));
+		}
+	} catch {
+		// ignored
+	}
+	return false;
+}
+
+function isAnimatedPNG(data) {
+	let offset = PNG_SIGNATURE_LENGTH;
+	while (offset + PNG_CHUNK_HEADER_LENGTH <= data.length) {
+		const chunkLength = (data.charCodeAt(offset) * 0x1000000) + (data.charCodeAt(offset + 1) << 16) + (data.charCodeAt(offset + 2) << 8) + data.charCodeAt(offset + 3);
+		const chunkType = data.substring(offset + 4, offset + PNG_CHUNK_HEADER_LENGTH);
+		if (chunkType == PNG_ANIMATION_CHUNK_TYPE) {
+			return true;
+		} else if (chunkType == PNG_IMAGE_DATA_CHUNK_TYPE) {
+			return false;
+		}
+		offset += PNG_CHUNK_HEADER_LENGTH + chunkLength + PNG_CHUNK_CRC_LENGTH;
+	}
+	return false;
+}
+
+function isAnimatedWebP(data) {
+	return data.substring(WEBP_FIRST_CHUNK_OFFSET, WEBP_FIRST_CHUNK_OFFSET + WEBP_EXTENDED_CHUNK_TYPE.length) == WEBP_EXTENDED_CHUNK_TYPE &&
+		Boolean(data.charCodeAt(WEBP_FLAGS_OFFSET) & WEBP_ANIMATION_FLAG);
 }
 
 function isUnsizedSVGImage(element) {
