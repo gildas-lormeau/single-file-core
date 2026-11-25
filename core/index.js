@@ -1549,7 +1549,7 @@ class Processor {
 				element.removeAttribute("style");
 			} else {
 				const styleContent = element.getAttribute("style");
-				const declarationList = cssTree.parse(styleContent, { context: "declarationList", parseCustomProperty: true });
+				const declarationList = parseStyleAttribute(styleContent);
 				this.processorHelper.resolveStylesheetURLs(declarationList, this.baseURI, this.workStyleElement);
 				this.styles.set(element, declarationList);
 			}
@@ -2287,6 +2287,15 @@ function parsePageOptions(optionsElement) {
 		// eslint-disable-next-line no-unused-vars
 	} catch (error) {
 		// ignored
+	}
+}
+
+function parseStyleAttribute(content) {
+	try {
+		return cssTree.parse(content, { context: "declarationList", parseCustomProperty: true });
+		// eslint-disable-next-line no-unused-vars
+	} catch (error) {
+		return cssTree.parse("", { context: "declarationList", parseCustomProperty: true });
 	}
 }
 

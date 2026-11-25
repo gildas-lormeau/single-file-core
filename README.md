@@ -41,6 +41,10 @@ no frame answers. The content of such a frame is not saved, unless the frame has
 attribute, in which case it is saved from that markup. The save also waits 2 seconds for the
 answers, once per save, whatever the number of frames. A page without such a frame does not wait.
 
+A sandboxed frame is a special case when the scripts are injected in the page: a script cannot run
+in a frame whose `sandbox` attribute does not allow scripts, so `single-file-frames.js` cannot answer
+from it and the save waits those 2 seconds.
+
 If you do not need the frames, pass `removeFrames: true`: no frame is collected and there is no
 wait. Note that it removes the same-origin frames as well.
 

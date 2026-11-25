@@ -56,6 +56,24 @@ for (const [label, run] of [["inline", runInline], ["archive", runArchive]]) {
 	}
 }
 
+// A style attribute is parsed on its own, by the same parser with the same limit. One over the limit
+// is emptied and the page is saved, the attributes of the other elements untouched.
+{
+	const declaration = "color:red;";
+	const page = html("<p id=huge style=\"" + declaration.repeat(Math.ceil((PARSER_LIMIT + 1) / declaration.length)) + "\">text</p><p id=small style=\"color:blue\">text</p>");
+	let content, error;
+	try {
+		content = await capture({ [PAGE_URL]: { body: page } }, { url: PAGE_URL, content: page });
+	} catch (captureError) {
+		error = captureError;
+	}
+	check("the page is saved with a style attribute over the limit", error ? error.name + ": " + error.message : "saved", "saved");
+	if (content !== undefined) {
+		check("a style attribute over the limit is emptied", content.includes("color:red"), false);
+		check("the style attribute of another element is kept", /id="?small"?[^>]*color:\s*blue/.test(content), true);
+	}
+}
+
 if (failed) {
 	console.log("FAILED");
 	Deno.exit(1);
