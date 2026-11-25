@@ -38,8 +38,9 @@ const REGEXP_URL_HASH = /(#.+?)$/;
 const BLOB_URI_PREFIX = "blob:";
 const HTTP_URI_PREFIX = /^https?:\/\//;
 const FILE_URI_PREFIX = /^file:\/\//;
+const EXTENSION_URI_PREFIX = /^(chrome|moz|safari-web)-extension:\/\//;
 const EMPTY_URL = /^https?:\/\/+\s*$/;
-const NOT_EMPTY_URL = /^(https?:\/\/|file:\/\/|blob:).+/;
+const NOT_EMPTY_URL = /^(https?:\/\/|file:\/\/|blob:|(chrome|moz|safari-web)-extension:\/\/).+/;
 const REFERRER_POLICY_ELEMENTS = ["IMG", "LINK", "SCRIPT"];
 const UTF8_CHARSET = "utf-8";
 const REGEXP_URL_FUNCTION = /(url|local|-sf-url-original)\(.*?\)\s*(,|$)/g;
@@ -1142,7 +1143,7 @@ function testValidPath(resourceURL) {
 }
 
 function testValidURL(resourceURL) {
-	return testValidPath(resourceURL) && (resourceURL.match(HTTP_URI_PREFIX) || resourceURL.match(FILE_URI_PREFIX) || resourceURL.startsWith(BLOB_URI_PREFIX)) && resourceURL.match(NOT_EMPTY_URL);
+	return testValidPath(resourceURL) && (resourceURL.match(HTTP_URI_PREFIX) || resourceURL.match(FILE_URI_PREFIX) || resourceURL.match(EXTENSION_URI_PREFIX) || resourceURL.startsWith(BLOB_URI_PREFIX)) && resourceURL.match(NOT_EMPTY_URL);
 }
 
 function getURL(urlFunction) {

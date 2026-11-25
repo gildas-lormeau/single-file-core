@@ -2077,8 +2077,9 @@ const HTTP_SCHEMES = ["http", "https"];
 const BLOB_URI_PREFIX = "blob:";
 const HTTP_URI_PREFIX = /^https?:\/\//;
 const FILE_URI_PREFIX = /^file:\/\//;
+const EXTENSION_URI_PREFIX = /^(chrome|moz|safari-web)-extension:\/\//;
 const EMPTY_URL = /^https?:\/\/+\s*$/;
-const NOT_EMPTY_URL = /^(https?:\/\/|file:\/\/|blob:).+/;
+const NOT_EMPTY_URL = /^(https?:\/\/|file:\/\/|blob:|(chrome|moz|safari-web)-extension:\/\/).+/;
 const SINGLE_FILE_VARIABLE_NAME_PREFIX = "--sf-img-";
 const PARAGRAPH_TAG_NAME = "P";
 
@@ -2294,7 +2295,7 @@ function testValidPath(resourceURL) {
 }
 
 function testValidURL(resourceURL) {
-	return testValidPath(resourceURL) && (resourceURL.match(HTTP_URI_PREFIX) || resourceURL.match(FILE_URI_PREFIX) || resourceURL.startsWith(BLOB_URI_PREFIX)) && resourceURL.match(NOT_EMPTY_URL);
+	return testValidPath(resourceURL) && (resourceURL.match(HTTP_URI_PREFIX) || resourceURL.match(FILE_URI_PREFIX) || resourceURL.match(EXTENSION_URI_PREFIX) || resourceURL.startsWith(BLOB_URI_PREFIX)) && resourceURL.match(NOT_EMPTY_URL);
 }
 
 function log(...args) {
