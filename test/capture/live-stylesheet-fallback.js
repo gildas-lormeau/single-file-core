@@ -1,5 +1,5 @@
 import "./dom.js";
-import { Window } from "npm:happy-dom@20.14.5";
+import { Window } from "npm:happy-dom@21.0.4";
 
 // A <link> stylesheet the page loaded can still fail when core fetches it again: a font host such as
 // cloud.typography.com answers 403 to any request without the page's Referer, and in the Firefox

@@ -1,5 +1,5 @@
 import { capture, helper, html } from "./common.js";
-import { Window } from "npm:happy-dom@20.14.5";
+import { Window } from "npm:happy-dom@21.0.4";
 
 const PAGE_URL = "https://example.com/page.html";
 const IMAGE_ATTRIBUTE_NAME = helper.IMAGE_ATTRIBUTE_NAME;

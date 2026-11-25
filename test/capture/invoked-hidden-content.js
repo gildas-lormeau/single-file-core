@@ -1,5 +1,5 @@
 import "./dom.js";
-import { Window } from "npm:happy-dom@20.14.5";
+import { Window } from "npm:happy-dom@21.0.4";
 
 // preProcessDoc marks what removeHiddenElements will prune, from the live page: a hidden element is
 // emptied and forced hidden, its descendants removed. A closed details was the one exception, because

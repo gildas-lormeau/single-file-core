@@ -166,7 +166,7 @@ const cases = [
 		removed: []
 	},
 	// The escaped `:\73 cope` twin of the case below is absent on purpose and lives in the browser
-	// lane instead. happy-dom 20.14.5 does not decode an escape anywhere in a selector: it throws
+	// lane instead. happy-dom 21.0.4 does not decode an escape anywhere in a selector: it throws
 	// `not a valid selector` on `:\73 cope` and on `details[o\70 en] p`, and answers false for
 	// `.b\6f x`, where all three browsers answer as if the escape were spelled out. Any case that
 	// needs the DOM to match an escaped selector is therefore undecidable here.

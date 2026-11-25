@@ -12,7 +12,7 @@
 // was agreeing with itself and disagreeing with every browser. happy-dom reflects `type`, `media`,
 // `rel` and `href`, resolves `href` against the base the way a browser does, keeps `xlink:href`, and
 // implements both NS attribute methods, so no shim is needed for any of it.
-import { Window } from "npm:happy-dom@20.14.5";
+import { Window } from "npm:happy-dom@21.0.4";
 
 const window = new Window();
 
@@ -73,7 +73,7 @@ const REFERRER_POLICIES = ["no-referrer", "no-referrer-when-downgrade", "same-or
 });
 
 // core reads the poster IDL property of a video to decide whether a poster has to be captured,
-// and happy-dom 20 does not reflect it at all, so the attribute is reflected here. A browser
+// and happy-dom 21 does not reflect it at all, so the attribute is reflected here. A browser
 // would resolve it against the document base; the suites only test for its presence.
 Object.defineProperty(window.HTMLVideoElement.prototype, "poster", {
 	configurable: true,

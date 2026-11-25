@@ -1,5 +1,5 @@
 import "./dom.js";
-import { Window } from "npm:happy-dom@20.14.5";
+import { Window } from "npm:happy-dom@21.0.4";
 
 // customStylesheet is CSS the user wants applied to the page before it is saved: a chat site clamps
 // its prompts to two lines, and the saved page has no script to expand them. The rules have to be

@@ -26,7 +26,7 @@
 // tokenizer sees them, which is what the payload's newline codes describe (§5.5), and happy-dom's
 // parser does not, so the text is normalized here before it is parsed.
 //
-// And happy-dom 20.14.5 ends a raw text element in the wrong place. Inside <script> it still looks
+// And happy-dom 21.0.4 ends a raw text element in the wrong place. Inside <script> it still looks
 // for start tags, and its pattern for one runs over `<`, so a `<` followed by anything but a space
 // swallows the `<` of the end tag, and the rest of the page is lost: `<script>a<Z</script><p>` keeps
 // nothing after the script. Browsers read those bytes as script text up to `</script>`. The ZIP
@@ -36,7 +36,7 @@
 // cut out before happy-dom parses the page and put back as their text afterwards.
 /* global clearTimeout */
 import "./dom-stub.js";
-import { Window } from "npm:happy-dom@20.14.5";
+import { Window } from "npm:happy-dom@21.0.4";
 import { inflateRaw, ZipReader, BlobReader, TextWriter } from "../../vendor/zip/zip.js";
 import { makePageData, makeOptions, runProcess, sameBytes } from "./common.js";
 
