@@ -2,12 +2,12 @@
 	"name": "single-file-core-css-tree-build",
 	"private": true,
 	"type": "module",
-	"description": "Rebuilds ../vendor/css-tree.js from the css-tree sources with the 16MB token-offset fix",
+	"description": "Rebuilds ../vendor/css-tree.js from the css-tree sources with the url() decoding fix",
 	"scripts": {
 		"build": "node build.js"
 	},
 	"devDependencies": {
-		"css-tree": "npm:@eslint/css-tree@4.1.1",
+		"css-tree": "npm:@eslint/css-tree@4.1.4",
 		"esbuild": "0.25.4"
 	}
 }

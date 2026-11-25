@@ -39,7 +39,7 @@ const MUST_KEEP = [
 // declarations css-tree knows and correctly rejects. These keep the filter honest: the fix must not
 // turn the check off, only stop it firing on properties css-tree has never heard of
 const MUST_DROP = [
-	["margin-trim", "block"],
+	["margin-trim", "12px"],
 	["opacity", "not-a-number"],
 	["color", "12px"]
 ];
@@ -51,7 +51,11 @@ const KNOWN_GOOD = [
 	["fill-opacity", "0.5"],
 	["stroke-opacity", "0.5"],
 	["fill", "red"],
-	["vector-effect", "non-scaling-stroke"]
+	["vector-effect", "non-scaling-stroke"],
+	// a valid value the dictionary of css-tree 4.1.1 rejected, so the filter dropped it. This file
+	// used it as its "wrong value" case until the update to 4.1.4 showed the dictionary was the
+	// one at fault
+	["margin-trim", "block"]
 ];
 
 let failed = false;
@@ -83,7 +87,7 @@ for (const [property, declaration] of KNOWN_GOOD) {
 // than adjusting
 check("a property the dictionary does not know is left to test with", UNKNOWN_PROPERTY !== undefined, true);
 const unknownProperty = cssTree.lexer.matchProperty(UNKNOWN_PROPERTY, cssTree.parse("none", { context: "value" }));
-const wrongValue = cssTree.lexer.matchProperty("margin-trim", cssTree.parse("block", { context: "value" }));
+const wrongValue = cssTree.lexer.matchProperty("margin-trim", cssTree.parse("12px", { context: "value" }));
 check("unknown property (" + UNKNOWN_PROPERTY + ") reports SyntaxReferenceError", unknownProperty.error && unknownProperty.error.name, "SyntaxReferenceError");
 check("wrong value reports SyntaxMatchError", wrongValue.error && wrongValue.error.name, "SyntaxMatchError");
 

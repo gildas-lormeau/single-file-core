@@ -2,34 +2,10 @@
 
 [`../vendor/css-tree.js`](../vendor/css-tree.js) is a custom build of
 [@eslint/css-tree](https://www.npmjs.com/package/@eslint/css-tree), the ESLint
-fork of [css-tree](https://www.npmjs.com/package/css-tree), with four patches
+fork of [css-tree](https://www.npmjs.com/package/css-tree), with one patch
 applied to the npm sources. The fork is installed under the `css-tree` alias in
 `package.json`. It is maintained where upstream is not, and it parses nested
-rules that upstream 3.2.1 kept as raw text, but it still carries the four
-defects below.
-
-`lib/tokenizer/TokenStream.js`: the token offset field is widened from 24 to
-27 bits (`OFFSET_MASK`/`TYPE_SHIFT`, with unsigned shifts for the token type).
-Upstream css-tree packs each token as `type << 24 | offset`, so any stylesheet
-larger than 16MB (2^24 bytes) silently corrupts the token stream and parsing
-never terminates. Real pages ship such stylesheets (see
-https://github.com/gildas-lormeau/SingleFile/issues/1962, a 23.5MB stylesheet
-on brookings.edu). With 27 bits the limit becomes 128MB. Reported upstream as
-https://github.com/csstree/csstree/issues/372.
-
-`lib/tokenizer/TokenStream.js`, second patch: `setSource()` clears only the
-part of its `balance` buffer it is about to use, `balance.fill(0, 0,
-sourceLength + 1)` instead of `balance.fill(0)`. `adoptBuffer` grows that
-buffer to fit the largest source ever parsed and never shrinks it, so once a
-23.5MB stylesheet has gone through, every later parse zero-fills 94MB whatever
-its own size. Measured on the same brookings.edu page: a 60-character selector
-took 0.0038ms in a fresh process and 0.96ms after that stylesheet, 255 times
-slower, and the unused-styles pass parses one selector at a time — 163,881 of
-them on that page. The used range is `[0, sourceLength]`, since there is at
-most one token per character and `sourceLength` is the initial balance
-sentinel, so the bounded fill covers exactly what the tokenizer reads. The
-pass went from 180s to 12s on that page with byte-identical output. Reported upstream as
-https://github.com/csstree/csstree/issues/379.
+rules that upstream 3.2.1 kept as raw text.
 
 `lib/utils/url.js`: `decode()` trims the whitespace at the end of an unquoted
 `url()` before decoding the escapes, so a value ending in an escaped space,
@@ -42,13 +18,15 @@ resource. The patch stops the trim at an escaped whitespace, an odd number
 of backslashes before it, and appends in the special case instead of
 replacing. Reported upstream as https://github.com/csstree/csstree/issues/380.
 
-`lib/utils/url.js`, fourth patch: encoding and decoding append whole unescaped
-runs, rather than concatenating every character. A long embedded font/image URL
-otherwise creates a rope node per byte. Decoded URLs stay in the AST, and font
-processing may serialize them repeatedly, multiplying the live heap and garbage
-collection cost. CSS escapes, control characters, and hex separators retain their
-existing behavior. The optimization also covers a long safe run after an escaped
-prefix, not just entirely safe URLs.
+Three earlier patches are gone since 4.1.4, which has them: the token offset
+field widened from 24 to 27 bits (a stylesheet larger than 16MB never finished
+parsing, see https://github.com/gildas-lormeau/SingleFile/issues/1962), the
+`balance` buffer cleared only over the part in use (every parse paid for the
+largest source ever parsed), both fixed by
+https://github.com/eslint/csstree/pull/179, and `url()` encoding and decoding
+that append whole runs instead of one character at a time. Since that
+version, a source longer than 134,217,727 UTF-16 code units throws a
+`RangeError` instead of corrupting the token stream.
 
 This directory rebuilds the file deterministically. All dependencies are
 pinned to exact versions by `package.json` and `package-lock.json`:
@@ -64,8 +42,8 @@ An empty diff means the checked-in file matches what the sources produce. The
 GitHub Actions workflow `.github/workflows/vendor.yml` runs the same steps on
 every push.
 
-The patches are applied to the readable npm sources by an esbuild plugin in
-`build.js`, each guarded by exact occurrence counts: if a css-tree update
+A patch is applied to the readable npm sources by an esbuild plugin in
+`build.js`, guarded by exact occurrence counts: if a css-tree update
 changes a patched file, the build fails loudly instead of silently dropping
 the patch. The plugin registers one `onLoad` per patched FILE and applies
 every patch for that file in it, because esbuild stops at the first `onLoad`
@@ -77,9 +55,8 @@ patch. The same guard catches that too, and did when the second
 
 1. Bump the version in the `css-tree` alias in `package.json`
    (`npm:@eslint/css-tree@<version>`) and run `npm install`.
-2. Run `npm run build`. If the build fails because a patched file changed,
-   review that patch in `build.js` against the new sources (or drop it once
-   upstream has the fix: wider token offsets, the bounded balance fill, or
-   the `url()` decoding).
+2. Run `npm run build`. If the build fails because the patched file changed,
+   review the patch in `build.js` against the new sources (or drop it once
+   upstream has the `url()` decoding fix).
 3. Commit the regenerated `../vendor/css-tree.js` together with the changes in
    this directory.
