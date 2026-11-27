@@ -136,6 +136,7 @@ const STAGES = [{
 	]
 }, {
 	sequential: [
+		{ option: "applyPrintStylesheets", action: "applyPrintStylesheets" },
 		{ option: "removeUnusedStyles", action: "removeUnusedStyles" },
 		{ option: "removeAlternativeMedias", action: "removeAlternativeMedias" },
 		{ option: "removeUnusedFonts", action: "removeUnusedFonts" }
@@ -1809,6 +1810,10 @@ class Processor {
 
 	removeUnusedFonts() {
 		util.removeUnusedFonts(this.doc, this.stylesheets, this.styles, this.options);
+	}
+
+	applyPrintStylesheets() {
+		util.applyPrintMedias(this.stylesheets);
 	}
 
 	removeAlternativeMedias() {

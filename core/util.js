@@ -187,6 +187,9 @@ function getInstance(utilOptions) {
 		minifyMedias(stylesheets, options) {
 			return modules.mediasAltMinifier.process(stylesheets, options);
 		},
+		applyPrintMedias(stylesheets) {
+			return modules.printMedias.process(stylesheets);
+		},
 		removeAlternativeImages(doc) {
 			return modules.imagesAltMinifier.process(doc);
 		},
