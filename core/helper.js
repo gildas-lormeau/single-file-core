@@ -285,12 +285,6 @@ function normalizeOptions(options) {
 				normalizedOptions[optionName] = options[deprecatedName];
 			}
 		});
-		if (options.applyPrintStylesheets && options.removeHiddenElements) {
-			if (normalizedOptions == options) {
-				normalizedOptions = Object.assign({}, options);
-			}
-			normalizedOptions.removeHiddenElements = false;
-		}
 	}
 	return normalizedOptions;
 }

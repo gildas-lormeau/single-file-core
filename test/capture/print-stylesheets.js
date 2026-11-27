@@ -17,7 +17,7 @@
 //
 // A rule or a stylesheet whose every query has become "not all" can never apply and is removed whole.
 // The archive helper keeps stylesheets as separate files and is driven by captureArchive().
-import { capture, captureArchive, html } from "./common.js";
+import { capture, captureArchive, createProcessor, html } from "./common.js";
 
 const PAGE_URL = "https://example.com/page.html";
 const SHEET_URL = "https://example.com/sheet.css";
@@ -67,6 +67,14 @@ check("in an archive the linked stylesheet lost its screen rule", Array.from(arc
 check("hidden elements are kept, whatever the option removing them says",
 	/data-kept/.test(await capture({ [PAGE_URL]: { body: page("", "<p data-kept data-single-file-removed-content=\"\">text</p>") } },
 		{ url: PAGE_URL, content: page("", "<p data-kept data-single-file-removed-content=\"\">text</p>"), applyPrintStylesheets: true, removeHiddenElements: true })), true);
+
+// The extensions build the capture class themselves and do not go through getPageData(). The rule
+// was first written in the function getPageData() calls on its options, which the class never sees:
+// the command line tool kept the hidden elements and the extensions went on hiding them.
+const HIDDEN_PAGE = page("", "<p data-kept data-single-file-removed-content=\"\">text</p>");
+const processor = createProcessor({ [PAGE_URL]: { body: HIDDEN_PAGE } }, { url: PAGE_URL, content: HIDDEN_PAGE, applyPrintStylesheets: true, removeHiddenElements: true });
+await processor.run();
+check("hidden elements are kept when the class is used directly", /data-kept/.test((await processor.getPageData()).content), true);
 
 if (failed) {
 	console.log("FAILED");

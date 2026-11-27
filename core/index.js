@@ -197,6 +197,9 @@ class Runner {
 		this.options.updatedResources = this.options.updatedResources || {};
 		this.options.fontTests = new Map();
 		this.options.stylesheetReferrers = new Map();
+		if (this.options.applyPrintStylesheets) {
+			this.options.removeHiddenElements = false;
+		}
 		if (root && !this.options.saveFilenameTemplateData && (this.options.openEditor || /{digest-sha-\d/.test(this.options.filenameTemplate))) {
 			this.options.saveFilenameTemplateData = true;
 			this.options.omitReferrerInTemplateData = !/{url-referrer/.test(this.options.filenameTemplate);
