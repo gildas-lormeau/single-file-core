@@ -23,7 +23,7 @@
 
 /* global document */
 
-import { appendInfobar, refreshInfobarInfo, extractInfobarData } from "./core/infobar.js";
+import { appendInfobar, refreshInfobarInfo, extractInfobarData, INFOBAR_TAGNAME } from "./core/infobar.js";
 
 (() => {
 
@@ -75,6 +75,11 @@ import { appendInfobar, refreshInfobarInfo, extractInfobarData } from "./core/in
 				infoData.infobarPositionLeft = options.infobarPositionLeft;
 				appendInfobar(document, infoData, true);
 				refreshInfobarInfo(document, infoData);
+			} else {
+				const infobarElement = document.querySelector(INFOBAR_TAGNAME);
+				if (infobarElement) {
+					infobarElement.remove();
+				}
 			}
 		}
 	}
