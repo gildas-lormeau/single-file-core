@@ -71,6 +71,7 @@ this directory IS run, so a new file is either a suite or a line in that list.
 | `smoke.js` | Build one archive and print its size, chosen rung and first 200 bytes. |
 | `search-triggers.js` | Search seeds for page data that triggers a given condition. Its results are `trigger-seeds.json`. |
 | `gen-e2e-page.js` | Write a page fixture to disk for end-to-end use. |
+| `undated-archive.js` | That with `removeSavedDate` a ZIP file, a self-extracting file and an archive of several pages carry no date: every entry is dated 1 January 1980, no extended timestamp is written, the manifest has no `archiveTime`, and two saves of the same page at different dates give the same bytes (SingleFile#1918). |
 
 `common.js` builds the synthetic page data and options; `dom-stub.js` supplies the
 minimum DOM the compression code touches, because Deno has no `DOMParser`. Import it

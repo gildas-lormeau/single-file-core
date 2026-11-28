@@ -110,6 +110,7 @@ const CENTRAL_FILE_HEADER_SIGNATURE = 0x02014b50;
 const END_OF_CENTRAL_DIR_SIGNATURE = 0x06054b50;
 const ZIP64_END_OF_CENTRAL_DIR_SIGNATURE = 0x06064b50;
 const ZIP64_END_OF_CENTRAL_DIR_LOCATOR_SIGNATURE = 0x07064b50;
+const UNDATED_ENTRY_YEAR = 1980;
 
 const browser = globalThis.browser;
 
@@ -128,6 +129,7 @@ const PROCESS_OPTION_NAMES = [
 	"maxAppendedDataLength",
 	"password",
 	"preventAppendedData",
+	"removeSavedDate",
 	"selfExtractingArchive",
 	"url",
 	"zipScript",
@@ -163,13 +165,19 @@ async function process(pageData, options, lastModDate = new Date()) {
 	}
 	return createArchive(pageData, options, script, zipWriter => {
 		pageData.url = options.url;
-		pageData.archiveTime = (new Date()).toISOString();
+		if (!options.removeSavedDate) {
+			pageData.archiveTime = (new Date()).toISOString();
+		}
 		return addPageResources(zipWriter, pageData, { password: options.password, disableCompression: options.disableCompression }, options.createRootDirectory ? String(Date.now()) + "_" + (options.tabId || 0) + "/" : "", options.url);
 	}, lastModDate);
 }
 
 async function createArchive(pageData, options, script, writeEntries, lastModDate = new Date()) {
 	const zipWriterOptions = { bufferedWrite: true, keepOrder: true, lastModDate, useCompressionStream: true };
+	if (options.removeSavedDate) {
+		zipWriterOptions.lastModDate = new Date(UNDATED_ENTRY_YEAR, 0, 1);
+		zipWriterOptions.extendedTimestamp = false;
+	}
 	const entriesWriter = new ZipWriter(new Uint8ArrayWriter(), zipWriterOptions);
 	await writeEntries(entriesWriter);
 	const entriesData = await entriesWriter.close();
