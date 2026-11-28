@@ -56,6 +56,9 @@ const FONT_MAX_LOAD_DELAY = 5000;
 const DUPLICATE_STYLESHEET_ATTRIBUTE_NAME = "data-sf-duplicate-stylesheet-ref";
 const LAYER_KEYWORD = "layer";
 const SUPPORTS_KEYWORD = "supports";
+const NAMESPACE_KEYWORD = "namespace";
+const STATEMENT_KEYWORDS = ["charset", "import", LAYER_KEYWORD];
+const ID_ATTRIBUTE_NAME = "id";
 const LINK_FETCH_ATTRIBUTE_NAMES = ["rel", "href", "type", "media", "as", "crossorigin", "integrity",
 	"referrerpolicy", "hreflang", "sizes", "imagesrcset", "imagesizes", "fetchpriority"];
 
@@ -110,14 +113,17 @@ function getProcessorHelperClass(utilInstance) {
 			stylesheets.set(element, stylesheetInfo);
 			if (!options.inlineStylesheetsRefs.has(element)) {
 				if (!options.blockStylesheets || (options.keepPrintStyleSheets && stylesheetInfo.mediaText == "print")) {
+					let importFound;
 					if (element.tagName.toUpperCase() == "LINK") {
-						stylesheet = await this.resolveLinkStylesheetURLs(element, element.href, baseURI, options, workStyleElement);
+						({ stylesheet, importFound } = await this.resolveLinkStylesheetURLs(element, element.href, baseURI, options, workStyleElement));
 					} else {
 						stylesheet = parseStylesheet(element.textContent);
-						const importFound = await this.resolveImportURLs(stylesheet, baseURI, options, workStyleElement);
-						if (importFound) {
-							stylesheet = parseStylesheet(cssTree.generate(stylesheet));
-						}
+						importFound = await this.resolveImportURLs(stylesheet, baseURI, options, workStyleElement);
+					}
+					if (importFound) {
+						const flattenedStylesheets = flattenImportedStylesheets(stylesheet);
+						stylesheet = flattenedStylesheets.pop();
+						this.insertPrecedingStylesheets(element, stylesheetInfo, flattenedStylesheets, stylesheets, options);
 					}
 				}
 				if (stylesheet && stylesheet.children) {
@@ -134,6 +140,35 @@ function getProcessorHelperClass(utilInstance) {
 				} else {
 					stylesheets.delete(element);
 				}
+			}
+		}
+
+		insertPrecedingStylesheets(element, stylesheetInfo, precedingStylesheets, stylesheets, options) {
+			if (precedingStylesheets.length) {
+				const duplicateElements = [];
+				options.inlineStylesheets.forEach(({ styleElement }, index) => {
+					if (styleElement === element) {
+						options.inlineStylesheetsRefs.forEach((refIndex, refElement) => {
+							if (refIndex === index) {
+								duplicateElements.push(refElement);
+							}
+						});
+					}
+				});
+				precedingStylesheets.forEach(stylesheet => {
+					this.replacePseudoClassDefined(stylesheet);
+					const styleElement = insertPrecedingStyleElement(element);
+					stylesheets.set(styleElement, Object.assign({}, stylesheetInfo, { stylesheet }));
+					if (duplicateElements.length) {
+						const index = options.inlineStylesheets.size;
+						options.inlineStylesheets.set(index, { styleElement, content: this.generateStylesheetContent(stylesheet, options) });
+						duplicateElements.forEach(duplicateElement => {
+							const duplicateStyleElement = insertPrecedingStyleElement(duplicateElement);
+							stylesheets.set(duplicateStyleElement, Object.assign({}, stylesheets.get(duplicateElement)));
+							options.inlineStylesheetsRefs.set(duplicateStyleElement, index);
+						});
+					}
+				});
 			}
 		}
 
@@ -238,14 +273,21 @@ function getProcessorHelperClass(utilInstance) {
 							const mediaQueryListNode = cssTree.find(node, node => node.type == "MediaQueryList");
 							const importedSupportsCondition = getImportedSupportsCondition(node);
 							content.data = closeStylesheetContent(content.data || "", Boolean(importedLayerName !== null || mediaQueryListNode || importedSupportsCondition));
+							let importWrapperCount = 0;
 							if (importedLayerName !== null) {
 								content.data = this.wrapLayer(content.data, importedLayerName);
+								importWrapperCount++;
 							}
 							if (mediaQueryListNode) {
-								content.data = this.wrapMediaQuery(content.data, cssTree.generate(mediaQueryListNode));
+								const mediaQuery = cssTree.generate(mediaQueryListNode);
+								content.data = this.wrapMediaQuery(content.data, mediaQuery);
+								if (mediaQuery) {
+									importWrapperCount++;
+								}
 							}
 							if (importedSupportsCondition) {
 								content.data = "@supports " + importedSupportsCondition + " { " + content.data + " }";
+								importWrapperCount++;
 							}
 							const importedStylesheet = parseStylesheet(content.data);
 							const ancestorStyleSheets = new Set(importedStyleSheets);
@@ -254,6 +296,7 @@ function getProcessorHelperClass(utilInstance) {
 							for (let keyName of Object.keys(importedStylesheet)) {
 								node[keyName] = importedStylesheet[keyName];
 							}
+							node.importWrapperCount = importWrapperCount;
 							importFound = true;
 						}
 					}
@@ -296,13 +339,11 @@ function getProcessorHelperClass(utilInstance) {
 				if (content.data && content.data.match(/^<!doctype /i)) {
 					content.data = "";
 				}
-				let stylesheet = parseStylesheet(content.data);
+				const stylesheet = parseStylesheet(content.data);
 				const importFound = await this.resolveImportURLs(stylesheet, resourceURL, options, workStylesheet, undefined, { stylesheetURL: resourceURL, stylesheetReferrerPolicy: content.referrerPolicy });
-				if (importFound) {
-					stylesheet = parseStylesheet(cssTree.generate(stylesheet));
-				}
-				return stylesheet;
+				return { stylesheet, importFound };
 			}
+			return {};
 		}
 
 		async processFrame(frameElement, pageData, options) {
@@ -822,6 +863,93 @@ function getProcessorHelperClass(utilInstance) {
 			return true;
 		}
 	};
+}
+
+function flattenImportedStylesheets(stylesheet) {
+	if (cssTree.find(stylesheet, isNamespaceRule)) {
+		const parts = [];
+		collectStylesheetParts(stylesheet.children, [], parts);
+		const groups = [];
+		parts.forEach(part => {
+			const namespaces = part.namespaces.join("");
+			let group = groups[groups.length - 1];
+			if (!group || group.namespaces != namespaces) {
+				group = { namespaces, content: namespaces };
+				groups.push(group);
+			}
+			group.content += generateStylesheetPart(part);
+		});
+		if (groups.length) {
+			return groups.map(group => parseStylesheet(group.content));
+		}
+	}
+	return [parseStylesheet(cssTree.generate(stylesheet))];
+}
+
+function collectStylesheetParts(children, wrappers, parts) {
+	const namespaces = [];
+	let namespacesAllowed = true, part;
+	children.forEach(ruleData => {
+		const importedStylesheet = ruleData.type == "StyleSheet" && getImportedStylesheet(ruleData);
+		if (importedStylesheet) {
+			part = null;
+			collectStylesheetParts(importedStylesheet.children, wrappers.concat(importedStylesheet.wrappers), parts);
+		} else if (namespacesAllowed && isNamespaceRule(ruleData)) {
+			namespaces.push(cssTree.generate(ruleData));
+		} else {
+			namespacesAllowed = namespacesAllowed && isStatementRule(ruleData);
+			if (!part) {
+				part = { namespaces, wrappers, rules: [] };
+				parts.push(part);
+			}
+			part.rules.push(ruleData);
+		}
+	});
+}
+
+function getImportedStylesheet(stylesheet) {
+	const wrappers = [];
+	let children = stylesheet.children;
+	for (let indexWrapper = 0; indexWrapper < stylesheet.importWrapperCount; indexWrapper++) {
+		const ruleData = children.size == 1 && children.head.data;
+		if (ruleData && ruleData.type == "Atrule" && ruleData.block) {
+			wrappers.push(ruleData);
+			children = ruleData.block.children;
+		} else {
+			return null;
+		}
+	}
+	return { children, wrappers };
+}
+
+function generateStylesheetPart({ wrappers, rules }) {
+	let content = rules.map(ruleData => cssTree.generate(ruleData)).join("");
+	for (let indexWrapper = wrappers.length - 1; indexWrapper >= 0; indexWrapper--) {
+		const { name, prelude } = wrappers[indexWrapper];
+		content = "@" + name + (prelude ? " " + cssTree.generate(prelude) : "") + "{" + content + "}";
+	}
+	return content;
+}
+
+function isNamespaceRule(ruleData) {
+	return ruleData.type == "Atrule" && !ruleData.block && ruleData.name.toLowerCase() == NAMESPACE_KEYWORD;
+}
+
+function isStatementRule(ruleData) {
+	return ruleData.type == "Atrule" && !ruleData.block && STATEMENT_KEYWORDS.includes(ruleData.name.toLowerCase());
+}
+
+function insertPrecedingStyleElement(element) {
+	const styleElement = element.ownerDocument.createElement("style");
+	const isLinkElement = element.tagName.toUpperCase() == "LINK";
+	Array.from(element.attributes).forEach(({ name, value }) => {
+		const attributeName = name.toLowerCase();
+		if (attributeName != ID_ATTRIBUTE_NAME && !(isLinkElement && LINK_FETCH_ATTRIBUTE_NAMES.includes(attributeName))) {
+			styleElement.setAttribute(name, value);
+		}
+	});
+	element.parentNode.insertBefore(styleElement, element);
+	return styleElement;
 }
 
 function getImportedLayerName(importNode) {

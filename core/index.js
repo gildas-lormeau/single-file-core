@@ -1591,7 +1591,8 @@ class Processor {
 			});
 			indexContent++;
 		});
-		await Promise.all(Array.from(this.doc.querySelectorAll("style, link[rel*=stylesheet]:not([disabled])")).map(async element => {
+		const stylesheetElements = Array.from(this.doc.querySelectorAll("style, link[rel*=stylesheet]:not([disabled])"));
+		await Promise.all(stylesheetElements.map(async element => {
 			const options = Object.assign({}, this.options, { charset: this.charset });
 			let mediaText;
 			if (element.media) {
@@ -1605,6 +1606,18 @@ class Processor {
 			};
 			await this.processorHelper.resolveStylesheets(element, stylesheetInfo, this.stylesheets, this.baseURI, options, this.workStyleElement, this.resources);
 		}));
+		const resolvedElements = new Set(stylesheetElements);
+		if (Array.from(this.stylesheets.keys()).some(element => !resolvedElements.has(element))) {
+			const stylesheets = new Map(this.stylesheets);
+			this.stylesheets.clear();
+			this.doc.querySelectorAll("style, link[rel*=stylesheet]").forEach(element => {
+				if (stylesheets.has(element)) {
+					this.stylesheets.set(element, stylesheets.get(element));
+					stylesheets.delete(element);
+				}
+			});
+			stylesheets.forEach((stylesheetInfo, element) => this.stylesheets.set(element, stylesheetInfo));
+		}
 		if (this.options.rootDocument) {
 			const newResources = Object.keys(this.options.updatedResources)
 				.filter(url => this.options.updatedResources[url].type == "stylesheet" && !this.options.updatedResources[url].retrieved)
